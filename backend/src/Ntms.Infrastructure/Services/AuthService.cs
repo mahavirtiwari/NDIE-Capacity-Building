@@ -48,6 +48,8 @@ public class AuthService(
             .Include(u => u.ProgramTypes)
             .Include(u => u.States)
             .Include(u => u.Districts)
+            /* Split, not joined: the scope collections multiply together. */
+            .AsSplitQuery()
             .FirstOrDefaultAsync(u => u.UserCode == userCode, ct);
 
         /* One message for every failure, so the response never reveals whether
@@ -157,6 +159,8 @@ public class AuthService(
             .Include(u => u.ProgramTypes)
             .Include(u => u.States)
             .Include(u => u.Districts)
+            /* Split, not joined: the scope collections multiply together. */
+            .AsSplitQuery()
             .FirstOrDefaultAsync(u => u.Id == userId, ct)
             ?? throw AppException.NotFound("User");
 

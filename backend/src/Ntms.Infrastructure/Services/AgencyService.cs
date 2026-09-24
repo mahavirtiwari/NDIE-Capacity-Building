@@ -29,6 +29,8 @@ public class AgencyService(
         .Include(a => a.SubCategories)
         .Include(a => a.ProgramTypes)
         .Include(a => a.States).ThenInclude(x => x.State)
+        /* Split, not joined: the scope collections multiply together. */
+        .AsSplitQuery()
         .WithinScope(currentUser);
 
     public async Task<PagedResult<AgencyDto>> ListAsync(
@@ -171,6 +173,8 @@ public class AgencyService(
         var entity = await db.Agencies
             .Include(a => a.Categories).Include(a => a.SubCategories).Include(a => a.ProgramTypes)
             .Include(a => a.States)
+            /* Split, not joined: the scope collections multiply together. */
+            .AsSplitQuery()
             .FirstOrDefaultAsync(a => a.Id == id, ct)
             ?? throw AppException.NotFound("Implementing agency");
 

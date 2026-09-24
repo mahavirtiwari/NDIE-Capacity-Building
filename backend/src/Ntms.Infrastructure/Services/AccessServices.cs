@@ -155,6 +155,12 @@ public class UserService(
         .Include(u => u.ProgramTypes)
         .Include(u => u.States).ThenInclude(x => x.State)
         .Include(u => u.Districts).ThenInclude(x => x.District)
+        /* One query per collection instead of one join across all five.
+           Joined together they multiply: a coordinator allocated 763 districts,
+           36 states and 4 programme types produces over a hundred thousand rows
+           for that one account, which EF then collapses in memory. That is what
+           made the user list take five seconds and sit on its skeletons. */
+        .AsSplitQuery()
         /* Applied at the base query so no read path can list an account the
            caller has no business seeing. */
         .VisibleTo(currentUser);
