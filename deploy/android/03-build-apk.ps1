@@ -224,10 +224,29 @@ foreach ($name in $targets) {
 
     Write-Host ("--- {0} ---" -f $spec.Label) -ForegroundColor Cyan
 
+    $manifestBefore = $null
+
     Push-Location $projectPath
     try {
-        if (-not (Test-Path (Join-Path $projectPath 'node_modules\.package-lock.json'))) {
-            Write-Host "  Installing dependencies (first run only)..." -ForegroundColor Gray
+        # npm writes node_modules\.package-lock.json when an install finishes,
+        # so its presence means "an install completed" and its timestamp means
+        # "against this lock file". Testing only for the file was not enough: a
+        # git pull that changes package-lock.json leaves the marker in place
+        # and the build then runs against whatever was installed last time,
+        # which is how a dependency fix gets pulled and then ignored.
+        $installed = Join-Path $projectPath 'node_modules\.package-lock.json'
+        $lockFile = Join-Path $projectPath 'package-lock.json'
+
+        $needsInstall = -not (Test-Path $installed)
+        if (-not $needsInstall -and (Test-Path $lockFile)) {
+            $needsInstall = (Get-Item $lockFile).LastWriteTimeUtc -gt (Get-Item $installed).LastWriteTimeUtc
+            if ($needsInstall) {
+                Write-Host "  package-lock.json is newer than what is installed." -ForegroundColor Yellow
+            }
+        }
+
+        if ($needsInstall) {
+            Write-Host "  Installing dependencies..." -ForegroundColor Gray
             Invoke-Native "npm ci ($name)" 'npm' @('ci', '--no-audit', '--no-fund') -Stream
         }
 
@@ -243,6 +262,15 @@ foreach ($name in $targets) {
         # throws rather than continuing, because "mostly regenerated" is the
         # state that produces errors nobody can reproduce.
         Remove-Tree (Join-Path $projectPath 'android') | Out-Null
+
+        # prebuild rewrites package.json - it normalises "main" and adds
+        # scripts - and that leaves the checkout dirty. The next git pull then
+        # refuses to touch the file, and every fix after this point silently
+        # stops arriving on the server while the same error keeps coming back.
+        # It cost three rounds of exactly that to notice. Restored in the
+        # finally, so the build still gets whatever prebuild wanted.
+        $manifestPath = Join-Path $projectPath 'package.json'
+        $manifestBefore = [System.IO.File]::ReadAllBytes($manifestPath)
 
         Write-Host "  Generating the native project..." -ForegroundColor Gray
         Invoke-Native "expo prebuild ($name)" 'npx' @(
@@ -286,6 +314,14 @@ foreach ($name in $targets) {
         Remove-Item Env:\CBMS_API_BASE_URL -ErrorAction SilentlyContinue
         Remove-Item Env:\CBMS_ANDROID_VERSION_CODE -ErrorAction SilentlyContinue
         Remove-Item Env:\CBMS_SIGNING_PROPERTIES -ErrorAction SilentlyContinue
+
+        if ($manifestBefore) {
+            $manifestNow = [System.IO.File]::ReadAllBytes($manifestPath)
+            if ([Convert]::ToBase64String($manifestNow) -ne [Convert]::ToBase64String($manifestBefore)) {
+                [System.IO.File]::WriteAllBytes($manifestPath, $manifestBefore)
+                Write-Host "  [ok]  Restored package.json to how prebuild found it" -ForegroundColor Gray
+            }
+        }
 
         if (-not $KeepNativeProject) {
             # Regenerated every run, so leaving it behind only invites someone
