@@ -40,6 +40,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot '_common.ps1')
 
 function Invoke-Sql {
     param([string] $Query, [string] $OnDatabase = 'master')
@@ -52,11 +53,8 @@ function Invoke-Sql {
     # which fails that check. The traffic is still encrypted; only the identity
     # check is skipped, which for a connection to the same machine is no loss.
     # Issue SQL Server a trusted certificate and this can come off.
-    $output = sqlcmd -S $SqlInstance -d $OnDatabase -E -C -b -h -1 -W -Q $Query 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw ("SQL failed against {0}:`n{1}" -f $SqlInstance, ($output -join "`n"))
-    }
-    return $output
+    return Invoke-Native ("sqlcmd against {0}" -f $SqlInstance) 'sqlcmd' @(
+        '-S', $SqlInstance, '-d', $OnDatabase, '-E', '-C', '-b', '-h', '-1', '-W', '-Q', $Query)
 }
 
 Write-Host "`nPreparing the database on $SqlInstance`n" -ForegroundColor Cyan
@@ -170,8 +168,9 @@ Write-Host "  [ok]  $principal is db_owner on $Database (and nothing else)" -For
 # as the identity the site will use and checks.
 
 if (-not $UseWindowsAuth) {
-    $probe = sqlcmd -S $SqlInstance -d $Database -U $principal -P $password -C -b -h -1 -W `
-        -Q "SET NOCOUNT ON; SELECT 'ok';" 2>&1
+    $probe = Invoke-Native 'sign-in probe' 'sqlcmd' @(
+        '-S', $SqlInstance, '-d', $Database, '-U', $principal, '-P', $password,
+        '-C', '-b', '-h', '-1', '-W', '-Q', "SET NOCOUNT ON; SELECT 'ok';") -IgnoreExitCode
 
     if ($LASTEXITCODE -ne 0) {
         throw ("The login was created but cannot sign in:`n{0}`n`n" -f ($probe -join "`n")) +

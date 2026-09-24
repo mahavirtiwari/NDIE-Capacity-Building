@@ -195,6 +195,14 @@ run even though nothing had gone wrong. The scripts now judge native commands
 by their exit code instead. If you meet this in a command of your own, append
 `2>&1` to it.
 
+**`dotnet ef` says "Jwt:SigningKey must be configured" or "Unable to create a
+DbContext".** The migration tooling starts the application to find the context,
+so it needs the whole of the production configuration, not just a connection
+string — and it looks for it next to the project, where there is none.
+`06-migrate.ps1` sets `ASPNETCORE_CONTENTROOT` to the site folder so the real
+`appsettings.Production.json` is read. If you run `dotnet ef` by hand, set it
+too.
+
 **HTTP 500.19 — configuration error.** The .NET Hosting Bundle is not installed,
 or was installed before IIS. Reinstall it and run `iisreset`.
 

@@ -24,6 +24,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot '_common.ps1')
 
 $config = Join-Path $SitePath 'appsettings.Production.json'
 if (-not (Test-Path $config)) { throw "No $config. Run 03-configure.ps1 first." }
@@ -50,16 +51,26 @@ New-Item -ItemType Directory -Path $helper -Force | Out-Null
 
 try {
     Push-Location $helper
-    dotnet new console --force 2>&1 | Out-Null
-    dotnet add package Microsoft.Extensions.Identity.Core 2>&1 | Out-Null
+    Invoke-Native 'dotnet new console' 'dotnet' @('new', 'console', '--force') | Out-Null
+    Invoke-Native 'dotnet add package' 'dotnet' @(
+        'add', 'package', 'Microsoft.Extensions.Identity.Core') | Out-Null
 
     @'
 using Microsoft.AspNetCore.Identity;
+// Read from the environment, not from argv: a command line is readable
+// from the process list while the program runs, and lands in a
+// PowerShell transcript if one is switched on.
+var password = Environment.GetEnvironmentVariable("CBMS_NEW_PASSWORD")!;
 var hasher = new PasswordHasher<object>();
-Console.WriteLine(hasher.HashPassword(new object(), args[0]));
+Console.WriteLine(hasher.HashPassword(new object(), password));
 '@ | Set-Content -Path (Join-Path $helper 'Program.cs') -Encoding utf8
 
-    $hash = (dotnet run --no-launch-profile -- $p1 2>&1 | Select-Object -Last 1).Trim()
+    $env:CBMS_NEW_PASSWORD = $p1
+    try {
+        $hash = (Invoke-Native 'dotnet run' 'dotnet' @(
+            'run', '--no-launch-profile') | Select-Object -Last 1).Trim()
+    }
+    finally { Remove-Item Env:\CBMS_NEW_PASSWORD -ErrorAction SilentlyContinue }
     if (-not $hash.StartsWith('A')) { throw "Could not produce a hash: $hash" }
     Pop-Location
 
@@ -81,9 +92,11 @@ SELECT CONCAT('rows updated: ', @@ROWCOUNT);
 
     # -C for the same reason as in 02-database.ps1.
     $database = [regex]::Match($connectionString, 'Database=([^;]+)').Groups[1].Value
-    $result = sqlcmd -S $SqlInstance -d $database -E -C -b -h -1 -W -i $sqlFile 2>&1
-    Remove-Item $sqlFile -Force
-    if ($LASTEXITCODE -ne 0) { throw "Update failed: $result" }
+    try {
+        $result = Invoke-Native 'sqlcmd' 'sqlcmd' @(
+            '-S', $SqlInstance, '-d', $database, '-E', '-C', '-b', '-h', '-1', '-W', '-i', $sqlFile)
+    }
+    finally { Remove-Item $sqlFile -Force -ErrorAction SilentlyContinue }
 
     Write-Host "`n  [ok]  $result" -ForegroundColor Green
     Write-Host "  Sign in at the site as SA0001. You will be asked to change it.`n" -ForegroundColor Cyan

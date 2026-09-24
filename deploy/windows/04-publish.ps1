@@ -29,36 +29,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot '_common.ps1')
+
 $started = Get-Date
 
-function Invoke-Native {
-    param(
-        [Parameter(Mandatory)] [string] $What,
-        [Parameter(Mandatory)] [scriptblock] $Command
-    )
-
-    # PowerShell turns everything a native program writes to stderr into an
-    # ErrorRecord, and with $ErrorActionPreference = 'Stop' the first one ends
-    # the script. npm and NuGet both write ordinary warnings there, so a build
-    # that succeeded looks like a build that failed. The exit code is the only
-    # thing worth believing, so read that instead.
-    $previous = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try {
-        $output = & $Command 2>&1
-        $code = $LASTEXITCODE
-    }
-    finally { $ErrorActionPreference = $previous }
-
-    if ($code -ne 0) {
-        # Output is swallowed while things go well; on a failure it is the only
-        # thing that says why.
-        $tail = ($output | Select-Object -Last 30 | ForEach-Object { "    $_" }) -join "`n"
-        throw ("{0} failed (exit {1}):`n{2}" -f $What, $code, $tail)
-    }
-
-    return $output
-}
 
 $apiProject = Join-Path $SourcePath 'backend\src\Ntms.Api\Ntms.Api.csproj'
 $portalPath = Join-Path $SourcePath 'training-portal'
@@ -73,9 +47,9 @@ Write-Host "`nBuilding from $SourcePath`n" -ForegroundColor Cyan
 # --- API --------------------------------------------------------------------
 
 Write-Host "  Publishing the API..." -ForegroundColor Gray
-Invoke-Native 'dotnet publish' {
-    dotnet publish $apiProject --configuration Release --output $stagingPath --nologo
-} | Out-Null
+Invoke-Native 'dotnet publish' 'dotnet' @(
+    'publish', $apiProject, '--configuration', 'Release', '--output', $stagingPath, '--nologo'
+) | Out-Null
 Write-Host "  [ok]  API published" -ForegroundColor Green
 
 # --- Portal -----------------------------------------------------------------
@@ -94,11 +68,11 @@ if (-not $SkipPortal) {
             # ci, not install: it honours the lock file exactly, which is what a
             # release build should do. It also wants node_modules gone, and an
             # abandoned one from a previous attempt would otherwise stay.
-            Invoke-Native 'npm ci' { npm ci --no-audit --no-fund } | Out-Null
+            Invoke-Native 'npm ci' 'npm' @('ci', '--no-audit', '--no-fund') -Stream
         }
 
         Write-Host "  Building the portal..." -ForegroundColor Gray
-        Invoke-Native 'ng build' { npx ng build --configuration production } | Out-Null
+        Invoke-Native 'ng build' 'npx' @('ng', 'build', '--configuration', 'production') -Stream
     }
     finally { Pop-Location }
 
