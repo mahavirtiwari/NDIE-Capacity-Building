@@ -325,3 +325,38 @@ public class AttendanceRecordConfiguration : IEntityTypeConfiguration<Attendance
         b.HasIndex(x => new { x.SessionId, x.ParticipantId }).IsUnique();
     }
 }
+
+public class CertificateConfiguration : IEntityTypeConfiguration<Certificate>
+{
+    public void Configure(EntityTypeBuilder<Certificate> b)
+    {
+        b.ToTable("Certificates");
+        b.Property(x => x.Number).HasMaxLength(60).IsRequired();
+        b.Property(x => x.RecipientName).HasMaxLength(200).IsRequired();
+        b.Property(x => x.ProgrammeName).HasMaxLength(250).IsRequired();
+        b.Property(x => x.ProgramTypeName).HasMaxLength(250).IsRequired();
+        b.Property(x => x.RevokedReason).HasMaxLength(500);
+        b.Ignore(x => x.IsRevoked);
+
+        /* The number is the certificate's identity, and a revoked one keeps
+           its number so the series can never be reissued. */
+        b.HasIndex(x => x.Number).IsUnique();
+
+        /* One live certificate per participant. Filtered, so revoking frees the
+           participant for a corrected reissue without freeing the number. */
+        b.HasIndex(x => x.ParticipantId)
+            .IsUnique()
+            .HasFilter("[RevokedOn] IS NULL");
+
+        b.HasIndex(x => new { x.ProgramTypeId, x.IssuedOn });
+
+        b.HasOne(x => x.Participant).WithMany().HasForeignKey(x => x.ParticipantId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Programme).WithMany().HasForeignKey(x => x.ProgrammeId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.ProgramType).WithMany().HasForeignKey(x => x.ProgramTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.IssuedBy).WithMany().HasForeignKey(x => x.IssuedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}

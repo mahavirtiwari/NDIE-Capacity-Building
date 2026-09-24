@@ -158,3 +158,64 @@ export interface ImplementingAgency extends AuditInfo {
   empanelmentValidTill: string;
   status: RecordStatus;
 }
+
+/* --------------------------------------------------- issued certificates */
+
+/** A certificate that has been awarded to one participant. */
+export interface Certificate {
+  id: Id;
+  number: string;
+  kind: CertificateKind;
+  kindLabel: string;
+  participantId: Id;
+  programmeId: Id;
+  recipientName: string;
+  programmeName: string;
+  programTypeName: string;
+  issuedOn: string;
+  validTill?: string | null;
+  issuedBy?: string;
+  isRevoked: boolean;
+  revokedOn?: string | null;
+  revokedReason?: string | null;
+  url: string;
+}
+
+/** One participant's standing: what they are owed, and whether it can be issued. */
+export interface CertificateEligibility {
+  participantId: Id;
+  name: string;
+  result: string;
+  kind?: CertificateKind | null;
+  kindLabel?: string | null;
+  canIssue: boolean;
+  /** Why not, when nothing is issued and it cannot be. */
+  blocker?: string | null;
+  certificate?: Certificate | null;
+}
+
+export interface ProgrammeCertificateSummary {
+  programmeId: Id;
+  programmeName: string;
+  certificationPolicy: CertificationPolicy;
+  certificationPolicyLabel: string;
+  /** Kinds awarded here with no artwork uploaded yet. */
+  missingTemplates: CertificateKind[];
+  issued: number;
+  pending: number;
+  notEligible: number;
+  participants: CertificateEligibility[];
+}
+
+export interface CertificateVerification {
+  found: boolean;
+  number: string;
+  recipientName?: string;
+  programTypeName?: string;
+  kindLabel?: string;
+  issuedOn?: string;
+  validTill?: string;
+  isRevoked: boolean;
+  isExpired: boolean;
+  status: string;
+}

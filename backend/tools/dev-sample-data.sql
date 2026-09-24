@@ -22,6 +22,10 @@ SET XACT_ABORT ON;
 
 /* ------------------------------------------------------------- teardown */
 
+/* Certificates reference participants and programmes with Restrict, so they
+   come out first or the deletes below fail on the foreign keys. */
+DELETE c FROM Certificates c
+  JOIN Programmes p ON p.Id = c.ProgrammeId WHERE p.ProgrammeId LIKE 'SMP/%';
 DELETE pp FROM ProgrammeParticipants pp
   JOIN Programmes p ON p.Id = pp.ProgrammeId WHERE p.ProgrammeId LIKE 'SMP/%';
 DELETE FROM Applications WHERE ApplicationNo LIKE 'SMPAPP%';

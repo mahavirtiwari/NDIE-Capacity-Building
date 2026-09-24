@@ -73,6 +73,7 @@ public class NtmsDbContext(DbContextOptions<NtmsDbContext> options, ICurrentUser
 
     /* Coordinator field monitoring. */
     public DbSet<CertificateTemplate> CertificateTemplates => Set<CertificateTemplate>();
+    public DbSet<Certificate> Certificates => Set<Certificate>();
 
     public DbSet<ProgrammeVenue> ProgrammeVenues => Set<ProgrammeVenue>();
     public DbSet<ProgrammeTrainer> ProgrammeTrainers => Set<ProgrammeTrainer>();

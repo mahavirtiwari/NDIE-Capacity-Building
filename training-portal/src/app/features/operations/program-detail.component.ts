@@ -2,7 +2,15 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { AttendanceMark, Program, ProgramSession } from '../../core/models';
+import {
+  AttendanceMark,
+  Certificate,
+  Program,
+  ProgramSession,
+  ProgrammeCertificateSummary,
+} from '../../core/models';
+import { CertificateService } from '../../core/services/certificate.service';
+import { ConfirmService } from '../../shared/components/confirm.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ProgramService } from '../../core/services/workflow.service';
@@ -11,7 +19,7 @@ import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
 
-type Tab = 'sessions' | 'participants';
+type Tab = 'sessions' | 'participants' | 'certificates';
 
 @Component({
   selector: 'app-program-detail',
@@ -119,7 +127,128 @@ type Tab = 'sessions' | 'participants';
           <button type="button" class="tab" [class.is-active]="tab() === 'participants'" (click)="tab.set('participants')">
             Participants ({{ batch.participants.length }})
           </button>
+          <button
+            type="button"
+            class="tab"
+            [class.is-active]="tab() === 'certificates'"
+            (click)="openCertificates()"
+          >
+            Certificates{{ certificates() ? ' (' + certificates()!.issued + ')' : '' }}
+          </button>
         </div>
+
+        @if (tab() === 'certificates') {
+          @if (certificates(); as certs) {
+            <div class="card__body stack stack-md">
+              <div class="cert-head">
+                <div class="stack stack-xs">
+                  <strong class="text-sm">{{ certs.certificationPolicyLabel }}</strong>
+                  <span class="text-xs text-muted">
+                    {{ certs.issued }} issued · {{ certs.pending }} ready to issue ·
+                    {{ certs.notEligible }} not eligible
+                  </span>
+                </div>
+                <div class="btn-row btn-row--end">
+                  @if (certs.issued > 0) {
+                    <a
+                      class="btn btn--secondary"
+                      [href]="programmeDocumentUrl(certs.programmeId)"
+                      target="_blank"
+                      rel="noopener"
+                      >Print all</a
+                    >
+                  }
+                  @if (certs.pending > 0) {
+                    <button
+                      type="button"
+                      class="btn btn--primary"
+                      [disabled]="issuing()"
+                      (click)="issueAll(certs.programmeId)"
+                    >
+                      @if (issuing()) { <span class="spinner"></span> }
+                      Issue {{ certs.pending }} certificate{{ certs.pending === 1 ? '' : 's' }}
+                    </button>
+                  }
+                </div>
+              </div>
+
+              @if (certs.missingTemplates.length > 0) {
+                <div class="alert alert--warning">
+                  <app-icon name="alert" [size]="16" />
+                  <span>
+                    No artwork uploaded for
+                    {{ certs.missingTemplates.join(' and ') }}. Certificates will print on a
+                    plain layout until a template is added on the programme type.
+                  </span>
+                </div>
+              }
+            </div>
+
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Candidate</th>
+                    <th style="width: 110px">Result</th>
+                    <th style="width: 200px">Awards</th>
+                    <th style="width: 190px">Number</th>
+                    <th style="width: 210px"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of certs.participants; track row.participantId) {
+                    <tr>
+                      <td class="cell-primary">{{ row.name }}</td>
+                      <td><app-status-badge [value]="row.result" /></td>
+                      <td class="cell-muted">
+                        {{ row.kindLabel || '—' }}
+                        @if (row.blocker) {
+                          <div class="text-xs text-muted">{{ row.blocker }}</div>
+                        }
+                      </td>
+                      <td class="cell-muted tabular">{{ row.certificate?.number || '—' }}</td>
+                      <td>
+                        <div class="btn-row btn-row--end">
+                          @if (row.certificate; as cert) {
+                            <a
+                              class="btn btn--ghost btn--sm"
+                              [href]="documentUrl(cert.id)"
+                              target="_blank"
+                              rel="noopener"
+                              >View</a
+                            >
+                            <button
+                              type="button"
+                              class="btn btn--ghost btn--sm"
+                              (click)="revoke(cert)"
+                            >
+                              Revoke
+                            </button>
+                          } @else if (row.canIssue) {
+                            <button
+                              type="button"
+                              class="btn btn--secondary btn--sm"
+                              [disabled]="issuing()"
+                              (click)="issueOne(row.participantId)"
+                            >
+                              Issue
+                            </button>
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="5" class="cell-muted text-center">No participants enrolled yet.</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <div class="card__body"><span class="text-sm text-muted">Loading certificates…</span></div>
+          }
+        }
 
         @if (tab() === 'sessions') {
           <div class="table-wrap">
@@ -297,6 +426,103 @@ export class ProgramDetailComponent {
 
   protected readonly programme = signal<Program | null>(null);
   protected readonly tab = signal<Tab>('sessions');
+
+  /* ---------------------------------------------------- certificates */
+
+  private readonly certificateService = inject(CertificateService);
+  private readonly confirm = inject(ConfirmService);
+
+  protected readonly certificates = signal<ProgrammeCertificateSummary | null>(null);
+  protected readonly issuing = signal(false);
+
+  /** Loaded when the tab is first opened, not with the page: most visits never open it. */
+  protected openCertificates(): void {
+    this.tab.set('certificates');
+    if (this.certificates()) return;
+    this.loadCertificates();
+  }
+
+  private loadCertificates(): void {
+    const batch = this.programme();
+    if (!batch) return;
+    this.certificateService.summary(batch.id).subscribe((summary) => this.certificates.set(summary));
+  }
+
+  protected documentUrl(id: number): string {
+    return this.certificateService.documentUrl(id);
+  }
+
+  protected programmeDocumentUrl(programmeId: number): string {
+    return this.certificateService.programmeDocumentUrl(programmeId);
+  }
+
+  protected issueOne(participantId: number): void {
+    this.issuing.set(true);
+    this.certificateService.issue(participantId).subscribe({
+      next: (certificate) => {
+        this.issuing.set(false);
+        this.toast.success('Certificate issued', certificate.number);
+        this.refreshAfterIssue();
+      },
+      error: () => this.issuing.set(false),
+    });
+  }
+
+  protected async issueAll(programmeId: number): Promise<void> {
+    const pending = this.certificates()?.pending ?? 0;
+    const ok = await this.confirm.ask({
+      title: `Issue ${pending} certificate${pending === 1 ? '' : 's'}?`,
+      message:
+        'Each one takes the next number in the series. A certificate issued in error can be ' +
+        'revoked, but its number is not reused.',
+      confirmLabel: 'Issue',
+    });
+    if (!ok) return;
+
+    this.issuing.set(true);
+    this.certificateService.issueProgramme(programmeId).subscribe({
+      next: (summary) => {
+        this.issuing.set(false);
+        this.certificates.set(summary);
+        this.toast.success('Certificates issued', `${summary.issued} in total.`);
+        this.reloadProgramme();
+      },
+      error: () => this.issuing.set(false),
+    });
+  }
+
+  protected async revoke(certificate: Certificate): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: `Revoke ${certificate.number}?`,
+      message:
+        `${certificate.recipientName}'s certificate will be marked revoked and will fail ` +
+        'verification. The number stays spent; a corrected certificate takes a new one.',
+      confirmLabel: 'Revoke',
+      tone: 'danger',
+    });
+    if (!ok) return;
+
+    /* A reason is required by the API, and a revocation with no stated cause is
+       not worth recording. */
+    const reason = window.prompt('Why is it being revoked?')?.trim();
+    if (!reason) return;
+
+    this.certificateService.revoke(certificate.id, reason).subscribe(() => {
+      this.toast.success('Certificate revoked', certificate.number);
+      this.refreshAfterIssue();
+    });
+  }
+
+  private refreshAfterIssue(): void {
+    this.loadCertificates();
+    this.reloadProgramme();
+  }
+
+  /** The participants table shows the certificate number, so it reloads too. */
+  private reloadProgramme(): void {
+    const batch = this.programme();
+    if (batch) this.service.getById(batch.id).subscribe((updated) => this.programme.set(updated));
+  }
   protected readonly sessionFormOpen = signal(false);
   protected readonly attendanceFor = signal<ProgramSession | null>(null);
   protected readonly marks = signal<AttendanceMark[]>([]);
