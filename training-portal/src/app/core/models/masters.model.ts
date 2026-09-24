@@ -66,24 +66,37 @@ export type CertificationPolicy =
 export type CertificateKind = 'Qualification' | 'Participation';
 
 /** Mirrors CertificationPolicies on the server, which is the authority. */
-export const CERTIFICATION_POLICIES: { value: CertificationPolicy; label: string; hint: string }[] = [
-  { value: 'None', label: 'No certificate', hint: 'Nothing is issued at the end.' },
+export const CERTIFICATION_POLICIES: {
+  value: CertificationPolicy;
+  label: string;
+  hint: string;
+  /** The templates this policy needs — one upload slot each. */
+  kinds: CertificateKind[];
+}[] = [
+  { value: 'None', label: 'No certificate', hint: 'Nothing is issued at the end.', kinds: [] },
   {
     value: 'ParticipationOnly',
     label: 'Participation certificate only',
     hint: 'Everyone who attends gets one, whatever the result.',
+    kinds: ['Participation'],
   },
   {
     value: 'QualificationOnly',
     label: 'Certification for those who qualify',
     hint: 'Only candidates who pass are certified; the rest get nothing.',
+    kinds: ['Qualification'],
   },
   {
     value: 'QualificationAndParticipation',
     label: 'Certification for those who qualify, participation for the rest',
     hint: 'Candidates who pass are certified; those who do not still get a participation certificate.',
+    kinds: ['Qualification', 'Participation'],
   },
 ];
+
+/** The upload slots a policy calls for, without waiting for the server to say so. */
+export const kindsForPolicy = (policy: CertificationPolicy): CertificateKind[] =>
+  CERTIFICATION_POLICIES.find((p) => p.value === policy)?.kinds ?? [];
 
 export const CERTIFICATE_KIND_LABELS: Record<CertificateKind, string> = {
   Qualification: 'Certification certificate',

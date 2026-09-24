@@ -11,6 +11,7 @@ import {
   LookupItem,
   ProgramType,
   RecordStatus,
+  kindsForPolicy,
 } from '../../core/models';
 import { LookupService, ProgramTypeService } from '../../core/services/masters.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -309,16 +310,20 @@ const COLUMNS: ColumnDef[] = [
                               Remove
                             </button>
                           }
-                          <label class="btn btn--secondary btn--sm">
-                            @if (uploading() === kind) { <span class="spinner"></span> }
-                            {{ templateFor(kind) ? 'Replace' : 'Upload' }}
-                            <input
-                              type="file"
-                              hidden
-                              [accept]="templateAccept"
-                              (change)="uploadTemplate(row.id, kind, $event)"
-                            />
-                          </label>
+                          @if (canUpload(kind)) {
+                            <label class="btn btn--secondary btn--sm">
+                              @if (uploading() === kind) { <span class="spinner"></span> }
+                              {{ templateFor(kind) ? 'Replace' : 'Upload' }}
+                              <input
+                                type="file"
+                                hidden
+                                [accept]="templateAccept"
+                                (change)="uploadTemplate(row.id, kind, $event)"
+                              />
+                            </label>
+                          } @else {
+                            <span class="text-xs text-muted">Save the change to upload</span>
+                          }
                         </div>
                       </div>
                     }
@@ -381,11 +386,22 @@ export class ProgramTypesComponent {
     return CERTIFICATION_POLICIES.find((p) => p.value === chosen)?.hint ?? '';
   });
 
-  /* Read from the saved record rather than the form: the server decides which
-     templates a policy allows, and it has not seen an unsaved change yet. */
-  protected readonly templateKinds = computed<CertificateKind[]>(
-    () => this.editing()?.certificateKinds ?? [],
+  /* Follows the policy in the form, not the saved record, so choosing "both"
+     reveals the second slot straight away rather than after a save. */
+  protected readonly templateKinds = computed<CertificateKind[]>(() =>
+    kindsForPolicy(this.formValue().certificationPolicy as ProgramType['certificationPolicy']),
   );
+
+  /**
+   * Whether a kind can be uploaded yet.
+   *
+   * The server validates against the policy it has stored, so a slot revealed
+   * by an unsaved change would be refused. The row appears either way — seeing
+   * what the choice implies is the point — but its button waits for the save.
+   */
+  protected canUpload(kind: CertificateKind): boolean {
+    return (this.editing()?.certificateKinds ?? []).includes(kind);
+  }
 
   protected kindLabel(kind: CertificateKind): string {
     return CERTIFICATE_KIND_LABELS[kind];
