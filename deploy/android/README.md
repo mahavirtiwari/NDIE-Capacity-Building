@@ -16,7 +16,11 @@ From an **elevated PowerShell console** (not ISE):
 ```powershell
 cd E:\NDIE-Capacity-Building-main\deploy\android
 
-# 1. What is missing? Installs nothing — reports, and prints the command.
+# 0. JDK 17 and the Android command line tools. The one script here that
+#    installs anything; skip it if the server already has both.
+.\00-install-toolchain.ps1
+
+# 1. Confirm. Installs nothing — reports, and prints the command.
 powershell -ExecutionPolicy Bypass -File .\01-prerequisites.ps1
 
 # 2. The signing keys. Once, ever. Back up what it writes.
