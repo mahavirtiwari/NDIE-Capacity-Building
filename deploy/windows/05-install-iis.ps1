@@ -118,6 +118,63 @@ elseif (-not $binding) {
     Write-Host "  [WARN] No https binding and no -PfxPath given. The site is http only." -ForegroundColor Yellow
 }
 
+# --- Prove the handshake works ----------------------------------------------
+
+# Adding a binding and attaching a certificate to it are two separate
+# operations, and the second can fail while the first succeeds. What that
+# leaves is http.sys accepting the connection on 443 and then closing it
+# without a word, which is the least informative failure IIS has - it looks
+# from the outside exactly like a firewall, a protocol mismatch or a dead site.
+# Worth finding out here rather than from a browser.
+if ($PfxPath -or $binding) {
+    $probe = New-Object Net.Sockets.TcpClient
+    try {
+        $probe.Connect('127.0.0.1', 443)
+
+        # A port that accepts the connection and then says nothing would hang
+        # the handshake for as long as the socket stays open, and this script
+        # would sit there with no output at all. Ten seconds is generous for a
+        # server answering itself.
+        $probe.ReceiveTimeout = 10000
+        $probe.SendTimeout = 10000
+
+        # Accept whatever is presented: the question here is whether anything
+        # is bound at all, not whether it is trusted. 07-verify.ps1 asks that
+        # one properly, over the real name and with real validation.
+        $anyCert = [Net.Security.RemoteCertificateValidationCallback] { $true }
+        $ssl = New-Object Net.Security.SslStream($probe.GetStream(), $false, $anyCert)
+
+        # Naming the protocols matters: the short overload offers SSL 3.0 and
+        # TLS 1.0, which a current server refuses, and the failure then looks
+        # like a missing certificate.
+        $protocols = [Security.Authentication.SslProtocols]::Tls12
+        if ([Enum]::IsDefined([Security.Authentication.SslProtocols], 'Tls13')) {
+            $protocols = $protocols -bor [Security.Authentication.SslProtocols]::Tls13
+        }
+
+        # The host name is what selects the certificate - under SNI, http.sys
+        # has nothing else to go on.
+        $ssl.AuthenticateAsClient($HostName, $null, $protocols, $false)
+
+        $served = [Security.Cryptography.X509Certificates.X509Certificate2] $ssl.RemoteCertificate
+        Write-Host ("  [ok]  443 completed a handshake for {0}" -f $HostName) -ForegroundColor Green
+        Write-Host ("        Serving : {0}" -f $served.Subject) -ForegroundColor Gray
+
+        if ($imported -and $served.Thumbprint -ne $imported.Thumbprint) {
+            Write-Host "  [WARN] That is not the certificate just imported - something else on" -ForegroundColor Yellow
+            Write-Host "         this machine is answering for $HostName on 443." -ForegroundColor Yellow
+        }
+    }
+    catch {
+        Write-Host "  [FAIL] 443 accepts connections but no handshake completed." -ForegroundColor Red
+        Write-Host ("         {0}" -f $_.Exception.Message) -ForegroundColor Gray
+        Write-Host "         Almost always: no certificate is bound for this host name." -ForegroundColor Gray
+        Write-Host "         What is actually bound:  netsh http show sslcert" -ForegroundColor Gray
+        Write-Host "         Re-run this script with -PfxPath to bind one." -ForegroundColor Gray
+    }
+    finally { $probe.Close() }
+}
+
 # --- Folder rights ----------------------------------------------------------
 
 $poolIdentity = "IIS AppPool\$PoolName"

@@ -177,6 +177,12 @@ if (-not $listening) {
 Check 'TLS certificate valid and trusted' {
     $client = New-Object Net.Sockets.TcpClient($uri.Host, 443)
     try {
+        # A port that accepts and then stays silent - which is what a binding
+        # with no certificate on it does - would otherwise block here with no
+        # output and nothing to time it out.
+        $client.ReceiveTimeout = 15000
+        $client.SendTimeout = 15000
+
         # Default validation: if this stream authenticates, a browser will too,
         # which is the only question worth asking about a certificate. The
         # protocols are named explicitly because the short overload offers SSL

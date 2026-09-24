@@ -109,6 +109,15 @@ $settings = [ordered]@{
         SeedSampleData   = $false
     }
 
+    # UseHttpsRedirection has to be told which port to send people to. Behind
+    # IIS it normally learns that from the ASP.NET Core Module, which passes it
+    # only when the site has a working https binding - so a broken certificate
+    # makes the application quietly serve plain http instead of redirecting,
+    # which is the wrong way round for a site carrying real data. Saying it
+    # here makes the redirect unconditional: if https breaks, the site breaks
+    # visibly rather than downgrading.
+    HTTPS_PORT        = 443
+
     Site              = [ordered]@{
         # A staging host serves real programme data on pages that are
         # genuinely public. Without this it competes with the live site in

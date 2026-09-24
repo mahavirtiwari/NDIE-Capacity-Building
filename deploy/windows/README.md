@@ -203,6 +203,25 @@ string — and it looks for it next to the project, where there is none.
 `appsettings.Production.json` is read. If you run `dotnet ef` by hand, set it
 too.
 
+**The portal loads but every database-backed call fails** - /health returns 503,
+/api/branding and /api/public/programmes return 500, while an unknown /api path
+still returns a clean 404. The application started and is routing; it cannot
+open a database connection. Run:
+
+```powershell
+.\09-diagnose.ps1
+```
+
+It reads the connection string the site is using, works out which identity that
+presents to SQL Server, checks whether that identity is a login, a user of the
+database and a member of db_owner, and prints what the application logged. It
+changes nothing.
+
+The usual cause is that the two halves disagree: the connection string says
+`Trusted_Connection=True`, so the site connects as the app pool identity, while
+the grant was made to a SQL login — or the pool was recreated after the grant,
+which gives it a new SID that the old grant does not cover.
+
 **HTTP 500.19 — configuration error.** The .NET Hosting Bundle is not installed,
 or was installed before IIS. Reinstall it and run `iisreset`.
 
