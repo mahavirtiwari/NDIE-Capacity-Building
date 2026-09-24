@@ -88,7 +88,7 @@ if ($VersionCode -le 0) {
     if (Test-Path $counterFile) { [int]::TryParse((Get-Content $counterFile -Raw).Trim(), [ref] $previous) | Out-Null }
     $VersionCode = $previous + 1
 }
-Set-Content -Path $counterFile -Value $VersionCode -Encoding utf8
+Set-PlainTextFile -Path $counterFile -Content ([string] $VersionCode)
 
 Write-Host "`nBuilding Android release APKs" -ForegroundColor Cyan
 Write-Host ("  API          : {0}" -f $ApiBaseUrl) -ForegroundColor Gray
@@ -111,7 +111,12 @@ function Add-SigningConfig {
     #>
     param([string] $GradlePath)
 
-    $gradle = Get-Content $GradlePath -Raw
+    # ReadAllText detects and strips a byte order mark; Get-Content without an
+    # -Encoding falls back to the ANSI code page on a file that has none, which
+    # turns a mark into three literal characters instead of removing it. The
+    # TrimStart is belt and braces for a mark arriving some other way: whatever
+    # is in front of "apply plugin", Groovy will not compile it.
+    $gradle = [System.IO.File]::ReadAllText($GradlePath).TrimStart([char] 0xFEFF)
 
     if ($gradle -notmatch '(?s)signingConfigs\s*\{') {
         throw "No signingConfigs block in $GradlePath. The Expo template has changed; this script needs updating rather than working around."
@@ -157,6 +162,50 @@ function Add-SigningConfig {
     # it gives — "Unexpected character: '?' at line 1, column 1" — looks like a
     # corrupted file rather than an encoding.
     Set-PlainTextFile -Path $GradlePath -Content $gradle
+
+    # Checked rather than assumed, because this failed twice and the second
+    # time the cause was not where the first one had been. Gradle takes seven
+    # minutes to reach this file; knowing now beats knowing then.
+    $head = [System.IO.File]::ReadAllBytes($GradlePath) | Select-Object -First 8
+    if ($head[0] -eq 0xEF -and $head[1] -eq 0xBB -and $head[2] -eq 0xBF) {
+        throw ("$GradlePath still begins with a byte order mark: " +
+            (($head | ForEach-Object { $_.ToString('X2') }) -join ' '))
+    }
+    Write-Host ("  [ok]  build.gradle starts {0}" -f `
+        (($head | Select-Object -First 4 | ForEach-Object { $_.ToString('X2') }) -join ' ')) -ForegroundColor Gray
+}
+
+function Remove-Tree {
+    <#
+        Gradle keeps handles on files under android/ for a moment after it
+        exits, so a delete can fail — and the previous version swallowed that
+        with -ErrorAction SilentlyContinue. The folder then survived into the
+        next run carrying the file that had just failed to build, which is why
+        the same error came back after it had been fixed.
+    #>
+    param([string] $Path, [switch] $Tolerate)
+
+    if (-not (Test-Path $Path)) { return $true }
+
+    for ($attempt = 1; $attempt -le 5; $attempt++) {
+        try {
+            Remove-Item $Path -Recurse -Force -ErrorAction Stop
+            return $true
+        }
+        catch {
+            if ($attempt -eq 5) {
+                if ($Tolerate) {
+                    Write-Host ("  [warn] Could not remove {0}: {1}" -f $Path, $_.Exception.Message) -ForegroundColor Yellow
+                    Write-Host "         It is rebuilt from scratch next run, so this is untidy rather than wrong." -ForegroundColor Gray
+                    return $false
+                }
+                throw ("Could not remove $Path after 5 attempts: $($_.Exception.Message)`n" +
+                    "Something is holding a file open — a Gradle daemon, an editor, or Explorer. " +
+                    "Close it, or run: Get-Process java | Stop-Process")
+            }
+            Start-Sleep -Seconds 2
+        }
+    }
 }
 
 # --- Build -------------------------------------------------------------------
@@ -187,6 +236,13 @@ foreach ($name in $targets) {
         $env:CBMS_API_BASE_URL = $ApiBaseUrl
         $env:CBMS_ANDROID_VERSION_CODE = [string] $VersionCode
         $env:CBMS_SIGNING_PROPERTIES = $signingProps
+
+        # Before prebuild as well as after. --clean is supposed to replace
+        # android/, but a folder left behind by a failed run can survive it in
+        # part, and then the build is against a mixture of two attempts. This
+        # throws rather than continuing, because "mostly regenerated" is the
+        # state that produces errors nobody can reproduce.
+        Remove-Tree (Join-Path $projectPath 'android') | Out-Null
 
         Write-Host "  Generating the native project..." -ForegroundColor Gray
         Invoke-Native "expo prebuild ($name)" 'npx' @(
@@ -233,8 +289,11 @@ foreach ($name in $targets) {
 
         if (-not $KeepNativeProject) {
             # Regenerated every run, so leaving it behind only invites someone
-            # to edit it and lose the change at the next build.
-            Remove-Item (Join-Path $projectPath 'android') -Recurse -Force -ErrorAction SilentlyContinue
+            # to edit it and lose the change at the next build. Tolerated here
+            # because this runs in a finally block, where throwing would hide
+            # whatever sent us here — the next run removes it before prebuild
+            # and does not tolerate a failure then.
+            Remove-Tree (Join-Path $projectPath 'android') -Tolerate | Out-Null
         }
     }
 }
