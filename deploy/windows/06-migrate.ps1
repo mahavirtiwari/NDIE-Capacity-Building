@@ -33,6 +33,41 @@ if (-not $connectionString) { throw "ConnectionStrings:Default is empty in $conf
 $apiProject = Join-Path $SourcePath 'backend\src\Ntms.Api\Ntms.Api.csproj'
 $infra      = Join-Path $SourcePath 'backend\src\Ntms.Infrastructure\Ntms.Infrastructure.csproj'
 
+function Invoke-Seed {
+    <#
+        A migration creates the tables and leaves them empty. The roles, the
+        LGD location master, the branding defaults and the first Super Admin
+        come from the application's own seeder, which until now only ran when
+        MigrateOnStartup was true - and that is deliberately false in
+        production. So a deployment ended up with a perfect schema, no
+        reference data, and no account anyone could sign in as.
+
+        Run through the published application rather than the source tree, so
+        it uses the configuration the site itself uses. Everything the seeder
+        does is idempotent.
+    #>
+    $dll = Join-Path $SitePath 'Ntms.Api.dll'
+    if (-not (Test-Path $dll)) {
+        Write-Host "`n  [skip] Seeding: $dll not found. Run 04-publish.ps1, then this again." -ForegroundColor Yellow
+        return
+    }
+
+    Write-Host "`nSeeding reference data and the first account`n" -ForegroundColor Cyan
+
+    # The content root decides where appsettings.Production.json is read from,
+    # and for a framework-dependent dll that defaults to the current directory.
+    $previousRoot = $env:ASPNETCORE_CONTENTROOT
+    $env:ASPNETCORE_CONTENTROOT = $SitePath
+    try {
+        # -Stream so the seeder's own output is seen: when it creates the Super
+        # Admin it writes the first-run password, once, and nowhere else.
+        Invoke-Native 'seeding' 'dotnet' @($dll, '--seed') -Stream
+    }
+    finally { $env:ASPNETCORE_CONTENTROOT = $previousRoot }
+
+    Write-Host "  [ok]  Seeded" -ForegroundColor Green
+}
+
 if (-not (Get-Command dotnet-ef -ErrorAction SilentlyContinue)) {
     Write-Host "  Installing dotnet-ef..." -ForegroundColor Gray
     Invoke-Native 'dotnet tool install' 'dotnet' @(
@@ -73,7 +108,8 @@ $list = Invoke-Native 'dotnet ef migrations list' 'dotnet' @(
 $pending = $list | Where-Object { $_ -match '\(Pending\)' }
 
 if (-not $pending) {
-    Write-Host "  Database is already up to date.`n" -ForegroundColor Green
+    Write-Host "  Database is already up to date." -ForegroundColor Green
+    Invoke-Seed
     exit 0
 }
 
@@ -93,5 +129,7 @@ try {
 catch {
     throw "Migration failed. The database is unchanged past the last one that succeeded.`n$_"
 }
+
+Invoke-Seed
 
 Write-Host "`nDone. Next: .\07-verify.ps1`n" -ForegroundColor Green

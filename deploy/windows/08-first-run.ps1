@@ -98,6 +98,15 @@ SELECT CONCAT('rows updated: ', @@ROWCOUNT);
     }
     finally { Remove-Item $sqlFile -Force -ErrorAction SilentlyContinue }
 
+    # "rows updated: 0" means SA0001 is not there, which is a different problem
+    # entirely and used to be reported as a success with an interesting number
+    # in it.
+    if ($result -match 'rows updated:\s*0\b') {
+        throw ("There is no SA0001 to set a password on - the database has the schema " +
+               "but no data in it. Run .\06-migrate.ps1, which seeds the roles, the " +
+               "locations and the first account, then run this again.")
+    }
+
     Write-Host "`n  [ok]  $result" -ForegroundColor Green
     Write-Host "  Sign in at the site as SA0001. You will be asked to change it.`n" -ForegroundColor Cyan
 }

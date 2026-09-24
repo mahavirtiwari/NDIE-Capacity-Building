@@ -60,7 +60,10 @@ powershell -ExecutionPolicy Bypass -File .\01-prerequisites.ps1
 # 5. IIS site, certificate, folder rights.
 .\05-install-iis.ps1 -PfxPath E:\certs\leanstaging.qci.org.in.pfx
 
-# 6. Schema.
+# 6. Schema, then the reference data and the first account. Seeding belongs to
+#    this step because a migration only creates empty tables: the roles, the
+#    LGD locations, the branding defaults and SA0001 all come from the
+#    application's own seeder, which does not run on start-up in production.
 .\06-migrate.ps1
 
 # 7. Check it from outside.

@@ -238,7 +238,17 @@ if (hostsPortal)
 
 /* --------------------------------------------------------------- database */
 
-if (builder.Configuration.GetValue("Database:MigrateOnStartup", app.Environment.IsDevelopment()))
+/* --seed brings the database to a usable state and exits without serving
+   anything: the roles, the LGD location master, the branding defaults and the
+   first Super Admin. A deployment needs all of that and must not have it
+   happen on an app-pool recycle, so in production MigrateOnStartup is false
+   and this is run once, deliberately, as a step of its own.
+
+   Everything DbSeeder does is idempotent, so running it again costs nothing
+   and changes nothing. */
+var seedOnly = args.Contains("--seed");
+
+if (seedOnly || builder.Configuration.GetValue("Database:MigrateOnStartup", app.Environment.IsDevelopment()))
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<NtmsDbContext>();
@@ -246,7 +256,13 @@ if (builder.Configuration.GetValue("Database:MigrateOnStartup", app.Environment.
 
     var seeder = scope.ServiceProvider.GetRequiredService<DbSeeder>();
     await seeder.SeedAsync(
+        args.Contains("--with-sample-data") ||
         builder.Configuration.GetValue("Database:SeedSampleData", app.Environment.IsDevelopment()));
+}
+
+if (seedOnly)
+{
+    return;
 }
 
 await app.RunAsync();
