@@ -39,14 +39,52 @@ param(
     [string] $StorageRoot = 'E:\cbms-data',
     # On by default: these scripts were written for a staging host. Pass
     # -DiscourageSearchEngines:$false when this becomes the live site.
-    [switch] $DiscourageSearchEngines = $true
+    [switch] $DiscourageSearchEngines = $true,
+    # Rotate the JWT signing key even though one is already in place. This
+    # signs every user out, so it is something to ask for rather than something
+    # to receive for having re-run the script to change a connection string.
+    [switch] $NewSigningKey
 )
 
 $ErrorActionPreference = 'Stop'
 
+# The file this writes is locked to Administrators, SYSTEM and the app pool, so
+# a second run needs the elevation the first one had. Without this check that
+# arrives as an access-denied three quarters of the way down, on a file the
+# script itself created.
+$isAdmin = ([Security.Principal.WindowsPrincipal] `
+        [Security.Principal.WindowsIdentity]::GetCurrent()
+).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if (-not $isAdmin) {
+    throw "Run this from an elevated PowerShell. It writes a file that only administrators may read."
+}
+
 Write-Host "`nWriting production configuration`n" -ForegroundColor Cyan
 
 # --- Signing key ------------------------------------------------------------
+
+$target = Join-Path $SitePath 'appsettings.Production.json'
+
+# Re-running this to correct a connection string should not also invalidate
+# every token in circulation. The existing key is kept unless one is supplied
+# or -NewSigningKey asks for a fresh one.
+if (-not $JwtSigningKey -and -not $NewSigningKey -and (Test-Path $target)) {
+    try {
+        $existing = (Get-Content $target -Raw -ErrorAction Stop | ConvertFrom-Json).Jwt.SigningKey
+    }
+    catch {
+        # Generating a fresh key here would sign everyone out as a side effect
+        # of not being able to read a file. Stop instead and say which it is.
+        throw ("Could not read the existing $target to keep its signing key:`n  $($_.Exception.Message)`n" +
+               "Run elevated, or pass -NewSigningKey to deliberately replace it (which signs every user out).")
+    }
+
+    if ($existing -and $existing.Length -ge 32) {
+        $JwtSigningKey = $existing
+        Write-Host "  [ok]  Kept the signing key already in place (-NewSigningKey to rotate)" -ForegroundColor Green
+    }
+}
 
 if (-not $JwtSigningKey) {
     $bytes = New-Object byte[] 48
@@ -54,6 +92,9 @@ if (-not $JwtSigningKey) {
     try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
     $JwtSigningKey = [Convert]::ToBase64String($bytes)
     Write-Host "  [ok]  Generated a 48-byte signing key" -ForegroundColor Green
+    if ($NewSigningKey) {
+        Write-Host "        Everyone signed in is now signed out." -ForegroundColor Yellow
+    }
 }
 elseif ($JwtSigningKey.Length -lt 32) {
     throw "Jwt:SigningKey must be at least 32 characters. The API refuses to start otherwise."
@@ -140,7 +181,6 @@ $settings = [ordered]@{
     AllowedHosts      = ([Uri] $PublicUrl).Host
 }
 
-$target = Join-Path $SitePath 'appsettings.Production.json'
 $parent = Split-Path $target -Parent
 if (-not (Test-Path $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
 
@@ -149,23 +189,35 @@ Write-Host "  [ok]  Wrote $target" -ForegroundColor Green
 
 # --- Lock it down -----------------------------------------------------------
 
-# The file holds a database password and the signing key. Administrators and
-# the app pool identity, nobody else — inheritance off so a permissive parent
-# folder cannot widen it.
+# The file holds a database password and the signing key. Administrators, the
+# app pool identity and SYSTEM, nobody else — inheritance off so a permissive
+# parent folder cannot widen it.
+#
+# Administrators and SYSTEM get FullControl rather than Read: the first version
+# granted everyone Read, which locked this script out of the file it had just
+# written, so re-running it to correct a connection string failed on access
+# denied. The app pool gets Read, which is all the application needs and all it
+# should have.
+$rights = @{
+    'BUILTIN\Administrators'   = 'FullControl'
+    'NT AUTHORITY\SYSTEM'      = 'FullControl'
+    'IIS AppPool\CbmsAppPool'  = 'Read'
+}
+
 $acl = Get-Acl $target
 $acl.SetAccessRuleProtection($true, $false)
 $acl.Access | ForEach-Object { $acl.RemoveAccessRule($_) | Out-Null }
 
-foreach ($identity in @('BUILTIN\Administrators', 'IIS AppPool\CbmsAppPool', 'NT AUTHORITY\SYSTEM')) {
+foreach ($identity in $rights.Keys) {
     try {
         $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-            $identity, 'Read', 'Allow')
+            $identity, $rights[$identity], 'Allow')
         $acl.AddAccessRule($rule)
     }
     catch {
-        # The app pool does not exist until 04-install-iis.ps1 runs; that script
+        # The app pool does not exist until 05-install-iis.ps1 runs; that script
         # re-applies this, so a miss here is expected on a first run.
-        Write-Host "  [note] Could not grant $identity yet — 04 will set it" -ForegroundColor Gray
+        Write-Host "  [note] Could not grant $identity yet — 05 will set it" -ForegroundColor Gray
     }
 }
 Set-Acl -Path $target -AclObject $acl
