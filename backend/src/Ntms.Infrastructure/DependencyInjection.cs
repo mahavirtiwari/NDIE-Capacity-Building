@@ -77,6 +77,10 @@ public static class DependencyInjection
         services.AddSingleton<MonitoringPhotoStore>();
         services.AddSingleton<CertificateTemplateStore>();
         services.AddScoped<CertificateService>();
+
+        /* Reads an account's allocation per request, now that it no longer
+           travels on the token. */
+        services.AddScoped<UserScopeProvider>();
         services.AddScoped<MonitoringService>();
 
         return services;

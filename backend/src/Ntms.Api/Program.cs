@@ -161,6 +161,9 @@ else
 
 app.UseCors(CorsPolicy);
 app.UseAuthentication();
+/* After authentication, so the principal exists; before authorization, so the
+   scope filters have the allocation by the time any handler composes a query. */
+app.UseMiddleware<UserScopeMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();

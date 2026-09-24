@@ -50,18 +50,12 @@ public class JwtTokenService(IOptions<JwtOptions> options) : ITokenService
         };
         claims.AddRange(permissions.Distinct().Select(p => new Claim(PermissionClaim, p)));
 
-        /* Master scope travels on the token so every query can narrow itself
-           without another round trip to the database. */
-        claims.AddRange(user.Categories
-            .Select(c => new Claim(ScopeCategoryClaim, c.CategoryId.ToString())));
-        claims.AddRange(user.SubCategories
-            .Select(c => new Claim(ScopeSubCategoryClaim, c.SubCategoryId.ToString())));
-        claims.AddRange(user.ProgramTypes
-            .Select(c => new Claim(ScopeProgramTypeClaim, c.ProgramTypeId.ToString())));
-        claims.AddRange(user.States
-            .Select(c => new Claim(ScopeStateClaim, c.StateCode.ToString())));
-        claims.AddRange(user.Districts
-            .Select(c => new Claim(ScopeDistrictClaim, c.DistrictCode.ToString())));
+        /* The allocation is deliberately NOT on the token. Enumerated as one
+           claim per id it reached seven kilobytes for a coordinator holding
+           every district, which is past what most proxies allow in a header.
+           UserScopeProvider reads it per request instead — see the note there.
+           The claim names below are kept so tokens issued before the change
+           are still understood until they expire. */
 
         /* Stated outright rather than inferred from the presence of scope rows.
            An allocation that is empty now means "nothing", not "everything", so

@@ -90,11 +90,30 @@ public class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser, ICurrent
         Principal?.IsInRole(Ntms.Domain.Common.BaseRole.SuperAdmin.ToString()) == true
         || Principal?.HasClaim(JwtTokenService.PermissionClaim, permission) == true;
 
-    public IReadOnlyList<int> ScopeCategoryIds => Ids(JwtTokenService.ScopeCategoryClaim);
-    public IReadOnlyList<int> ScopeSubCategoryIds => Ids(JwtTokenService.ScopeSubCategoryClaim);
-    public IReadOnlyList<int> ScopeProgramTypeIds => Ids(JwtTokenService.ScopeProgramTypeClaim);
-    public IReadOnlyList<int> ScopeStateCodes => Ids(JwtTokenService.ScopeStateClaim);
-    public IReadOnlyList<int> ScopeDistrictCodes => Ids(JwtTokenService.ScopeDistrictClaim);
+    /* Loaded onto the request by UserScopeMiddleware, which runs for every
+       scoped account. Null means the middleware had nothing to load for this
+       principal — an unscoped tier, or a context it does not run in — and the
+       claim fallback below covers that.
+
+       A token issued before the allocation moved off it still carries the old
+       claims, but the freshly loaded lists win, which is the behaviour worth
+       having: those tokens keep working and pick up the current allocation
+       rather than the one frozen at sign-in. */
+    private UserScope? Loaded => accessor.HttpContext?.Items
+        .TryGetValue(Middleware.UserScopeMiddleware.ItemKey, out var value) == true
+        ? value as UserScope
+        : null;
+
+    public IReadOnlyList<int> ScopeCategoryIds =>
+        Loaded?.CategoryIds ?? Ids(JwtTokenService.ScopeCategoryClaim);
+    public IReadOnlyList<int> ScopeSubCategoryIds =>
+        Loaded?.SubCategoryIds ?? Ids(JwtTokenService.ScopeSubCategoryClaim);
+    public IReadOnlyList<int> ScopeProgramTypeIds =>
+        Loaded?.ProgramTypeIds ?? Ids(JwtTokenService.ScopeProgramTypeClaim);
+    public IReadOnlyList<int> ScopeStateCodes =>
+        Loaded?.StateCodes ?? Ids(JwtTokenService.ScopeStateClaim);
+    public IReadOnlyList<int> ScopeDistrictCodes =>
+        Loaded?.DistrictCodes ?? Ids(JwtTokenService.ScopeDistrictClaim);
 
     public int? AgencyId =>
         int.TryParse(Principal?.FindFirstValue(JwtTokenService.AgencyIdClaim), out var id)
