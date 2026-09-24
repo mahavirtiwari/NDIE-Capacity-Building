@@ -102,6 +102,26 @@ keeps it out of your shell history and out of the event log.
 and signing key. That is deliberate — the service refuses to start without them
 rather than quietly reaching for a database that is not there.
 
+## This is a staging host
+
+`03-configure.ps1` sets `Site:DiscourageSearchEngines` to true, which puts
+`X-Robots-Tag: noindex, nofollow, noarchive` on every response and serves a
+`robots.txt` that disallows everything.
+
+It matters here because `/programmes` and `/p/{code}` are genuinely public and
+carry real programme data. Indexed, a staging host competes with the live site
+in search results and sends applicants to the wrong place.
+
+When this becomes the live site, turn it off — being found is then the point:
+
+```powershell
+.-configure.ps1 -DiscourageSearchEngines:$false -ConnectionString '...'
+```
+
+The header goes out as well as `robots.txt` on purpose: a crawler that reached
+a page through a link somebody shared never asked for `robots.txt`, and the
+header is the only instruction it will see.
+
 ## Decisions worth knowing about
 
 **Migrations are not applied on start-up.** `Database:MigrateOnStartup` is

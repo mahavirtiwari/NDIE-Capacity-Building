@@ -36,7 +36,10 @@ param(
     [Parameter(Mandatory)] [string] $ConnectionString,
     [string] $JwtSigningKey,
     [string] $PublicUrl = 'https://leanstaging.qci.org.in',
-    [string] $StorageRoot = 'E:\cbms-data'
+    [string] $StorageRoot = 'E:\cbms-data',
+    # On by default: these scripts were written for a staging host. Pass
+    # -DiscourageSearchEngines:$false when this becomes the live site.
+    [switch] $DiscourageSearchEngines = $true
 )
 
 $ErrorActionPreference = 'Stop'
@@ -46,8 +49,9 @@ Write-Host "`nWriting production configuration`n" -ForegroundColor Cyan
 # --- Signing key ------------------------------------------------------------
 
 if (-not $JwtSigningKey) {
-    $bytes = [byte[]]::new(48)
-    [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+    $bytes = New-Object byte[] 48
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
     $JwtSigningKey = [Convert]::ToBase64String($bytes)
     Write-Host "  [ok]  Generated a 48-byte signing key" -ForegroundColor Green
 }
@@ -60,6 +64,10 @@ elseif ($JwtSigningKey.Length -lt 32) {
 # Photographs and certificate artwork are files, not rows. They must live
 # outside the published folder: a redeploy replaces that folder wholesale and
 # would take the evidence with it.
+if ($StorageRoot.StartsWith($SitePath, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "StorageRoot must sit outside SitePath, or a redeploy will delete the uploaded files."
+}
+
 $monitoringRoot = Join-Path $StorageRoot 'monitoring'
 $templateRoot = Join-Path $StorageRoot 'certificate-templates'
 
@@ -68,10 +76,6 @@ foreach ($path in @($StorageRoot, $monitoringRoot, $templateRoot)) {
         New-Item -ItemType Directory -Path $path -Force | Out-Null
         Write-Host "  [ok]  Created $path" -ForegroundColor Green
     }
-}
-
-if ($StorageRoot.StartsWith($SitePath, [StringComparison]::OrdinalIgnoreCase)) {
-    throw "StorageRoot must sit outside SitePath, or a redeploy will delete the uploaded files."
 }
 
 # --- The file ---------------------------------------------------------------
@@ -103,6 +107,14 @@ $settings = [ordered]@{
         # and two web heads starting together can race each other.
         MigrateOnStartup = $false
         SeedSampleData   = $false
+    }
+
+    Site              = [ordered]@{
+        # A staging host serves real programme data on pages that are
+        # genuinely public. Without this it competes with the live site in
+        # search results. Set false on production, where being found is the
+        # whole point.
+        DiscourageSearchEngines = [bool] $DiscourageSearchEngines
     }
 
     Logging           = [ordered]@{
@@ -149,6 +161,13 @@ foreach ($identity in @('BUILTIN\Administrators', 'IIS AppPool\CbmsAppPool', 'NT
 }
 Set-Acl -Path $target -AclObject $acl
 Write-Host "  [ok]  Restricted the file to Administrators, SYSTEM and the app pool" -ForegroundColor Green
+
+if ($DiscourageSearchEngines) {
+    Write-Host "  [ok]  Search engines told not to index this host" -ForegroundColor Green
+}
+else {
+    Write-Host "  [ok]  Search engines allowed to index this host" -ForegroundColor Yellow
+}
 
 Write-Host "`nDone. Next: .\04-publish.ps1`n" -ForegroundColor Green
 Write-Host "Keep a copy of the signing key somewhere safe. Replacing it signs every user out." -ForegroundColor Yellow

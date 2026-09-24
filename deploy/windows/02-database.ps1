@@ -80,8 +80,9 @@ $password = $null
 if ($loginExists -eq '0') {
     # 24 bytes of cryptographic randomness, rendered without characters that
     # would need escaping in a connection string.
-    $bytes = [byte[]]::new(24)
-    [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+    $bytes = New-Object byte[] 24
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
     $password = [Convert]::ToBase64String($bytes) -replace '[+/=]', 'x'
 
     Invoke-Sql -Query @"

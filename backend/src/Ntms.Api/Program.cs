@@ -164,6 +164,11 @@ else
        No Content-Security-Policy: Angular's runtime needs style-src 'unsafe-inline'
        and getting the rest wrong breaks the portal silently in one browser.
        It deserves its own change, measured against the built bundle. */
+    /* A staging host carries real programme data on pages that are genuinely
+       public, so it must not end up in search results competing with the live
+       site. Off by default — it is the live site that wants to be found. */
+    var discourageCrawlers = builder.Configuration.GetValue("Site:DiscourageSearchEngines", false);
+
     app.Use(async (context, next) =>
     {
         var headers = context.Response.Headers;
@@ -171,6 +176,15 @@ else
         headers["X-Frame-Options"] = "DENY";
         headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
         headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()";
+
+        /* The header as well as robots.txt: a crawler that reached a page
+           through a link somebody shared never asked for robots.txt, and this
+           is the only instruction it will see. */
+        if (discourageCrawlers)
+        {
+            headers["X-Robots-Tag"] = "noindex, nofollow, noarchive";
+        }
+
         await next();
     });
 }
@@ -201,6 +215,12 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHealthChecks("/health");
+
+if (app.Configuration.GetValue("Site:DiscourageSearchEngines", false))
+{
+    app.MapGet("/robots.txt", () => Results.Text(
+        "User-agent: *\nDisallow: /\n", "text/plain"));
+}
 
 if (hostsPortal)
 {
