@@ -115,7 +115,7 @@ in search results and sends applicants to the wrong place.
 When this becomes the live site, turn it off — being found is then the point:
 
 ```powershell
-.-configure.ps1 -DiscourageSearchEngines:$false -ConnectionString '...'
+.\03-configure.ps1 -DiscourageSearchEngines:$false -ConnectionString '...'
 ```
 
 The header goes out as well as `robots.txt` on purpose: a crawler that reached
