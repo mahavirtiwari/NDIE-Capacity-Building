@@ -3,8 +3,10 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
   ALL_PERMISSIONS,
   AdminRole,
+  AppRole,
   PERMISSION_CATALOGUE,
   Permission,
+  ROLE_LABELS,
   RecordStatus,
 } from '../../core/models';
 import { RoleService } from '../../core/services/people.service';
@@ -29,7 +31,27 @@ const COLUMNS: ColumnDef[] = [
   { key: 'actions', header: '', width: '110px', align: 'right' },
 ];
 
-const BASE_ROLES = ['SuperAdmin', 'Admin', 'OperationManager', 'Coordinator'] as const;
+/**
+ * The tiers a role can be attached to, in chain order.
+ *
+ * Ministry and Implementing Agency were added to the hierarchy after this list
+ * was first written and never reached it, so neither could be chosen here or
+ * filtered for — even though both have had seeded roles all along.
+ *
+ * Applicant is deliberately absent: applicants are not portal users and have
+ * no role record.
+ */
+const BASE_ROLES = [
+  'SuperAdmin',
+  'Ministry',
+  'Admin',
+  'OperationManager',
+  'AgencyAdmin',
+  'Coordinator',
+] as const satisfies readonly AppRole[];
+
+/** The reader-facing name for a tier; the stored value stays the enum name. */
+const labelFor = (base: string): string => ROLE_LABELS[base as AppRole] ?? base;
 
 @Component({
   selector: 'app-roles',
@@ -70,7 +92,7 @@ const BASE_ROLES = ['SuperAdmin', 'Admin', 'OperationManager', 'Coordinator'] as
             <select id="roleBase" class="select" (change)="list.setFilter('baseRole', value($event))">
               <option value="">All</option>
               @for (base of baseRoles; track base) {
-                <option [value]="base">{{ base }}</option>
+                <option [value]="base">{{ label(base) }}</option>
               }
             </select>
           </div>
@@ -144,10 +166,16 @@ const BASE_ROLES = ['SuperAdmin', 'Admin', 'OperationManager', 'Coordinator'] as
               <label class="field-label" for="roleBaseSel">Base role <span class="req">*</span></label>
               <select id="roleBaseSel" class="select" formControlName="baseRole">
                 @for (base of baseRoles; track base) {
-                  <option [value]="base">{{ base }}</option>
+                  <option [value]="base">{{ label(base) }}</option>
                 }
               </select>
-              <span class="field-hint">Decides the default landing screens and data scope.</span>
+              <span class="field-hint">
+                @if (isSystemRole()) {
+                  Fixed for a system role — only the description and permissions can change.
+                } @else {
+                  Decides the default landing screens and data scope.
+                }
+              </span>
             </div>
             <div class="field">
               <label class="field-label" for="roleStatus">Status</label>
@@ -236,6 +264,10 @@ export class RolesComponent {
 
   protected readonly columns = COLUMNS;
   protected readonly baseRoles = BASE_ROLES;
+  protected readonly label = labelFor;
+
+  /** A seeded role: its name, code, tier and status are not ours to move. */
+  protected readonly isSystemRole = computed(() => this.editing()?.isSystemRole ?? false);
   protected readonly catalogue = PERMISSION_CATALOGUE;
   protected readonly totalPermissions = ALL_PERMISSIONS.length;
 
@@ -304,6 +336,17 @@ export class RolesComponent {
       description: row?.description ?? '',
       status: row?.status ?? 'Active',
     });
+
+    /* The server keeps a system role's identity fixed and saves only its
+       description and permissions. Leaving these enabled let someone change the
+       base role of, say, Coordinator, press Save, and be told it worked while
+       nothing moved. getRawValue still sends them, so the payload is unchanged. */
+    const fixed = row?.isSystemRole ?? false;
+    for (const control of ['name', 'code', 'baseRole', 'status'] as const) {
+      if (fixed) this.form.controls[control].disable();
+      else this.form.controls[control].enable();
+    }
+
     this.formOpen.set(true);
   }
 
