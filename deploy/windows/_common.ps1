@@ -62,6 +62,11 @@ function Invoke-Native {
         [Parameter(Mandatory)] [string] $Exe,
         [string[]] $Arguments = @(),
         [switch] $Stream,
+        # With -Stream, also write everything to this file. Streamed output
+        # goes to the console and nowhere else, so a long build that fails
+        # leaves nothing behind but scrollback — and scrollback is finite,
+        # truncated when pasted, and gone when the window closes.
+        [string] $LogFile,
         # For a command that is expected to fail sometimes, where the caller
         # wants to read $LASTEXITCODE and decide for itself.
         [switch] $IgnoreExitCode
@@ -71,7 +76,15 @@ function Invoke-Native {
     $ErrorActionPreference = 'Continue'
     try {
         if ($Stream) {
-            & $Exe @Arguments
+            if ($LogFile) {
+                # Tee-Object writes to the console and the file at once, so a
+                # build that takes ten minutes still shows progress while it
+                # runs and still has a record afterwards.
+                & $Exe @Arguments 2>&1 | Tee-Object -FilePath $LogFile
+            }
+            else {
+                & $Exe @Arguments
+            }
             $code = $LASTEXITCODE
             $output = @()
         }
@@ -87,7 +100,8 @@ function Invoke-Native {
     if (-not $IgnoreExitCode -and $code -ne 0) {
         # Output is discarded while things go well, so on a failure it is the
         # only thing that says why.
-        $tail = if ($Stream) { '    (output above)' }
+        $tail = if ($Stream -and $LogFile) { "    Full output: $LogFile" }
+                elseif ($Stream) { '    (output above)' }
                 else { ($output | Select-Object -Last 30 | ForEach-Object { "    $_" }) -join "`n" }
         throw ("{0} failed (exit {1}):`n{2}" -f $What, $code, $tail)
     }

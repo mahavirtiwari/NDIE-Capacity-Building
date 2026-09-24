@@ -351,11 +351,37 @@ foreach ($name in $targets) {
         Add-SigningConfig -GradlePath (Join-Path $androidPath 'app\build.gradle')
         Write-Host "  [ok]  Release signing configured" -ForegroundColor Green
 
+        # Kept because a ten minute build that fails leaves nothing but
+        # scrollback otherwise, and scrollback is finite, truncated when it is
+        # pasted somewhere, and gone when the window closes. Several rounds of
+        # this were spent not knowing what Gradle had actually said.
+        $buildLog = Join-Path $OutputDir ("build-{0}.log" -f $name)
+
         Write-Host "  Gradle assembleRelease — the first run downloads Gradle and the SDK bits..." -ForegroundColor Gray
+        Write-Host ("  Logging to {0}" -f $buildLog) -ForegroundColor Gray
         Push-Location $androidPath
         try {
             Invoke-Native "gradle assembleRelease ($name)" (Join-Path $androidPath 'gradlew.bat') @(
-                'assembleRelease', '--no-daemon') -Stream
+                'assembleRelease', '--no-daemon') -Stream -LogFile $buildLog
+        }
+        catch {
+            # Gradle puts the useful part between "FAILURE:" and "* Try:", and
+            # it has usually scrolled off by the time anyone looks. Repeat it
+            # at the bottom where it will be read.
+            if (Test-Path $buildLog) {
+                $lines = Get-Content $buildLog
+                $from = ($lines | Select-String -Pattern '^FAILURE:' | Select-Object -First 1).LineNumber
+                if ($from) {
+                    $to = ($lines | Select-Object -Skip $from | Select-String -Pattern '^\* Try:' |
+                        Select-Object -First 1).LineNumber
+                    $count = if ($to) { $to } else { 30 }
+                    Write-Host "`n  What Gradle said:`n" -ForegroundColor Red
+                    $lines | Select-Object -Skip ($from - 1) -First $count |
+                        ForEach-Object { Write-Host ("    {0}" -f $_) -ForegroundColor Gray }
+                    Write-Host ''
+                }
+            }
+            throw
         }
         finally { Pop-Location }
 
