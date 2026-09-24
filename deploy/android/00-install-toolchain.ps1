@@ -35,6 +35,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot '..\windows\_common.ps1')
 
 $isAdmin = ([Security.Principal.WindowsPrincipal] `
         [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -111,7 +112,13 @@ try {
     $env:JAVA_HOME = $jdkDir
     [Environment]::SetEnvironmentVariable('JAVA_HOME', $jdkDir, 'Machine')
 
-    $reported = & (Join-Path $jdkDir 'bin\java.exe') -version 2>&1 | Select-Object -First 1
+    # Through Invoke-Native because java writes its version banner to stderr,
+    # and PowerShell turns that into an error record that ends the script -
+    # which it did, after unpacking the JDK and before setting ANDROID_HOME,
+    # leaving a half-installed toolchain and a message about java.exe.
+    $reported = Invoke-Native 'java -version' (Join-Path $jdkDir 'bin\java.exe') @('-version') |
+        Select-Object -First 1
+
     if ($reported -notmatch '"17\.') {
         throw "The JDK at $jdkDir reports $reported, not 17. React Native 0.86 needs 17."
     }
@@ -146,15 +153,17 @@ try {
     # they follow the app rather than a number pinned here. It will not accept
     # the licences on your behalf, and an unattended build stops dead on a
     # prompt nobody is there to answer.
+    # Not through Invoke-Native: this one needs input on stdin, which the
+    # helper does not carry. Same reasoning though - sdkmanager writes warnings
+    # to stderr, so the preference has to come down for the call.
     Write-Host "  Accepting the SDK licences..." -ForegroundColor Gray
-    $previous = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
         # One 'y' per licence, and there are more of them in some releases than
         # in others.
         (1..40 | ForEach-Object { 'y' }) | & $sdkmanager --licenses 2>&1 | Out-Null
     }
-    finally { $ErrorActionPreference = $previous }
+    finally { $ErrorActionPreference = 'Stop' }
 
     if (-not (Test-Path (Join-Path $sdkDir 'licenses\android-sdk-license'))) {
         throw "The licences were not accepted. Run it by hand and answer y: `"$sdkmanager`" --licenses"
@@ -165,9 +174,7 @@ try {
     # phone. Gradle never asks for it, so it would otherwise be missing at
     # exactly the moment it is wanted.
     Write-Host "  Installing platform-tools (adb)..." -ForegroundColor Gray
-    $ErrorActionPreference = 'Continue'
-    try { & $sdkmanager 'platform-tools' 2>&1 | Out-Null }
-    finally { $ErrorActionPreference = $previous }
+    Invoke-Native 'sdkmanager platform-tools' $sdkmanager @('platform-tools') -IgnoreExitCode | Out-Null
 
     if (Test-Path (Join-Path $sdkDir 'platform-tools\adb.exe')) {
         Write-Host "  [ok]  adb installed" -ForegroundColor Green
