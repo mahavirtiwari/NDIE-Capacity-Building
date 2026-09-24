@@ -1,0 +1,9 @@
+# PowerShell on Windows Server needs CRLF and a UTF-8 BOM. Without the BOM,
+# Windows PowerShell 5.1 decodes the file as ANSI, which turns any non-ASCII
+# character in a comment into bytes the parser treats as string delimiters —
+# the script then fails to parse for reasons that are invisible on screen.
+*.ps1 text eol=crlf working-tree-encoding=UTF-8
+
+# Shell scripts and SQL run on whatever the server is; leave them alone.
+*.sh  text eol=lf
+*.sql text

@@ -157,6 +157,39 @@ else
 {
     app.UseHsts();
     app.UseHttpsRedirection();
+
+    /* Set here rather than in web.config, which `dotnet publish` regenerates on
+       every deployment, and which would not travel if this ever moved off IIS.
+
+       No Content-Security-Policy: Angular's runtime needs style-src 'unsafe-inline'
+       and getting the rest wrong breaks the portal silently in one browser.
+       It deserves its own change, measured against the built bundle. */
+    app.Use(async (context, next) =>
+    {
+        var headers = context.Response.Headers;
+        headers["X-Content-Type-Options"] = "nosniff";
+        headers["X-Frame-Options"] = "DENY";
+        headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+        headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()";
+        await next();
+    });
+}
+
+/* The built portal is published into wwwroot and served from the same origin
+   as the API, so a deployment is one site with one certificate and there is no
+   CORS between the two halves. It also keeps the API's own routes where they
+   are: mounted as an IIS sub-application under /api they would have answered on
+   /api/api/... instead.
+
+   Guarded on index.html actually being there — in development the portal runs
+   on its own dev server and wwwroot is empty. */
+var webRoot = app.Environment.WebRootPath;
+var hostsPortal = !string.IsNullOrEmpty(webRoot) && File.Exists(Path.Combine(webRoot, "index.html"));
+
+if (hostsPortal)
+{
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
 }
 
 app.UseCors(CorsPolicy);
@@ -168,6 +201,20 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHealthChecks("/health");
+
+if (hostsPortal)
+{
+    /* An unmatched /api path is a mistyped endpoint and must stay a 404.
+       Without this it would fall through to the SPA and answer 200 with a page
+       of HTML, which is harder for a client to diagnose than an honest 404. */
+    app.MapFallback("/api/{**rest}", () => Results.NotFound());
+
+    /* Everything else is an Angular route — /programmes, /p/{code}, the portal
+       itself — so the shell is returned and the browser router takes over.
+       MapFallbackToFile ignores paths that look like files, so a missing asset
+       still 404s rather than returning the shell. */
+    app.MapFallbackToFile("index.html");
+}
 
 /* --------------------------------------------------------------- database */
 
