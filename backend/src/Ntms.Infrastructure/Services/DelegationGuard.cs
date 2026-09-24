@@ -41,9 +41,38 @@ public class DelegationGuard(ICurrentUser user, NtmsDbContext db)
     }
 
     /// <summary>
-    /// Refuses an edit or a status change on an account that is not strictly
-    /// below the caller. Senior tiers keep this reach even where they cannot
-    /// create, which is how oversight works without bypassing the chain.
+    /// Refuses a change to an account of a tier this caller is not responsible
+    /// for creating.
+    ///
+    /// Editing an account and creating one are the same authority: whoever may
+    /// set somebody's details and allocation in the first place is the tier
+    /// that answers for them. A Super Admin may therefore edit an Admin or a
+    /// Ministry account, but not an Operation Manager — that is the Admin's
+    /// responsibility, and reaching past them would leave the Admin accountable
+    /// for an allocation somebody else changed.
+    ///
+    /// Oversight of the tiers further down is kept, but as
+    /// <see cref="EnsureOutranks"/> allows: look, enable, disable.
+    /// </summary>
+    public void EnsureCanEdit(BaseRole target, string action)
+    {
+        if (RoleHierarchy.CanCreate(Tier, target)) return;
+
+        var allowed = RoleHierarchy.CreatableBy(Tier);
+        var list = allowed.Count == 0
+            ? "no accounts"
+            : string.Join(" and ", allowed.Select(RoleHierarchy.DisplayName)) + " accounts";
+
+        throw new AppException(
+            $"A {RoleHierarchy.DisplayName(Tier)} may {action} {list}. " +
+            $"A {RoleHierarchy.DisplayName(target)} account can be viewed, enabled or " +
+            "disabled from here, but is edited by the tier that created it.", 403);
+    }
+
+    /// <summary>
+    /// Refuses a status change on an account that is not strictly below the
+    /// caller. Senior tiers keep this reach even where they cannot create,
+    /// which is how oversight works without bypassing the chain.
     /// </summary>
     public void EnsureOutranks(BaseRole target, string action = "change")
     {

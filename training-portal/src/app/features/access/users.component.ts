@@ -42,6 +42,21 @@ const COLUMNS: ColumnDef[] = [
   { key: 'actions', header: '', width: '140px', align: 'right' },
 ];
 
+/**
+ * Who each tier may create — and therefore edit.
+ *
+ * Mirrors RoleHierarchy on the server, which is the authority; this copy only
+ * decides what to put on screen, so a mismatch shows a button that the API then
+ * refuses rather than letting anything through. An Operation Manager was
+ * missing here, which left them with no assignable role at all.
+ */
+const CREATABLE_BY: Record<string, string[]> = {
+  SuperAdmin: ['Admin', 'Ministry'],
+  Admin: ['OperationManager'],
+  OperationManager: ['AgencyAdmin'],
+  AgencyAdmin: ['Coordinator'],
+};
+
 @Component({
   selector: 'app-users',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -176,12 +191,16 @@ const COLUMNS: ColumnDef[] = [
         </ng-template>
         <ng-template appCell="actions" let-row>
           <div class="btn-row btn-row--end">
-            <button type="button" class="btn btn--icon" title="Reset password" (click)="resetPassword($any(row))">
-              <app-icon name="lock" [size]="15" />
-            </button>
-            <button type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
-              <app-icon name="edit" [size]="15" />
-            </button>
+            @if (canEdit($any(row))) {
+              <button type="button" class="btn btn--icon" title="Reset password" (click)="resetPassword($any(row))">
+                <app-icon name="lock" [size]="15" />
+              </button>
+              <button type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
+                <app-icon name="edit" [size]="15" />
+              </button>
+            }
+            <!-- Enable and disable stay available to every tier above, which is
+                 the oversight senior tiers keep without editing. -->
             <app-status-toggle [status]="$any(row).status" (toggled)="setStatus($any(row), $event)" />
           </div>
         </ng-template>
@@ -427,14 +446,22 @@ export class UsersComponent {
       return this.roles().filter((r) => r.baseRole === 'Coordinator');
     }
 
-    const allowed: Record<string, string[]> = {
-      SuperAdmin: ['Admin', 'Ministry'],
-      Admin: ['OperationManager'],
-      AgencyAdmin: ['Coordinator'],
-    };
-    const creatable = allowed[this.myTier() ?? ''] ?? [];
+    const creatable = CREATABLE_BY[this.myTier() ?? ''] ?? [];
     return this.roles().filter((r) => creatable.includes(r.baseRole));
   });
+
+  /**
+   * Whether this account is one the signed-in tier may edit.
+   *
+   * The same rule as creating: whoever may set an account up is the tier that
+   * answers for it. Everything further down the chain stays visible and can be
+   * enabled or disabled, but is edited by the tier that created it — so the
+   * Edit and Reset password buttons are withheld rather than offered and then
+   * refused by the server.
+   */
+  protected canEdit(row: PortalUser): boolean {
+    return (CREATABLE_BY[this.myTier() ?? ''] ?? []).includes(row.baseRole);
+  }
 
   protected readonly list = new ListState<PortalUser>((request) => this.service.list(request), {
     sortBy: 'fullName',

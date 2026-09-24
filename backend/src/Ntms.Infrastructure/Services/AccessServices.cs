@@ -240,9 +240,11 @@ public class UserService(
         var role = await db.Roles.FirstOrDefaultAsync(r => r.Id == dto.RoleId, ct)
                    ?? throw AppException.NotFound("Role");
 
-        /* Both the tier it is and the tier it would become must be beneath the
-           caller, or an edit becomes a way to promote someone past yourself. */
-        delegation.EnsureOutranks(entity.BaseRole, "edit");
+        /* Editable only by the tier that creates this kind of account, and only
+           into another kind that same tier could have created — otherwise an
+           edit becomes either a way to reach past the chain or a way to promote
+           someone past yourself. */
+        delegation.EnsureCanEdit(entity.BaseRole, "edit");
         if (role.BaseRole != entity.BaseRole) delegation.EnsureCanCreate(role.BaseRole);
 
         var scope = await ResolveScopeAsync(role.BaseRole, dto, ct);
@@ -282,7 +284,9 @@ public class UserService(
     {
         var entity = await db.Users.FirstOrDefaultAsync(u => u.Id == id, ct)
                      ?? throw AppException.NotFound("User");
-        delegation.EnsureOutranks(entity.BaseRole, "reset the password of");
+        /* A password reset hands over the account, so it sits with the tier
+           that owns it rather than with everyone above. */
+        delegation.EnsureCanEdit(entity.BaseRole, "reset the password of");
 
         var temporaryPassword = passwords.GenerateTemporaryPassword();
         entity.PasswordHash = passwords.Hash(temporaryPassword);
