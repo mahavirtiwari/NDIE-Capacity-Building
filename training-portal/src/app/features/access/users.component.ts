@@ -1,0 +1,676 @@
+import { DatePipe } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+  untracked,
+} from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AdminRole, LookupItem, PortalUser, RecordStatus } from '../../core/models';
+import { LookupService } from '../../core/services/masters.service';
+import { AuthService } from '../../core/services/auth.service';
+import { RoleService, UserService } from '../../core/services/people.service';
+import { ToastService } from '../../core/services/toast.service';
+import { ConfirmService } from '../../shared/components/confirm.service';
+import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
+import { IconComponent } from '../../shared/components/icon.component';
+import { ModalComponent } from '../../shared/components/modal.component';
+import { PageHeaderComponent } from '../../shared/components/page-header.component';
+import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
+import { StatusToggleComponent } from '../../shared/components/status-toggle.component';
+import { ScopePickerComponent } from '../../shared/components/scope-picker.component';
+import { describeError, requiredFormat } from '../../core/validation/formats';
+import { ListState, searchTerm } from '../../shared/list-state';
+
+/** The same screen serves "Portal users" and the coordinator-only view. */
+export type UserScope = 'all' | 'coordinators';
+
+const COLUMNS: ColumnDef[] = [
+  { key: 'userCode', header: 'User ID', sortable: true, width: '120px' },
+  { key: 'fullName', header: 'Name', sortable: true, variant: 'primary' },
+  { key: 'roleName', header: 'Role', width: '170px' },
+  { key: 'contact', header: 'Contact', width: '230px' },
+  { key: 'scope', header: 'Scope', width: '230px' },
+  { key: 'agencyName', header: 'Agency', variant: 'muted' },
+  { key: 'lastLoginOn', header: 'Last login', width: '150px' },
+  { key: 'status', header: 'Status', width: '110px' },
+  { key: 'actions', header: '', width: '140px', align: 'right' },
+];
+
+@Component({
+  selector: 'app-users',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [
+    ReactiveFormsModule,
+    DatePipe,
+    PageHeaderComponent,
+    DataTableComponent,
+    CellTemplateDirective,
+    StatusBadgeComponent,
+    StatusToggleComponent,
+    ScopePickerComponent,
+    ModalComponent,
+    IconComponent,
+  ],
+  template: `
+    <app-page-header
+      [title]="isCoordinatorView() ? 'Coordinators' : 'Portal users'"
+      [subtitle]="
+        isCoordinatorView()
+          ? 'Coordinators capture the programmes conducted on the ground, virtually or physically.'
+          : 'Admins, operation managers and coordinators. Each user gets a system generated user ID.'
+      "
+      [icon]="isCoordinatorView() ? 'user-check' : 'users'"
+      [breadcrumbs]="[
+        { label: isCoordinatorView() ? 'Operations' : 'Administration' },
+        { label: isCoordinatorView() ? 'Coordinators' : 'Portal users' }
+      ]"
+    >
+      <button type="button" class="btn btn--primary" (click)="openForm()">
+        <app-icon name="plus" [size]="15" />
+        {{ isCoordinatorView() ? 'New coordinator' : 'New user' }}
+      </button>
+    </app-page-header>
+
+    <section class="card">
+      <div class="card__body card__body--tight">
+        <div class="filter-bar filter-bar--two-rows">
+          <div class="field">
+            <label class="field-label" for="usrSearch">Search</label>
+            <div class="input-group">
+              <span class="input-icon"><app-icon name="search" [size]="15" /></span>
+              <input id="usrSearch" class="input" placeholder="Name, user ID or email" (input)="list.setSearch(term($event))" />
+            </div>
+          </div>
+          @if (!isCoordinatorView()) {
+            <div class="field">
+              <label class="field-label" for="usrRole">Role</label>
+              <select id="usrRole" class="select" (change)="list.setFilter('roleId', value($event))">
+                <option value="">All roles</option>
+                @for (role of roles(); track role.id) {
+                  <option [value]="role.id">{{ role.name }}</option>
+                }
+              </select>
+            </div>
+          }
+          <div class="field">
+            <label class="field-label" for="usrAgency">Agency</label>
+            <select id="usrAgency" class="select" (change)="list.setFilter('agencyId', value($event))">
+              <option value="">All agencies</option>
+              @for (agency of agencies(); track agency.id) {
+                <option [value]="agency.id">{{ agency.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="usrState">State</label>
+            <select id="usrState" class="select" (change)="list.setFilter('state', value($event))">
+              <option value="">All states</option>
+              @for (state of states(); track state.id) {
+                <option [value]="state.name">{{ state.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="usrStatus">Status</label>
+            <select id="usrStatus" class="select" (change)="list.setFilter('status', value($event))">
+              <option value="">All</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+          <div class="filter-bar__actions">
+            <button type="button" class="btn btn--ghost" (click)="reset()">
+              <app-icon name="refresh" [size]="15" /> Reset
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <app-data-table
+        [columns]="columns"
+        [rows]="list.rows()"
+        [total]="list.total()"
+        [page]="list.page()"
+        [pageSize]="list.pageSize()"
+        [loading]="list.loading()"
+        [sortBy]="list.sortBy()"
+        [sortDir]="list.sortDir()"
+        emptyTitle="No users found"
+        emptyIcon="users"
+        (pageChange)="list.goToPage($event)"
+        (pageSizeChange)="list.setPageSize($event)"
+        (sortChange)="list.setSort($event)"
+      >
+        <ng-template appCell="fullName" let-row>
+          <div class="row row-sm">
+            <span class="avatar avatar--sm">{{ initials($any(row).fullName) }}</span>
+            <span class="stack stack-xs">
+              <strong>{{ $any(row).fullName }}</strong>
+              <span class="cell-muted">{{ $any(row).designation }}</span>
+            </span>
+          </div>
+        </ng-template>
+        <ng-template appCell="contact" let-row>
+          <div class="stack stack-xs">
+            <span>{{ $any(row).email }}</span>
+            <span class="cell-muted">{{ $any(row).mobile }}</span>
+          </div>
+        </ng-template>
+        <ng-template appCell="scope" let-row>
+          <div class="row row-sm row-wrap">
+            <span class="chip">{{ $any(row).categoryIds.length }} categories</span>
+            <span class="chip">{{ $any(row).programTypeIds.length }} program types</span>
+          </div>
+        </ng-template>
+        <ng-template appCell="lastLoginOn" let-row>
+          <span class="cell-muted">{{ $any(row).lastLoginOn | date: 'dd MMM, HH:mm' }}</span>
+        </ng-template>
+        <ng-template appCell="status" let-row>
+          <app-status-badge [value]="$any(row).status" />
+        </ng-template>
+        <ng-template appCell="actions" let-row>
+          <div class="btn-row btn-row--end">
+            <button type="button" class="btn btn--icon" title="Reset password" (click)="resetPassword($any(row))">
+              <app-icon name="lock" [size]="15" />
+            </button>
+            <button type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
+              <app-icon name="edit" [size]="15" />
+            </button>
+            <app-status-toggle [status]="$any(row).status" (toggled)="setStatus($any(row), $event)" />
+          </div>
+        </ng-template>
+      </app-data-table>
+    </section>
+
+    @if (formOpen()) {
+      <app-modal
+        [title]="editing() ? 'Edit user' : isCoordinatorView() ? 'New coordinator' : 'New portal user'"
+        subtitle="The user ID and first-time password are generated by the system."
+        size="lg"
+        (closed)="closeForm()"
+      >
+        <form [formGroup]="form" id="user-form" (ngSubmit)="save()" class="stack stack-md">
+          @if (editing(); as current) {
+            <div class="alert alert--info">
+              <app-icon name="info" [size]="16" />
+              <span>
+                User ID <strong>{{ current.userCode }}</strong> is system generated and cannot be
+                changed. Email is profile data and may be updated freely.
+              </span>
+            </div>
+          }
+
+          <div class="form-grid">
+            <div class="field">
+              <label class="field-label" for="uName">Full name <span class="req">*</span></label>
+              <input id="uName" class="input" formControlName="fullName" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="uDesignation">Designation</label>
+              <input id="uDesignation" class="input" formControlName="designation" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="uEmail">Email <span class="req">*</span></label>
+              <input id="uEmail" type="email" class="input" formControlName="email"
+                placeholder="Enter email address"
+                [class.is-invalid]="invalid('email')" />
+              @if (invalid('email')) { <span class="field-error">{{ errorFor('email', 'Email') }}</span> }
+            </div>
+            <div class="field">
+              <label class="field-label" for="uMobile">Mobile <span class="req">*</span></label>
+              <input id="uMobile" class="input" formControlName="mobile" maxlength="10" inputmode="numeric"
+                placeholder="Enter mobile number"
+                [class.is-invalid]="invalid('mobile')" />
+              @if (invalid('mobile')) { <span class="field-error">{{ errorFor('mobile', 'Mobile') }}</span> }
+            </div>
+            <div class="field">
+              <label class="field-label" for="uRole">Role <span class="req">*</span></label>
+              <select
+                id="uRole"
+                class="select"
+                formControlName="roleId"
+                (change)="onRoleChanged()"
+              >
+                <option [ngValue]="null">Select role</option>
+                @for (role of assignableRoles(); track role.id) {
+                  <option [ngValue]="role.id">{{ role.name }}</option>
+                }
+              </select>
+              @if (assignableRoles().length === 0) {
+                <span class="field-hint">
+                  Your role does not create portal accounts directly.
+                </span>
+              }
+            </div>
+            <div class="field">
+              <label class="field-label" for="uAgency">Implementing agency</label>
+              <select id="uAgency" class="select" formControlName="agencyId">
+                <option [ngValue]="null">Not mapped</option>
+                @for (agency of agencies(); track agency.id) {
+                  <option [ngValue]="agency.id">{{ agency.name }}</option>
+                }
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="uManager">Reports to</label>
+              <select id="uManager" class="select" formControlName="reportsToUserId">
+                <option [ngValue]="null">Not mapped</option>
+                @for (manager of managers(); track manager.id) {
+                  <option [ngValue]="manager.id">{{ manager.name }}</option>
+                }
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="uState">State</label>
+              <select id="uState" class="select" formControlName="stateCode" (change)="onStateChange()">
+                <option [ngValue]="null">Select</option>
+                @for (state of states(); track state.id) {
+                  <option [ngValue]="state.id">{{ state.name }}</option>
+                }
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="uDistrict">District</label>
+              <select id="uDistrict" class="select" formControlName="districtCode">
+                <option [ngValue]="null">Select</option>
+                @for (district of districts(); track district.id) {
+                  <option [ngValue]="district.id">{{ district.name }}</option>
+                }
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="uCity">City</label>
+              <input id="uCity" class="input" formControlName="city" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="uStatus">Status</label>
+              <select id="uStatus" class="select" formControlName="status">
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+          <strong class="text-md">Allocation</strong>
+          <p class="text-sm text-muted">
+            {{ allocationHint() }}
+          </p>
+
+          <div class="stack stack-sm">
+            @if (axes().category) {
+              <app-scope-picker
+                label="Categories"
+                [options]="categories()"
+                [(selected)]="categoryIds"
+              />
+            }
+            @if (axes().subCategory) {
+              <app-scope-picker
+                label="Sub-categories"
+                [options]="subCategories()"
+                [(selected)]="subCategoryIds"
+              />
+            }
+            @if (axes().programType) {
+              <app-scope-picker
+                label="Program types"
+                [options]="programTypes()"
+                [(selected)]="programTypeIds"
+              />
+            }
+            @if (axes().state) {
+              <app-scope-picker
+                label="States"
+                [options]="states()"
+                [(selected)]="stateCodes"
+              />
+            }
+            @if (axes().district) {
+              <app-scope-picker
+                label="Districts"
+                [options]="districtOptions()"
+                [(selected)]="districtCodes"
+                emptyMessage="Select at least one state first."
+              />
+            }
+            @if (!anyAxis()) {
+              <p class="text-sm text-muted">
+                This role sees the whole programme, so there is nothing to allocate.
+              </p>
+            }
+          </div>
+        </form>
+        <div footer>
+          <button type="button" class="btn btn--secondary" (click)="closeForm()">Cancel</button>
+          <button type="submit" form="user-form" class="btn btn--primary" [disabled]="saving()">
+            @if (saving()) { <span class="spinner"></span> }
+            Save user
+          </button>
+        </div>
+      </app-modal>
+    }
+
+    @if (generated(); as credentials) {
+      <app-modal title="Credentials generated" size="sm" (closed)="generated.set(null)">
+        <div class="stack stack-sm">
+          <p class="text-sm">Share these with the user over an out-of-band channel.</p>
+          <div class="dl">
+            <div>
+              <div class="dl__term">User ID</div>
+              <div class="dl__value"><code>{{ credentials.userCode }}</code></div>
+            </div>
+            <div>
+              <div class="dl__term">Temporary password</div>
+              <div class="dl__value"><code>{{ credentials.password }}</code></div>
+            </div>
+          </div>
+          <div class="alert alert--warning">
+            <app-icon name="alert" [size]="16" />
+            <span>The user must change this password at first sign-in.</span>
+          </div>
+        </div>
+        <div footer>
+          <button type="button" class="btn btn--primary" (click)="generated.set(null)">Done</button>
+        </div>
+      </app-modal>
+    }
+  `,
+})
+export class UsersComponent {
+  private readonly service = inject(UserService);
+  private readonly roleService = inject(RoleService);
+  private readonly lookups = inject(LookupService);
+  private readonly toast = inject(ToastService);
+  private readonly confirm = inject(ConfirmService);
+  private readonly fb = inject(FormBuilder);
+  private readonly auth = inject(AuthService);
+
+  /** Bound from route data. */
+  readonly scope = input<UserScope>('all');
+
+  protected readonly columns = COLUMNS;
+  protected readonly isCoordinatorView = computed(() => this.scope() === 'coordinators');
+
+  protected readonly roles = toSignal(this.roleService.all(), { initialValue: [] as AdminRole[] });
+  protected readonly agencies = toSignal(this.lookups.agencies(), { initialValue: [] as LookupItem[] });
+  protected readonly states = toSignal(this.lookups.states(), { initialValue: [] as LookupItem[] });
+  protected readonly districts = signal<LookupItem[]>([]);
+  protected readonly categories = toSignal(this.lookups.categories(), { initialValue: [] as LookupItem[] });
+  protected readonly subCategories = toSignal(this.lookups.subCategories(null), { initialValue: [] as LookupItem[] });
+  protected readonly programTypes = toSignal(this.lookups.programTypes(null), { initialValue: [] as LookupItem[] });
+  /* The whole district master; the picker narrows it to the chosen states. */
+  protected readonly allDistricts = toSignal(this.lookups.districts(null), {
+    initialValue: [] as LookupItem[],
+  });
+  protected readonly managers = toSignal(this.lookups.operationManagers(), {
+    initialValue: [] as LookupItem[],
+  });
+
+  /** The signed-in account's own tier, which decides what it may create. */
+  private readonly myTier = computed<string | null>(() => this.auth.role());
+
+  /**
+   * Only the tier immediately below the signed-in account. Mirrors the
+   * server's delegation chain so the dropdown cannot offer something the API
+   * will refuse — a Super Admin appoints Admins and the Ministry, an Admin
+   * appoints Operation Managers, an agency adds Coordinators.
+   */
+  protected readonly assignableRoles = computed(() => {
+    if (this.isCoordinatorView()) {
+      return this.roles().filter((r) => r.baseRole === 'Coordinator');
+    }
+
+    const allowed: Record<string, string[]> = {
+      SuperAdmin: ['Admin', 'Ministry'],
+      Admin: ['OperationManager'],
+      AgencyAdmin: ['Coordinator'],
+    };
+    const creatable = allowed[this.myTier() ?? ''] ?? [];
+    return this.roles().filter((r) => creatable.includes(r.baseRole));
+  });
+
+  protected readonly list = new ListState<PortalUser>((request) => this.service.list(request), {
+    sortBy: 'fullName',
+  });
+
+  protected readonly formOpen = signal(false);
+  protected readonly saving = signal(false);
+  protected readonly editing = signal<PortalUser | null>(null);
+  protected readonly generated = signal<{ userCode: string; password: string } | null>(null);
+  /* One signal per axis, bound straight into the pickers. */
+  protected readonly categoryIds = signal<number[]>([]);
+  protected readonly subCategoryIds = signal<number[]>([]);
+  protected readonly programTypeIds = signal<number[]>([]);
+  protected readonly stateCodes = signal<number[]>([]);
+  protected readonly districtCodes = signal<number[]>([]);
+
+  /** The tier currently chosen in the role dropdown. */
+  private readonly chosenBaseRole = computed(() => {
+    const roleId = this.roleIdSignal();
+    return this.roles().find((r) => r.id === roleId)?.baseRole ?? null;
+  });
+
+  /**
+   * Which axes the chosen tier is allocated on. Mirrors RoleHierarchy on the
+   * server; the server is still the authority, this only decides what to show.
+   */
+  protected readonly axes = computed(() => {
+    switch (this.chosenBaseRole()) {
+      case 'Admin':
+        return { category: true, subCategory: true, programType: false, state: true, district: false };
+      case 'OperationManager':
+        return { category: true, subCategory: true, programType: true, state: true, district: false };
+      case 'AgencyAdmin':
+        return { category: false, subCategory: false, programType: true, state: true, district: false };
+      case 'Coordinator':
+        return { category: false, subCategory: false, programType: true, state: true, district: true };
+      default:
+        return { category: false, subCategory: false, programType: false, state: false, district: false };
+    }
+  });
+
+  protected readonly anyAxis = computed(() => Object.values(this.axes()).some(Boolean));
+
+  protected readonly allocationHint = computed(() =>
+    this.anyAxis()
+      ? 'This account sees only what is selected here. Nothing selected means no access — ' +
+        'use Select all to grant everything you hold.'
+      : 'Nothing to allocate for this role.',
+  );
+
+  /** Districts offered are limited to the states chosen above them. */
+  protected readonly districtOptions = computed(() => {
+    const chosen = this.stateCodes();
+    return this.allDistricts().filter((d) => chosen.includes(Number(d.parentId)));
+  });
+
+  /** The role control as a signal, so the visible axes follow the selection. */
+  private readonly roleIdSignal = signal<number | null>(null);
+
+  protected readonly form = this.fb.group({
+    fullName: ['', Validators.required],
+    designation: [''],
+    email: ['', requiredFormat('email')],
+    mobile: ['', requiredFormat('mobile')],
+    roleId: [null as number | null, Validators.required],
+    agencyId: [null as number | null],
+    reportsToUserId: [null as number | null],
+    stateCode: [null as number | null],
+    districtCode: [null as number | null],
+    city: [''],
+    status: ['Active'],
+  });
+
+  protected term = searchTerm;
+  protected value = (event: Event) => (event.target as HTMLSelectElement).value;
+
+  protected invalid(control: string): boolean {
+    const field = this.form.get(control);
+    return !!field && field.invalid && (field.dirty || field.touched);
+  }
+
+  protected errorFor(control: string, label: string): string {
+    return describeError(this.form.get(control)?.errors ?? null, label);
+  }
+
+  constructor() {
+    effect(() => {
+      /* Re-scope the query whenever the route switches between the two views.
+         The view is the only dependency: setFilter reads the current filters
+         on its way to writing them, and tracking that read would make this
+         effect retrigger on its own write. */
+      const coordinatorsOnly = this.isCoordinatorView();
+      untracked(() => this.list.setFilter('baseRole', coordinatorsOnly ? 'Coordinator' : null));
+    });
+  }
+
+  /** Districts follow the LGD state that was picked. */
+  protected onStateChange(): void {
+    const stateCode = this.form.value.stateCode ?? null;
+    this.form.patchValue({ districtCode: null }, { emitEvent: false });
+    this.lookups.districts(stateCode).subscribe((items) => this.districts.set(items));
+  }
+
+  protected initials(name: string): string {
+    return name
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() ?? '')
+      .join('');
+  }
+
+  protected reset(): void {
+    this.list.clearFilters();
+    this.list.setFilter('baseRole', this.isCoordinatorView() ? 'Coordinator' : null);
+  }
+
+  protected openForm(row?: PortalUser): void {
+    this.editing.set(row ?? null);
+    this.categoryIds.set(row?.categoryIds ?? []);
+    this.subCategoryIds.set(row?.subCategoryIds ?? []);
+    this.programTypeIds.set(row?.programTypeIds ?? []);
+    this.stateCodes.set(row?.stateCodes ?? []);
+    this.districtCodes.set(row?.districtCodes ?? []);
+    this.roleIdSignal.set(row?.roleId ?? null);
+    this.form.reset({
+      fullName: row?.fullName ?? '',
+      designation: row?.designation ?? '',
+      email: row?.email ?? '',
+      mobile: row?.mobile ?? '',
+      roleId: row?.roleId ?? (this.isCoordinatorView() ? (this.assignableRoles()[0]?.id ?? null) : null),
+      agencyId: row?.agencyId ?? null,
+      reportsToUserId: row?.reportsToUserId ?? null,
+      stateCode: row?.stateCode ?? null,
+      districtCode: row?.districtCode ?? null,
+      city: row?.city ?? '',
+      status: row?.status ?? 'Active',
+    });
+    this.lookups.districts(row?.stateCode ?? null).subscribe((items) => this.districts.set(items));
+    this.formOpen.set(true);
+  }
+
+  /**
+   * The allocation axes follow the tier, so a change of role clears selections
+   * that no longer apply — leaving them behind would submit an allocation the
+   * form is no longer showing.
+   */
+  protected onRoleChanged(): void {
+    this.roleIdSignal.set(this.form.controls.roleId.value ?? null);
+    const axes = this.axes();
+    if (!axes.category) this.categoryIds.set([]);
+    if (!axes.subCategory) this.subCategoryIds.set([]);
+    if (!axes.programType) this.programTypeIds.set([]);
+    if (!axes.state) this.stateCodes.set([]);
+    if (!axes.district) this.districtCodes.set([]);
+  }
+
+  protected closeForm(): void {
+    this.formOpen.set(false);
+    this.editing.set(null);
+  }
+
+  protected save(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+    this.saving.set(true);
+    const raw = this.form.getRawValue();
+    const role = this.roles().find((r) => r.id === raw.roleId);
+    const payload = {
+      ...raw,
+      categoryIds: this.categoryIds(),
+      subCategoryIds: this.subCategoryIds(),
+      programTypeIds: this.programTypeIds(),
+      stateCodes: this.stateCodes(),
+      districtCodes: this.districtCodes(),
+      baseRole: role?.baseRole ?? 'Coordinator',
+    };
+    const current = this.editing();
+
+    if (current) {
+      this.service.update(current.id, payload).subscribe({
+        next: (saved) => {
+          this.saving.set(false);
+          this.closeForm();
+          this.list.reload();
+          this.toast.success('User updated', saved.fullName);
+        },
+        error: () => this.saving.set(false),
+      });
+      return;
+    }
+
+    this.service.createUser(payload).subscribe({
+      next: (credentials) => {
+        this.saving.set(false);
+        this.closeForm();
+        this.list.reload();
+        /* Both values come from the server — the password is generated there
+           and shown once, so it must not be invented here. */
+        this.generated.set({
+          userCode: credentials.userCode,
+          password: credentials.temporaryPassword,
+        });
+      },
+      error: () => this.saving.set(false),
+    });
+  }
+
+  protected async resetPassword(row: PortalUser): Promise<void> {
+    const confirmed = await this.confirm.ask({
+      title: 'Reset password?',
+      message: `A new temporary password will be generated for ${row.fullName} (${row.userCode}).`,
+      confirmLabel: 'Reset password',
+    });
+    if (!confirmed) return;
+    this.service.resetPassword(row.id).subscribe((result) => {
+      this.generated.set({ userCode: row.userCode, password: result.temporaryPassword });
+    });
+  }
+
+  protected async setStatus(row: PortalUser, status: RecordStatus): Promise<void> {
+    const verb = status === 'Active' ? 'Enable' : 'Disable';
+    const confirmed = await this.confirm.ask({
+      title: `${verb} user?`,
+      message:
+        status === 'Active'
+          ? `${row.fullName} can sign in again.`
+          : `${row.fullName} will be blocked from signing in. The account and its history are retained.`,
+      confirmLabel: verb,
+      tone: status === 'Active' ? 'primary' : 'danger',
+    });
+    if (!confirmed) return;
+    this.service.setStatus(row.id, status).subscribe(() => {
+      this.toast.success(`User ${status === 'Active' ? 'enabled' : 'disabled'}`, row.fullName);
+      this.list.reload();
+    });
+  }
+}

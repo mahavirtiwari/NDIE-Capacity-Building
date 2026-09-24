@@ -1,0 +1,236 @@
+using Microsoft.AspNetCore.Mvc;
+using Ntms.Api.Security;
+using Ntms.Application.Common;
+using Ntms.Application.Contracts;
+using Ntms.Infrastructure.Services;
+
+namespace Ntms.Api.Controllers;
+
+[Route("api/curricula")]
+public class CurriculaController(CurriculumService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.CurriculumView)]
+    public async Task<ActionResult<ApiEnvelope<PagedResult<CurriculumDto>>>> List(
+        [FromQuery] PagedRequest request, [FromQuery] int? categoryId,
+        [FromQuery] int? subCategoryId,
+        [FromQuery] int? programTypeId, [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.ListAsync(
+            request, categoryId, subCategoryId, programTypeId, status, ct));
+
+    [HttpGet("all")]
+    [HasPermission(Permissions.CurriculumView)]
+    public async Task<ActionResult<ApiEnvelope<List<CurriculumDto>>>> All(
+        [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.AllAsync(status, ct));
+
+    [HttpGet("{id:int}")]
+    [HasPermission(Permissions.CurriculumView)]
+    public async Task<ActionResult<ApiEnvelope<CurriculumDto>>> Get(int id, CancellationToken ct) =>
+        Envelope(await service.GetAsync(id, ct));
+
+    [HttpPost]
+    [HasPermission(Permissions.CurriculumManage)]
+    public async Task<ActionResult<ApiEnvelope<CurriculumDto>>> Create(
+        [FromBody] CurriculumUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.CreateAsync(dto, ct), "Curriculum created.");
+
+    [HttpPut("{id:int}")]
+    [HasPermission(Permissions.CurriculumManage)]
+    public async Task<ActionResult<ApiEnvelope<CurriculumDto>>> Update(
+        int id, [FromBody] CurriculumUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.UpdateAsync(id, dto, ct), "Curriculum updated.");
+
+    /// <summary>Inactive appears as "Blocked" on the curriculum register.</summary>
+    [HttpPatch("{id:int}/status")]
+    [HasPermission(Permissions.CurriculumManage)]
+    public async Task<ActionResult<ApiEnvelope<CurriculumDto>>> SetStatus(
+        int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
+        Envelope(await service.SetStatusAsync(id, dto.Status, ct));
+}
+
+[Route("api/registration-forms")]
+public class RegistrationFormsController(RegistrationFormService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.MastersView)]
+    public async Task<ActionResult<ApiEnvelope<PagedResult<RegistrationFormDto>>>> List(
+        [FromQuery] PagedRequest request, [FromQuery] int? categoryId,
+        [FromQuery] int? subCategoryId, [FromQuery] int? programTypeId,
+        [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.ListAsync(
+            request, categoryId, subCategoryId, programTypeId, status, ct));
+
+    [HttpGet("all")]
+    [HasPermission(Permissions.MastersView)]
+    public async Task<ActionResult<ApiEnvelope<List<RegistrationFormDto>>>> All(
+        [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.AllAsync(status, ct));
+
+    [HttpGet("{id:int}")]
+    [HasPermission(Permissions.MastersView)]
+    public async Task<ActionResult<ApiEnvelope<RegistrationFormDto>>> Get(int id, CancellationToken ct) =>
+        Envelope(await service.GetAsync(id, ct));
+
+    /// <summary>The form the mobile app renders for a program type.</summary>
+    [HttpGet("by-program-type/{programTypeId:int}")]
+    public async Task<ActionResult<ApiEnvelope<RegistrationFormDto>>> ByProgramType(
+        int programTypeId, CancellationToken ct) =>
+        Envelope(await service.GetByProgramTypeAsync(programTypeId, ct));
+
+    [HttpPost]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<RegistrationFormDto>>> Create(
+        [FromBody] RegistrationFormUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.CreateAsync(dto, ct), "Registration form created.");
+
+    [HttpPut("{id:int}")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<RegistrationFormDto>>> Update(
+        int id, [FromBody] RegistrationFormUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.UpdateAsync(id, dto, ct), "Registration form saved.");
+
+    /// <summary>Copies a finished form onto another program type.</summary>
+    [HttpPost("replicate")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<RegistrationFormDto>>> Replicate(
+        [FromBody] ReplicateFormDto dto, CancellationToken ct) =>
+        Envelope(await service.ReplicateAsync(dto, ct), "Registration form replicated.");
+
+    [HttpPatch("{id:int}/status")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<RegistrationFormDto>>> SetStatus(
+        int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
+        Envelope(await service.SetStatusAsync(id, dto.Status, ct));
+}
+
+[Route("api/fees")]
+public class FeesController(FeeService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.FeesView)]
+    public async Task<ActionResult<ApiEnvelope<PagedResult<FeeStructureDto>>>> List(
+        [FromQuery] PagedRequest request, [FromQuery] int? categoryId,
+        [FromQuery] int? subCategoryId, [FromQuery] int? programTypeId,
+        [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.ListAsync(
+            request, categoryId, subCategoryId, programTypeId, status, ct));
+
+    [HttpGet("all")]
+    [HasPermission(Permissions.FeesView)]
+    public async Task<ActionResult<ApiEnvelope<List<FeeStructureDto>>>> All(
+        [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.AllAsync(status, ct));
+
+    [HttpGet("{id:int}")]
+    [HasPermission(Permissions.FeesView)]
+    public async Task<ActionResult<ApiEnvelope<FeeStructureDto>>> Get(int id, CancellationToken ct) =>
+        Envelope(await service.GetAsync(id, ct));
+
+    /// <summary>What an applicant would be charged today. Used by the mobile app.</summary>
+    [HttpGet("current/{programTypeId:int}")]
+    public async Task<ActionResult<ApiEnvelope<FeeStructureDto?>>> Current(
+        int programTypeId, CancellationToken ct) =>
+        Envelope(await service.CurrentForProgramTypeAsync(programTypeId, ct));
+
+    [HttpPost]
+    [HasPermission(Permissions.FeesManage)]
+    public async Task<ActionResult<ApiEnvelope<FeeStructureDto>>> Create(
+        [FromBody] FeeStructureUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.CreateAsync(dto, ct), "Fee structure created.");
+
+    [HttpPut("{id:int}")]
+    [HasPermission(Permissions.FeesManage)]
+    public async Task<ActionResult<ApiEnvelope<FeeStructureDto>>> Update(
+        int id, [FromBody] FeeStructureUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.UpdateAsync(id, dto, ct), "Fee structure updated.");
+
+    [HttpPatch("{id:int}/status")]
+    [HasPermission(Permissions.FeesManage)]
+    public async Task<ActionResult<ApiEnvelope<FeeStructureDto>>> SetStatus(
+        int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
+        Envelope(await service.SetStatusAsync(id, dto.Status, ct));
+}
+
+[Route("api/exam-papers")]
+public class ExamPapersController(ExamPaperService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.ExamsView)]
+    public async Task<ActionResult<ApiEnvelope<PagedResult<ExamPaperDto>>>> List(
+        [FromQuery] PagedRequest request, [FromQuery] int? categoryId,
+        [FromQuery] int? subCategoryId, [FromQuery] int? programTypeId,
+        [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.ListAsync(
+            request, categoryId, subCategoryId, programTypeId, status, ct));
+
+    [HttpGet("all")]
+    [HasPermission(Permissions.ExamsView)]
+    public async Task<ActionResult<ApiEnvelope<List<ExamPaperDto>>>> All(
+        [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.AllAsync(status, ct));
+
+    [HttpGet("{id:int}")]
+    [HasPermission(Permissions.ExamsView)]
+    public async Task<ActionResult<ApiEnvelope<ExamPaperDto>>> Get(int id, CancellationToken ct) =>
+        Envelope(await service.GetAsync(id, ct));
+
+    [HttpPost]
+    [HasPermission(Permissions.ExamsManage)]
+    public async Task<ActionResult<ApiEnvelope<ExamPaperDto>>> Create(
+        [FromBody] ExamPaperUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.CreateAsync(dto, ct), "Exam paper created.");
+
+    [HttpPut("{id:int}")]
+    [HasPermission(Permissions.ExamsManage)]
+    public async Task<ActionResult<ApiEnvelope<ExamPaperDto>>> Update(
+        int id, [FromBody] ExamPaperUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.UpdateAsync(id, dto, ct), "Exam paper updated.");
+
+    [HttpPatch("{id:int}/status")]
+    [HasPermission(Permissions.ExamsManage)]
+    public async Task<ActionResult<ApiEnvelope<ExamPaperDto>>> SetStatus(
+        int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
+        Envelope(await service.SetStatusAsync(id, dto.Status, ct));
+}
+
+[Route("api/materials")]
+public class MaterialsController(TrainingMaterialService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.MaterialsView)]
+    public async Task<ActionResult<ApiEnvelope<PagedResult<TrainingMaterialDto>>>> List(
+        [FromQuery] PagedRequest request, [FromQuery] int? programTypeId,
+        [FromQuery] string? kind, [FromQuery] string? visibleToRoles,
+        [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.ListAsync(request, programTypeId, kind, visibleToRoles, status, ct));
+
+    /// <summary>Only what the caller's own role is allowed to open.</summary>
+    [HttpGet("mine")]
+    public async Task<ActionResult<ApiEnvelope<List<TrainingMaterialDto>>>> Mine(
+        [FromQuery] int? programTypeId, CancellationToken ct) =>
+        Envelope(await service.VisibleToMeAsync(programTypeId, ct));
+
+    [HttpGet("{id:int}")]
+    [HasPermission(Permissions.MaterialsView)]
+    public async Task<ActionResult<ApiEnvelope<TrainingMaterialDto>>> Get(int id, CancellationToken ct) =>
+        Envelope(await service.GetAsync(id, ct));
+
+    [HttpPost]
+    [HasPermission(Permissions.MaterialsManage)]
+    public async Task<ActionResult<ApiEnvelope<TrainingMaterialDto>>> Create(
+        [FromBody] TrainingMaterialUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.CreateAsync(dto, ct), "Training material published.");
+
+    [HttpPut("{id:int}")]
+    [HasPermission(Permissions.MaterialsManage)]
+    public async Task<ActionResult<ApiEnvelope<TrainingMaterialDto>>> Update(
+        int id, [FromBody] TrainingMaterialUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.UpdateAsync(id, dto, ct), "Training material updated.");
+
+    [HttpPatch("{id:int}/status")]
+    [HasPermission(Permissions.MaterialsManage)]
+    public async Task<ActionResult<ApiEnvelope<TrainingMaterialDto>>> SetStatus(
+        int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
+        Envelope(await service.SetStatusAsync(id, dto.Status, ct));
+}

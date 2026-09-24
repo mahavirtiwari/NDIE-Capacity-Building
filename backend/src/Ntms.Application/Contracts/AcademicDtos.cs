@@ -1,0 +1,306 @@
+namespace Ntms.Application.Contracts;
+
+/* ------------------------------------------------------------- curriculum */
+
+public class CurriculumTopicDto
+{
+    public int Id { get; set; }
+    public string TopicCode { get; set; } = string.Empty;
+    public string TopicName { get; set; } = string.Empty;
+    public int DisplayOrder { get; set; }
+    public int? DurationMinutes { get; set; }
+    public string? LearningOutcome { get; set; }
+    /// <summary>A disabled topic stays on the plan but is not delivered.</summary>
+    public string Status { get; set; } = "Active";
+}
+
+public class CurriculumSessionDto
+{
+    public int Id { get; set; }
+    public string SessionCode { get; set; } = string.Empty;
+    public string SessionName { get; set; } = string.Empty;
+    public int DisplayOrder { get; set; }
+    public int? Day { get; set; }
+    /// <summary>A disabled session stays on the plan but is not delivered.</summary>
+    public string Status { get; set; } = "Active";
+    public List<CurriculumTopicDto> Topics { get; set; } = [];
+}
+
+public class CurriculumDto : AuditDto
+{
+    public int Id { get; set; }
+    public int ProgramTypeId { get; set; }
+    /// <summary>Code of the programme type; what session codes are built from.</summary>
+    public string? ProgramTypeCode { get; set; }
+    public string? ProgramTypeName { get; set; }
+    public int? CategoryId { get; set; }
+    public string? CategoryName { get; set; }
+    public int? SubCategoryId { get; set; }
+    public string? SubCategoryName { get; set; }
+    public string? Objective { get; set; }
+    public int DurationDays { get; set; }
+    public DateOnly EffectiveFrom { get; set; }
+    public string Status { get; set; } = "Active";
+    public List<CurriculumSessionDto> Sessions { get; set; } = [];
+}
+
+public class CurriculumUpsertDto
+{
+    /// <summary>Required: the programme type this curriculum is written for.</summary>
+    public int ProgramTypeId { get; set; }
+    public string? Objective { get; set; }
+    public int DurationDays { get; set; } = 5;
+    public DateOnly EffectiveFrom { get; set; }
+    public string Status { get; set; } = "Active";
+    /// <summary>Omit to leave the existing session plan untouched.</summary>
+    public List<CurriculumSessionDto>? Sessions { get; set; }
+}
+
+/* ------------------------------------------------------ registration form */
+
+public class FieldValidationDto
+{
+    public bool Required { get; set; }
+    public int? MinLength { get; set; }
+    public int? MaxLength { get; set; }
+    public decimal? Min { get; set; }
+    public decimal? Max { get; set; }
+    public string? Pattern { get; set; }
+    public List<string>? AllowedExtensions { get; set; }
+    public int? MaxFileSizeMb { get; set; }
+}
+
+public class FieldOptionDto
+{
+    public string Value { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+}
+
+public class RegistrationFieldDto
+{
+    public int Id { get; set; }
+    public string Key { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public string Type { get; set; } = "text";
+    public bool IsEnabled { get; set; } = true;
+    public string? Placeholder { get; set; }
+    public string? HelpText { get; set; }
+    public int DisplayOrder { get; set; }
+    public int ColSpan { get; set; } = 1;
+    public List<FieldOptionDto> Options { get; set; } = [];
+    public FieldValidationDto Validation { get; set; } = new();
+    public string? VisibleWhenFieldKey { get; set; }
+    public List<string>? VisibleWhenValues { get; set; }
+}
+
+public class RegistrationSectionDto
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public int DisplayOrder { get; set; }
+    public bool IsEnabled { get; set; } = true;
+    public List<RegistrationFieldDto> Fields { get; set; } = [];
+}
+
+public class RegistrationFormDto : AuditDto
+{
+    public int Id { get; set; }
+    public int ProgramTypeId { get; set; }
+    public string? ProgramTypeName { get; set; }
+    public int? CategoryId { get; set; }
+    public string? CategoryName { get; set; }
+    public int? SubCategoryId { get; set; }
+    public string? SubCategoryName { get; set; }
+    public string Version { get; set; } = "v1.0";
+    public string Status { get; set; } = "Active";
+    public List<RegistrationSectionDto> Sections { get; set; } = [];
+}
+
+public class RegistrationFormUpsertDto
+{
+    public int ProgramTypeId { get; set; }
+    public string Version { get; set; } = "v1.0";
+    public string Status { get; set; } = "Active";
+    public List<RegistrationSectionDto> Sections { get; set; } = [];
+}
+
+/// <summary>Copies a finished form onto another program type.</summary>
+public class ReplicateFormDto
+{
+    public int SourceFormId { get; set; }
+    public int TargetProgramTypeId { get; set; }
+    public string Version { get; set; } = "v1.0";
+}
+
+/* -------------------------------------------------------------------- fee */
+
+public class FeeComponentDto
+{
+    public int Id { get; set; }
+    public string Kind { get; set; } = "Base";
+    public string Label { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public bool IsTaxable { get; set; } = true;
+}
+
+public class FeeConcessionDto
+{
+    public int Id { get; set; }
+    public string Label { get; set; } = string.Empty;
+    public decimal Percentage { get; set; }
+    public string? Remarks { get; set; }
+}
+
+public class FeeTotalsDto
+{
+    public decimal Taxable { get; set; }
+    public decimal NonTaxable { get; set; }
+    public decimal Gst { get; set; }
+    public decimal Gross { get; set; }
+}
+
+public class FeeStructureDto : AuditDto
+{
+    public int Id { get; set; }
+    public int ProgramTypeId { get; set; }
+    public string? ProgramTypeName { get; set; }
+    public int? CategoryId { get; set; }
+    public string? CategoryName { get; set; }
+    public int? SubCategoryId { get; set; }
+    public string? SubCategoryName { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Currency { get; set; } = "INR";
+    public decimal GstPercent { get; set; }
+    /// <summary>TDS rates the applicant may opt for, e.g. [2, 10].</summary>
+    public List<int> TdsOptions { get; set; } = [];
+    public DateOnly EffectiveFrom { get; set; }
+    public DateOnly? EffectiveTo { get; set; }
+    public string Status { get; set; } = "Active";
+    public List<FeeComponentDto> Components { get; set; } = [];
+    public List<FeeConcessionDto> Concessions { get; set; } = [];
+    public FeeTotalsDto Totals { get; set; } = new();
+}
+
+public class FeeStructureUpsertDto
+{
+    public int ProgramTypeId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public decimal GstPercent { get; set; } = 18m;
+    public List<int> TdsOptions { get; set; } = [];
+    public DateOnly EffectiveFrom { get; set; }
+    public DateOnly? EffectiveTo { get; set; }
+    public string Status { get; set; } = "Active";
+    public List<FeeComponentDto> Components { get; set; } = [];
+    public List<FeeConcessionDto> Concessions { get; set; } = [];
+}
+
+/* ------------------------------------------------------------ exam papers */
+
+public class ExamQuestionOptionDto
+{
+    public int Id { get; set; }
+    public string Text { get; set; } = string.Empty;
+    public bool IsCorrect { get; set; }
+}
+
+public class ExamQuestionDto
+{
+    public int Id { get; set; }
+    public int DisplayOrder { get; set; }
+    public string Text { get; set; } = string.Empty;
+    public string Type { get; set; } = "SingleChoice";
+    public string Difficulty { get; set; } = "Moderate";
+    public decimal Marks { get; set; }
+    public decimal NegativeMarks { get; set; }
+    public string? ModuleRef { get; set; }
+    public string? Explanation { get; set; }
+    public List<ExamQuestionOptionDto> Options { get; set; } = [];
+}
+
+public class ExamPaperDto : AuditDto
+{
+    public int Id { get; set; }
+    public int ProgramTypeId { get; set; }
+    public string? ProgramTypeName { get; set; }
+    public int? CategoryId { get; set; }
+    public string? CategoryName { get; set; }
+    public int? SubCategoryId { get; set; }
+    public string? SubCategoryName { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string? Instructions { get; set; }
+    public int DurationMinutes { get; set; }
+    public decimal PassPercentage { get; set; }
+    public int MaxAttempts { get; set; }
+    public bool ShuffleQuestions { get; set; }
+    public bool NegativeMarking { get; set; }
+    public string Status { get; set; } = "Active";
+    public decimal TotalMarks { get; set; }
+    public List<ExamQuestionDto> Questions { get; set; } = [];
+}
+
+public class ExamPaperUpsertDto
+{
+    public int ProgramTypeId { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string? Instructions { get; set; }
+    public int DurationMinutes { get; set; } = 60;
+    public decimal PassPercentage { get; set; } = 60m;
+    public int MaxAttempts { get; set; } = 3;
+    public bool ShuffleQuestions { get; set; } = true;
+    public bool NegativeMarking { get; set; }
+    public string Status { get; set; } = "Active";
+    public List<ExamQuestionDto> Questions { get; set; } = [];
+}
+
+/* ------------------------------------------------------ training material */
+
+public class TrainingMaterialDto : AuditDto
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string Kind { get; set; } = "Document";
+    public int CategoryId { get; set; }
+    public string? CategoryName { get; set; }
+    public int SubCategoryId { get; set; }
+    public string? SubCategoryName { get; set; }
+    public int ProgramTypeId { get; set; }
+    public string? ProgramTypeName { get; set; }
+    public int? CurriculumSessionId { get; set; }
+    public string? FileName { get; set; }
+    public long? FileSizeKb { get; set; }
+    public string? MimeType { get; set; }
+    public string? Url { get; set; }
+    public int? DurationMinutes { get; set; }
+    public string Language { get; set; } = "English";
+    public List<string> VisibleToRoles { get; set; } = [];
+    public string Version { get; set; } = "v1.0";
+    public DateOnly PublishedOn { get; set; }
+    public bool DownloadAllowed { get; set; }
+    public string Status { get; set; } = "Active";
+}
+
+public class TrainingMaterialUpsertDto
+{
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string Kind { get; set; } = "Document";
+    public int CategoryId { get; set; }
+    public int SubCategoryId { get; set; }
+    public int ProgramTypeId { get; set; }
+    public int? CurriculumSessionId { get; set; }
+    public string? FileName { get; set; }
+    public long? FileSizeKb { get; set; }
+    public string? MimeType { get; set; }
+    public string? Url { get; set; }
+    public int? DurationMinutes { get; set; }
+    public string Language { get; set; } = "English";
+    public List<string> VisibleToRoles { get; set; } = [];
+    public string Version { get; set; } = "v1.0";
+    public DateOnly PublishedOn { get; set; }
+    public bool DownloadAllowed { get; set; } = true;
+    public string Status { get; set; } = "Active";
+}

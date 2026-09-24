@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "CBMS Applicant",
+    "slug": "ntms-applicant",
+    "scheme": "ntms",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0b2545"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "in.gov.msme.ntms.applicant"
+    },
+    "android": {
+      "package": "in.gov.msme.ntms.applicant",
+      "adaptiveIcon": {
+        "backgroundColor": "#0b2545",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "extra": {
+      "apiBaseUrl": "http://localhost:5210/api"
+    }
+  }
+}

@@ -1,0 +1,108 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font: inherit;
+  font-size: var(--fs-base);
+  font-weight: 500;
+  line-height: 1.2;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition), border-color var(--transition),
+    color var(--transition), box-shadow var(--transition);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn svg { flex: none; }
+
+.btn--primary {
+  background: var(--brand-600);
+  color: var(--white);
+  box-shadow: var(--shadow-xs);
+}
+.btn--primary:hover:not(:disabled) { background: var(--brand-700); }
+
+.btn--secondary {
+  background: var(--white);
+  color: var(--ink-700);
+  border-color: var(--border-strong);
+}
+.btn--secondary:hover:not(:disabled) {
+  background: var(--ink-50);
+  border-color: var(--ink-400);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--ink-600);
+}
+.btn--ghost:hover:not(:disabled) { background: var(--ink-100); color: var(--ink-900); }
+
+.btn--danger {
+  background: var(--danger-500);
+  color: var(--white);
+}
+.btn--danger:hover:not(:disabled) { background: var(--danger-700); }
+
+.btn--success {
+  background: var(--success-500);
+  color: var(--white);
+}
+.btn--success:hover:not(:disabled) { background: var(--success-700); }
+
+.btn--subtle-danger {
+  background: var(--danger-50);
+  color: var(--danger-700);
+  border-color: var(--danger-200);
+}
+.btn--subtle-danger:hover:not(:disabled) { background: var(--danger-200); }
+
+.btn--sm {
+  font-size: var(--fs-sm);
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-sm);
+}
+
+.btn--lg {
+  font-size: var(--fs-md);
+  padding: 0.65rem 1.25rem;
+}
+
+.btn--block { width: 100%; }
+
+.btn--icon {
+  padding: 0.35rem;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  color: var(--ink-500);
+  background: transparent;
+}
+.btn--icon:hover:not(:disabled) { background: var(--ink-100); color: var(--brand-700); }
+.btn--icon.is-danger:hover:not(:disabled) { background: var(--danger-50); color: var(--danger-700); }
+
+.btn-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btn-row--end { justify-content: flex-end; }
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 620ms linear infinite;
+}

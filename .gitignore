@@ -1,0 +1,28 @@
+# Build output
+**/bin/
+**/obj/
+**/dist/
+**/.angular/
+**/.expo/
+
+# Dependencies
+**/node_modules/
+
+# Captured monitoring photographs. These are evidence files belonging to a
+# deployment, not source, and some carry personal data.
+**/App_Data/
+
+# Local developer settings and editor state
+*.user
+*.suo
+.vs/
+.idea/
+.vscode/
+*.log
+
+# Anything holding real credentials. Configuration ships with empty values;
+# actual secrets belong in user-secrets, environment variables or a vault.
+appsettings.*.local.json
+.env
+.env.*
+*.pfx

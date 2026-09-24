@@ -1,0 +1,369 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace Ntms.Application.Contracts;
+
+/* ------------------------------------------------------------- applicants */
+
+public class ApplicantDto : AuditDto
+{
+    public int Id { get; set; }
+    public string ApplicantCode { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Mobile { get; set; } = string.Empty;
+    public string Pan { get; set; } = string.Empty;
+    /// <summary>Self-declared; null where the applicant predates the question.</summary>
+    public string? Gender { get; set; }
+    public string? SocialCategory { get; set; }
+    public int CategoryId { get; set; }
+    public string? CategoryName { get; set; }
+    public int SubCategoryId { get; set; }
+    public string? SubCategoryName { get; set; }
+    public bool EmailVerified { get; set; }
+    public bool MobileVerified { get; set; }
+    public string KycStatus { get; set; } = "Pending";
+    public int? StateCode { get; set; }
+    public string? State { get; set; }
+    public int? DistrictCode { get; set; }
+    public string? District { get; set; }
+    public string? City { get; set; }
+    public DateTime RegisteredOn { get; set; }
+    public DateTime? LastLoginOn { get; set; }
+    public bool IsBlocked { get; set; }
+}
+
+public class BlockApplicantDto
+{
+    public bool IsBlocked { get; set; }
+}
+
+/// <summary>Basic sign-up from the mobile app, before OTP verification.</summary>
+public class ApplicantSignUpDto
+{
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Mobile { get; set; } = string.Empty;
+    public string Pan { get; set; } = string.Empty;
+    public string? Gender { get; set; }
+    public string? SocialCategory { get; set; }
+    public int CategoryId { get; set; }
+    public int SubCategoryId { get; set; }
+}
+
+public class VerifyOtpDto
+{
+    public string Email { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+}
+
+/* ----------------------------------------------------------- applications */
+
+public class ApplicationDocumentDto
+{
+    public int Id { get; set; }
+    public string FieldKey { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
+    public long FileSizeKb { get; set; }
+    public DateTime UploadedOn { get; set; }
+    public bool Verified { get; set; }
+    public string? Remarks { get; set; }
+}
+
+public class ScrutinyEventDto
+{
+    public int Id { get; set; }
+    public string Action { get; set; } = string.Empty;
+    public string ByUserName { get; set; } = string.Empty;
+    public string ByRole { get; set; } = string.Empty;
+    public DateTime On { get; set; }
+    public string? Remarks { get; set; }
+}
+
+public class ApplicationDto : AuditDto
+{
+    public int Id { get; set; }
+    public string ApplicationNo { get; set; } = string.Empty;
+    public int ApplicantId { get; set; }
+    public string ApplicantName { get; set; } = string.Empty;
+    public string ApplicantEmail { get; set; } = string.Empty;
+    public string ApplicantMobile { get; set; } = string.Empty;
+    public string Pan { get; set; } = string.Empty;
+    public int CategoryId { get; set; }
+    public string? CategoryName { get; set; }
+    public int SubCategoryId { get; set; }
+    public string? SubCategoryName { get; set; }
+    public int ProgramTypeId { get; set; }
+    public string? ProgramTypeName { get; set; }
+    public string Status { get; set; } = "Draft";
+    public DateTime? SubmittedOn { get; set; }
+    public int? AssignedToUserId { get; set; }
+    public string? AssignedToName { get; set; }
+    public string PaymentStatus { get; set; } = "NotApplicable";
+    public decimal FeeAmount { get; set; }
+    public decimal TdsPercent { get; set; }
+    public string? Tan { get; set; }
+    public string? DeductorName { get; set; }
+    public decimal? Score { get; set; }
+    public int? StateCode { get; set; }
+    public string? State { get; set; }
+    public string? City { get; set; }
+    /// <summary>Answers keyed by registration field key.</summary>
+    public JsonElement Responses { get; set; }
+    public List<ApplicationDocumentDto> Documents { get; set; } = [];
+    public List<ScrutinyEventDto> History { get; set; } = [];
+}
+
+/// <summary>Submitted by the mobile app against the program type's form.</summary>
+public class ApplicationSubmitDto
+{
+    /// <summary>
+    /// Filled from the bearer token by the controller, never from the request
+    /// body — otherwise one applicant could submit as another.
+    /// </summary>
+    [JsonIgnore]
+    public int ApplicantId { get; set; }
+    public int ProgramTypeId { get; set; }
+    public Dictionary<string, JsonElement> Responses { get; set; } = [];
+    public decimal TdsPercent { get; set; }
+    public string? Tan { get; set; }
+    public string? DeductorName { get; set; }
+}
+
+public class ScrutinyDecisionDto
+{
+    public int ApplicationId { get; set; }
+    /// <summary>Approve, Reject or Clarification.</summary>
+    public string Decision { get; set; } = string.Empty;
+    public string Remarks { get; set; } = string.Empty;
+    public List<int>? DocumentIdsVerified { get; set; }
+}
+
+public class AssignApplicationDto
+{
+    public int UserId { get; set; }
+}
+
+public class VerifyDocumentDto
+{
+    public bool Verified { get; set; }
+    public string? Remarks { get; set; }
+}
+
+/* ------------------------------------------------------------- programmes */
+
+public class ProgrammeSessionDto
+{
+    public int Id { get; set; }
+    public string? SessionCode { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public DateOnly SessionDate { get; set; }
+    public string StartTime { get; set; } = "10:00";
+    public string EndTime { get; set; } = "17:00";
+    public string? FacultyName { get; set; }
+    public int PresentCount { get; set; }
+    public bool IsAttendanceLocked { get; set; }
+}
+
+public class ProgrammeParticipantDto
+{
+    public int Id { get; set; }
+    public int ApplicantId { get; set; }
+    public string ApplicationNo { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Mobile { get; set; } = string.Empty;
+    public DateOnly EnrolledOn { get; set; }
+    public decimal AttendancePercent { get; set; }
+    public decimal? ExamScore { get; set; }
+    public string Result { get; set; } = "Pending";
+    public string? CertificateNo { get; set; }
+    public int? FeedbackRating { get; set; }
+}
+
+public class ProgrammeDto : AuditDto
+{
+    public int Id { get; set; }
+    public string ProgrammeId { get; set; } = string.Empty;
+    public string ProgrammeName { get; set; } = string.Empty;
+    public int? CurriculumId { get; set; }
+    public string? ProgrammeCode { get; set; }
+    public int CategoryId { get; set; }
+    public string? CategoryName { get; set; }
+    public int SubCategoryId { get; set; }
+    public string? SubCategoryName { get; set; }
+    public int ProgramTypeId { get; set; }
+    public string? ProgramTypeName { get; set; }
+    public int AgencyId { get; set; }
+    public string? AgencyName { get; set; }
+    public int CoordinatorId { get; set; }
+    public string? CoordinatorName { get; set; }
+    public int? OperationManagerId { get; set; }
+    public string? OperationManagerName { get; set; }
+    public string Mode { get; set; } = "Physical";
+    public string Venue { get; set; } = string.Empty;
+    public string? City { get; set; }
+    public int StateCode { get; set; }
+    public string State { get; set; } = string.Empty;
+    public string? MeetingPlatform { get; set; }
+    public string? MeetingLink { get; set; }
+    public DateOnly StartDate { get; set; }
+    public DateOnly EndDate { get; set; }
+    public int SeatCapacity { get; set; }
+    public int ParticipantCount { get; set; }
+    public decimal? CumulativeFeedback { get; set; }
+    public string? Comments { get; set; }
+    public bool RegistrationsOpen { get; set; }
+    public DateTime? ExamDateTime { get; set; }
+    public string Status { get; set; } = "New";
+    public List<ProgrammeSessionDto> Sessions { get; set; } = [];
+    public List<ProgrammeParticipantDto> Participants { get; set; } = [];
+}
+
+public class ProgrammeUpsertDto
+{
+    public string? ProgrammeName { get; set; }
+    public int? CurriculumId { get; set; }
+    public int ProgramTypeId { get; set; }
+    public int AgencyId { get; set; }
+    public int CoordinatorId { get; set; }
+    public int? OperationManagerId { get; set; }
+    public string Mode { get; set; } = "Physical";
+    public string? Venue { get; set; }
+    public string? City { get; set; }
+    public int StateCode { get; set; }
+    public int? DistrictCode { get; set; }
+    public string? MeetingPlatform { get; set; }
+    public string? MeetingLink { get; set; }
+    public DateOnly StartDate { get; set; }
+    public DateOnly EndDate { get; set; }
+    public int SeatCapacity { get; set; } = 30;
+    public string? Comments { get; set; }
+}
+
+public class ProgrammeStatusDto
+{
+    public string Status { get; set; } = string.Empty;
+    public string? Comments { get; set; }
+}
+
+public class SetExamTimeDto
+{
+    public DateTime ExamDateTime { get; set; }
+}
+
+public class AttendanceMarkDto
+{
+    public int ParticipantId { get; set; }
+    public bool Present { get; set; }
+}
+
+public class MarkAttendanceDto
+{
+    public List<AttendanceMarkDto> Marks { get; set; } = [];
+}
+
+public class EnrolDto
+{
+    public List<int> ApplicationIds { get; set; } = [];
+}
+
+/* -------------------------------------------------------------- dashboard */
+
+public class DashboardKpiDto
+{
+    public string Key { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public int Value { get; set; }
+    public string? Suffix { get; set; }
+    public string Tone { get; set; } = "primary";
+    public string Icon { get; set; } = "inbox";
+}
+
+public class SeriesPointDto
+{
+    public string Label { get; set; } = string.Empty;
+    public int Value { get; set; }
+}
+
+public class DashboardDto
+{
+    public List<DashboardKpiDto> Kpis { get; set; } = [];
+    public List<SeriesPointDto> ProgramsByMonth { get; set; } = [];
+
+    /* The profile of who actually attended, counted over programme participants
+       rather than applicants, so it answers the same question as the "Candidates
+       participated" headline and cannot disagree with it.
+
+       Percentages are left to the caller: sending both a count and a percent
+       invites the two to round apart. */
+    public List<SeriesPointDto> ParticipantsByGender { get; set; } = [];
+    public List<SeriesPointDto> ParticipantsBySocialCategory { get; set; } = [];
+}
+
+public class DashboardFilterDto
+{
+    public int? CategoryId { get; set; }
+    public int? SubCategoryId { get; set; }
+    public int? ProgramTypeId { get; set; }
+    public int? AgencyId { get; set; }
+    public string? State { get; set; }
+    public string? Mode { get; set; }
+    /// <summary>Rolling window in months; 0 or null means the full history.</summary>
+    public int? Months { get; set; }
+
+    /// <summary>
+    /// An explicit window, for the periods a rolling one cannot express — a
+    /// financial year, a quarter already closed, the span of one campaign.
+    /// When either end is set it takes precedence over <see cref="Months"/>,
+    /// and either end may be left open.
+    /// </summary>
+    public DateOnly? FromDate { get; set; }
+    public DateOnly? ToDate { get; set; }
+
+    /// <summary>The window actually in force, resolved once for every query.</summary>
+    public (DateOnly? From, DateOnly? To) Window()
+    {
+        if (FromDate is not null || ToDate is not null)
+        {
+            /* Tolerate a range entered back to front rather than silently
+               returning nothing. */
+            return FromDate is not null && ToDate is not null && FromDate > ToDate
+                ? (ToDate, FromDate)
+                : (FromDate, ToDate);
+        }
+
+        return Months is > 0
+            ? (DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-Months.Value)), null)
+            : (null, null);
+    }
+}
+
+/// <summary>
+/// One state on the dashboard map: how much of the programme reaches it.
+/// States with no activity are still returned, with zeros, so the map can show
+/// where there is no coverage — which is usually the more interesting question.
+/// </summary>
+public class StateCoverageDto
+{
+    /// <summary>LGD state code, which is how the map keys its regions.</summary>
+    public int StateCode { get; set; }
+    public string State { get; set; } = string.Empty;
+    /// <summary>Distinct program types delivered in the state.</summary>
+    public int ProgramTypes { get; set; }
+    public int Programmes { get; set; }
+    public int Participants { get; set; }
+}
+
+public class StateCoverageResultDto
+{
+    public List<StateCoverageDto> States { get; set; } = [];
+    /// <summary>Highest value on each measure, so the map can scale its shading.</summary>
+    public int MaxProgramTypes { get; set; }
+    public int MaxParticipants { get; set; }
+    public int TotalParticipants { get; set; }
+    public int TotalProgrammes { get; set; }
+    /// <summary>States with at least one programme.</summary>
+    public int StatesCovered { get; set; }
+}

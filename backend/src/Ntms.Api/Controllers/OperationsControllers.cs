@@ -1,0 +1,339 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Ntms.Api.Security;
+using Ntms.Application.Common;
+using Ntms.Application.Contracts;
+using Ntms.Infrastructure.Services;
+
+namespace Ntms.Api.Controllers;
+
+[Route("api/roles")]
+public class RolesController(RoleService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.RolesView)]
+    public async Task<ActionResult<ApiEnvelope<PagedResult<AdminRoleDto>>>> List(
+        [FromQuery] PagedRequest request, [FromQuery] string? baseRole,
+        [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.ListAsync(request, baseRole, status, ct));
+
+    [HttpGet("all")]
+    [HasPermission(Permissions.RolesView)]
+    public async Task<ActionResult<ApiEnvelope<List<AdminRoleDto>>>> All(
+        [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.AllAsync(status, ct));
+
+    /// <summary>The permission catalogue the roles screen renders.</summary>
+    [HttpGet("permissions")]
+    [HasPermission(Permissions.RolesView)]
+    public ActionResult<ApiEnvelope<IReadOnlyList<PermissionGroupDto>>> Catalogue() =>
+        Envelope(service.Catalogue());
+
+    [HttpGet("{id:int}")]
+    [HasPermission(Permissions.RolesView)]
+    public async Task<ActionResult<ApiEnvelope<AdminRoleDto>>> Get(int id, CancellationToken ct) =>
+        Envelope(await service.GetAsync(id, ct));
+
+    [HttpPost]
+    [HasPermission(Permissions.RolesManage)]
+    public async Task<ActionResult<ApiEnvelope<AdminRoleDto>>> Create(
+        [FromBody] AdminRoleUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.CreateAsync(dto, ct), "Role created.");
+
+    [HttpPut("{id:int}")]
+    [HasPermission(Permissions.RolesManage)]
+    public async Task<ActionResult<ApiEnvelope<AdminRoleDto>>> Update(
+        int id, [FromBody] AdminRoleUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.UpdateAsync(id, dto, ct), "Role updated.");
+
+    [HttpPatch("{id:int}/status")]
+    [HasPermission(Permissions.RolesManage)]
+    public async Task<ActionResult<ApiEnvelope<AdminRoleDto>>> SetStatus(
+        int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
+        Envelope(await service.SetStatusAsync(id, dto.Status, ct));
+}
+
+[Route("api/users")]
+public class UsersController(UserService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.UsersView)]
+    public async Task<ActionResult<ApiEnvelope<PagedResult<PortalUserDto>>>> List(
+        [FromQuery] PagedRequest request, [FromQuery] string? baseRole, [FromQuery] int? roleId,
+        [FromQuery] int? agencyId, [FromQuery] string? state, [FromQuery] string? status,
+        CancellationToken ct) =>
+        Envelope(await service.ListAsync(request, baseRole, roleId, agencyId, state, status, ct));
+
+    [HttpGet("all")]
+    [HasPermission(Permissions.UsersView)]
+    public async Task<ActionResult<ApiEnvelope<List<PortalUserDto>>>> All(
+        [FromQuery] string? baseRole, [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.AllAsync(baseRole, status, ct));
+
+    [HttpGet("{id:int}")]
+    [HasPermission(Permissions.UsersView)]
+    public async Task<ActionResult<ApiEnvelope<PortalUserDto>>> Get(int id, CancellationToken ct) =>
+        Envelope(await service.GetAsync(id, ct));
+
+    /// <summary>
+    /// Creates the account and returns the generated user ID with a one-time
+    /// password. The caller must pass these to the user out of band.
+    /// </summary>
+    [HttpPost]
+    [HasPermission(Permissions.UsersManage)]
+    public async Task<ActionResult<ApiEnvelope<GeneratedCredentialsDto>>> Create(
+        [FromBody] PortalUserUpsertDto dto, CancellationToken ct)
+    {
+        var (_, credentials) = await service.CreateAsync(dto, ct);
+        return Envelope(credentials, "User created. Share the credentials securely.");
+    }
+
+    [HttpPut("{id:int}")]
+    [HasPermission(Permissions.UsersManage)]
+    public async Task<ActionResult<ApiEnvelope<PortalUserDto>>> Update(
+        int id, [FromBody] PortalUserUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.UpdateAsync(id, dto, ct), "User updated.");
+
+    /// <summary>
+    /// Enable or disable. Separate from UsersManage so a tier that oversees
+    /// accounts it cannot create — an Operation Manager over its coordinators —
+    /// can still switch one off. The tier check itself lives in the service.
+    /// </summary>
+    [HttpPatch("{id:int}/status")]
+    [HasPermission(Permissions.UsersStatus)]
+    public async Task<ActionResult<ApiEnvelope<PortalUserDto>>> SetStatus(
+        int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
+        Envelope(await service.SetStatusAsync(id, dto.Status, ct));
+
+    [HttpPost("{id:int}/reset-password")]
+    [HasPermission(Permissions.UsersManage)]
+    public async Task<ActionResult<ApiEnvelope<GeneratedCredentialsDto>>> ResetPassword(
+        int id, CancellationToken ct) =>
+        Envelope(await service.ResetPasswordAsync(id, ct), "Temporary password issued.");
+}
+
+[Route("api/applicants")]
+public class ApplicantsController(ApplicantService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.ApplicationsView)]
+    public async Task<ActionResult<ApiEnvelope<PagedResult<ApplicantDto>>>> List(
+        [FromQuery] PagedRequest request, [FromQuery] int? categoryId, [FromQuery] string? state,
+        [FromQuery] string? kycStatus, [FromQuery] bool? isBlocked, CancellationToken ct) =>
+        Envelope(await service.ListAsync(request, categoryId, state, kycStatus, isBlocked, ct));
+
+    [HttpGet("{id:int}")]
+    [HasPermission(Permissions.ApplicationsView)]
+    public async Task<ActionResult<ApiEnvelope<ApplicantDto>>> Get(int id, CancellationToken ct) =>
+        Envelope(await service.GetAsync(id, ct));
+
+    /// <summary>Basic sign-up from the mobile app.</summary>
+    [HttpPost("sign-up")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiEnvelope<ApplicantDto>>> SignUp(
+        [FromBody] ApplicantSignUpDto dto, CancellationToken ct) =>
+        Envelope(await service.SignUpAsync(dto, ct), "Registered. Verify your email to continue.");
+
+    [HttpPatch("{id:int}/blocked")]
+    [HasPermission(Permissions.ApplicationsScrutinise)]
+    public async Task<ActionResult<ApiEnvelope<ApplicantDto>>> SetBlocked(
+        int id, [FromBody] BlockApplicantDto dto, CancellationToken ct) =>
+        Envelope(await service.SetBlockedAsync(id, dto.IsBlocked, ct));
+}
+
+[Route("api/applications")]
+public class ApplicationsController(ApplicationService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.ApplicationsView)]
+    public async Task<ActionResult<ApiEnvelope<PagedResult<ApplicationDto>>>> List(
+        [FromQuery] PagedRequest request, [FromQuery] string? status, [FromQuery] int? categoryId,
+        [FromQuery] int? programTypeId, [FromQuery] string? state, CancellationToken ct) =>
+        Envelope(await service.ListAsync(request, status, categoryId, programTypeId, state, ct));
+
+    [HttpGet("all")]
+    [HasPermission(Permissions.ApplicationsView)]
+    public async Task<ActionResult<ApiEnvelope<List<ApplicationDto>>>> All(
+        [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.AllAsync(status, ct));
+
+    [HttpGet("{id:int}")]
+    [HasPermission(Permissions.ApplicationsView)]
+    public async Task<ActionResult<ApiEnvelope<ApplicationDto>>> Get(int id, CancellationToken ct) =>
+        Envelope(await service.GetAsync(id, ct));
+
+    [HttpPost("{id:int}/scrutiny")]
+    [HasPermission(Permissions.ApplicationsScrutinise)]
+    public async Task<ActionResult<ApiEnvelope<ApplicationDto>>> Decide(
+        int id, [FromBody] ScrutinyDecisionDto dto, CancellationToken ct) =>
+        Envelope(await service.DecideAsync(id, dto, ct), "Decision recorded.");
+
+    [HttpPatch("{id:int}/assign")]
+    [HasPermission(Permissions.ApplicationsScrutinise)]
+    public async Task<ActionResult<ApiEnvelope<ApplicationDto>>> Assign(
+        int id, [FromBody] AssignApplicationDto dto, CancellationToken ct) =>
+        Envelope(await service.AssignAsync(id, dto.UserId, ct), "Application reassigned.");
+
+    [HttpPatch("{id:int}/documents/{documentId:int}")]
+    [HasPermission(Permissions.ApplicationsScrutinise)]
+    public async Task<ActionResult<ApiEnvelope<ApplicationDto>>> VerifyDocument(
+        int id, int documentId, [FromBody] VerifyDocumentDto dto, CancellationToken ct) =>
+        Envelope(await service.VerifyDocumentAsync(id, documentId, dto, ct));
+}
+
+[Route("api/programs")]
+public class ProgramsController(ProgrammeService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.ProgramsView)]
+    public async Task<ActionResult<ApiEnvelope<PagedResult<ProgrammeDto>>>> List(
+        [FromQuery] PagedRequest request, [FromQuery] string? state,
+        [FromQuery] DateOnly? startDate, [FromQuery] DateOnly? endDate,
+        [FromQuery] string? mode, [FromQuery] int? agencyId, [FromQuery] string? status,
+        CancellationToken ct) =>
+        Envelope(await service.ListAsync(request, state, startDate, endDate, mode, agencyId, status, ct));
+
+    [HttpGet("all")]
+    [HasPermission(Permissions.ProgramsView)]
+    public async Task<ActionResult<ApiEnvelope<List<ProgrammeDto>>>> All(
+        [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.AllAsync(status, ct));
+
+    [HttpGet("{id:int}")]
+    [HasPermission(Permissions.ProgramsView)]
+    public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> Get(int id, CancellationToken ct) =>
+        Envelope(await service.GetAsync(id, ct));
+
+    [HttpPost]
+    [HasPermission(Permissions.ProgramsManage)]
+    public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> Create(
+        [FromBody] ProgrammeUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.CreateAsync(dto, ct), "Programme submitted for permission.");
+
+    [HttpPut("{id:int}")]
+    [HasPermission(Permissions.ProgramsManage)]
+    public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> Update(
+        int id, [FromBody] ProgrammeUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.UpdateAsync(id, dto, ct), "Programme updated.");
+
+    /// <summary>Moves the batch along the register's workflow.</summary>
+    [HttpPatch("{id:int}/status")]
+    [HasPermission(Permissions.ProgramsManage)]
+    public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> SetStatus(
+        int id, [FromBody] ProgrammeStatusDto dto, CancellationToken ct) =>
+        Envelope(await service.ChangeStatusAsync(id, dto, ct));
+
+    [HttpPost("{id:int}/close-registrations")]
+    [HasPermission(Permissions.ProgramsManage)]
+    public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> CloseRegistrations(
+        int id, CancellationToken ct) =>
+        Envelope(await service.CloseRegistrationsAsync(id, ct), "Registrations closed.");
+
+    [HttpPost("{id:int}/exam-time")]
+    [HasPermission(Permissions.ProgramsManage)]
+    public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> SetExamTime(
+        int id, [FromBody] SetExamTimeDto dto, CancellationToken ct) =>
+        Envelope(await service.SetExamTimeAsync(id, dto, ct), "Exam time set.");
+
+    [HttpPost("{id:int}/sessions")]
+    [HasPermission(Permissions.ProgramsManage)]
+    public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> AddSession(
+        int id, [FromBody] ProgrammeSessionDto dto, CancellationToken ct) =>
+        Envelope(await service.AddSessionAsync(id, dto, ct), "Session added.");
+
+    [HttpPost("{id:int}/sessions/{sessionId:int}/attendance")]
+    [HasPermission(Permissions.ProgramsManage)]
+    public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> MarkAttendance(
+        int id, int sessionId, [FromBody] MarkAttendanceDto dto, CancellationToken ct) =>
+        Envelope(await service.MarkAttendanceAsync(id, sessionId, dto, ct), "Attendance saved.");
+
+    [HttpPost("{id:int}/enrol")]
+    [HasPermission(Permissions.ProgramsManage)]
+    public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> Enrol(
+        int id, [FromBody] EnrolDto dto, CancellationToken ct) =>
+        Envelope(await service.EnrolAsync(id, dto, ct), "Applicants enrolled.");
+}
+
+[Route("api/lookups")]
+public class LookupsController(LookupService service) : ApiControllerBase
+{
+    /// <summary>
+    /// Anonymous: the applicant app has to offer these on the sign-up screen,
+    /// before anyone has a token. They are public scheme masters, like LGD.
+    /// </summary>
+    [HttpGet("categories")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiEnvelope<List<LookupItemDto>>>> Categories(CancellationToken ct) =>
+        Envelope(await service.CategoriesAsync(ct));
+
+    [HttpGet("sub-categories")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiEnvelope<List<LookupItemDto>>>> SubCategories(
+        [FromQuery] int? categoryId, CancellationToken ct) =>
+        Envelope(await service.SubCategoriesAsync(categoryId, ct));
+
+    [HttpGet("program-types")]
+    public async Task<ActionResult<ApiEnvelope<List<LookupItemDto>>>> ProgramTypes(
+        [FromQuery] int? categoryId, [FromQuery] int? subCategoryId, CancellationToken ct) =>
+        Envelope(await service.ProgramTypesAsync(categoryId, subCategoryId, ct));
+
+    [HttpGet("agencies")]
+    public async Task<ActionResult<ApiEnvelope<List<LookupItemDto>>>> Agencies(CancellationToken ct) =>
+        Envelope(await service.AgenciesAsync(ct));
+
+    [HttpGet("coordinators")]
+    public async Task<ActionResult<ApiEnvelope<List<LookupItemDto>>>> Coordinators(
+        [FromQuery] int? agencyId, CancellationToken ct) =>
+        Envelope(await service.CoordinatorsAsync(agencyId, ct));
+
+    [HttpGet("operation-managers")]
+    public async Task<ActionResult<ApiEnvelope<List<LookupItemDto>>>> OperationManagers(
+        CancellationToken ct) =>
+        Envelope(await service.OperationManagersAsync(ct));
+
+    [HttpGet("roles")]
+    public async Task<ActionResult<ApiEnvelope<List<LookupItemDto>>>> Roles(CancellationToken ct) =>
+        Envelope(await service.RolesAsync(ct));
+
+    /// <summary>
+    /// Educational qualification levels for the programme-type form, lowest
+    /// first. Anonymous alongside the other masters the sign-up flow needs.
+    /// </summary>
+    [HttpGet("qualifications")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiEnvelope<List<LookupItemDto>>>> Qualifications(
+        CancellationToken ct) =>
+        Envelope(await service.QualificationsAsync(ct));
+
+    /// <summary>LGD state master; the id is the LGD state code.</summary>
+    [HttpGet("states")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiEnvelope<List<LookupItemDto>>>> States(CancellationToken ct) =>
+        Envelope(await service.StatesAsync(ct));
+
+    /// <summary>LGD district master for one state.</summary>
+    [HttpGet("districts")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiEnvelope<List<LookupItemDto>>>> Districts(
+        [FromQuery] int? stateCode, [FromQuery] string? state, CancellationToken ct) =>
+        Envelope(await service.DistrictsAsync(stateCode, state, ct));
+}
+
+[Route("api/dashboard")]
+public class DashboardController(DashboardService service) : ApiControllerBase
+{
+    [HttpGet]
+    public async Task<ActionResult<ApiEnvelope<DashboardDto>>> Get(
+        [FromQuery] DashboardFilterDto filter, CancellationToken ct) =>
+        Envelope(await service.LoadAsync(filter, ct));
+
+    /// <summary>
+    /// Programme reach by state, for the dashboard map. Every state is
+    /// returned, including those with no activity.
+    /// </summary>
+    [HttpGet("state-coverage")]
+    [HasPermission(Permissions.ReportsView)]
+    public async Task<ActionResult<ApiEnvelope<StateCoverageResultDto>>> StateCoverage(
+        [FromQuery] DashboardFilterDto filter, CancellationToken ct) =>
+        Envelope(await service.StateCoverageAsync(filter, ct));
+}

@@ -1,0 +1,111 @@
+/* Design tokens. Everything else in the app references these. */
+
+:root {
+  /* Brand — built around #9b2c3c. A deep crimson reads institutional rather
+     than corporate, and carries ~7.5:1 against white, so it can be a solid
+     button colour without a contrast compromise. */
+  --brand-900: #4a1017;
+  --brand-800: #6b1a25;
+  --brand-700: #82232f;
+  /* The given colour. Buttons and solid fills. */
+  --brand-600: #9b2c3c;
+  --brand-500: #b84152;
+  --brand-400: #ce6373;
+  --brand-300: #e4a0ab;
+  --brand-200: #eec0c8;
+  --brand-100: #f7dce0;
+  --brand-50: #fdf3f4;
+
+  /* Antique gold — the classic partner to a deep crimson, and the one accent
+     that stays clearly distinct from both the brand and the danger red. */
+  --accent-700: #7a5406;
+  --accent-600: #a3740c;
+  --accent-500: #c9971a;
+  --accent-300: #e8be5c;
+  --accent-100: #faeed0;
+
+  /* Text and rules for use on the dark brand panels — the sidebar, and the
+     applicant app. Named so nothing has to invent a one-off tint. */
+  /* The navigation panel: the same pale blush the sign-in hero settles into,
+     so the signed-out and signed-in sides of the product match. Derived from
+     the ramp, so it follows any palette change. */
+  --sidebar-bg: color-mix(in srgb, var(--brand-100) 55%, #fff);
+  --sidebar-line: var(--brand-100);
+
+  --on-brand: #ffffff;
+  --on-brand-soft: #f0d6da;
+  --on-brand-muted: #c49aa2;
+  --on-brand-line: rgba(255, 255, 255, 0.1);
+  --on-brand-fill: rgba(255, 255, 255, 0.12);
+
+  /* Semantic */
+  --success-700: #3d6b11;
+  --success-500: #639922;
+  --success-200: #cfe3ac;
+  --success-50: #f0f7e6;
+  --warning-700: #a16207;
+  --warning-500: #ca8a04;
+  --warning-200: #f2dc9c;
+  --warning-50: #fefce8;
+  /* Deliberately brighter and more orange than the crimson brand, so a
+     destructive button never reads as just another primary one. */
+  --danger-700: #b3300d;
+  --danger-500: #e2500f;
+  --danger-200: #f8c8ac;
+  --danger-50: #fef1ea;
+  --info-700: #0e7490;
+  --info-500: #0891b2;
+  --info-200: #a5dfeb;
+  --info-50: #ecfeff;
+
+  /* Neutrals */
+  /* Warm stone. Cool slate greys would fight a crimson brand; these sit
+     under it quietly. */
+  --ink-900: #1c1a1a;
+  --ink-800: #2a2626;
+  --ink-700: #3f3a3a;
+  --ink-600: #57514f;
+  --ink-500: #7a716f;
+  --ink-400: #a39a97;
+  --ink-300: #ccc4c1;
+  --ink-200: #e6e0de;
+  --ink-100: #f4f0ef;
+  --ink-50: #faf8f7;
+  --white: #ffffff;
+
+  /* Surfaces */
+  --page-bg: #f8f5f4;
+  --surface: #ffffff;
+  --surface-muted: var(--ink-50);
+  --border: var(--ink-200);
+  --border-strong: var(--ink-300);
+
+  /* Type */
+  --font-sans: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --fs-xs: 0.6875rem;
+  --fs-sm: 0.78125rem;
+  --fs-base: 0.875rem;
+  --fs-md: 0.9375rem;
+  --fs-lg: 1.0625rem;
+  --fs-xl: 1.25rem;
+  --fs-2xl: 1.5rem;
+  --fs-3xl: 1.875rem;
+
+  /* Spacing / shape */
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  --shadow-xs: 0 1px 2px rgba(28, 26, 26, 0.06);
+  --shadow-sm: 0 1px 3px rgba(28, 26, 26, 0.08), 0 1px 2px rgba(28, 26, 26, 0.04);
+  --shadow: 0 4px 12px rgba(28, 26, 26, 0.08);
+  --shadow-lg: 0 12px 32px rgba(28, 26, 26, 0.16);
+
+  --sidebar-w: 268px;
+  --sidebar-w-collapsed: 72px;
+  --topbar-h: 60px;
+
+  --transition: 160ms cubic-bezier(0.4, 0, 0.2, 1);
+}

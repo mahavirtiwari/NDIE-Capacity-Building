@@ -1,0 +1,347 @@
+/* Layout shared by the sign-in and password-reset screens: the split,
+   the brand panel and the form card. Page-specific bits stay with their
+   component. */
+
+
+.auth {
+  min-height: 100dvh;
+  display: grid;
+  /* The hero is support, the form is the job — weight it accordingly. */
+  grid-template-columns: 1.35fr 1fr;
+}
+
+/* A sign-in screen should never scroll the page. On the two-column layout the
+   viewport is the hard ceiling: the hero clips, and if the form is ever taller
+   than the screen it scrolls inside its own column rather than moving the
+   branding off-screen. */
+@media (min-width: 961px) {
+  .auth {
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .auth__panel { overflow-y: auto; }
+}
+
+/* A light panel, not a dark slab. The mark keeps its own colours, the
+   headline gets real contrast, and the green does the work as an accent
+   rather than as a wall. */
+.auth__brand {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  /* Derived from the ramp, so it follows any future palette change. */
+  background: linear-gradient(
+    168deg,
+    #fff 0%,
+    var(--brand-50) 48%,
+    color-mix(in srgb, var(--brand-100) 60%, #fff) 100%
+  );
+  color: var(--ink-600);
+  /* Tighter at the foot than at the head, so the footer sits closer to the
+     bottom edge than the logos do to the top. */
+  padding: 3rem 3.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  /* No flex gap: it would only ever apply above the copy, which is what threw
+     the centring off. Clearance is the copy's own symmetric padding instead. */
+  gap: 0;
+  /* The uploaded mark carries ~18px of transparent margin in its own canvas,
+     which lands as roughly 5px on screen at this height. The copy is inset to
+     match, so it lines up with the logo you can see rather than with the box
+     the logo sits in. Adjust here if a future mark is cropped differently. */
+  --optical-inset: 6px;
+  border-right: 1px solid var(--brand-100);
+}
+
+/* A faint gear lattice, echoing the mark, so the panel reads as
+   finished rather than as an empty wash. */
+.auth__brand::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.55;
+  background-image:
+    radial-gradient(circle at 1px 1px, var(--brand-300) 1px, transparent 0);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(120% 80% at 88% 92%, #000 5%, transparent 65%);
+}
+
+/* The two marks sit at opposite ends, as they would on a letterhead. They
+   rest directly on the panel — it is light, so they need no plaque. */
+.auth__brand-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.auth__emblem {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius);
+  background: var(--brand-600);
+  color: #fff;
+}
+
+.auth__headline {
+  color: var(--ink-900);
+  font-size: clamp(1.75rem, 2.6vw, 2.5rem);
+  line-height: 1.18;
+  letter-spacing: -0.015em;
+  /* Runs the full width of the panel rather than stacking in a narrow column. */
+  max-width: none;
+  font-weight: 600;
+}
+.auth__headline em {
+  font-style: normal;
+  color: var(--brand-600);
+}
+
+/* One per row. Each point runs the full width of the panel, which is wide
+   enough that none of them wrap — two columns forced every line to break. */
+.auth__points {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1.35rem;
+}
+.auth__points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  font-size: var(--fs-md);
+  line-height: 1.45;
+  color: var(--ink-700);
+}
+.auth__tick {
+  flex: none;
+  margin-top: 2px;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--brand-100);
+  color: var(--brand-700);
+}
+
+/* Sits between the pitch and the footnote, filling the panel without
+   competing with the headline. */
+/* The artwork is a watermark: out of the flow, behind the copy, and bled off
+   the bottom-right corner. Because it takes no layout height, the copy is free
+   to run the full width of the panel. */
+.auth__watermark {
+  position: absolute;
+  right: -3%;
+  bottom: -4%;
+  width: min(720px, 72%);
+  z-index: -1;
+  opacity: 0.22;
+  pointer-events: none;
+}
+
+/* Short viewports — a laptop, or a browser with several toolbars. Scale the
+   artwork down, then drop it, long before the headline has to shrink. */
+@media (max-height: 860px) {
+  .auth__brand { padding: 2.5rem 3.25rem 1.25rem; }
+  .auth__brand > .stack { padding-block: 2rem 4rem; }
+}
+
+@media (max-height: 800px) {
+  .auth__brand > .stack { padding-block: 1.75rem 3rem; }
+  .auth__points { gap: 1.1rem; }
+}
+
+@media (max-height: 740px) {
+  .auth__brand { padding: 2rem 3.25rem 1rem; }
+  .auth__brand > .stack { padding-block: 1.25rem 2rem; }
+  .auth__points { gap: 0.85rem; }
+  .auth__foot { display: none; }
+}
+
+/* On a short screen the privacy line is the first thing to go; the copyright
+   stays, because it has to. */
+@media (max-height: 660px) {
+  .auth__footer > span:first-child { display: none; }
+}
+
+@media (max-height: 640px) {
+  .auth__lede { display: none; }
+  .auth__points { gap: 0.6rem; }
+}
+
+.auth__foot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: var(--fs-xs);
+  color: var(--ink-500);
+  /* Holds the bottom edge while everything above it stays packed up top. */
+  margin-left: var(--optical-inset);
+}
+
+/* Privacy note on the left, copyright on the right, closing the panel. */
+.auth__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 2rem;
+  margin-left: var(--optical-inset);
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--brand-100);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--ink-500);
+}
+.auth__footer > span { max-width: 62ch; }
+.auth__footer-copy { white-space: nowrap; }
+
+/* The copy column, inset to the logo's visible edge.
+   It grows to fill whatever height is left between the logos and the bottom of
+   the panel, then centres its own content inside that space. Auto margins were
+   tried first, but the flex gap only applies above the copy, which left it
+   sitting lower than centre once the footnote was removed. The flex gap now
+   acts purely as a minimum clearance, and shrinks away on short screens. */
+.auth__brand > .stack {
+  padding-left: var(--optical-inset);
+  flex: 1 1 auto;
+  min-height: 0;
+  justify-content: center;
+  /* Weighted, not symmetric: more clearance below than above lifts the copy
+     off dead centre, which sits better under the two marks. */
+  padding-block: 2.5rem 5rem;
+}
+
+.auth__panel {
+  display: grid;
+  place-items: center;
+  padding: 2rem 1.5rem;
+  background: var(--surface);
+}
+.auth__form-wrap { width: 100%; max-width: 468px; }
+/* The form is the point of the page; give it a surface of its own. */
+/* The panel is already white, so the card is defined by its rule rather
+   than by a shadow that would have nothing to sit on. */
+.auth__card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 2.4rem 2.25rem;
+}
+
+/* The sign-in card is the working end of the page, so it is given a little
+   more presence than a default form would have. */
+.auth__card .field-label { font-size: var(--fs-base); }
+.auth__card .input { padding-block: 0.7rem; font-size: var(--fs-md); }
+.auth__card .btn--lg { min-height: 50px; font-size: var(--fs-md); }
+.auth__title { font-size: var(--fs-3xl); letter-spacing: -0.015em; }
+
+/* Label on the left, the escape hatch on the right. */
+.auth__label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.auth__forgot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--brand-700);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.auth__forgot:hover { color: var(--brand-600); text-decoration: underline; }
+.auth__lede {
+  font-size: var(--fs-md);
+  line-height: 1.55;
+  color: var(--ink-600);
+  max-width: 62ch;
+  margin: 0;
+}
+
+.auth__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 1rem;
+  font-size: var(--fs-sm);
+  color: var(--ink-600);
+  text-decoration: none;
+}
+.auth__back:hover { color: var(--brand-700); }
+
+/* Two-step progress above the reset form. */
+.steps {
+  display: flex;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0 0 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.steps__item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: var(--fs-xs);
+  color: var(--ink-400);
+}
+.steps__dot {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--ink-100);
+  color: var(--ink-500);
+  font-weight: 700;
+}
+.steps__item.is-on { color: var(--ink-900); font-weight: 500; }
+.steps__item.is-on .steps__dot { background: var(--brand-600); color: #fff; }
+.steps__item.is-done .steps__dot { background: var(--brand-100); color: var(--brand-700); }
+
+.input--code {
+  font-size: var(--fs-xl);
+  letter-spacing: 0.5em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The link doubles as a button on the reset step. */
+button.auth__forgot {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.reveal { position: absolute; right: 0.25rem; }
+.input-group .input { padding-right: 2.2rem; }
+
+@media (max-width: 960px) {
+  .auth { grid-template-columns: 1fr; align-content: start; }
+  /* Keep the identity on a phone — just drop the sales copy. */
+  .auth__brand { padding: 1.5rem 1.25rem; gap: 0; }
+  .auth__brand .stack.stack-lg,
+  .auth__watermark,
+  .auth__foot { display: none; }
+  .auth__panel { padding: 1.5rem 1rem 2.5rem; }
+}
+@media (max-width: 480px) {
+  .auth__card { padding: 1.5rem 1.25rem; border-radius: var(--radius); }
+  .auth__title { font-size: var(--fs-2xl); }
+}

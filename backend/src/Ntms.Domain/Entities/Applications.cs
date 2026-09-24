@@ -1,0 +1,81 @@
+using Ntms.Domain.Common;
+
+namespace Ntms.Domain.Entities;
+
+/// <summary>One applicant submission against one program type.</summary>
+public class TrainingApplication : AuditableEntity
+{
+    public string ApplicationNo { get; set; } = string.Empty;
+
+    public int ApplicantId { get; set; }
+    public Applicant? Applicant { get; set; }
+
+    public int ProgramTypeId { get; set; }
+    public ProgramType? ProgramType { get; set; }
+    public int CategoryId { get; set; }
+    public Category? Category { get; set; }
+    public int SubCategoryId { get; set; }
+    public SubCategory? SubCategory { get; set; }
+
+    /// <summary>The registration form version the answers were captured against.</summary>
+    public int? RegistrationFormId { get; set; }
+    public RegistrationForm? RegistrationForm { get; set; }
+
+    public ApplicationStatus Status { get; set; } = ApplicationStatus.Draft;
+    public DateTime? SubmittedOn { get; set; }
+
+    public int? AssignedToUserId { get; set; }
+    public PortalUser? AssignedToUser { get; set; }
+
+    public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.NotApplicable;
+    public decimal FeeAmount { get; set; }
+    /// <summary>TDS rate the applicant opted for; 0 when none.</summary>
+    public decimal TdsPercent { get; set; }
+    /// <summary>The applicant's own TAN, mandatory when TDS is claimed.</summary>
+    public string? Tan { get; set; }
+    public string? DeductorName { get; set; }
+
+    public decimal? Score { get; set; }
+    public int? StateCode { get; set; }
+    public LgdState? State { get; set; }
+    public int? DistrictCode { get; set; }
+    public LgdDistrict? District { get; set; }
+
+    /// <summary>
+    /// Answers keyed by the dynamic registration field key, stored as JSON so the
+    /// shape can change with the form without a schema migration.
+    /// </summary>
+    public string ResponsesJson { get; set; } = "{}";
+
+    public ICollection<ApplicationDocument> Documents { get; set; } = [];
+    public ICollection<ScrutinyEvent> History { get; set; } = [];
+}
+
+public class ApplicationDocument : AuditableEntity
+{
+    public int ApplicationId { get; set; }
+    public TrainingApplication? Application { get; set; }
+
+    /// <summary>The registration field this upload answers.</summary>
+    public string FieldKey { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
+    public long FileSizeKb { get; set; }
+    public string? ContentType { get; set; }
+    public string? StoragePath { get; set; }
+    public DateTime UploadedOn { get; set; } = DateTime.UtcNow;
+    public bool Verified { get; set; }
+    public string? Remarks { get; set; }
+}
+
+public class ScrutinyEvent : AuditableEntity
+{
+    public int ApplicationId { get; set; }
+    public TrainingApplication? Application { get; set; }
+
+    public ScrutinyAction Action { get; set; }
+    public string ByUserName { get; set; } = string.Empty;
+    public string ByRole { get; set; } = string.Empty;
+    public DateTime On { get; set; } = DateTime.UtcNow;
+    public string? Remarks { get; set; }
+}

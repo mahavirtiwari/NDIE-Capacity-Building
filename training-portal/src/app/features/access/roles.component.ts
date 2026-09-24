@@ -1,0 +1,361 @@
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  ALL_PERMISSIONS,
+  AdminRole,
+  PERMISSION_CATALOGUE,
+  Permission,
+  RecordStatus,
+} from '../../core/models';
+import { RoleService } from '../../core/services/people.service';
+import { ToastService } from '../../core/services/toast.service';
+import { ConfirmService } from '../../shared/components/confirm.service';
+import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
+import { IconComponent } from '../../shared/components/icon.component';
+import { ModalComponent } from '../../shared/components/modal.component';
+import { PageHeaderComponent } from '../../shared/components/page-header.component';
+import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
+import { StatusToggleComponent } from '../../shared/components/status-toggle.component';
+import { ListState, searchTerm } from '../../shared/list-state';
+
+const COLUMNS: ColumnDef[] = [
+  { key: 'name', header: 'Role', sortable: true, variant: 'primary' },
+  { key: 'code', header: 'Code', width: '190px', variant: 'muted' },
+  { key: 'baseRole', header: 'Base role', width: '170px' },
+  { key: 'description', header: 'Description', variant: 'muted' },
+  { key: 'permissionCount', header: 'Permissions', align: 'center', width: '120px' },
+  { key: 'userCount', header: 'Users', align: 'center', width: '90px' },
+  { key: 'status', header: 'Status', width: '110px' },
+  { key: 'actions', header: '', width: '110px', align: 'right' },
+];
+
+const BASE_ROLES = ['SuperAdmin', 'Admin', 'OperationManager', 'Coordinator'] as const;
+
+@Component({
+  selector: 'app-roles',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [
+    ReactiveFormsModule,
+    PageHeaderComponent,
+    DataTableComponent,
+    CellTemplateDirective,
+    StatusBadgeComponent,
+    StatusToggleComponent,
+    ModalComponent,
+    IconComponent,
+  ],
+  template: `
+    <app-page-header
+      title="Roles & permissions"
+      subtitle="Super Admin defines admin roles and the exact screens and actions each one can reach."
+      icon="shield"
+      [breadcrumbs]="[{ label: 'Administration' }, { label: 'Roles & permissions' }]"
+    >
+      <button type="button" class="btn btn--primary" (click)="openForm()">
+        <app-icon name="plus" [size]="15" /> New role
+      </button>
+    </app-page-header>
+
+    <section class="card">
+      <div class="card__body card__body--tight">
+        <div class="filter-bar">
+          <div class="field field--search">
+            <div class="input-group">
+              <span class="input-icon"><app-icon name="search" [size]="15" /></span>
+              <input class="input" placeholder="Search roles" (input)="list.setSearch(term($event))" />
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="roleBase">Base role</label>
+            <select id="roleBase" class="select" (change)="list.setFilter('baseRole', value($event))">
+              <option value="">All</option>
+              @for (base of baseRoles; track base) {
+                <option [value]="base">{{ base }}</option>
+              }
+            </select>
+          </div>
+          @if (list.hasFilters) {
+            <button type="button" class="btn btn--ghost" (click)="list.clearFilters()">
+              <app-icon name="refresh" [size]="15" /> Reset
+            </button>
+          }
+        </div>
+      </div>
+
+      <app-data-table
+        [columns]="columns"
+        [rows]="rows()"
+        [total]="list.total()"
+        [page]="list.page()"
+        [pageSize]="list.pageSize()"
+        [loading]="list.loading()"
+        [sortBy]="list.sortBy()"
+        [sortDir]="list.sortDir()"
+        emptyTitle="No roles defined"
+        emptyIcon="shield"
+        (pageChange)="list.goToPage($event)"
+        (pageSizeChange)="list.setPageSize($event)"
+        (sortChange)="list.setSort($event)"
+      >
+        <ng-template appCell="name" let-row>
+          <div class="stack stack-xs">
+            <strong>{{ $any(row).name }}</strong>
+            @if ($any(row).isSystemRole) {
+              <span class="chip">System role</span>
+            }
+          </div>
+        </ng-template>
+        <ng-template appCell="status" let-row>
+          <app-status-badge [value]="$any(row).status" />
+        </ng-template>
+        <ng-template appCell="actions" let-row>
+          <div class="btn-row btn-row--end">
+            <button type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
+              <app-icon name="edit" [size]="15" />
+            </button>
+            <app-status-toggle
+              [status]="$any(row).status"
+              [disabled]="$any(row).isSystemRole"
+              (toggled)="setStatus($any(row), $event)"
+            />
+          </div>
+        </ng-template>
+      </app-data-table>
+    </section>
+
+    @if (formOpen()) {
+      <app-modal
+        [title]="editing() ? 'Edit role' : 'New role'"
+        [subtitle]="selectedCount() + ' of ' + totalPermissions + ' permissions granted'"
+        size="lg"
+        (closed)="closeForm()"
+      >
+        <form [formGroup]="form" id="role-form" (ngSubmit)="save()" class="stack stack-md">
+          <div class="form-grid">
+            <div class="field">
+              <label class="field-label" for="roleName">Role name <span class="req">*</span></label>
+              <input id="roleName" class="input" formControlName="name" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="roleCode">Code <span class="req">*</span></label>
+              <input id="roleCode" class="input" formControlName="code" placeholder="SCRUTINY_OFFICER" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="roleBaseSel">Base role <span class="req">*</span></label>
+              <select id="roleBaseSel" class="select" formControlName="baseRole">
+                @for (base of baseRoles; track base) {
+                  <option [value]="base">{{ base }}</option>
+                }
+              </select>
+              <span class="field-hint">Decides the default landing screens and data scope.</span>
+            </div>
+            <div class="field">
+              <label class="field-label" for="roleStatus">Status</label>
+              <select id="roleStatus" class="select" formControlName="status">
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+            <div class="field field--span-2">
+              <label class="field-label" for="roleDesc">Description</label>
+              <textarea id="roleDesc" class="textarea" formControlName="description"></textarea>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="row row-between">
+            <strong class="text-md">Permissions</strong>
+            <div class="btn-row">
+              <button type="button" class="btn btn--sm btn--secondary" (click)="selectAll(true)">Select all</button>
+              <button type="button" class="btn btn--sm btn--secondary" (click)="selectAll(false)">Clear all</button>
+            </div>
+          </div>
+
+          @for (group of catalogue; track group.group) {
+            <fieldset class="perm-group">
+              <div class="perm-group__head">
+                <strong class="text-sm">{{ group.group }}</strong>
+                <label class="check">
+                  <input
+                    type="checkbox"
+                    [checked]="isGroupFull(group.group)"
+                    (change)="toggleGroup(group.group, $event)"
+                  />
+                  <span class="text-xs">All</span>
+                </label>
+              </div>
+              <div class="check-grid">
+                @for (permission of group.permissions; track permission.key) {
+                  <label class="check">
+                    <input
+                      type="checkbox"
+                      [checked]="has(permission.key)"
+                      (change)="toggle(permission.key, $event)"
+                    />
+                    <span>{{ permission.label }}</span>
+                  </label>
+                }
+              </div>
+            </fieldset>
+          }
+        </form>
+        <div footer>
+          <button type="button" class="btn btn--secondary" (click)="closeForm()">Cancel</button>
+          <button type="submit" form="role-form" class="btn btn--primary" [disabled]="saving()">
+            @if (saving()) { <span class="spinner"></span> }
+            Save role
+          </button>
+        </div>
+      </app-modal>
+    }
+  `,
+  styles: [
+    `
+      .perm-group {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 0.75rem 0.85rem;
+        margin: 0;
+        background: var(--surface-muted);
+      }
+      .perm-group__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+      }
+    `,
+  ],
+})
+export class RolesComponent {
+  private readonly service = inject(RoleService);
+  private readonly toast = inject(ToastService);
+  private readonly confirm = inject(ConfirmService);
+  private readonly fb = inject(FormBuilder);
+
+  protected readonly columns = COLUMNS;
+  protected readonly baseRoles = BASE_ROLES;
+  protected readonly catalogue = PERMISSION_CATALOGUE;
+  protected readonly totalPermissions = ALL_PERMISSIONS.length;
+
+  protected readonly list = new ListState<AdminRole>((request) => this.service.list(request), {
+    sortBy: 'name',
+  });
+
+  protected readonly rows = computed(() =>
+    this.list.rows().map((row) => ({ ...row, permissionCount: row.permissions.length })),
+  );
+
+  protected readonly formOpen = signal(false);
+  protected readonly saving = signal(false);
+  protected readonly editing = signal<AdminRole | null>(null);
+  protected readonly selected = signal<Permission[]>([]);
+  protected readonly selectedCount = computed(() => this.selected().length);
+
+  protected readonly form = this.fb.group({
+    name: ['', Validators.required],
+    code: ['', Validators.required],
+    baseRole: ['Admin', Validators.required],
+    description: [''],
+    status: ['Active'],
+  });
+
+  protected term = searchTerm;
+  protected value = (event: Event) => (event.target as HTMLSelectElement).value;
+
+  protected has(permission: Permission): boolean {
+    return this.selected().includes(permission);
+  }
+
+  protected toggle(permission: Permission, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.selected.update((list) =>
+      checked ? [...list, permission] : list.filter((p) => p !== permission),
+    );
+  }
+
+  protected isGroupFull(group: string): boolean {
+    const keys = this.catalogue.find((g) => g.group === group)?.permissions.map((p) => p.key) ?? [];
+    return keys.length > 0 && keys.every((key) => this.selected().includes(key));
+  }
+
+  protected toggleGroup(group: string, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    const keys = this.catalogue.find((g) => g.group === group)?.permissions.map((p) => p.key) ?? [];
+    this.selected.update((list) =>
+      checked
+        ? [...new Set([...list, ...keys])]
+        : list.filter((p) => !keys.includes(p)),
+    );
+  }
+
+  protected selectAll(all: boolean): void {
+    this.selected.set(all ? [...ALL_PERMISSIONS] : []);
+  }
+
+  protected openForm(row?: AdminRole): void {
+    this.editing.set(row ?? null);
+    this.selected.set(row ? [...row.permissions] : []);
+    this.form.reset({
+      name: row?.name ?? '',
+      code: row?.code ?? '',
+      baseRole: row?.baseRole ?? 'Admin',
+      description: row?.description ?? '',
+      status: row?.status ?? 'Active',
+    });
+    this.formOpen.set(true);
+  }
+
+  protected closeForm(): void {
+    this.formOpen.set(false);
+    this.editing.set(null);
+  }
+
+  protected save(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+    if (!this.selected().length) {
+      this.toast.warning('No permissions selected', 'A role needs at least one permission.');
+      return;
+    }
+    this.saving.set(true);
+    const payload = {
+      ...this.form.getRawValue(),
+      permissions: this.selected(),
+      isSystemRole: this.editing()?.isSystemRole ?? false,
+    };
+    const current = this.editing();
+    const request = current ? this.service.update(current.id, payload) : this.service.create(payload);
+
+    request.subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.toast.success('Role saved', `${this.selected().length} permissions granted.`);
+        this.closeForm();
+        this.list.reload();
+      },
+      error: () => this.saving.set(false),
+    });
+  }
+
+  protected async setStatus(row: AdminRole, status: RecordStatus): Promise<void> {
+    const verb = status === 'Active' ? 'Enable' : 'Disable';
+    const confirmed = await this.confirm.ask({
+      title: `${verb} role?`,
+      message:
+        status === 'Active'
+          ? 'Users holding this role regain access.'
+          : `${row.userCount ?? 0} user(s) hold this role and will lose access until it is enabled again.`,
+      confirmLabel: verb,
+      tone: status === 'Active' ? 'primary' : 'danger',
+    });
+    if (!confirmed) return;
+    this.service.setStatus(row.id, status).subscribe(() => {
+      this.toast.success(`Role ${status === 'Active' ? 'enabled' : 'disabled'}`, row.name);
+      this.list.reload();
+    });
+  }
+}

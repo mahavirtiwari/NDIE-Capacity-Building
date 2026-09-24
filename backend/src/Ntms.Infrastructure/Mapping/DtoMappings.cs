@@ -1,0 +1,594 @@
+using System.Text.Json;
+using Ntms.Application.Common;
+using Ntms.Application.Contracts;
+using Ntms.Domain.Common;
+using Ntms.Domain.Entities;
+
+namespace Ntms.Infrastructure.Mapping;
+
+/// <summary>
+/// Entity to DTO projections. Written by hand rather than convention-mapped so
+/// the exact shape the clients depend on is visible in one place.
+/// </summary>
+public static class DtoMappings
+{
+    private static void FillAudit(AuditDto dto, AuditableEntity entity)
+    {
+        dto.CreatedBy = entity.CreatedBy;
+        dto.CreatedOn = entity.CreatedOn;
+        dto.ModifiedBy = entity.ModifiedBy;
+        dto.ModifiedOn = entity.ModifiedOn;
+    }
+
+    /* --------------------------------------------------------- masters */
+
+    public static CategoryDto ToDto(this Category e, int subCategoryCount = 0)
+    {
+        var dto = new CategoryDto
+        {
+            Id = e.Id,
+            Code = e.Code,
+            Name = e.Name,
+            Description = e.Description,
+            DisplayOrder = e.DisplayOrder,
+            Status = e.Status.ToApi(),
+            SubCategoryCount = subCategoryCount,
+        };
+        FillAudit(dto, e);
+        return dto;
+    }
+
+    public static SubCategoryDto ToDto(this SubCategory e)
+    {
+        var dto = new SubCategoryDto
+        {
+            Id = e.Id,
+            CategoryId = e.CategoryId,
+            CategoryName = e.Category?.Name,
+            Code = e.Code,
+            Name = e.Name,
+            Description = e.Description,
+            DisplayOrder = e.DisplayOrder,
+            Status = e.Status.ToApi(),
+        };
+        FillAudit(dto, e);
+        return dto;
+    }
+
+    public static ProgramTypeDto ToDto(this ProgramType e)
+    {
+        var dto = new ProgramTypeDto
+        {
+            Id = e.Id,
+            CategoryId = e.CategoryId,
+            CategoryName = e.Category?.Name,
+            SubCategoryId = e.SubCategoryId,
+            SubCategoryName = e.SubCategory?.Name,
+            Code = e.Code,
+            Name = e.Name,
+            ShortDescription = e.ShortDescription,
+            DurationDays = e.DurationDays,
+            DeliveryMode = e.DeliveryMode.ToApi(),
+            MinQualification = e.MinQualification,
+            MinQualificationLabel = QualificationLevels.LabelFor(e.MinQualification),
+            MinExperienceYears = e.MinExperienceYears,
+            CertificateValidityMonths = e.CertificateValidityMonths,
+            IsExamMandatory = e.IsExamMandatory,
+            IsFeeApplicable = e.IsFeeApplicable,
+            Status = e.Status.ToApi(),
+        };
+        FillAudit(dto, e);
+        return dto;
+    }
+
+    public static AgencyDto ToDto(this ImplementingAgency e)
+    {
+        var dto = new AgencyDto
+        {
+            Id = e.Id,
+            Code = e.Code,
+            Name = e.Name,
+            AgencyType = e.AgencyType.ToApi(),
+            ContactPerson = e.ContactPerson,
+            Email = e.Email,
+            Mobile = e.Mobile,
+            Gstin = e.Gstin,
+            Pan = e.Pan,
+            AddressLine1 = e.AddressLine1,
+            AddressLine2 = e.AddressLine2,
+            City = e.City,
+            StateCode = e.StateCode,
+            State = e.State?.Name,
+            DistrictCode = e.DistrictCode,
+            District = e.District?.Name,
+            Pincode = e.Pincode,
+            EmpanelledOn = e.EmpanelledOn,
+            EmpanelmentValidTill = e.EmpanelmentValidTill,
+            CategoryIds = [.. e.Categories.Select(x => x.CategoryId)],
+            SubCategoryIds = [.. e.SubCategories.Select(x => x.SubCategoryId)],
+            ProgramTypeIds = [.. e.ProgramTypes.Select(x => x.ProgramTypeId)],
+            StateCodes = [.. e.States.Select(x => x.StateCode)],
+            Status = e.Status.ToApi(),
+        };
+        FillAudit(dto, e);
+        return dto;
+    }
+
+    /* ------------------------------------------------------ curriculum */
+
+    public static CurriculumDto ToDto(this Curriculum e)
+    {
+        var dto = new CurriculumDto
+        {
+            Id = e.Id,
+            ProgramTypeCode = e.ProgramType?.Code,
+            ProgramTypeId = e.ProgramTypeId,
+            ProgramTypeName = e.ProgramType?.Name,
+            CategoryId = e.ProgramType?.CategoryId,
+            CategoryName = e.ProgramType?.Category?.Name,
+            SubCategoryId = e.ProgramType?.SubCategoryId,
+            SubCategoryName = e.ProgramType?.SubCategory?.Name,
+            Objective = e.Objective,
+            DurationDays = e.DurationDays,
+            EffectiveFrom = e.EffectiveFrom,
+            Status = e.Status.ToApi(),
+            Sessions =
+            [
+                .. e.Sessions.OrderBy(s => s.DisplayOrder).Select(s => new CurriculumSessionDto
+                {
+                    Id = s.Id,
+                    SessionCode = s.SessionCode,
+                    SessionName = s.SessionName,
+                    DisplayOrder = s.DisplayOrder,
+                    Day = s.Day,
+                    Status = s.Status.ToApi(),
+                    Topics =
+                    [
+                        .. s.Topics.OrderBy(t => t.DisplayOrder).Select(t => new CurriculumTopicDto
+                        {
+                            Id = t.Id,
+                            TopicCode = t.TopicCode,
+                            TopicName = t.TopicName,
+                            DisplayOrder = t.DisplayOrder,
+                            DurationMinutes = t.DurationMinutes,
+                            LearningOutcome = t.LearningOutcome,
+                            Status = t.Status.ToApi(),
+                        }),
+                    ],
+                }),
+            ],
+        };
+        FillAudit(dto, e);
+        return dto;
+    }
+
+    /* ----------------------------------------------- registration form */
+
+    public static RegistrationFormDto ToDto(this RegistrationForm e)
+    {
+        var dto = new RegistrationFormDto
+        {
+            Id = e.Id,
+            ProgramTypeId = e.ProgramTypeId,
+            ProgramTypeName = e.ProgramType?.Name,
+            CategoryId = e.ProgramType?.CategoryId,
+            CategoryName = e.ProgramType?.Category?.Name,
+            SubCategoryId = e.ProgramType?.SubCategoryId,
+            SubCategoryName = e.ProgramType?.SubCategory?.Name,
+            Version = e.Version,
+            Status = e.Status.ToApi(),
+            Sections =
+            [
+                .. e.Sections.OrderBy(s => s.DisplayOrder).Select(s => new RegistrationSectionDto
+                {
+                    Id = s.Id,
+                    Title = s.Title,
+                    Description = s.Description,
+                    DisplayOrder = s.DisplayOrder,
+                    IsEnabled = s.IsEnabled,
+                    Fields =
+                    [
+                        .. s.Fields.OrderBy(f => f.DisplayOrder).Select(f => new RegistrationFieldDto
+                        {
+                            Id = f.Id,
+                            Key = f.Key,
+                            Label = f.Label,
+                            Type = f.Type.ToApi(),
+                            IsEnabled = f.IsEnabled,
+                            Placeholder = f.Placeholder,
+                            HelpText = f.HelpText,
+                            DisplayOrder = f.DisplayOrder,
+                            ColSpan = f.ColSpan,
+                            Options =
+                            [
+                                .. f.Options.OrderBy(o => o.DisplayOrder)
+                                    .Select(o => new FieldOptionDto { Value = o.Value, Label = o.Label }),
+                            ],
+                            Validation = new FieldValidationDto
+                            {
+                                Required = f.Validation.Required,
+                                MinLength = f.Validation.MinLength,
+                                MaxLength = f.Validation.MaxLength,
+                                Min = f.Validation.Min,
+                                Max = f.Validation.Max,
+                                Pattern = f.Validation.Pattern,
+                                AllowedExtensions = EnumMaps.SplitList(f.Validation.AllowedExtensions),
+                                MaxFileSizeMb = f.Validation.MaxFileSizeMb,
+                            },
+                            VisibleWhenFieldKey = f.VisibleWhenFieldKey,
+                            VisibleWhenValues = EnumMaps.SplitList(f.VisibleWhenValues),
+                        }),
+                    ],
+                }),
+            ],
+        };
+        FillAudit(dto, e);
+        return dto;
+    }
+
+    /* ------------------------------------------------------------- fee */
+
+    public static FeeStructureDto ToDto(this FeeStructure e)
+    {
+        var taxable = e.Components.Where(c => c.IsTaxable).Sum(c => c.Amount);
+        var nonTaxable = e.Components.Where(c => !c.IsTaxable).Sum(c => c.Amount);
+        var gst = Math.Round(taxable * e.GstPercent / 100m, 2);
+
+        var dto = new FeeStructureDto
+        {
+            Id = e.Id,
+            ProgramTypeId = e.ProgramTypeId,
+            ProgramTypeName = e.ProgramType?.Name,
+            CategoryId = e.ProgramType?.CategoryId,
+            CategoryName = e.ProgramType?.Category?.Name,
+            SubCategoryId = e.ProgramType?.SubCategoryId,
+            SubCategoryName = e.ProgramType?.SubCategory?.Name,
+            Title = e.Title,
+            Currency = e.Currency,
+            GstPercent = e.GstPercent,
+            TdsOptions = EnumMaps.SplitInts(e.TdsOptions),
+            EffectiveFrom = e.EffectiveFrom,
+            EffectiveTo = e.EffectiveTo,
+            Status = e.Status.ToApi(),
+            Components =
+            [
+                .. e.Components.Select(c => new FeeComponentDto
+                {
+                    Id = c.Id, Kind = c.Kind.ToApi(), Label = c.Label,
+                    Amount = c.Amount, IsTaxable = c.IsTaxable,
+                }),
+            ],
+            Concessions =
+            [
+                .. e.Concessions.Select(c => new FeeConcessionDto
+                {
+                    Id = c.Id, Label = c.Label, Percentage = c.Percentage, Remarks = c.Remarks,
+                }),
+            ],
+            Totals = new FeeTotalsDto
+            {
+                Taxable = taxable,
+                NonTaxable = nonTaxable,
+                Gst = gst,
+                Gross = Math.Round(taxable + nonTaxable + gst, 2),
+            },
+        };
+        FillAudit(dto, e);
+        return dto;
+    }
+
+    /* ------------------------------------------------------------ exam */
+
+    public static ExamPaperDto ToDto(this ExamPaper e)
+    {
+        var dto = new ExamPaperDto
+        {
+            Id = e.Id,
+            ProgramTypeId = e.ProgramTypeId,
+            ProgramTypeName = e.ProgramType?.Name,
+            CategoryId = e.ProgramType?.CategoryId,
+            CategoryName = e.ProgramType?.Category?.Name,
+            SubCategoryId = e.ProgramType?.SubCategoryId,
+            SubCategoryName = e.ProgramType?.SubCategory?.Name,
+            Code = e.Code,
+            Title = e.Title,
+            Instructions = e.Instructions,
+            DurationMinutes = e.DurationMinutes,
+            PassPercentage = e.PassPercentage,
+            MaxAttempts = e.MaxAttempts,
+            ShuffleQuestions = e.ShuffleQuestions,
+            NegativeMarking = e.NegativeMarking,
+            Status = e.Status.ToApi(),
+            TotalMarks = e.Questions.Sum(q => q.Marks),
+            Questions =
+            [
+                .. e.Questions.OrderBy(q => q.DisplayOrder).Select(q => new ExamQuestionDto
+                {
+                    Id = q.Id,
+                    DisplayOrder = q.DisplayOrder,
+                    Text = q.Text,
+                    Type = q.Type.ToApi(),
+                    Difficulty = q.Difficulty.ToApi(),
+                    Marks = q.Marks,
+                    NegativeMarks = q.NegativeMarks,
+                    ModuleRef = q.ModuleRef,
+                    Explanation = q.Explanation,
+                    Options =
+                    [
+                        .. q.Options.OrderBy(o => o.DisplayOrder).Select(o => new ExamQuestionOptionDto
+                        {
+                            Id = o.Id, Text = o.Text, IsCorrect = o.IsCorrect,
+                        }),
+                    ],
+                }),
+            ],
+        };
+        FillAudit(dto, e);
+        return dto;
+    }
+
+    /* -------------------------------------------------------- material */
+
+    public static TrainingMaterialDto ToDto(this TrainingMaterial e)
+    {
+        var dto = new TrainingMaterialDto
+        {
+            Id = e.Id,
+            Title = e.Title,
+            Description = e.Description,
+            Kind = e.Kind.ToApi(),
+            CategoryId = e.CategoryId,
+            CategoryName = e.Category?.Name,
+            SubCategoryId = e.SubCategoryId,
+            SubCategoryName = e.SubCategory?.Name,
+            ProgramTypeId = e.ProgramTypeId,
+            ProgramTypeName = e.ProgramType?.Name,
+            CurriculumSessionId = e.CurriculumSessionId,
+            FileName = e.FileName,
+            FileSizeKb = e.FileSizeKb,
+            MimeType = e.MimeType,
+            Url = e.Url,
+            DurationMinutes = e.DurationMinutes,
+            Language = e.Language,
+            VisibleToRoles = EnumMaps.SplitList(e.VisibleToRoles),
+            Version = e.Version,
+            PublishedOn = e.PublishedOn,
+            DownloadAllowed = e.DownloadAllowed,
+            Status = e.Status.ToApi(),
+        };
+        FillAudit(dto, e);
+        return dto;
+    }
+
+    /* ---------------------------------------------------------- access */
+
+    public static AdminRoleDto ToDto(this AdminRole e, int userCount = 0)
+    {
+        var dto = new AdminRoleDto
+        {
+            Id = e.Id,
+            Name = e.Name,
+            Code = e.Code,
+            BaseRole = e.BaseRole.ToApi(),
+            Description = e.Description,
+            Permissions = [.. e.Permissions.Select(p => p.Permission).Order()],
+            UserCount = userCount,
+            IsSystemRole = e.IsSystemRole,
+            Status = e.Status.ToApi(),
+        };
+        FillAudit(dto, e);
+        return dto;
+    }
+
+    public static PortalUserDto ToDto(this PortalUser e)
+    {
+        var dto = new PortalUserDto
+        {
+            Id = e.Id,
+            UserCode = e.UserCode,
+            FullName = e.FullName,
+            Email = e.Email,
+            Mobile = e.Mobile,
+            Designation = e.Designation,
+            RoleId = e.RoleId,
+            RoleName = e.Role?.Name,
+            BaseRole = e.BaseRole.ToApi(),
+            CategoryIds = [.. e.Categories.Select(x => x.CategoryId)],
+            SubCategoryIds = [.. e.SubCategories.Select(x => x.SubCategoryId)],
+            ProgramTypeIds = [.. e.ProgramTypes.Select(x => x.ProgramTypeId)],
+            StateCodes = [.. e.States.Select(x => x.StateCode)],
+            DistrictCodes = [.. e.Districts.Select(x => x.DistrictCode)],
+            AgencyId = e.AgencyId,
+            AgencyName = e.Agency?.Name,
+            ReportsToUserId = e.ReportsToUserId,
+            ReportsToName = e.ReportsToUser?.FullName,
+            StateCode = e.StateCode,
+            State = e.State?.Name,
+            DistrictCode = e.DistrictCode,
+            District = e.District?.Name,
+            City = e.City,
+            LastLoginOn = e.LastLoginOn,
+            Status = e.Status.ToApi(),
+        };
+        FillAudit(dto, e);
+        return dto;
+    }
+
+    public static ApplicantDto ToDto(this Applicant e)
+    {
+        var dto = new ApplicantDto
+        {
+            Id = e.Id,
+            ApplicantCode = e.ApplicantCode,
+            FullName = e.FullName,
+            Email = e.Email,
+            Mobile = e.Mobile,
+            Pan = e.Pan,
+            Gender = e.Gender?.ToString(),
+            SocialCategory = e.SocialCategory?.ToString(),
+            CategoryId = e.CategoryId,
+            CategoryName = e.Category?.Name,
+            SubCategoryId = e.SubCategoryId,
+            SubCategoryName = e.SubCategory?.Name,
+            EmailVerified = e.EmailVerified,
+            MobileVerified = e.MobileVerified,
+            KycStatus = e.KycStatus.ToApi(),
+            StateCode = e.StateCode,
+            State = e.State?.Name,
+            DistrictCode = e.DistrictCode,
+            District = e.District?.Name,
+            City = e.City,
+            RegisteredOn = e.RegisteredOn,
+            LastLoginOn = e.LastLoginOn,
+            IsBlocked = e.IsBlocked,
+        };
+        FillAudit(dto, e);
+        return dto;
+    }
+
+    /* ---------------------------------------------------- applications */
+
+    public static ApplicationDto ToDto(this TrainingApplication e)
+    {
+        var dto = new ApplicationDto
+        {
+            Id = e.Id,
+            ApplicationNo = e.ApplicationNo,
+            ApplicantId = e.ApplicantId,
+            ApplicantName = e.Applicant?.FullName ?? string.Empty,
+            ApplicantEmail = e.Applicant?.Email ?? string.Empty,
+            ApplicantMobile = e.Applicant?.Mobile ?? string.Empty,
+            Pan = e.Applicant?.Pan ?? string.Empty,
+            CategoryId = e.CategoryId,
+            CategoryName = e.Category?.Name,
+            SubCategoryId = e.SubCategoryId,
+            SubCategoryName = e.SubCategory?.Name,
+            ProgramTypeId = e.ProgramTypeId,
+            ProgramTypeName = e.ProgramType?.Name,
+            Status = e.Status.ToApi(),
+            SubmittedOn = e.SubmittedOn,
+            AssignedToUserId = e.AssignedToUserId,
+            AssignedToName = e.AssignedToUser?.FullName,
+            PaymentStatus = e.PaymentStatus.ToApi(),
+            FeeAmount = e.FeeAmount,
+            TdsPercent = e.TdsPercent,
+            Tan = e.Tan,
+            DeductorName = e.DeductorName,
+            Score = e.Score,
+            StateCode = e.StateCode,
+            State = e.State?.Name,
+            City = e.Applicant?.City,
+            Responses = ParseJson(e.ResponsesJson),
+            Documents =
+            [
+                .. e.Documents.Select(d => new ApplicationDocumentDto
+                {
+                    Id = d.Id, FieldKey = d.FieldKey, Label = d.Label, FileName = d.FileName,
+                    FileSizeKb = d.FileSizeKb, UploadedOn = d.UploadedOn,
+                    Verified = d.Verified, Remarks = d.Remarks,
+                }),
+            ],
+            History =
+            [
+                .. e.History.OrderBy(h => h.On).Select(h => new ScrutinyEventDto
+                {
+                    Id = h.Id, Action = h.Action.ToApi(), ByUserName = h.ByUserName,
+                    ByRole = h.ByRole, On = h.On, Remarks = h.Remarks,
+                }),
+            ],
+        };
+        FillAudit(dto, e);
+        return dto;
+    }
+
+    private static JsonElement ParseJson(string json)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
+            return document.RootElement.Clone();
+        }
+        catch (JsonException)
+        {
+            using var empty = JsonDocument.Parse("{}");
+            return empty.RootElement.Clone();
+        }
+    }
+
+    /* ------------------------------------------------------ programmes */
+
+    public static ProgrammeDto ToDto(this Programme e)
+    {
+        var dto = new ProgrammeDto
+        {
+            Id = e.Id,
+            ProgrammeId = e.ProgrammeId,
+            ProgrammeName = e.ProgrammeName,
+            CurriculumId = e.CurriculumId,
+            ProgrammeCode = e.Curriculum?.ProgramType?.Code,
+            CategoryId = e.CategoryId,
+            CategoryName = e.Category?.Name,
+            SubCategoryId = e.SubCategoryId,
+            SubCategoryName = e.SubCategory?.Name,
+            ProgramTypeId = e.ProgramTypeId,
+            ProgramTypeName = e.ProgramType?.Name,
+            AgencyId = e.AgencyId,
+            AgencyName = e.Agency?.Name,
+            CoordinatorId = e.CoordinatorId,
+            CoordinatorName = e.Coordinator?.FullName,
+            OperationManagerId = e.OperationManagerId,
+            OperationManagerName = e.OperationManager?.FullName,
+            Mode = e.Mode.ToApi(),
+            Venue = e.Venue,
+            City = e.City,
+            StateCode = e.StateCode,
+            State = e.State?.Name ?? string.Empty,
+            MeetingPlatform = e.MeetingPlatform,
+            MeetingLink = e.MeetingLink,
+            StartDate = e.StartDate,
+            EndDate = e.EndDate,
+            SeatCapacity = e.SeatCapacity,
+            ParticipantCount = e.ParticipantCount,
+            CumulativeFeedback = e.CumulativeFeedback,
+            Comments = e.Comments,
+            RegistrationsOpen = e.RegistrationsOpen,
+            ExamDateTime = e.ExamDateTime,
+            Status = e.Status.ToApi(),
+            Sessions =
+            [
+                .. e.Sessions.OrderBy(s => s.SessionDate).Select(s => new ProgrammeSessionDto
+                {
+                    Id = s.Id,
+                    SessionCode = s.SessionCode,
+                    Title = s.Title,
+                    SessionDate = s.SessionDate,
+                    StartTime = s.StartTime.ToString("HH\\:mm"),
+                    EndTime = s.EndTime.ToString("HH\\:mm"),
+                    FacultyName = s.FacultyName,
+                    PresentCount = s.PresentCount,
+                    IsAttendanceLocked = s.IsAttendanceLocked,
+                }),
+            ],
+            Participants =
+            [
+                .. e.Participants.Select(p => new ProgrammeParticipantDto
+                {
+                    Id = p.Id,
+                    ApplicantId = p.ApplicantId,
+                    ApplicationNo = p.Application?.ApplicationNo ?? string.Empty,
+                    Name = p.Applicant?.FullName ?? string.Empty,
+                    Email = p.Applicant?.Email ?? string.Empty,
+                    Mobile = p.Applicant?.Mobile ?? string.Empty,
+                    EnrolledOn = p.EnrolledOn,
+                    AttendancePercent = p.AttendancePercent,
+                    ExamScore = p.ExamScore,
+                    Result = p.Result.ToApi(),
+                    CertificateNo = p.CertificateNo,
+                    FeedbackRating = p.FeedbackRating,
+                }),
+            ],
+        };
+        FillAudit(dto, e);
+        return dto;
+    }
+}

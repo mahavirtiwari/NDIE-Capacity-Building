@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Ntms.Api/Ntms.Api.csproj" />
+    <Project Path="src/Ntms.Application/Ntms.Application.csproj" />
+    <Project Path="src/Ntms.Domain/Ntms.Domain.csproj" />
+    <Project Path="src/Ntms.Infrastructure/Ntms.Infrastructure.csproj" />
+  </Folder>
+</Solution>

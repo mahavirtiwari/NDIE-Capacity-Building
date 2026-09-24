@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "CBMS Coordinator",
+    "slug": "cbms-coordinator",
+    "scheme": "cbmscoordinator",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#82232f"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "in.gov.msme.cbms.coordinator",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Used once to geo-tag the workshop venue, so the record shows where the workshop was actually held.",
+        "NSCameraUsageDescription": "Used to photograph the venue, the sessions, the participants and the signed attendance sheets.",
+        "NSPhotoLibraryUsageDescription": "Used to attach a photo you have already taken of the workshop."
+      }
+    },
+    "android": {
+      "package": "in.gov.msme.cbms.coordinator",
+      "adaptiveIcon": {
+        "backgroundColor": "#82232f",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Used once to geo-tag the workshop venue, so the record shows where the workshop was actually held."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Used to photograph the venue, the sessions, the participants and the signed attendance sheets.",
+          "photosPermission": "Used to attach a photo you have already taken of the workshop."
+        }
+      ]
+    ],
+    "extra": {
+      "apiBaseUrl": "http://localhost:5210/api"
+    }
+  }
+}
