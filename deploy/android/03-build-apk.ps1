@@ -153,7 +153,10 @@ function Add-SigningConfig {
     }
 
     $gradle = $gradle.Substring(0, $buildTypes.Index) + $patchedTail
-    Set-Content -Path $GradlePath -Value $gradle -Encoding utf8
+    # No BOM: Groovy refuses a build file that starts with one, and the error
+    # it gives — "Unexpected character: '?' at line 1, column 1" — looks like a
+    # corrupted file rather than an encoding.
+    Set-PlainTextFile -Path $GradlePath -Content $gradle
 }
 
 # --- Build -------------------------------------------------------------------
@@ -195,8 +198,10 @@ foreach ($name in $targets) {
         # Gradle finds the SDK through this or through ANDROID_HOME; writing it
         # removes the difference between a shell that has the variable and a
         # service account that does not.
-        Set-Content -Path (Join-Path $androidPath 'local.properties') `
-            -Value ("sdk.dir=" + ($sdk -replace '\\', '\\\\')) -Encoding utf8
+        # No BOM: java.util.Properties would read the mark as part of the first
+        # key, so sdk.dir would become a key nobody looks up.
+        Set-PlainTextFile -Path (Join-Path $androidPath 'local.properties') `
+            -Content ("sdk.dir=" + ($sdk -replace '\\', '\\\\'))
 
         Add-SigningConfig -GradlePath (Join-Path $androidPath 'app\build.gradle')
         Write-Host "  [ok]  Release signing configured" -ForegroundColor Green

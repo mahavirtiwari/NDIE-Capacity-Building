@@ -79,6 +79,17 @@ foreach ($name in $targets) {
             Write-Host "  [WARN] but its properties file is missing, so the build cannot" -ForegroundColor Yellow
             Write-Host "         read the password. If you have it, write it into:" -ForegroundColor Yellow
             Write-Host ("         {0}" -f $props) -ForegroundColor Gray
+            continue
+        }
+
+        # An earlier version wrote this with a byte order mark, which
+        # java.util.Properties folds into the first key — storeFile becomes a
+        # key Gradle never looks up, and the failure says nothing about
+        # encoding. Rewriting it is safe: the content is unchanged.
+        $bytes = [System.IO.File]::ReadAllBytes($props)
+        if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+            Set-PlainTextFile -Path $props -Content ([System.IO.File]::ReadAllText($props))
+            Write-Host "        rewrote its properties file without the byte order mark" -ForegroundColor Gray
         }
         continue
     }
@@ -107,13 +118,16 @@ foreach ($name in $targets) {
         '-dname', ("CN={0}, OU=NDIE, O=Ministry of MSME, L=New Delhi, S=Delhi, C=IN" -f $spec.Cn)
     ) | Out-Null
 
-    @(
-        "# Read by deploy/android/03-build-apk.ps1. Not in the repository.",
-        "storeFile=$($store -replace '\\', '/')",
-        "storePassword=$password",
-        "keyAlias=$($spec.Alias)",
-        "keyPassword=$password"
-    ) | Set-Content -Path $props -Encoding utf8
+    # No BOM. java.util.Properties reads a byte order mark as part of the first
+    # key, so storeFile would become a key Gradle never looks up and the path
+    # would come back null — with nothing to say why.
+    Set-PlainTextFile -Path $props -Content (@(
+            "# Read by deploy/android/03-build-apk.ps1. Not in the repository.",
+            "storeFile=$($store -replace '\\', '/')",
+            "storePassword=$password",
+            "keyAlias=$($spec.Alias)",
+            "keyPassword=$password"
+        ) -join "`r`n")
 
     Write-Host ("  [ok]  {0}: created" -f $name) -ForegroundColor Green
     Write-Host ("        {0}" -f $store) -ForegroundColor Gray

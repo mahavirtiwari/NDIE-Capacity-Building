@@ -3,6 +3,32 @@
     Shared helpers. Dot-sourced by the numbered scripts; not run on its own.
 #>
 
+function Set-PlainTextFile {
+    <#
+    .SYNOPSIS
+        Writes a text file as UTF-8 with no byte order mark.
+
+    .DESCRIPTION
+        Set-Content -Encoding utf8 on Windows PowerShell 5.1 writes a BOM, and
+        several things that read these files cannot cope with one. Groovy
+        rejects a build.gradle that starts with it - "Unexpected character: '?'
+        at line 1, column 1", which reads as file corruption rather than as an
+        encoding. java.util.Properties is quieter and worse: it reads the mark
+        as part of the first key, so storeFile silently becomes a key nobody
+        looks up and the value comes back null.
+
+        PowerShell 6 and later default to no BOM, so this only matters here -
+        which is exactly why it is easy to write and hard to spot.
+    #>
+    param(
+        [Parameter(Mandatory)] [string] $Path,
+        [Parameter(Mandatory)] [AllowEmptyString()] [string] $Content
+    )
+
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($Path, $Content, $utf8NoBom)
+}
+
 function Invoke-Native {
     <#
     .SYNOPSIS
