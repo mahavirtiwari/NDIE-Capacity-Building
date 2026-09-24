@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Ntms.Api.Security;
 using Ntms.Application.Common;
 using Ntms.Application.Contracts;
+using Ntms.Domain.Common;
 using Ntms.Infrastructure.Services;
 
 namespace Ntms.Api.Controllers;
@@ -126,6 +127,47 @@ public class ProgramTypesController(ProgramTypeService service) : ApiControllerB
     public async Task<ActionResult<ApiEnvelope<ProgramTypeDto>>> SetStatus(
         int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
         Envelope(await service.SetStatusAsync(id, dto.Status, ct));
+
+    /* --------------------------------------------- certificate templates */
+
+    /// <summary>
+    /// Uploads the artwork one kind of certificate is produced from. Replaces
+    /// whatever is in that slot.
+    /// </summary>
+    [HttpPost("{id:int}/certificate-templates/{kind}")]
+    [HasPermission(Permissions.MastersManage)]
+    [RequestSizeLimit(20 * 1024 * 1024)]
+    public async Task<ActionResult<ApiEnvelope<ProgramTypeDto>>> UploadTemplate(
+        int id, CertificateKind kind, IFormFile? file, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0) throw new AppException("Attach a template file.");
+
+        await using var stream = file.OpenReadStream();
+        var result = await service.UploadTemplateAsync(
+            id, kind, stream, file.ContentType, file.Length, file.FileName, ct);
+
+        return Envelope(result, "Template uploaded.");
+    }
+
+    /// <summary>
+    /// Serves a stored template back. Not cached by shared proxies: who may
+    /// read it depends on the caller, not on the URL.
+    /// </summary>
+    [HttpGet("{id:int}/certificate-templates/{kind}")]
+    [HasPermission(Permissions.MastersView)]
+    public async Task<IActionResult> DownloadTemplate(
+        int id, CertificateKind kind, CancellationToken ct)
+    {
+        var (content, contentType, fileName) = await service.OpenTemplateAsync(id, kind, ct);
+        Response.Headers.CacheControl = "private, max-age=300";
+        return File(content, contentType, fileName);
+    }
+
+    [HttpDelete("{id:int}/certificate-templates/{kind}")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<ProgramTypeDto>>> RemoveTemplate(
+        int id, CertificateKind kind, CancellationToken ct) =>
+        Envelope(await service.RemoveTemplateAsync(id, kind, ct), "Template removed.");
 }
 
 [Route("api/agencies")]

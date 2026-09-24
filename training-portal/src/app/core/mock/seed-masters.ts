@@ -72,6 +72,12 @@ export const PROGRAM_TYPES: ProgramType[] = PT_SEED.map((p) => ({
   certificateValidityMonths: 36,
   isExamMandatory: p.exam,
   isFeeApplicable: p.fee,
+  /* A spread across the policies so the offline mock exercises each branch:
+     an exam-bearing programme certifies and also gives participation, one
+     without an exam gives participation only. */
+  certificationPolicy: p.exam ? 'QualificationAndParticipation' : 'ParticipationOnly',
+  certificateKinds: p.exam ? ['Qualification', 'Participation'] : ['Participation'],
+  certificateTemplates: [],
   status: p.id === 10 ? 'Inactive' : 'Active',
 }));
 

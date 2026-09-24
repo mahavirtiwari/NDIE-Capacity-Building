@@ -75,11 +75,33 @@ public static class DtoMappings
             CertificateValidityMonths = e.CertificateValidityMonths,
             IsExamMandatory = e.IsExamMandatory,
             IsFeeApplicable = e.IsFeeApplicable,
+            CertificationPolicy = e.CertificationPolicy.ToString(),
+            CertificationPolicyLabel = CertificationPolicies.Label(e.CertificationPolicy),
+            CertificateKinds =
+            [
+                .. CertificationPolicies.KindsFor(e.CertificationPolicy).Select(k => k.ToString()),
+            ],
+            CertificateTemplates =
+            [
+                .. e.CertificateTemplates.OrderBy(t => t.Kind).Select(t => t.ToDto()),
+            ],
             Status = e.Status.ToApi(),
         };
         FillAudit(dto, e);
         return dto;
     }
+
+    public static CertificateTemplateDto ToDto(this CertificateTemplate e) => new()
+    {
+        Id = e.Id,
+        Kind = e.Kind.ToString(),
+        FileName = e.FileName,
+        ContentType = e.ContentType,
+        SizeBytes = e.SizeBytes,
+        UploadedOn = e.ModifiedOn ?? e.CreatedOn,
+        UploadedBy = e.ModifiedBy ?? e.CreatedBy,
+        Url = $"program-types/{e.ProgramTypeId}/certificate-templates/{e.Kind}",
+    };
 
     public static AgencyDto ToDto(this ImplementingAgency e)
     {

@@ -3,6 +3,10 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
+  CERTIFICATE_KIND_LABELS,
+  CERTIFICATION_POLICIES,
+  CertificateKind,
+  CertificateTemplate,
   DELIVERY_MODES,
   LookupItem,
   ProgramType,
@@ -228,6 +232,15 @@ const COLUMNS: ColumnDef[] = [
               <label class="field-label" for="ptValidity">Certificate validity (months)</label>
               <input id="ptValidity" type="number" class="input" formControlName="certificateValidityMonths" />
             </div>
+            <div class="field field--span-2">
+              <label class="field-label" for="ptCert">What this programme awards</label>
+              <select id="ptCert" class="select" formControlName="certificationPolicy">
+                @for (option of certificationPolicies; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+              <span class="field-hint">{{ policyHint() }}</span>
+            </div>
             <div class="field">
               <label class="field-label" for="ptStatus">Status</label>
               <select id="ptStatus" class="select" formControlName="status">
@@ -248,6 +261,71 @@ const COLUMNS: ColumnDef[] = [
                 </label>
               </div>
             </div>
+
+            <!-- Templates hang off a saved programme type, so they appear once
+                 there is a record to attach them to. -->
+            @if (editing(); as row) {
+              <div class="field field--span-2">
+                <span class="field-label">Certificate templates</span>
+
+                @if (templateKinds().length === 0) {
+                  <span class="field-hint">
+                    This programme awards no certificate, so there is nothing to upload.
+                  </span>
+                } @else {
+                  <span class="field-hint">
+                    The artwork each certificate is produced from — {{ templateFormats }}.
+                  </span>
+
+                  <div class="stack stack-sm mt-sm">
+                    @for (kind of templateKinds(); track kind) {
+                      <div class="tpl-row">
+                        <div class="tpl-row__text">
+                          <strong class="text-sm">{{ kindLabel(kind) }}</strong>
+                          @if (templateFor(kind); as tpl) {
+                            <span class="text-xs text-muted">
+                              {{ tpl.fileName }} · {{ sizeOf(tpl.sizeBytes) }}
+                            </span>
+                          } @else {
+                            <span class="text-xs text-muted">Not uploaded yet</span>
+                          }
+                        </div>
+
+                        <div class="btn-row btn-row--end">
+                          @if (templateFor(kind); as tpl) {
+                            <a
+                              class="btn btn--ghost btn--sm"
+                              [href]="templateUrl(row.id, kind)"
+                              target="_blank"
+                              rel="noopener"
+                              >View</a
+                            >
+                            <button
+                              type="button"
+                              class="btn btn--ghost btn--sm"
+                              [disabled]="uploading() === kind"
+                              (click)="removeTemplate(row.id, kind)"
+                            >
+                              Remove
+                            </button>
+                          }
+                          <label class="btn btn--secondary btn--sm">
+                            @if (uploading() === kind) { <span class="spinner"></span> }
+                            {{ templateFor(kind) ? 'Replace' : 'Upload' }}
+                            <input
+                              type="file"
+                              hidden
+                              [accept]="templateAccept"
+                              (change)="uploadTemplate(row.id, kind, $event)"
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
           </div>
         </form>
         <div footer>
@@ -286,6 +364,82 @@ export class ProgramTypesComponent {
   protected readonly saving = signal(false);
   protected readonly editing = signal<ProgramType | null>(null);
 
+  /* ------------------------------------------- certificate templates */
+
+  protected readonly certificationPolicies = CERTIFICATION_POLICIES;
+  protected readonly templateFormats = 'PDF, PNG, JPEG, HTML or DOCX, up to 10 MB';
+  protected readonly templateAccept =
+    '.pdf,.png,.jpg,.jpeg,.html,.docx,application/pdf,image/png,image/jpeg,text/html,' +
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+  /** Which kind is mid-upload, so only that row shows a spinner. */
+  protected readonly uploading = signal<CertificateKind | null>(null);
+
+  /** The wording under the policy select, so the choice explains itself. */
+  protected readonly policyHint = computed(() => {
+    const chosen = this.formValue().certificationPolicy;
+    return CERTIFICATION_POLICIES.find((p) => p.value === chosen)?.hint ?? '';
+  });
+
+  /* Read from the saved record rather than the form: the server decides which
+     templates a policy allows, and it has not seen an unsaved change yet. */
+  protected readonly templateKinds = computed<CertificateKind[]>(
+    () => this.editing()?.certificateKinds ?? [],
+  );
+
+  protected kindLabel(kind: CertificateKind): string {
+    return CERTIFICATE_KIND_LABELS[kind];
+  }
+
+  protected templateFor(kind: CertificateKind): CertificateTemplate | undefined {
+    return this.editing()?.certificateTemplates?.find((t) => t.kind === kind);
+  }
+
+  protected templateUrl(id: number, kind: CertificateKind): string {
+    return this.service.templateUrl(id, kind);
+  }
+
+  protected sizeOf(bytes: number): string {
+    return bytes < 1024 * 1024
+      ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+      : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  protected uploadTemplate(id: number, kind: CertificateKind, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    /* Cleared straight away so picking the same file twice still fires. */
+    input.value = '';
+    if (!file) return;
+
+    this.uploading.set(kind);
+    this.service.uploadTemplate(id, kind, file).subscribe({
+      next: (updated) => {
+        this.uploading.set(null);
+        this.editing.set(updated);
+        this.list.reload();
+        this.toast.success('Template uploaded', `${this.kindLabel(kind)} saved.`);
+      },
+      error: () => this.uploading.set(null),
+    });
+  }
+
+  protected async removeTemplate(id: number, kind: CertificateKind): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Remove this template?',
+      message: `The ${this.kindLabel(kind).toLowerCase()} artwork will be deleted.`,
+      confirmLabel: 'Remove',
+      tone: 'danger',
+    });
+    if (!ok) return;
+
+    this.service.removeTemplate(id, kind).subscribe((updated) => {
+      this.editing.set(updated);
+      this.list.reload();
+      this.toast.success('Template removed', `${this.kindLabel(kind)} deleted.`);
+    });
+  }
+
   protected readonly form = this.fb.nonNullable.group({
     categoryId: [null as number | null, Validators.required],
     subCategoryId: [null as number | null, Validators.required],
@@ -298,6 +452,7 @@ export class ProgramTypesComponent {
     minQualification: ['NONE'],
     minExperienceYears: [0],
     certificateValidityMonths: [36],
+    certificationPolicy: ['QualificationOnly' as ProgramType['certificationPolicy']],
     isExamMandatory: [true],
     isFeeApplicable: [true],
     status: ['Active' as ProgramType['status']],
@@ -376,6 +531,7 @@ export class ProgramTypesComponent {
       minQualification: row?.minQualification ?? 'NONE',
       minExperienceYears: row?.minExperienceYears ?? 0,
       certificateValidityMonths: row?.certificateValidityMonths ?? 36,
+      certificationPolicy: row?.certificationPolicy ?? 'QualificationOnly',
       isExamMandatory: row?.isExamMandatory ?? true,
       isFeeApplicable: row?.isFeeApplicable ?? true,
       status: row?.status ?? 'Active',

@@ -68,6 +68,7 @@ public static class DependencyInjection
         /* Coordinator field monitoring. The photo store is a singleton: it holds
            only the configured root path and creates folders on demand. */
         services.AddSingleton<MonitoringPhotoStore>();
+        services.AddSingleton<CertificateTemplateStore>();
         services.AddScoped<MonitoringService>();
 
         return services;

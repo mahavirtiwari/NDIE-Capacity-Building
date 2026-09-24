@@ -72,6 +72,8 @@ public class NtmsDbContext(DbContextOptions<NtmsDbContext> options, ICurrentUser
     public DbSet<ProgrammeParticipant> ProgrammeParticipants => Set<ProgrammeParticipant>();
 
     /* Coordinator field monitoring. */
+    public DbSet<CertificateTemplate> CertificateTemplates => Set<CertificateTemplate>();
+
     public DbSet<ProgrammeVenue> ProgrammeVenues => Set<ProgrammeVenue>();
     public DbSet<ProgrammeTrainer> ProgrammeTrainers => Set<ProgrammeTrainer>();
     public DbSet<MonitoringSession> MonitoringSessions => Set<MonitoringSession>();

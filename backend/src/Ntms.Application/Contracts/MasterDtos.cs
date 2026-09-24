@@ -76,7 +76,29 @@ public class ProgramTypeDto : AuditDto
     public int CertificateValidityMonths { get; set; }
     public bool IsExamMandatory { get; set; }
     public bool IsFeeApplicable { get; set; }
+
+    /// <summary>None, ParticipationOnly, QualificationOnly or QualificationAndParticipation.</summary>
+    public string CertificationPolicy { get; set; } = "QualificationOnly";
+    /// <summary>Reader-facing wording for that policy.</summary>
+    public string? CertificationPolicyLabel { get; set; }
+    /// <summary>The kinds this policy awards, so a client knows which templates to ask for.</summary>
+    public List<string> CertificateKinds { get; set; } = [];
+    public List<CertificateTemplateDto> CertificateTemplates { get; set; } = [];
+
     public string Status { get; set; } = "Active";
+}
+
+public class CertificateTemplateDto
+{
+    public int Id { get; set; }
+    public string Kind { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
+    public string ContentType { get; set; } = string.Empty;
+    public long SizeBytes { get; set; }
+    public DateTime? UploadedOn { get; set; }
+    public string? UploadedBy { get; set; }
+    /// <summary>Relative API path the file is fetched from.</summary>
+    public string Url { get; set; } = string.Empty;
 }
 
 public class ProgramTypeUpsertDto
@@ -93,6 +115,7 @@ public class ProgramTypeUpsertDto
     public int CertificateValidityMonths { get; set; } = 36;
     public bool IsExamMandatory { get; set; } = true;
     public bool IsFeeApplicable { get; set; } = true;
+    public string CertificationPolicy { get; set; } = "QualificationOnly";
     public string Status { get; set; } = "Active";
 }
 

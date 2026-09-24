@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, of, shareReplay } from 'rxjs';
 import {
   Category,
+  CertificateKind,
   Id,
   ImplementingAgency,
   LookupItem,
@@ -31,6 +32,27 @@ export class ProgramTypeService extends CrudService<ProgramType> {
 
   bySubCategory(subCategoryId: Id): Observable<ProgramType[]> {
     return this.api.get<ProgramType[]>(`${this.resource}/all`, { subCategoryId });
+  }
+
+  /* ------------------------------------------- certificate templates */
+
+  /** Uploads the artwork for one kind of certificate, replacing what is there. */
+  uploadTemplate(id: Id, kind: CertificateKind, file: File): Observable<ProgramType> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    return this.api.upload<ProgramType>(
+      `${this.resource}/${id}/certificate-templates/${kind}`,
+      form,
+    );
+  }
+
+  removeTemplate(id: Id, kind: CertificateKind): Observable<ProgramType> {
+    return this.api.delete<ProgramType>(`${this.resource}/${id}/certificate-templates/${kind}`);
+  }
+
+  /** Where the stored template can be downloaded from. */
+  templateUrl(id: Id, kind: CertificateKind): string {
+    return this.api.fileUrl(`${this.resource}/${id}/certificate-templates/${kind}`);
   }
 }
 

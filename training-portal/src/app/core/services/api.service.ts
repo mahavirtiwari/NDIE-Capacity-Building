@@ -39,6 +39,19 @@ export class ApiService {
     return this.http.delete<ApiEnvelope<T>>(this.url(path)).pipe(map((r) => r.data));
   }
 
+  /**
+   * A multipart upload. The body is FormData, so no Content-Type is set —
+   * the browser has to add its own boundary to it.
+   */
+  upload<T>(path: string, form: FormData): Observable<T> {
+    return this.http.post<ApiEnvelope<T>>(this.url(path), form).pipe(map((r) => r.data));
+  }
+
+  /** Absolute URL for a file served by the API, for links and downloads. */
+  fileUrl(path: string): string {
+    return this.url(path);
+  }
+
   private url(path: string): string {
     return `${this.base}/${path.replace(/^\//, '')}`;
   }

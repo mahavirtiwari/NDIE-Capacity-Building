@@ -48,7 +48,58 @@ export interface ProgramType extends AuditInfo {
   certificateValidityMonths: number;
   isExamMandatory: boolean;
   isFeeApplicable: boolean;
+  /** What the programme awards at the end of it. */
+  certificationPolicy: CertificationPolicy;
+  certificationPolicyLabel?: string;
+  /** The kinds this policy awards, so the screen knows which templates to offer. */
+  certificateKinds: CertificateKind[];
+  certificateTemplates: CertificateTemplate[];
   status: RecordStatus;
+}
+
+export type CertificationPolicy =
+  | 'None'
+  | 'ParticipationOnly'
+  | 'QualificationOnly'
+  | 'QualificationAndParticipation';
+
+export type CertificateKind = 'Qualification' | 'Participation';
+
+/** Mirrors CertificationPolicies on the server, which is the authority. */
+export const CERTIFICATION_POLICIES: { value: CertificationPolicy; label: string; hint: string }[] = [
+  { value: 'None', label: 'No certificate', hint: 'Nothing is issued at the end.' },
+  {
+    value: 'ParticipationOnly',
+    label: 'Participation certificate only',
+    hint: 'Everyone who attends gets one, whatever the result.',
+  },
+  {
+    value: 'QualificationOnly',
+    label: 'Certification for those who qualify',
+    hint: 'Only candidates who pass are certified; the rest get nothing.',
+  },
+  {
+    value: 'QualificationAndParticipation',
+    label: 'Certification for those who qualify, participation for the rest',
+    hint: 'Candidates who pass are certified; those who do not still get a participation certificate.',
+  },
+];
+
+export const CERTIFICATE_KIND_LABELS: Record<CertificateKind, string> = {
+  Qualification: 'Certification certificate',
+  Participation: 'Participation certificate',
+};
+
+export interface CertificateTemplate {
+  id: Id;
+  kind: CertificateKind;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedOn?: string;
+  uploadedBy?: string;
+  /** Relative API path the file is fetched from. */
+  url: string;
 }
 
 export type AgencyType =

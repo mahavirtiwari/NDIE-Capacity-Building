@@ -49,6 +49,39 @@ public class ProgramType : AuditableStatusEntity
     public int CertificateValidityMonths { get; set; } = 36;
     public bool IsExamMandatory { get; set; } = true;
     public bool IsFeeApplicable { get; set; } = true;
+
+    /// <summary>
+    /// What this programme awards. Defaults to the behaviour the system had
+    /// before the setting existed: certify whoever qualifies, and give nothing
+    /// to anyone else.
+    /// </summary>
+    public CertificationPolicy CertificationPolicy { get; set; } =
+        CertificationPolicy.QualificationOnly;
+
+    public ICollection<CertificateTemplate> CertificateTemplates { get; set; } = [];
+}
+
+/// <summary>
+/// The artwork a certificate is produced from, uploaded per programme type and
+/// per kind of certificate.
+///
+/// The file sits on disk with its metadata here, the same way monitoring
+/// photographs do: templates are large, few are read at once, and none of them
+/// is ever queried by content.
+/// </summary>
+public class CertificateTemplate : AuditableEntity
+{
+    public int ProgramTypeId { get; set; }
+    public ProgramType? ProgramType { get; set; }
+
+    public CertificateKind Kind { get; set; }
+
+    /// <summary>Path under the template storage root, using forward slashes.</summary>
+    public string RelativePath { get; set; } = string.Empty;
+    /// <summary>The name the file was uploaded under, shown back to the reader.</summary>
+    public string FileName { get; set; } = string.Empty;
+    public string ContentType { get; set; } = string.Empty;
+    public long SizeBytes { get; set; }
 }
 
 /// <summary>Empanelled body that conducts programmes on the ground.</summary>

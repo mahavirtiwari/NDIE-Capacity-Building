@@ -228,3 +228,22 @@ public class EmailLogConfiguration : IEntityTypeConfiguration<EmailLogEntry>
         b.HasIndex(x => x.SentOn);
     }
 }
+
+public class CertificateTemplateConfiguration : IEntityTypeConfiguration<CertificateTemplate>
+{
+    public void Configure(EntityTypeBuilder<CertificateTemplate> b)
+    {
+        b.ToTable("CertificateTemplates");
+        b.Property(x => x.RelativePath).HasMaxLength(400).IsRequired();
+        b.Property(x => x.FileName).HasMaxLength(260).IsRequired();
+        b.Property(x => x.ContentType).HasMaxLength(120).IsRequired();
+
+        /* One template per kind per programme type: uploading again replaces
+           what is there rather than leaving two candidates for the same slot. */
+        b.HasIndex(x => new { x.ProgramTypeId, x.Kind }).IsUnique();
+
+        b.HasOne(x => x.ProgramType).WithMany(p => p!.CertificateTemplates)
+            .HasForeignKey(x => x.ProgramTypeId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}

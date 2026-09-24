@@ -199,3 +199,36 @@ public enum MonitoringPhotoKind
     Participant = 4,
     AttendanceSheet = 5,
 }
+
+/// <summary>
+/// What a programme awards at the end of it.
+///
+/// The distinction matters because the two documents say different things: a
+/// certification attests that someone met the standard, a participation
+/// certificate only that they attended. A programme may award neither, either,
+/// or both — where "both" means the outcome decides which one a candidate gets.
+/// </summary>
+public enum CertificationPolicy
+{
+    /// <summary>Nothing is awarded.</summary>
+    None = 1,
+
+    /// <summary>Everyone who attends gets a participation certificate.</summary>
+    ParticipationOnly = 2,
+
+    /// <summary>Only those who qualify are certified; the rest get nothing.</summary>
+    QualificationOnly = 3,
+
+    /// <summary>
+    /// Those who qualify are certified; those who do not still get a
+    /// participation certificate for attending.
+    /// </summary>
+    QualificationAndParticipation = 4,
+}
+
+/// <summary>Which of the two documents a stored template produces.</summary>
+public enum CertificateKind
+{
+    Qualification = 1,
+    Participation = 2,
+}

@@ -5,6 +5,7 @@ using Ntms.Domain.Common;
 using Ntms.Domain.Entities;
 using Ntms.Infrastructure.Mapping;
 using Ntms.Infrastructure.Persistence;
+using Ntms.Infrastructure.Storage;
 
 namespace Ntms.Infrastructure.Services;
 
@@ -239,10 +240,13 @@ public class SubCategoryService(NtmsDbContext db)
 
 /* ----------------------------------------------------------- program types */
 
-public class ProgramTypeService(NtmsDbContext db)
+public class ProgramTypeService(NtmsDbContext db, CertificateTemplateStore templates)
 {
     private IQueryable<ProgramType> Base =>
-        db.ProgramTypes.AsNoTracking().Include(p => p.Category).Include(p => p.SubCategory);
+        db.ProgramTypes.AsNoTracking()
+            .Include(p => p.Category)
+            .Include(p => p.SubCategory)
+            .Include(p => p.CertificateTemplates);
 
     public async Task<PagedResult<ProgramTypeDto>> ListAsync(
         PagedRequest request, int? categoryId, int? subCategoryId,
@@ -323,7 +327,76 @@ public class ProgramTypeService(NtmsDbContext db)
         entity.CertificateValidityMonths = dto.CertificateValidityMonths;
         entity.IsExamMandatory = dto.IsExamMandatory;
         entity.IsFeeApplicable = dto.IsFeeApplicable;
+        entity.CertificationPolicy = EnumMaps.ParseEnum(
+            dto.CertificationPolicy, CertificationPolicy.QualificationOnly);
         entity.Status = EnumMaps.ToStatus(dto.Status);
+    }
+
+    /* --------------------------------------------- certificate templates */
+
+    /// <summary>
+    /// Stores the artwork one kind of certificate is produced from.
+    ///
+    /// Refused when the programme's policy does not award that kind: a
+    /// participation template on a certification-only programme is a template
+    /// that can never be used, and leaving it there suggests otherwise.
+    /// </summary>
+    public async Task<ProgramTypeDto> UploadTemplateAsync(
+        int id, CertificateKind kind, Stream content, string? contentType, long length,
+        string fileName, CancellationToken ct)
+    {
+        var entity = await db.ProgramTypes
+            .Include(p => p.CertificateTemplates)
+            .FirstOrDefaultAsync(p => p.Id == id, ct)
+            ?? throw AppException.NotFound("Program type");
+
+        if (!CertificationPolicies.Awards(entity.CertificationPolicy, kind))
+        {
+            throw new AppException(
+                $"This programme is set to \"{CertificationPolicies.Label(entity.CertificationPolicy)}\", " +
+                $"so it does not award a {kind.ToString().ToLowerInvariant()} certificate. " +
+                "Change the certification setting first.");
+        }
+
+        var stored = await templates.SaveAsync(content, contentType, length, id, kind.ToString(), ct);
+
+        var row = entity.CertificateTemplates.FirstOrDefault(t => t.Kind == kind);
+        if (row is null)
+        {
+            row = new CertificateTemplate { ProgramTypeId = id, Kind = kind };
+            db.CertificateTemplates.Add(row);
+        }
+
+        row.RelativePath = stored.RelativePath;
+        row.FileName = Path.GetFileName(fileName);
+        row.ContentType = stored.ContentType;
+        row.SizeBytes = stored.SizeBytes;
+
+        await db.SaveChangesAsync(ct);
+        return await GetAsync(id, ct);
+    }
+
+    public async Task<ProgramTypeDto> RemoveTemplateAsync(
+        int id, CertificateKind kind, CancellationToken ct)
+    {
+        var row = await db.CertificateTemplates
+            .FirstOrDefaultAsync(t => t.ProgramTypeId == id && t.Kind == kind, ct)
+            ?? throw AppException.NotFound("Template");
+
+        templates.Delete(row.RelativePath);
+        db.CertificateTemplates.Remove(row);
+        await db.SaveChangesAsync(ct);
+        return await GetAsync(id, ct);
+    }
+
+    public async Task<(Stream Content, string ContentType, string FileName)> OpenTemplateAsync(
+        int id, CertificateKind kind, CancellationToken ct)
+    {
+        var row = await db.CertificateTemplates.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.ProgramTypeId == id && t.Kind == kind, ct)
+            ?? throw AppException.NotFound("Template");
+
+        return (templates.Open(row.RelativePath), row.ContentType, row.FileName);
     }
 
     /// <summary>
