@@ -210,7 +210,7 @@ public class ProgrammeDto : AuditDto
     public string? MeetingLink { get; set; }
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
-    public int SeatCapacity { get; set; }
+    public int MaxParticipants { get; set; }
     public int ParticipantCount { get; set; }
     public decimal? CumulativeFeedback { get; set; }
     public string? Comments { get; set; }
@@ -238,7 +238,8 @@ public class ProgrammeUpsertDto
     public string? MeetingLink { get; set; }
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
-    public int SeatCapacity { get; set; } = 30;
+    /// <summary>Registrations close by themselves once this many have enrolled.</summary>
+    public int MaxParticipants { get; set; } = 30;
     public string? Comments { get; set; }
 }
 

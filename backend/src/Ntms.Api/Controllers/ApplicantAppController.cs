@@ -29,7 +29,8 @@ public class ApplicantAppController(
     ApplicationService applications,
     RegistrationFormService forms,
     FeeService fees,
-    TrainingMaterialService materials) : ApiControllerBase
+    TrainingMaterialService materials,
+    ProgrammeCatalogueService catalogue) : ApiControllerBase
 {
     private int ApplicantId =>
         CurrentUser.ApplicantId
@@ -38,6 +39,16 @@ public class ApplicantAppController(
     [HttpGet]
     public async Task<ActionResult<ApiEnvelope<ApplicantDto>>> Me(CancellationToken ct) =>
         Envelope(await service.MeAsync(ApplicantId, ct));
+
+    /// <summary>
+    /// The batches open to this applicant, with whether they are already on
+    /// each. Distinct from <c>programs</c>, which lists the tracks on offer:
+    /// this lists the actual dated batches they can join.
+    /// </summary>
+    [HttpGet("batches")]
+    public async Task<ActionResult<ApiEnvelope<List<ApplicantBatchDto>>>> Batches(
+        CancellationToken ct) =>
+        Envelope(await catalogue.ForApplicantAsync(ApplicantId, ct));
 
     [HttpPut]
     public async Task<ActionResult<ApiEnvelope<ApplicantDto>>> UpdateProfile(

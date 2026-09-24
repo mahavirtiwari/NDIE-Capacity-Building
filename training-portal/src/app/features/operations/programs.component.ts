@@ -273,8 +273,9 @@ const COLUMNS: ColumnDef[] = [
             <input id="npEnd" type="date" class="input" formControlName="endDate" />
           </div>
           <div class="field">
-            <label class="field-label" for="npSeats">Seat capacity</label>
-            <input id="npSeats" type="number" class="input" formControlName="seatCapacity" />
+            <label class="field-label" for="npSeats">Maximum no. of participants</label>
+            <input id="npSeats" type="number" class="input" min="1" formControlName="maxParticipants" />
+            <span class="field-hint">Registration closes by itself once this many have enrolled.</span>
           </div>
         </form>
         <div footer>
@@ -355,7 +356,7 @@ export class ProgramsComponent {
     meetingLink: [''],
     startDate: ['', Validators.required],
     endDate: ['', Validators.required],
-    seatCapacity: [30],
+    maxParticipants: [30],
   });
 
   protected value = (event: Event) => (event.target as HTMLInputElement | HTMLSelectElement).value;
@@ -381,7 +382,7 @@ export class ProgramsComponent {
       meetingLink: '',
       startDate: '',
       endDate: '',
-      seatCapacity: 30,
+      maxParticipants: 30,
     });
     this.coordinators.set([]);
     this.formOpen.set(true);

@@ -43,7 +43,12 @@ public class Programme : AuditableEntity
 
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
-    public int SeatCapacity { get; set; }
+    /// <summary>
+    /// The registration cap. Once <see cref="ParticipantCount"/> reaches it,
+    /// registrations close on their own — a batch that is full should stop
+    /// taking names without anybody having to remember to turn it off.
+    /// </summary>
+    public int MaxParticipants { get; set; }
     public int ParticipantCount { get; set; }
     public decimal? CumulativeFeedback { get; set; }
     public string? Comments { get; set; }

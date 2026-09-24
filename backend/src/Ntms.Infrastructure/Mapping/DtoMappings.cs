@@ -569,7 +569,7 @@ public static class DtoMappings
             MeetingLink = e.MeetingLink,
             StartDate = e.StartDate,
             EndDate = e.EndDate,
-            SeatCapacity = e.SeatCapacity,
+            MaxParticipants = e.MaxParticipants,
             ParticipantCount = e.ParticipantCount,
             CumulativeFeedback = e.CumulativeFeedback,
             Comments = e.Comments,

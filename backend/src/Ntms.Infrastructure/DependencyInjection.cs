@@ -81,6 +81,10 @@ public static class DependencyInjection
         /* Reads an account's allocation per request, now that it no longer
            travels on the token. */
         services.AddScoped<UserScopeProvider>();
+
+        /* Batches as the public and the applicant see them; unscoped by
+           design, so kept apart from the administrative ProgrammeService. */
+        services.AddScoped<ProgrammeCatalogueService>();
         services.AddScoped<MonitoringService>();
 
         return services;

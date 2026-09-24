@@ -3,6 +3,14 @@ import { authGuard, guestGuard, permissionGuard } from './core/guards/auth.guard
 
 export const routes: Routes = [
   {
+    /* The shareable registration link. Public on purpose — no guard — so a
+       batch can be advertised to people who have no account yet. */
+    path: 'p/:code',
+    title: 'Training batch · CBMS',
+    loadComponent: () =>
+      import('./features/public/programme-link.component').then((m) => m.ProgrammeLinkComponent),
+  },
+  {
     path: 'login',
     canActivate: [guestGuard],
     title: 'Sign in · CBMS',

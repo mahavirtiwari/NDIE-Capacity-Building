@@ -19,6 +19,9 @@
 
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
+/* Required for any write to a table carrying a filtered index — the
+   Certificates table has one, and sqlcmd does not set this by default. */
+SET QUOTED_IDENTIFIER ON;
 
 /* ------------------------------------------------------------- teardown */
 
@@ -120,7 +123,7 @@ BEGIN
     INSERT INTO Programmes
         (ProgrammeId, ProgrammeName, CategoryId, SubCategoryId, ProgramTypeId,
          AgencyId, CoordinatorId, Mode, Venue, City, StateCode, StartDate, EndDate,
-         SeatCapacity, ParticipantCount, RegistrationsOpen, Status, CreatedOn, CreatedBy)
+         MaxParticipants, ParticipantCount, RegistrationsOpen, Status, CreatedOn, CreatedBy)
     SELECT
         CONCAT('SMP/2026/', RIGHT(CONCAT('0', @p), 2)),
         CONCAT('Sample batch ', @p),

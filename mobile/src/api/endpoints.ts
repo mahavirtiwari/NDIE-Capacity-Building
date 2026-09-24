@@ -1,6 +1,7 @@
 import { api } from './client';
 import type {
   Applicant,
+  ApplicantBatch,
   ApplicantLoginResponse,
   ApplicantProgram,
   Application,
@@ -39,6 +40,11 @@ export interface SignUpPayload {
   categoryId: number;
   subCategoryId: number;
 }
+
+export const batches = {
+  /** Open batches this applicant could join, with their standing on each. */
+  mine: () => api.get<ApplicantBatch[]>('me/batches'),
+};
 
 export const auth = {
   signUp: (payload: SignUpPayload) =>

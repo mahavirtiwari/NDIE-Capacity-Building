@@ -93,7 +93,8 @@ export interface Program extends AuditInfo {
   meetingLink?: string;
   startDate: string;
   endDate: string;
-  seatCapacity: number;
+  /** Registration closes by itself once participantCount reaches this. */
+  maxParticipants: number;
   participantCount: number;
   cumulativeFeedback?: number | null;
   comments?: string;
@@ -125,4 +126,37 @@ export function programActions(program: Pick<Program, 'status' | 'registrationsO
     canPostpone: open || program.status === 'New',
     canMarkConducted: open && !!program.examDateTime,
   };
+}
+
+/* ------------------------------------------------ the public batch link */
+
+/**
+ * A batch as the shareable link shows it. Served without a sign-in, so it
+ * carries nothing about who is enrolled or who is running it beyond the
+ * agency's name.
+ */
+export interface PublicProgramme {
+  programmeId: string;
+  programmeName: string;
+  programTypeName: string;
+  shortDescription?: string;
+  categoryName: string;
+  subCategoryName: string;
+  mode: string;
+  venue?: string | null;
+  city?: string | null;
+  state?: string | null;
+  startDate: string;
+  endDate: string;
+  durationDays: number;
+  maxParticipants: number;
+  enrolled: number;
+  seatsLeft: number;
+  registrationsOpen: boolean;
+  /** Open, Full, Already held, Awaiting approval or Closed. */
+  registrationStatus: string;
+  agencyName?: string | null;
+  minQualificationLabel?: string | null;
+  minExperienceYears: number;
+  isFeeApplicable: boolean;
 }

@@ -10,6 +10,9 @@
 
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
+/* Required for any write to a table carrying a filtered index — the
+   Certificates table has one, and sqlcmd does not set this by default. */
+SET QUOTED_IDENTIFIER ON;
 
 /* Certificates reference participants and programmes with Restrict, so they
    come out first or the deletes below fail on the foreign keys. */

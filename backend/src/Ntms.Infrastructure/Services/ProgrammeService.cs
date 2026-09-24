@@ -76,8 +76,16 @@ public class ProgrammeService(
         var coordinator = await db.Users.FirstOrDefaultAsync(u => u.Id == dto.CoordinatorId, ct)
                           ?? throw AppException.NotFound("Coordinator");
 
+        /* An agency login creates for its own agency and no other. Taking the
+           id from the request would let one agency file a batch against
+           another, which the empanelment check below would not catch because
+           it validates the agency that was named, not the one asking. */
+        var agencyId = currentUser.Tier == BaseRole.AgencyAdmin && currentUser.AgencyId is { } own
+            ? own
+            : dto.AgencyId;
+
         var agency = await db.Agencies.Include(a => a.ProgramTypes)
-                         .FirstOrDefaultAsync(a => a.Id == dto.AgencyId, ct)
+                         .FirstOrDefaultAsync(a => a.Id == agencyId, ct)
                      ?? throw AppException.NotFound("Implementing agency");
 
         /* An agency may only run the tracks it is empanelled for. */
@@ -112,7 +120,7 @@ public class ProgrammeService(
             MeetingLink = mode == ProgramMode.Virtual ? dto.MeetingLink : null,
             StartDate = dto.StartDate,
             EndDate = dto.EndDate,
-            SeatCapacity = dto.SeatCapacity,
+            MaxParticipants = dto.MaxParticipants,
             ParticipantCount = 0,
             RegistrationsOpen = false,
             Status = ProgramStatus.New,
@@ -147,7 +155,7 @@ public class ProgrammeService(
         entity.MeetingLink = mode == ProgramMode.Virtual ? dto.MeetingLink : null;
         entity.StartDate = dto.StartDate;
         entity.EndDate = dto.EndDate;
-        entity.SeatCapacity = dto.SeatCapacity;
+        entity.MaxParticipants = dto.MaxParticipants;
         entity.Comments = dto.Comments ?? entity.Comments;
 
         await db.SaveChangesAsync(ct);
@@ -180,10 +188,23 @@ public class ProgrammeService(
         if (!allowed.Contains(target))
             throw new AppException($"A {entity.Status} programme cannot move to {target}.");
 
+        /* Permission to run a batch is granted by the tier above the agency, not
+           by the agency that proposed it. Without this an agency login — which
+           holds programs.manage so it can create — could accept its own
+           programme and open registrations on it. */
+        if (target is ProgramStatus.PermissionAccepted or ProgramStatus.PermissionRejected
+            && currentUser.Tier == BaseRole.AgencyAdmin)
+        {
+            throw AppException.Forbidden(
+                "An implementing agency cannot approve its own programme. "
+                + "The operation manager accepts or rejects it.");
+        }
+
         entity.Status = target;
         entity.Comments = dto.Comments ?? entity.Comments;
         if (target == ProgramStatus.PermissionAccepted) entity.RegistrationsOpen = true;
         if (target is ProgramStatus.Postponed or ProgramStatus.QCRejected) entity.RegistrationsOpen = false;
+        CloseIfFull(entity);
 
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
@@ -302,7 +323,7 @@ public class ProgrammeService(
             if (entity.Participants.Any(p => p.ApplicantId == application.ApplicantId))
                 continue;
 
-            if (entity.Participants.Count >= entity.SeatCapacity)
+            if (entity.Participants.Count >= entity.MaxParticipants)
                 throw new AppException("The batch is full.");
 
             entity.Participants.Add(new ProgrammeParticipant
@@ -316,6 +337,7 @@ public class ProgrammeService(
         }
 
         entity.ParticipantCount = entity.Participants.Count;
+        CloseIfFull(entity);
         await db.SaveChangesAsync(ct);
 
         /* Tell the people who were just enrolled where and when to turn up. */
@@ -330,6 +352,23 @@ public class ProgrammeService(
         }
 
         return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// Shuts registration once the batch is full.
+    ///
+    /// In one place so every route in — enrolment from the portal, an applicant
+    /// registering from the phone, a cap lowered on an edit — closes the same
+    /// way. Reopening is deliberate: raising the cap does not reopen a batch by
+    /// itself, because whoever raised it may have meant to add one named person
+    /// rather than invite the public back in.
+    /// </summary>
+    private static void CloseIfFull(Programme programme)
+    {
+        if (programme.MaxParticipants > 0 && programme.ParticipantCount >= programme.MaxParticipants)
+        {
+            programme.RegistrationsOpen = false;
+        }
     }
 
     private async Task RecomputeAttendanceAsync(int programmeId, CancellationToken ct)
@@ -359,7 +398,7 @@ public class ProgrammeService(
     {
         if (dto.EndDate < dto.StartDate)
             throw new AppException("The end date cannot be before the start date.");
-        if (dto.SeatCapacity <= 0)
+        if (dto.MaxParticipants <= 0)
             throw new AppException("Seat capacity must be at least one.");
 
         var mode = EnumMaps.ParseEnum(dto.Mode, ProgramMode.Physical);

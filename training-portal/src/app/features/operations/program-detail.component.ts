@@ -97,7 +97,19 @@ type Tab = 'sessions' | 'participants' | 'certificates';
             </div>
             <div>
               <div class="dl__term">Participants</div>
-              <div class="dl__value tabular">{{ batch.participantCount }} / {{ batch.seatCapacity }}</div>
+              <div class="dl__value tabular">
+                {{ batch.participantCount }} / {{ batch.maxParticipants }}
+                @if (batch.participantCount >= batch.maxParticipants) {
+                  <span class="chip">Full — registration closed</span>
+                } @else if (batch.registrationsOpen) {
+                  <span class="text-xs text-muted">
+                    {{ batch.maxParticipants - batch.participantCount }} place{{
+                      batch.maxParticipants - batch.participantCount === 1 ? '' : 's'
+                    }}
+                    left
+                  </span>
+                }
+              </div>
             </div>
             <div>
               <div class="dl__term">Exam</div>
@@ -118,6 +130,27 @@ type Tab = 'sessions' | 'participants' | 'certificates';
           </div>
         </div>
       </section>
+
+      @if (isPublic()) {
+        <section class="card mb-md">
+          <div class="card__body share">
+            <div class="stack stack-xs share__text">
+              <strong class="text-sm">Registration link</strong>
+              <span class="text-xs text-muted">
+                Anyone with this link can see the batch and how many places are left. It stops
+                accepting registrations on its own once the batch is full.
+              </span>
+            </div>
+            <div class="share__row">
+              <input class="input share__url" readonly [value]="shareUrl()" (focus)="selectAll($event)" />
+              <button type="button" class="btn btn--secondary" (click)="copyLink()">
+                {{ copied() ? 'Copied' : 'Copy' }}
+              </button>
+              <a class="btn btn--ghost" [href]="shareUrl()" target="_blank" rel="noopener">Open</a>
+            </div>
+          </div>
+        </section>
+      }
 
       <section class="card">
         <div class="tabs" style="padding: 0 1rem">
@@ -402,6 +435,12 @@ type Tab = 'sessions' | 'participants' | 'certificates';
   `,
   styles: [
     `
+      .share { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+      .share__text { flex: 1; min-width: 220px; }
+      .share__row { display: flex; align-items: center; gap: 0.5rem; }
+      .share__url { min-width: 300px; font-size: var(--fs-xs); font-family: ui-monospace, monospace; }
+    `,
+    `
       .attendance-row {
         display: flex;
         align-items: center;
@@ -426,6 +465,46 @@ export class ProgramDetailComponent {
 
   protected readonly programme = signal<Program | null>(null);
   protected readonly tab = signal<Tab>('sessions');
+
+  /* ------------------------------------------------- registration link */
+
+  protected readonly copied = signal(false);
+
+  /** A batch only has a public page once somebody has approved it. */
+  protected readonly isPublic = computed(() => {
+    const status = this.programme()?.status;
+    return status === 'PermissionAccepted' || status === 'CalendarCreated';
+  });
+
+  /**
+   * The shareable address.
+   *
+   * Built from the browser's own origin rather than from configuration: the
+   * portal is served from wherever it is deployed, and a link copied out of it
+   * should point back at that same place.
+   */
+  protected readonly shareUrl = computed(() => {
+    const code = this.programme()?.programmeId ?? '';
+    /* Slashes in an older code cannot survive a path segment; the public
+       endpoint accepts the hyphenated form of the same code. */
+    return `${window.location.origin}/p/${code.replace(/\//g, '-')}`;
+  });
+
+  protected selectAll(event: Event): void {
+    (event.target as HTMLInputElement).select();
+  }
+
+  protected async copyLink(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(this.shareUrl());
+      this.copied.set(true);
+      setTimeout(() => this.copied.set(false), 2000);
+    } catch {
+      /* A blocked clipboard is not worth an error dialog — the field beside
+         the button is readable and selectable for exactly this case. */
+      this.toast.info('Copy the link', 'Select the address and copy it.');
+    }
+  }
 
   /* ---------------------------------------------------- certificates */
 

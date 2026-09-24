@@ -260,3 +260,37 @@ export interface TrainingMaterial {
   publishedOn: string;
   downloadAllowed: boolean;
 }
+
+/**
+ * A dated batch the applicant can join, as opposed to the track it belongs to.
+ * Registration closes by itself once maxParticipants is reached, so seatsLeft
+ * and registrationStatus are the fields worth showing.
+ */
+export interface ApplicantBatch {
+  id: number;
+  programmeId: string;
+  programmeName: string;
+  programTypeId: number;
+  programTypeName: string;
+  shortDescription?: string;
+  categoryName: string;
+  subCategoryName: string;
+  mode: string;
+  venue?: string | null;
+  city?: string | null;
+  state?: string | null;
+  startDate: string;
+  endDate: string;
+  durationDays: number;
+  maxParticipants: number;
+  enrolled: number;
+  seatsLeft: number;
+  registrationsOpen: boolean;
+  registrationStatus: string;
+  agencyName?: string | null;
+  minQualificationLabel?: string | null;
+  minExperienceYears: number;
+  isFeeApplicable: boolean;
+  isEnrolled: boolean;
+  hasApplied: boolean;
+}
