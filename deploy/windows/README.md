@@ -47,6 +47,8 @@ cd E:\NDIE-Capacity-Building-main\deploy\windows
 powershell -ExecutionPolicy Bypass -File .\01-prerequisites.ps1
 
 # 2. Database and the login the site connects as. Prints a connection string.
+#    If the instance only accepts Windows authentication it stops and says
+#    so; see "Which authentication to the database" below.
 .\02-database.ps1
 
 # 3. Configuration. Paste the connection string from step 2.
@@ -74,6 +76,32 @@ powershell -ExecutionPolicy Bypass -File .\01-prerequisites.ps1
 .\update.ps1                    # publish, migrate, verify
 .\update.ps1 -SkipMigrations    # when the release has no schema change
 ```
+
+## Which authentication to the database
+
+`02-database.ps1` checks what the instance will actually accept before it
+creates anything.
+
+**Mixed mode** — it creates the SQL login `cbms_app`, generates a password,
+signs in as it to prove it works, and prints the connection string.
+
+**Windows authentication only** — a SQL login can be created on such an
+instance and will never be able to sign in, so the script stops rather than
+leaving you to find that out five steps later. Two ways on:
+
+```powershell
+# Preferred: the site authenticates as the app pool identity, so there is no
+# password to store, rotate or leak. Needs the pool, so run 05 first.
+.\05-install-iis.ps1 -PfxPath E:\certs\leanstaging.qci.org.in.pfx
+.\02-database.ps1 -UseWindowsAuth
+
+# Or turn on mixed mode and restart the instance.
+Set-ItemProperty 'HKLM:\Software\Microsoft\Microsoft SQL Server\MSSQL*\MSSQLServer' -Name LoginMode -Value 2
+Restart-Service 'MSSQL$SQLEXPRESS'
+```
+
+With `-UseWindowsAuth` the connection string uses `Trusted_Connection=True`
+and `appsettings.Production.json` holds no database password at all.
 
 ## The certificate
 
@@ -149,6 +177,15 @@ which on a production box fills the disk and puts parameter values in the log.
 the Windows Application event log; the ASP.NET Core Module records the startup
 exception there. The usual causes are a missing connection string, a signing key
 under 32 characters, or SQL Server refusing the login.
+
+**sqlcmd: "The certificate chain was issued by an authority that is not
+trusted."** ODBC Driver 18, which sqlcmd 18 and later use, encrypts by default
+and validates the server's certificate. A SQL Server installed without one of
+its own presents a self-signed certificate, which fails that check. The scripts
+pass `-C` to trust it — the traffic is still encrypted, only the identity check
+is skipped, which for a connection to the same machine costs nothing. If you
+would rather not skip it, issue SQL Server a certificate from a CA the machine
+trusts and drop the `-C`.
 
 **HTTP 500.19 — configuration error.** The .NET Hosting Bundle is not installed,
 or was installed before IIS. Reinstall it and run `iisreset`.

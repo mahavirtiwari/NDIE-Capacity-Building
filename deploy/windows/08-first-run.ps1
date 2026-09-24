@@ -17,7 +17,10 @@
 [CmdletBinding()]
 param(
     [string] $SitePath = 'E:\inetpub\cbms',
-    [string] $SourcePath = 'E:\NDIE-Capacity-Building-main'
+    [string] $SourcePath = 'E:\NDIE-Capacity-Building-main',
+    # Must match what 02-database.ps1 used. A named instance is not
+    # reachable as '.', which is what this assumed before.
+    [string] $SqlInstance = 'localhost'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -76,7 +79,9 @@ SELECT CONCAT('rows updated: ', @@ROWCOUNT);
     $sqlFile = Join-Path $env:TEMP 'cbms-sa.sql'
     Set-Content -Path $sqlFile -Value $sql -Encoding utf8
 
-    $result = sqlcmd -S '.' -b -h -1 -W -i $sqlFile -d ([regex]::Match($connectionString,'Database=([^;]+)').Groups[1].Value)
+    # -C for the same reason as in 02-database.ps1.
+    $database = [regex]::Match($connectionString, 'Database=([^;]+)').Groups[1].Value
+    $result = sqlcmd -S $SqlInstance -d $database -E -C -b -h -1 -W -i $sqlFile
     Remove-Item $sqlFile -Force
     if ($LASTEXITCODE -ne 0) { throw "Update failed: $result" }
 

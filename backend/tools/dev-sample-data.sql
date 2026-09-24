@@ -9,7 +9,7 @@
   It is safe to run twice: the first statement clears anything a previous run
   left behind.
 
-      sqlcmd -S "localhost\SQLEXPRESS" -d NtmsDb -i tools\dev-sample-data.sql
+      sqlcmd -S "localhost\SQLEXPRESS" -d NtmsDb -E -C -i tools\dev-sample-data.sql
 
   It reuses whichever program types, agency, coordinator and states already
   exist rather than inventing masters, so the figures line up with the filters

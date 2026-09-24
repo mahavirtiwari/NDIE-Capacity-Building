@@ -1,7 +1,7 @@
 /*
   Removes everything dev-sample-data.sql wrote, and nothing else.
 
-      sqlcmd -S "localhost\SQLEXPRESS" -d NtmsDb -i tools\dev-sample-data-remove.sql
+      sqlcmd -S "localhost\SQLEXPRESS" -d NtmsDb -E -C -i tools\dev-sample-data-remove.sql
 
   The match is on the SMP prefixes the sample script stamps onto applicant
   codes, application numbers and programme ids. Real records never carry them,
