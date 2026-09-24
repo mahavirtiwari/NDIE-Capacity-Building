@@ -119,6 +119,19 @@ on the office Wi-Fi, which is where a DNS or firewall difference shows up.
 different key — uninstall it first — or the versionCode is not higher than the
 installed one.
 
+**`ninja: error: Filename longer than 260 characters`.** CMake builds an object
+file path by mirroring the whole absolute source path underneath the object
+directory, and for react-native-gesture-handler that tail plus the CMakeFiles
+directories is 251 characters before any prefix at all — so moving the checkout
+to a drive root does not help, and the real path was 375. The build script
+passes `CMAKE_OBJECT_PATH_MAX=240`, which makes CMake use a short hash for the
+directory instead of mirroring. Enabling Win32 long paths does not fix this on
+its own: ninja checks the name it is handed and refuses before the OS is asked.
+
+**Anything else complaining about 260 characters** — Gradle, a failed delete, a
+folder you cannot remove in Explorer — is the long path setting.
+`01-prerequisites.ps1` checks it. Turning it on needs a restart.
+
 **Gradle runs out of memory.** Add `-KeepNativeProject`, then raise
 `org.gradle.jvmargs` in `android/gradle.properties` and run
 `.\gradlew.bat assembleRelease` by hand to find a working value.

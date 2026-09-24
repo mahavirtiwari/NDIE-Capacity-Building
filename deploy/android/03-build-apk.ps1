@@ -175,6 +175,46 @@ function Add-SigningConfig {
         (($head | Select-Object -First 4 | ForEach-Object { $_.ToString('X2') }) -join ' ')) -ForegroundColor Gray
 }
 
+function Add-ShortObjectPaths {
+    <#
+        Windows will not take a path over 260 characters, and CMake builds an
+        object file path by mirroring the whole absolute source path
+        underneath the object directory. For react-native-gesture-handler that
+        mirrored tail plus the CMakeFiles directories comes to 251 characters
+        before any prefix at all, so the build cannot fit however short the
+        project path is — moving the checkout to a drive root still leaves 305.
+
+        CMAKE_OBJECT_PATH_MAX is the only lever that reaches it: over that
+        length CMake replaces the mirrored directory with a short hash instead.
+        Nothing else here is a workaround for ninja's limit, because ninja
+        checks the name it is given and gives up; this changes the name.
+    #>
+    param([string] $GradlePath)
+
+    $gradle = [System.IO.File]::ReadAllText($GradlePath).TrimStart([char] 0xFEFF)
+
+    if ($gradle -match 'CMAKE_OBJECT_PATH_MAX') { return }
+
+    if ($gradle -notmatch '(?s)defaultConfig\s*\{') {
+        throw "No defaultConfig block in $GradlePath, so the CMake argument cannot be added."
+    }
+
+    $block = @'
+        externalNativeBuild {
+            cmake {
+                // Injected by deploy/android/03-build-apk.ps1
+                arguments "-DCMAKE_OBJECT_PATH_MAX=240"
+            }
+        }
+'@
+
+    $gradle = [regex]::Replace(
+        $gradle, '(defaultConfig\s*\{)', ('$1' + "`n" + $block), 'None', [TimeSpan]::FromSeconds(5))
+
+    Set-PlainTextFile -Path $GradlePath -Content $gradle
+    Write-Host "  [ok]  CMake told to shorten object paths over 240 characters" -ForegroundColor Gray
+}
+
 function Remove-Tree {
     <#
         Gradle keeps handles on files under android/ for a moment after it
@@ -191,6 +231,26 @@ function Remove-Tree {
         try {
             Remove-Item $Path -Recurse -Force -ErrorAction Stop
             return $true
+        }
+        catch [System.IO.PathTooLongException] {
+            # The native build writes paths past 260 characters, and
+            # Remove-Item cannot then delete them — the folder it just built
+            # becomes undeletable by the tool that asked for it. Robocopy uses
+            # the wide API throughout, so mirroring an empty directory over the
+            # top empties it whatever the names are.
+            Write-Host "  Paths too long for Remove-Item; emptying with robocopy..." -ForegroundColor Gray
+            $empty = Join-Path $env:TEMP ("empty-" + [Guid]::NewGuid().ToString('N').Substring(0, 8))
+            New-Item -ItemType Directory -Path $empty -Force | Out-Null
+            try {
+                # 0-7 are success; 8 and above are real failures.
+                Invoke-Native 'robocopy' 'robocopy' @(
+                    $empty, $Path, '/MIR', '/NFL', '/NDL', '/NJH', '/NJS', '/NC', '/NS', '/R:1', '/W:1'
+                ) -IgnoreExitCode | Out-Null
+                if ($LASTEXITCODE -ge 8) { throw "robocopy exited $LASTEXITCODE" }
+                Remove-Item $Path -Recurse -Force -ErrorAction Stop
+                return $true
+            }
+            finally { Remove-Item $empty -Recurse -Force -ErrorAction SilentlyContinue }
         }
         catch {
             if ($attempt -eq 5) {
@@ -287,6 +347,7 @@ foreach ($name in $targets) {
         Set-PlainTextFile -Path (Join-Path $androidPath 'local.properties') `
             -Content ("sdk.dir=" + ($sdk -replace '\\', '\\\\'))
 
+        Add-ShortObjectPaths -GradlePath (Join-Path $androidPath 'app\build.gradle')
         Add-SigningConfig -GradlePath (Join-Path $androidPath 'app\build.gradle')
         Write-Host "  [ok]  Release signing configured" -ForegroundColor Green
 

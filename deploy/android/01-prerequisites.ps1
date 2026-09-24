@@ -90,6 +90,21 @@ Test-Item -Name 'Android SDK licences accepted' `
 } `
     -Fix 'Accept them once: & "$env:ANDROID_HOME\cmdline-tools\latest\bin\sdkmanager.bat" --licenses'
 
+# --- Long paths ----------------------------------------------------------------
+
+# The native build writes object paths past Windows' 260 character limit. The
+# build script makes CMake shorten the worst of them, which is what actually
+# gets it through — ninja checks the name it is handed and refuses, and no OS
+# setting changes that. This one still matters for everything else: without it
+# Gradle, robocopy and Remove-Item all trip over the tree the build leaves
+# behind, and the folder cannot even be deleted.
+Test-Item -Name 'Win32 long paths enabled' `
+    -Check {
+    (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' `
+            -Name LongPathsEnabled -ErrorAction SilentlyContinue).LongPathsEnabled -eq 1
+} `
+    -Fix 'Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -Value 1    then restart the machine'
+
 # --- Disk --------------------------------------------------------------------
 
 Test-Item -Name 'At least 10 GB free where the SDK lives' `
