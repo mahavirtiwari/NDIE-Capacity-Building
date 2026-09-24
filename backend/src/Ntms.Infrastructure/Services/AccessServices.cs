@@ -290,9 +290,11 @@ public class UserService(
     {
         var entity = await db.Users.FirstOrDefaultAsync(u => u.Id == id, ct)
                      ?? throw AppException.NotFound("User");
-        /* A password reset hands over the account, so it sits with the tier
-           that owns it rather than with everyone above. */
-        delegation.EnsureCanEdit(entity.BaseRole, "reset the password of");
+        /* Any tier above, not only the one that created it. An agency's portal
+           user is created by empanelment rather than by a tier that can edit
+           it, so the stricter rule left that account with nobody able to reset
+           it and no way to sign in. */
+        delegation.EnsureCanRestoreAccess(entity.BaseRole);
 
         var temporaryPassword = passwords.GenerateTemporaryPassword();
         entity.PasswordHash = passwords.Hash(temporaryPassword);

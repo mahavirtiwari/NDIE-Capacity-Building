@@ -76,16 +76,13 @@ public class AgencyService(
         if (await db.Agencies.AnyAsync(a => a.Code == code, ct))
             throw AppException.Conflict($"Agency code '{code}' is already in use.");
 
-        /* An agency is empanelled for program types and states, and a manager
-           can only hand down what they hold. */
-        var programTypes = await delegation.ResolveAsync(
-            ScopeAxis.ProgramType, BaseRole.AgencyAdmin, dto.ProgramTypeIds, ct);
-        var states = await delegation.ResolveAsync(
-            ScopeAxis.State, BaseRole.AgencyAdmin, dto.StateCodes, ct);
+        /* An agency is empanelled on all four axes, and a manager can only hand
+           down what they hold on each of them. */
+        var scope = await ResolveEmpanelmentAsync(dto, ct);
 
         var entity = new ImplementingAgency();
         Apply(entity, dto, code);
-        ReplaceMappings(entity, dto, programTypes, states);
+        ReplaceMappings(entity, scope);
 
         db.Agencies.Add(entity);
         await db.SaveChangesAsync(ct);
@@ -182,17 +179,14 @@ public class AgencyService(
         if (await db.Agencies.AnyAsync(a => a.Code == code && a.Id != id, ct))
             throw AppException.Conflict($"Agency code '{code}' is already in use.");
 
-        var programTypes = await delegation.ResolveAsync(
-            ScopeAxis.ProgramType, BaseRole.AgencyAdmin, dto.ProgramTypeIds, ct);
-        var states = await delegation.ResolveAsync(
-            ScopeAxis.State, BaseRole.AgencyAdmin, dto.StateCodes, ct);
+        var scope = await ResolveEmpanelmentAsync(dto, ct);
 
         Apply(entity, dto, code);
         entity.Categories.Clear();
         entity.SubCategories.Clear();
         entity.ProgramTypes.Clear();
         entity.States.Clear();
-        ReplaceMappings(entity, dto, programTypes, states);
+        ReplaceMappings(entity, scope);
 
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
@@ -247,17 +241,40 @@ public class AgencyService(
         entity.Status = EnumMaps.ToStatus(dto.Status);
     }
 
-    private static void ReplaceMappings(
-        ImplementingAgency entity, AgencyUpsertDto dto,
-        List<int> programTypes, List<int> states)
+    /// <summary>What the agency may be empanelled for, narrowed to the
+    /// caller's own allocation on every axis.</summary>
+    private sealed record Empanelment(
+        List<int> Categories, List<int> SubCategories, List<int> ProgramTypes, List<int> States);
+
+    private async Task<Empanelment> ResolveEmpanelmentAsync(
+        AgencyUpsertDto dto, CancellationToken ct)
     {
-        foreach (var id in dto.CategoryIds.Distinct())
+        /* Categories and sub-categories go through ResolveForRecordAsync rather
+           than ResolveAsync: the Implementing Agency tier is allocated only on
+           program types and states, so asking ResolveAsync about a category
+           would answer "not an axis for this tier" and return nothing - which
+           is how these two came to be written straight from the request with no
+           check at all. */
+        return new Empanelment(
+            await delegation.ResolveForRecordAsync(
+                ScopeAxis.Category, "agency", dto.CategoryIds, ct),
+            await delegation.ResolveForRecordAsync(
+                ScopeAxis.SubCategory, "agency", dto.SubCategoryIds, ct),
+            await delegation.ResolveAsync(
+                ScopeAxis.ProgramType, BaseRole.AgencyAdmin, dto.ProgramTypeIds, ct),
+            await delegation.ResolveAsync(
+                ScopeAxis.State, BaseRole.AgencyAdmin, dto.StateCodes, ct));
+    }
+
+    private static void ReplaceMappings(ImplementingAgency entity, Empanelment scope)
+    {
+        foreach (var id in scope.Categories)
             entity.Categories.Add(new AgencyCategory { CategoryId = id });
-        foreach (var id in dto.SubCategoryIds.Distinct())
+        foreach (var id in scope.SubCategories)
             entity.SubCategories.Add(new AgencySubCategory { SubCategoryId = id });
-        foreach (var id in programTypes)
+        foreach (var id in scope.ProgramTypes)
             entity.ProgramTypes.Add(new AgencyProgramType { ProgramTypeId = id });
-        foreach (var code in states)
+        foreach (var code in scope.States)
             entity.States.Add(new AgencyState { StateCode = code });
     }
 }

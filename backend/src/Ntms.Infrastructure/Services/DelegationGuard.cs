@@ -54,6 +54,29 @@ public class DelegationGuard(ICurrentUser user, NtmsDbContext db)
     /// Oversight of the tiers further down is kept, but as
     /// <see cref="EnsureOutranks"/> allows: look, enable, disable.
     /// </summary>
+    /// <summary>
+    /// Restoring access to an account, which any tier above it may do.
+    ///
+    /// Editing a profile stays with the tier that created it, and that is
+    /// right — but a password reset is the one action that must never be
+    /// unavailable to everybody. An agency's portal user is created as a side
+    /// effect of empanelment rather than by a tier that can edit it, so under
+    /// the editing rule nobody could reset it: not the Super Admin, who cannot
+    /// create an Implementing Agency, and not the agency itself, which cannot
+    /// sign in. With mail switched off the account was simply lost.
+    ///
+    /// Outranks is the same test that already governs enabling and disabling —
+    /// the oversight a senior tier keeps without taking over the profile.
+    /// </summary>
+    public void EnsureCanRestoreAccess(BaseRole target)
+    {
+        if (RoleHierarchy.CanCreate(Tier, target) || RoleHierarchy.Outranks(Tier, target)) return;
+
+        throw new AppException(
+            $"A {RoleHierarchy.DisplayName(Tier)} cannot reset the password of a " +
+            $"{RoleHierarchy.DisplayName(target)} account.", 403);
+    }
+
     public void EnsureCanEdit(BaseRole target, string action)
     {
         if (RoleHierarchy.CanCreate(Tier, target)) return;
@@ -97,15 +120,34 @@ public class DelegationGuard(ICurrentUser user, NtmsDbContext db)
     {
         if (!RoleHierarchy.AxesFor(target).HasFlag(axis)) return [];
 
-        var wanted = requested.Distinct().Where(id => id > 0).ToList();
-        var permitted = await PermittedAsync(axis, ct);
+        return await NarrowAsync(
+            axis, requested,
+            $"Select at least one {Label(axis)} for this {RoleHierarchy.DisplayName(target)}, " +
+            "or use Select all.",
+            ct);
+    }
 
-        if (wanted.Count == 0)
-        {
-            throw new AppException(
-                $"Select at least one {Label(axis)} for this {RoleHierarchy.DisplayName(target)}, " +
-                "or use Select all.");
-        }
+    /// <summary>
+    /// The same narrowing, for a selection that is not an allocation to a tier.
+    /// An agency's empanelment is the case: it records categories and
+    /// sub-categories although the Implementing Agency tier is itself allocated
+    /// only on program types and states, so <see cref="ResolveAsync"/> would
+    /// return nothing for those axes and the selection would go through
+    /// unchecked. The rule the screen states — you can allocate only what your
+    /// own account holds — has to hold on every axis, not just the ones that
+    /// happen to be allocation axes for the target tier.
+    /// </summary>
+    public Task<List<int>> ResolveForRecordAsync(
+        ScopeAxis axis, string what, IEnumerable<int> requested, CancellationToken ct) =>
+        NarrowAsync(axis, requested, $"Select at least one {Label(axis)} for this {what}.", ct);
+
+    private async Task<List<int>> NarrowAsync(
+        ScopeAxis axis, IEnumerable<int> requested, string emptyMessage, CancellationToken ct)
+    {
+        var wanted = requested.Distinct().Where(id => id > 0).ToList();
+        if (wanted.Count == 0) throw new AppException(emptyMessage);
+
+        var permitted = await PermittedAsync(axis, ct);
 
         var outside = wanted.Except(permitted).ToList();
         if (outside.Count > 0)

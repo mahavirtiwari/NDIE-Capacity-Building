@@ -57,6 +57,20 @@ const CREATABLE_BY: Record<string, string[]> = {
   AgencyAdmin: ['Coordinator'],
 };
 
+/*
+ * Rank, for the two things a senior tier may do to an account it does not
+ * edit: enable or disable it, and hand its password back. Mirrors
+ * RoleHierarchy.Outranks on the server.
+ */
+const TIER_DEPTH: Record<string, number> = {
+  SuperAdmin: 0,
+  Ministry: 1,
+  Admin: 2,
+  OperationManager: 3,
+  AgencyAdmin: 4,
+  Coordinator: 5,
+};
+
 @Component({
   selector: 'app-users',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -191,10 +205,12 @@ const CREATABLE_BY: Record<string, string[]> = {
         </ng-template>
         <ng-template appCell="actions" let-row>
           <div class="btn-row btn-row--end">
-            @if (canEdit($any(row))) {
+            @if (canResetPassword($any(row))) {
               <button type="button" class="btn btn--icon" title="Reset password" (click)="resetPassword($any(row))">
                 <app-icon name="lock" [size]="15" />
               </button>
+            }
+            @if (canEdit($any(row))) {
               <button type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
                 <app-icon name="edit" [size]="15" />
               </button>
@@ -461,6 +477,20 @@ export class UsersComponent {
    */
   protected canEdit(row: PortalUser): boolean {
     return (CREATABLE_BY[this.myTier() ?? ''] ?? []).includes(row.baseRole);
+  }
+
+  /*
+   * Wider than canEdit on purpose. An agency's portal user is created by
+   * empanelment rather than by a tier that can edit it, so tying the reset to
+   * editing left that account with nobody able to issue it a password - and
+   * with mail switched off, no way in at all.
+   */
+  protected canResetPassword(row: PortalUser): boolean {
+    if (this.canEdit(row)) return true;
+
+    const mine = TIER_DEPTH[this.myTier() ?? ''];
+    const theirs = TIER_DEPTH[row.baseRole];
+    return mine !== undefined && theirs !== undefined && mine < theirs;
   }
 
   protected readonly list = new ListState<PortalUser>((request) => this.service.list(request), {
