@@ -36,7 +36,12 @@ param(
     # accepts Windows authentication. Needs the pool to exist, so run
     # 05-install-iis.ps1 first when you use this.
     [switch] $UseWindowsAuth,
-    [string] $AppPoolName = 'CbmsAppPool'
+    [string] $AppPoolName = 'CbmsAppPool',
+    # Generate a new password for a login that already exists. Without this the
+    # script leaves an existing login alone and prints no password, which is
+    # right when the configuration already holds the old one and useless when
+    # it does not - and the two look identical until the site fails to connect.
+    [switch] $ResetPassword
 )
 
 $ErrorActionPreference = 'Stop'
@@ -55,6 +60,18 @@ function Invoke-Sql {
     # Issue SQL Server a trusted certificate and this can come off.
     return Invoke-Native ("sqlcmd against {0}" -f $SqlInstance) 'sqlcmd' @(
         '-S', $SqlInstance, '-d', $OnDatabase, '-E', '-C', '-b', '-h', '-1', '-W', '-Q', $Query)
+}
+
+function New-LoginPassword {
+    # RandomNumberGenerator::Fill is .NET Core only and Windows PowerShell runs
+    # on .NET Framework, so this is the long way round on purpose.
+    $bytes = New-Object byte[] 24
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
+
+    # Base64 can produce + / and =, which need escaping in a connection string
+    # and get mangled by anything that treats it as a URL.
+    return ([Convert]::ToBase64String($bytes) -replace '[+/=]', 'x')
 }
 
 Write-Host "`nPreparing the database on $SqlInstance`n" -ForegroundColor Cyan
@@ -135,14 +152,16 @@ if ($loginExists -eq '0') {
         }
     }
     else {
-        $bytes = New-Object byte[] 24
-        $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-        try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
-        $password = [Convert]::ToBase64String($bytes) -replace '[+/=]', 'x'
-
+        $password = New-LoginPassword
         Invoke-Sql -Query "CREATE LOGIN [$principal] WITH PASSWORD = '$password', CHECK_POLICY = ON;"
     }
     Write-Host "  [ok]  Created login $principal" -ForegroundColor Green
+}
+elseif ($ResetPassword -and -not $UseWindowsAuth) {
+    $password = New-LoginPassword
+    Invoke-Sql -Query "ALTER LOGIN [$principal] WITH PASSWORD = '$password';"
+    Write-Host "  [ok]  Reset the password for $principal" -ForegroundColor Green
+    Write-Host "        Anything still using the old one stops working now." -ForegroundColor Yellow
 }
 else {
     Write-Host "  [ok]  Login $principal already exists" -ForegroundColor Green
@@ -167,7 +186,17 @@ Write-Host "  [ok]  $principal is db_owner on $Database (and nothing else)" -For
 # be able to sign in, so "created" is not the same as "works" — this connects
 # as the identity the site will use and checks.
 
-if (-not $UseWindowsAuth) {
+if (-not $UseWindowsAuth -and -not $password) {
+    # The login was already there, so no password was generated and there is
+    # nothing here to sign in with. Saying so is the point: whether the
+    # password the site holds still works is exactly the question this step
+    # exists to answer, and it cannot answer it.
+    Write-Host "  [--]  Login already existed, so its password is unknown here." -ForegroundColor Yellow
+    Write-Host "        Whether the site can sign in has NOT been checked. To test" -ForegroundColor Yellow
+    Write-Host "        what the site actually holds:  .\09-diagnose.ps1" -ForegroundColor Gray
+    Write-Host "        To set a known one:            .\02-database.ps1 -ResetPassword" -ForegroundColor Gray
+}
+elseif (-not $UseWindowsAuth) {
     $probe = Invoke-Native 'sign-in probe' 'sqlcmd' @(
         '-S', $SqlInstance, '-d', $Database, '-U', $principal, '-P', $password,
         '-C', '-b', '-h', '-1', '-W', '-Q', "SET NOCOUNT ON; SELECT 'ok';") -IgnoreExitCode

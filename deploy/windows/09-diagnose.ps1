@@ -160,6 +160,47 @@ if ($principal) {
     }
 }
 
+# --- Can the site's own credentials actually sign in? ------------------------
+
+# Everything above was checked as an administrator over Windows authentication,
+# which proves the account exists and has rights - and nothing at all about
+# whether the site can use it. A login can be present and correctly granted and
+# still refuse the password the configuration holds, which is what happens when
+# 02-database.ps1 finds the login already there and generates no new password.
+if (-not $trusted -and $sqlUser) {
+    $sqlPassword = Field $connectionString 'Password'
+    if (-not $sqlPassword) { $sqlPassword = Field $connectionString 'Pwd' }
+
+    Write-Host "`n  Signing in the way the site does" -ForegroundColor Cyan
+
+    if (-not $sqlPassword) {
+        Write-Host "    [FAIL] the connection string names a user id but carries no password." -ForegroundColor Red
+    }
+    else {
+        $probe = Invoke-Native 'sign-in probe' 'sqlcmd' @(
+            '-S', $server, '-d', $database, '-U', $sqlUser, '-P', $sqlPassword,
+            '-C', '-b', '-h', '-1', '-W', '-Q', "SET NOCOUNT ON; SELECT 'ok';") -IgnoreExitCode
+
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host ("    [ok] {0} signed in and reached {1}." -f $sqlUser, $database) -ForegroundColor Green
+            Write-Host "    The credentials are good, so the fault is elsewhere - read the" -ForegroundColor Gray
+            Write-Host "    application's own words below." -ForegroundColor Gray
+        }
+        else {
+            Write-Host ("    [FAIL] {0} cannot sign in with the password in the configuration:" -f $sqlUser) -ForegroundColor Red
+            ($probe | Select-Object -First 4) | ForEach-Object {
+                Write-Host ("           {0}" -f $_.Trim()) -ForegroundColor Gray
+            }
+            Write-Host ''
+            Write-Host "    That is the fault. Set a new password and write it into the" -ForegroundColor Cyan
+            Write-Host "    configuration in one step:" -ForegroundColor Cyan
+            Write-Host ("      .\02-database.ps1 -SqlInstance '{0}' -Database {1} -LoginName {2} -ResetPassword" -f $server, $database, $sqlUser) -ForegroundColor Gray
+            Write-Host "      .\03-configure.ps1 -ConnectionString '<the one it prints>'" -ForegroundColor Gray
+            Write-Host "      Restart-WebAppPool -Name $PoolName" -ForegroundColor Gray
+        }
+    }
+}
+
 # --- What did the application itself say? ------------------------------------
 
 # On Windows the default host adds the event log as a logging provider at
@@ -187,10 +228,25 @@ if ($entries.Count -eq 0) {
     Write-Host "    written when the request fails, not when the application starts." -ForegroundColor Gray
 }
 else {
+    # The event log provider writes the logging scopes first - Category,
+    # EventId, TraceId and the rest - and the message and exception after them.
+    # Printing the first few lines therefore shows nothing but the preamble,
+    # which is the one part that never says what went wrong.
+    $preamble = '^(Category|EventId|SpanId|TraceId|ParentId|RequestId|RequestPath|ConnectionId|ActionId|ActionName|Scope|SourceContext)\s*:'
+
     foreach ($entry in $entries) {
         Write-Host ("    {0:HH:mm:ss}  {1}" -f $entry.TimeCreated, $entry.ProviderName) -ForegroundColor Yellow
-        $first = ($entry.Message -split "`n" | Where-Object { $_.Trim() } | Select-Object -First 6)
-        $first | ForEach-Object { Write-Host ("      {0}" -f $_.Trim()) -ForegroundColor Gray }
+
+        $lines = $entry.Message -split "`r?`n" | Where-Object { $_.Trim() }
+        $body = @($lines | Where-Object { $_ -notmatch $preamble })
+        if ($body.Count -eq 0) { $body = $lines }
+
+        $body | Select-Object -First 25 | ForEach-Object {
+            Write-Host ("      {0}" -f $_.TrimEnd()) -ForegroundColor Gray
+        }
+        if ($body.Count -gt 25) {
+            Write-Host ("      ... {0} more lines" -f ($body.Count - 25)) -ForegroundColor DarkGray
+        }
         Write-Host ''
     }
 }
