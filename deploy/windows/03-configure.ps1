@@ -62,6 +62,36 @@ if (-not $isAdmin) {
 
 Write-Host "`nWriting production configuration`n" -ForegroundColor Cyan
 
+# --- The connection string ---------------------------------------------------
+
+# A long connection string pasted into a wrapped console can arrive with a
+# newline in the middle of it. Nothing complains: the file is written, the key
+# name is subtly wrong, and the site fails to connect for a reason invisible in
+# anything you would think to look at. No connection string legitimately
+# contains one.
+$ConnectionString = ($ConnectionString -replace '[\r\n]+', '').Trim()
+
+try {
+    $parsed = New-Object System.Data.Common.DbConnectionStringBuilder
+    # set_ConnectionString, not the property: the builder is also a dictionary,
+    # and PowerShell resolves $builder.ConnectionString = ... to adding a key
+    # called ConnectionString instead of parsing anything.
+    $parsed.set_ConnectionString($ConnectionString)
+}
+catch {
+    throw "That is not a valid connection string: $($_.Exception.Message)"
+}
+
+$hasServer = $parsed.ContainsKey('Server') -or $parsed.ContainsKey('Data Source')
+$hasDatabase = $parsed.ContainsKey('Database') -or $parsed.ContainsKey('Initial Catalog')
+
+if (-not ($hasServer -and $hasDatabase)) {
+    throw ("The connection string names " +
+        $(if (-not $hasServer) { 'no server' } else { 'no database' }) +
+        ". Keys found: " + (($parsed.Keys | Sort-Object) -join ', ') +
+        "`nPaste it in single quotes, all on one line.")
+}
+
 # --- Signing key ------------------------------------------------------------
 
 $target = Join-Path $SitePath 'appsettings.Production.json'
