@@ -73,7 +73,7 @@ public class NullableDateOnlyConverter : JsonConverter<DateOnly?>
     public override void Write(Utf8JsonWriter writer, DateOnly? value, JsonSerializerOptions options)
     {
         if (value is null) writer.WriteNullValue();
-        else writer.WriteStringValue(value.Value.ToString("yyyy-MM-dd"));
+        else writer.WriteStringValue(value.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
     }
 }
 
@@ -124,6 +124,6 @@ public class NullableTimeOnlyConverter : JsonConverter<TimeOnly?>
     public override void Write(Utf8JsonWriter writer, TimeOnly? value, JsonSerializerOptions options)
     {
         if (value is null) writer.WriteNullValue();
-        else writer.WriteStringValue(value.Value.ToString("HH:mm"));
+        else writer.WriteStringValue(value.Value.ToString("HH:mm", CultureInfo.InvariantCulture));
     }
 }

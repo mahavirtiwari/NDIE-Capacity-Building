@@ -43,6 +43,12 @@ public class MonitoringPhotoStore
             : configured;
     }
 
+    /* Paths are compared the way the filesystem treats them: case-insensitively
+       on Windows, exactly on Linux, where two names differing only in case are
+       two different directories. */
+    private static readonly StringComparison PathCase =
+        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
     public sealed record StoredFile(string RelativePath, string FileName, string ContentType, long SizeBytes);
 
     /// <summary>
@@ -92,7 +98,7 @@ public class MonitoringPhotoStore
         var full = Path.GetFullPath(Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar)));
         var boundary = Path.GetFullPath(root) + Path.DirectorySeparatorChar;
 
-        if (!full.StartsWith(boundary, StringComparison.OrdinalIgnoreCase))
+        if (!full.StartsWith(boundary, PathCase))
             throw AppException.NotFound("Photo");
 
         if (!File.Exists(full))

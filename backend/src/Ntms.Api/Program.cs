@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json.Serialization;
 using Ntms.Api.Serialization;
@@ -14,6 +15,16 @@ using Ntms.Infrastructure;
 using Ntms.Infrastructure.Identity;
 using Ntms.Infrastructure.Persistence;
 using Ntms.Infrastructure.Services;
+
+/* The service must format the same way on every machine it runs on.
+   Left to the host's locale, an unqualified "yyyy" can render a non-Gregorian
+   year and month names come out in the server's language — so the culture is
+   stated here rather than inherited. en-IN because the audience is Indian;
+   anything that travels on the wire still formats invariantly at its own call
+   site, which is not a matter of taste. */
+var culture = new CultureInfo("en-IN");
+CultureInfo.DefaultThreadCurrentCulture = culture;
+CultureInfo.DefaultThreadCurrentUICulture = culture;
 
 var builder = WebApplication.CreateBuilder(args);
 

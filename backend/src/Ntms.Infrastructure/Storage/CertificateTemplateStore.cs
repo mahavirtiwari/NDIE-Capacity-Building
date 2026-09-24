@@ -41,6 +41,12 @@ public class CertificateTemplateStore
             : configured;
     }
 
+    /* Paths are compared the way the filesystem treats them: case-insensitively
+       on Windows, exactly on Linux, where two names differing only in case are
+       two different directories. */
+    private static readonly StringComparison PathCase =
+        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
     public sealed record StoredFile(string RelativePath, string ContentType, long SizeBytes);
 
     public async Task<StoredFile> SaveAsync(
@@ -82,7 +88,7 @@ public class CertificateTemplateStore
         var full = Path.GetFullPath(Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar)));
         var boundary = Path.GetFullPath(root) + Path.DirectorySeparatorChar;
 
-        if (!full.StartsWith(boundary, StringComparison.OrdinalIgnoreCase) || !File.Exists(full))
+        if (!full.StartsWith(boundary, PathCase) || !File.Exists(full))
             throw AppException.NotFound("Template");
 
         return new FileStream(full, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, useAsync: true);
@@ -94,7 +100,7 @@ public class CertificateTemplateStore
         var full = Path.GetFullPath(Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar)));
         var boundary = Path.GetFullPath(root) + Path.DirectorySeparatorChar;
 
-        if (!full.StartsWith(boundary, StringComparison.OrdinalIgnoreCase)) return;
+        if (!full.StartsWith(boundary, PathCase)) return;
         if (File.Exists(full)) File.Delete(full);
     }
 }

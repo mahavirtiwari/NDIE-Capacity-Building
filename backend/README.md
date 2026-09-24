@@ -275,18 +275,59 @@ Lists return `{ "items": [], "total": 0, "page": 1, "pageSize": 10 }`.
 | `Database:MigrateOnStartup` | Migrate on boot (on in Development) |
 | `Database:SeedSampleData` | Seed a few masters alongside the roles and Super Admin |
 | `Email:*` | SMTP, as above |
+| `Storage:MonitoringRoot` | Where coordinator photographs are written |
+| `Storage:CertificateTemplateRoot` | Where certificate artwork is written |
+| `Seed:SuperAdminPassword` | First-run password for `SA0001`; generated and logged if unset |
 
 Before deploying, set `Jwt:SigningKey` and the SMTP password from the
 environment or a key vault — not from `appsettings.json`.
 
+## Deploying somewhere other than a developer machine
+
+`appsettings.json` ships with no connection string and no signing key. Both are
+deliberate: the service should refuse to start rather than quietly reach for a
+database that is not there. Supply them as environment variables, which is what
+containers and app services pass through:
+
+```
+ConnectionStrings__Default=Server=...;Database=NtmsDb;User Id=...;Password=...
+Jwt__SigningKey=<32+ characters>
+Cors__AllowedOrigins__0=https://cbms.example.gov.in
+Storage__MonitoringRoot=/var/lib/cbms/monitoring
+Storage__CertificateTemplateRoot=/var/lib/cbms/certificate-templates
+```
+
+**The two storage paths matter.** Uploaded photographs and certificate artwork
+are files, not rows. Left unset they land beside the binaries, which is fine on
+a developer machine and wrong anywhere else — a container filesystem is usually
+read-only, and a redeploy would take the evidence with it. Point both at a
+volume or a mounted share that every web head can reach and that gets backed
+up. Nothing else the service writes lives outside the database.
+
+**Linux is fine.** The IST conversion tries the Windows and the IANA zone id in
+turn and falls back to a fixed +05:30, and path handling is case-sensitive off
+Windows. The one thing tied to a platform is the database: the schema uses SQL
+Server types and a filtered index, so it wants SQL Server, on whatever operating
+system suits.
+
+**Culture is pinned to `en-IN` at start-up** rather than inherited from the
+host. Left to the machine, an unqualified `yyyy` can render a non-Gregorian year
+and month names come out in the server's language. Anything that travels on the
+wire formats invariantly at its own call site regardless.
+
 ## Connecting the portal
 
-In `training-portal/src/environments/environment.ts`:
+In `training-portal/src/environments/environment.ts` (development):
 
 ```ts
 useMockApi: false,
 apiBaseUrl: 'http://localhost:5210/api',
 ```
+
+`environment.production.ts` uses a relative `/api`, which is correct wherever
+the built app is served from the same origin as the API. Point it at an
+absolute URL only if the two are genuinely split, and add that origin to
+`Cors:AllowedOrigins`.
 
 Setting `useMockApi: true` puts the portal back on its in-browser mock, which
 implements the same routes and the same envelope.

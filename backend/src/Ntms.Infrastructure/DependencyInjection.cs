@@ -15,9 +15,16 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("Default")
-            ?? throw new InvalidOperationException(
-                "Connection string 'Default' is missing from configuration.");
+        /* Blank counts as missing. The shipped appsettings.json leaves it empty
+           so a deployment has to supply one; falling through to a default would
+           have the service quietly try a database that is not there. */
+        var connectionString = configuration.GetConnectionString("Default");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "ConnectionStrings:Default is not set. Provide it through configuration, "
+                + "an environment variable (ConnectionStrings__Default) or user-secrets.");
+        }
 
         services.AddDbContext<NtmsDbContext>(options =>
             options.UseSqlServer(connectionString, sql =>
