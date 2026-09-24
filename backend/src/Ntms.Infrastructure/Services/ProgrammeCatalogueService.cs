@@ -30,11 +30,23 @@ public class ProgrammeCatalogueService(NtmsDbContext db)
         ProgramStatus.CalendarCreated,
     ];
 
+    /* Everything an approval has been given for, including batches already
+       run. The listing shows history as well as what is coming: somebody
+       deciding whether this training is worth applying for wants to see that it
+       runs regularly, not just the one batch currently open. */
+    private static readonly ProgramStatus[] Published =
+    [
+        ProgramStatus.PermissionAccepted,
+        ProgramStatus.CalendarCreated,
+        ProgramStatus.Conducted,
+    ];
+
     private IQueryable<Programme> Base => db.Programmes.AsNoTracking()
         .Include(p => p.ProgramType)
         .Include(p => p.Category)
         .Include(p => p.SubCategory)
         .Include(p => p.State)
+        .Include(p => p.District)
         .Include(p => p.Agency);
 
     /* --------------------------------------------------------- the link */
@@ -68,7 +80,50 @@ public class ProgrammeCatalogueService(NtmsDbContext db)
         return ToPublic(programme);
     }
 
-    /// <summary>Every batch currently open to the public, soonest first.</summary>
+    /// <summary>
+    /// The public programme listing: every published batch, newest first,
+    /// narrowed by whatever the reader chose.
+    ///
+    /// Newest first rather than soonest: the top of this list should be what is
+    /// about to happen, and a listing that opened on batches from two years ago
+    /// would need scrolling before it said anything useful.
+    /// </summary>
+    public async Task<PagedResult<PublicProgrammeDto>> SearchAsync(
+        PublicProgrammeFilterDto filter, PagedRequest request, CancellationToken ct)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var search = filter.Search?.Trim();
+
+        var query = Base
+            .Where(p => Published.Contains(p.Status))
+            .WhereIf(filter.ProgramTypeId.HasValue, p => p.ProgramTypeId == filter.ProgramTypeId)
+            .WhereIf(filter.StateCode.HasValue, p => p.StateCode == filter.StateCode)
+            .WhereIf(filter.DistrictCode.HasValue, p => p.DistrictCode == filter.DistrictCode)
+            .WhereIf(filter.From.HasValue, p => p.StartDate >= filter.From)
+            .WhereIf(filter.To.HasValue, p => p.StartDate <= filter.To)
+            .WhereIf(!string.IsNullOrWhiteSpace(search),
+                p => p.ProgrammeId.Contains(search!)
+                    || p.ProgrammeName.Contains(search!)
+                    || p.Venue.Contains(search!));
+
+        /* Where a batch sits in time is a comparison against today, not a
+           stored column, so it is expressed here rather than filtered in memory
+           after paging — which would make the page counts wrong. */
+        query = (filter.Status ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "upcoming" => query.Where(p => p.StartDate > today),
+            "ongoing" => query.Where(p => p.StartDate <= today && p.EndDate >= today),
+            "completed" => query.Where(p => p.EndDate < today),
+            _ => query,
+        };
+
+        return await query
+            .OrderByDescending(p => p.StartDate)
+            .ThenByDescending(p => p.Id)
+            .ToPagedResultAsync(request, ToPublic, ct);
+    }
+
+    /// <summary>Every batch currently open for registration, soonest first.</summary>
     public async Task<List<PublicProgrammeDto>> OpenAsync(
         int? programTypeId, int? stateCode, CancellationToken ct)
     {
@@ -162,6 +217,55 @@ public class ProgrammeCatalogueService(NtmsDbContext db)
         ];
     }
 
+    /* ------------------------------------------------------------ filters */
+
+    /// <summary>
+    /// The names the listing's filters are built from.
+    ///
+    /// Only the tracks that actually have a published batch are offered: a
+    /// dropdown full of programme types nobody has ever run would produce empty
+    /// results and no explanation.
+    /// </summary>
+    public async Task<PublicFilterOptionsDto> FilterOptionsAsync(CancellationToken ct)
+    {
+        var typeIds = await db.Programmes.AsNoTracking()
+            .Where(p => Published.Contains(p.Status))
+            .Select(p => p.ProgramTypeId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        return new PublicFilterOptionsDto
+        {
+            ProgramTypes =
+            [
+                .. await db.ProgramTypes.AsNoTracking()
+                    .Where(t => typeIds.Contains(t.Id))
+                    .OrderBy(t => t.Name)
+                    .Select(t => new LookupItemDto { Id = t.Id, Name = t.Name, Code = t.Code })
+                    .ToListAsync(ct),
+            ],
+            States =
+            [
+                .. await db.States.AsNoTracking()
+                    .OrderBy(x => x.Name)
+                    .Select(x => new LookupItemDto { Id = x.Code, Name = x.Name })
+                    .ToListAsync(ct),
+            ],
+            Districts =
+            [
+                .. await db.Districts.AsNoTracking()
+                    .OrderBy(x => x.Name)
+                    .Select(x => new LookupItemDto
+                    {
+                        Id = x.Code,
+                        Name = x.Name,
+                        ParentId = x.StateCode,
+                    })
+                    .ToListAsync(ct),
+            ],
+        };
+    }
+
     /* ------------------------------------------------------------ mapping */
 
     private static PublicProgrammeDto ToPublic(Programme p)
@@ -180,8 +284,11 @@ public class ProgrammeCatalogueService(NtmsDbContext db)
             SubCategoryName = p.SubCategory?.Name ?? string.Empty,
 
             Mode = p.Mode.ToString(),
-            Venue = virtualBatch ? null : p.Venue,
+            /* A virtual batch has no place, and saying "Virtual" in the venue
+               column is more use to a reader than an empty cell. */
+            Venue = virtualBatch ? "Virtual" : p.Venue,
             City = virtualBatch ? null : p.City,
+            District = virtualBatch ? null : p.District?.Name,
             State = virtualBatch ? null : p.State?.Name,
 
             StartDate = p.StartDate,
@@ -193,6 +300,10 @@ public class ProgrammeCatalogueService(NtmsDbContext db)
             /* Clamped: lowering a cap below the number already enrolled would
                otherwise advertise a negative number of seats. */
             SeatsLeft = Math.Max(0, p.MaxParticipants - p.ParticipantCount),
+
+            ScheduleStatus = DateOnly.FromDateTime(DateTime.UtcNow) < p.StartDate
+                ? "Upcoming"
+                : over ? "Completed" : "Ongoing",
 
             RegistrationsOpen = p.RegistrationsOpen,
             RegistrationStatus = p.RegistrationsOpen

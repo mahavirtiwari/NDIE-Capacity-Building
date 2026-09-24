@@ -145,6 +145,7 @@ export interface PublicProgramme {
   mode: string;
   venue?: string | null;
   city?: string | null;
+  district?: string | null;
   state?: string | null;
   startDate: string;
   endDate: string;
@@ -152,6 +153,8 @@ export interface PublicProgramme {
   maxParticipants: number;
   enrolled: number;
   seatsLeft: number;
+  /** Upcoming, Ongoing or Completed — where it sits in time. */
+  scheduleStatus: string;
   registrationsOpen: boolean;
   /** Open, Full, Already held, Awaiting approval or Closed. */
   registrationStatus: string;

@@ -3,6 +3,14 @@ import { authGuard, guestGuard, permissionGuard } from './core/guards/auth.guard
 
 export const routes: Routes = [
   {
+    /* The public batch listing — the page an agency points people at. No guard:
+       somebody choosing a programme has no account yet. */
+    path: 'programmes',
+    title: 'Training programmes · CBMS',
+    loadComponent: () =>
+      import('./features/public/programme-list.component').then((m) => m.ProgrammeListComponent),
+  },
+  {
     /* The shareable registration link. Public on purpose — no guard — so a
        batch can be advertised to people who have no account yet. */
     path: 'p/:code',

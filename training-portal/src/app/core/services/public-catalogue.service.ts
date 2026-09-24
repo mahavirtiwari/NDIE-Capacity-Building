@@ -1,7 +1,27 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { PublicProgramme } from '../models';
+import { LookupItem, PagedResult, PublicProgramme } from '../models';
 import { ApiService } from './api.service';
+
+/** What narrows the public listing. Mirrors PublicProgrammeFilterDto. */
+export interface PublicProgrammeQuery {
+  programTypeId?: number;
+  stateCode?: number;
+  districtCode?: number;
+  /** Upcoming, Ongoing or Completed. */
+  status?: string;
+  from?: string;
+  to?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PublicFilterOptions {
+  programTypes: LookupItem[];
+  states: LookupItem[];
+  districts: LookupItem[];
+}
 
 /**
  * Batches as the public sees them.
@@ -18,8 +38,21 @@ export class PublicCatalogueService {
     return this.api.get<PublicProgramme>(`public/programmes/${encodeURIComponent(code)}`);
   }
 
-  /** Everything currently open, soonest first. */
+  /** The listing: every published batch, newest first, narrowed by the filters. */
+  list(query: PublicProgrammeQuery): Observable<PagedResult<PublicProgramme>> {
+    return this.api.get<PagedResult<PublicProgramme>>(
+      'public/programmes',
+      query as Record<string, unknown>,
+    );
+  }
+
+  /** The names the listing's filters are built from. */
+  filters(): Observable<PublicFilterOptions> {
+    return this.api.get<PublicFilterOptions>('public/programmes/filters');
+  }
+
+  /** Just the batches taking registrations, soonest first. */
   open(query?: { programTypeId?: number; stateCode?: number }): Observable<PublicProgramme[]> {
-    return this.api.get<PublicProgramme[]>('public/programmes', query);
+    return this.api.get<PublicProgramme[]>('public/programmes/open', query);
   }
 }
