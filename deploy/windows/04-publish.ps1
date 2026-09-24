@@ -31,6 +31,35 @@ param(
 $ErrorActionPreference = 'Stop'
 $started = Get-Date
 
+function Invoke-Native {
+    param(
+        [Parameter(Mandatory)] [string] $What,
+        [Parameter(Mandatory)] [scriptblock] $Command
+    )
+
+    # PowerShell turns everything a native program writes to stderr into an
+    # ErrorRecord, and with $ErrorActionPreference = 'Stop' the first one ends
+    # the script. npm and NuGet both write ordinary warnings there, so a build
+    # that succeeded looks like a build that failed. The exit code is the only
+    # thing worth believing, so read that instead.
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = & $Command 2>&1
+        $code = $LASTEXITCODE
+    }
+    finally { $ErrorActionPreference = $previous }
+
+    if ($code -ne 0) {
+        # Output is swallowed while things go well; on a failure it is the only
+        # thing that says why.
+        $tail = ($output | Select-Object -Last 30 | ForEach-Object { "    $_" }) -join "`n"
+        throw ("{0} failed (exit {1}):`n{2}" -f $What, $code, $tail)
+    }
+
+    return $output
+}
+
 $apiProject = Join-Path $SourcePath 'backend\src\Ntms.Api\Ntms.Api.csproj'
 $portalPath = Join-Path $SourcePath 'training-portal'
 $stagingPath = Join-Path $env:TEMP ("cbms-publish-" + [Guid]::NewGuid().ToString('N').Substring(0, 8))
@@ -44,8 +73,9 @@ Write-Host "`nBuilding from $SourcePath`n" -ForegroundColor Cyan
 # --- API --------------------------------------------------------------------
 
 Write-Host "  Publishing the API..." -ForegroundColor Gray
-dotnet publish $apiProject --configuration Release --output $stagingPath --nologo | Out-Null
-if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
+Invoke-Native 'dotnet publish' {
+    dotnet publish $apiProject --configuration Release --output $stagingPath --nologo
+} | Out-Null
 Write-Host "  [ok]  API published" -ForegroundColor Green
 
 # --- Portal -----------------------------------------------------------------
@@ -53,17 +83,22 @@ Write-Host "  [ok]  API published" -ForegroundColor Green
 if (-not $SkipPortal) {
     Push-Location $portalPath
     try {
-        if (-not (Test-Path (Join-Path $portalPath 'node_modules'))) {
+        # npm writes node_modules\.package-lock.json only once the install has
+        # finished. The folder alone is not evidence of anything: an install
+        # that died halfway leaves one behind, and skipping the retry because
+        # it exists means building against half a dependency tree.
+        $installed = Join-Path $portalPath 'node_modules\.package-lock.json'
+
+        if (-not (Test-Path $installed)) {
             Write-Host "  Installing portal dependencies (first run only)..." -ForegroundColor Gray
             # ci, not install: it honours the lock file exactly, which is what a
-            # release build should do.
-            cmd /c "npm ci" | Out-Null
-            if ($LASTEXITCODE -ne 0) { throw "npm ci failed." }
+            # release build should do. It also wants node_modules gone, and an
+            # abandoned one from a previous attempt would otherwise stay.
+            Invoke-Native 'npm ci' { npm ci --no-audit --no-fund } | Out-Null
         }
 
         Write-Host "  Building the portal..." -ForegroundColor Gray
-        cmd /c "npx ng build --configuration production" | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "ng build failed." }
+        Invoke-Native 'ng build' { npx ng build --configuration production } | Out-Null
     }
     finally { Pop-Location }
 

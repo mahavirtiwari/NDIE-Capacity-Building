@@ -81,7 +81,7 @@ SELECT CONCAT('rows updated: ', @@ROWCOUNT);
 
     # -C for the same reason as in 02-database.ps1.
     $database = [regex]::Match($connectionString, 'Database=([^;]+)').Groups[1].Value
-    $result = sqlcmd -S $SqlInstance -d $database -E -C -b -h -1 -W -i $sqlFile
+    $result = sqlcmd -S $SqlInstance -d $database -E -C -b -h -1 -W -i $sqlFile 2>&1
     Remove-Item $sqlFile -Force
     if ($LASTEXITCODE -ne 0) { throw "Update failed: $result" }
 

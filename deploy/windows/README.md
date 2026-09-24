@@ -1,4 +1,4 @@
-# Deploying to Windows Server + IIS
+﻿# Deploying to Windows Server + IIS
 
 For `leanstaging.qci.org.in`, with SQL Server on the same machine and a PFX
 certificate for the domain.
@@ -186,6 +186,14 @@ pass `-C` to trust it — the traffic is still encrypted, only the identity chec
 is skipped, which for a connection to the same machine costs nothing. If you
 would rather not skip it, issue SQL Server a certificate from a CA the machine
 trusts and drop the `-C`.
+
+**A script stops on something that reads like a warning** — `npm warn ...`,
+`NativeCommandError`, `RemoteException`. PowerShell turns everything a native
+program writes to stderr into an error record, and these scripts run with
+`$ErrorActionPreference = 'Stop'`, so one warning from npm or NuGet ended the
+run even though nothing had gone wrong. The scripts now judge native commands
+by their exit code instead. If you meet this in a command of your own, append
+`2>&1` to it.
 
 **HTTP 500.19 — configuration error.** The .NET Hosting Bundle is not installed,
 or was installed before IIS. Reinstall it and run `iisreset`.

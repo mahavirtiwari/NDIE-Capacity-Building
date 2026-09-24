@@ -34,7 +34,9 @@ $infra      = Join-Path $SourcePath 'backend\src\Ntms.Infrastructure\Ntms.Infras
 
 if (-not (Get-Command dotnet-ef -ErrorAction SilentlyContinue)) {
     Write-Host "  Installing dotnet-ef..." -ForegroundColor Gray
-    dotnet tool install --global dotnet-ef | Out-Null
+    # 2>&1 keeps the installer's progress notes out of the error stream; with
+    # $ErrorActionPreference = 'Stop' one of them would end the script.
+    dotnet tool install --global dotnet-ef 2>&1 | Out-Null
     $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
 }
 
