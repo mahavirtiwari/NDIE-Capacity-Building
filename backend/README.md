@@ -24,11 +24,22 @@ Health check: `GET /health`.
 
 ### First sign-in
 
-Seeding creates one Super Admin:
+Seeding creates one Super Admin, `SA0001`, and gives it a first-run password
+that has to be changed at first sign-in.
 
-| User ID | Password |
-|---|---|
-| `SA0001` | `Password@123` (must be changed at first sign-in) |
+That password is **not** written down anywhere in this repository. Set it
+yourself before the first start:
+
+```
+dotnet user-secrets set "Seed:SuperAdminPassword" "<a password you choose>" --project src/Ntms.Api
+```
+
+If you do not, one is generated and written to the application log at warning
+level as the database is seeded — the only time it is ever shown:
+
+```
+warn: Seeded Super Admin SA0001 with the first-run password: <generated>.
+```
 
 Sign-in is by **user ID only**. E-mail is profile data the user can change, so
 it is never accepted as a login identifier.
