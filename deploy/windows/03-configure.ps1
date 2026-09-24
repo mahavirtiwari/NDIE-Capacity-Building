@@ -184,6 +184,31 @@ $settings = [ordered]@{
 $parent = Split-Path $target -Parent
 if (-not (Test-Path $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
 
+# A file left by an earlier version of this script grants Administrators Read
+# and no more, so the write below fails before the corrected rights at the
+# bottom are ever applied. Widening it first is what makes the fix reach a
+# machine that already ran the broken version. The owner of a file may always
+# rewrite its DACL, which is why this works when writing the contents does not.
+if (Test-Path $target) {
+    try {
+        # GetAccessControl('Access') rather than Get-Acl: Get-Acl fetches the
+        # audit list as well, and writing it back demands SeSecurityPrivilege,
+        # which this does not otherwise need and does not always have. Asking
+        # for the permissions alone keeps the operation to what it is for.
+        $file = Get-Item $target
+        $current = $file.GetAccessControl('Access')
+        $current.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule(
+                    'BUILTIN\Administrators', 'FullControl', 'Allow')))
+        $file.SetAccessControl($current)
+    }
+    catch {
+        throw ("Cannot write $target and cannot widen its permissions:`n  $($_.Exception.Message)`n" +
+               "Take ownership and try again:`n" +
+               "  takeown /F `"$target`"`n" +
+               "  icacls `"$target`" /grant Administrators:F")
+    }
+}
+
 $settings | ConvertTo-Json -Depth 6 | Set-Content -Path $target -Encoding utf8
 Write-Host "  [ok]  Wrote $target" -ForegroundColor Green
 
@@ -204,7 +229,8 @@ $rights = @{
     'IIS AppPool\CbmsAppPool'  = 'Read'
 }
 
-$acl = Get-Acl $target
+$file = Get-Item $target
+$acl = $file.GetAccessControl('Access')
 $acl.SetAccessRuleProtection($true, $false)
 $acl.Access | ForEach-Object { $acl.RemoveAccessRule($_) | Out-Null }
 
@@ -220,7 +246,7 @@ foreach ($identity in $rights.Keys) {
         Write-Host "  [note] Could not grant $identity yet — 05 will set it" -ForegroundColor Gray
     }
 }
-Set-Acl -Path $target -AclObject $acl
+$file.SetAccessControl($acl)
 Write-Host "  [ok]  Restricted the file to Administrators, SYSTEM and the app pool" -ForegroundColor Green
 
 if ($DiscourageSearchEngines) {
