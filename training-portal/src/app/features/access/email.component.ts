@@ -9,6 +9,7 @@ import { describeError, formatValidator } from '../../core/validation/formats';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { IconComponent } from '../../shared/components/icon.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
+import { RichTextEditorComponent } from '../../shared/components/rich-text-editor.component';
 
 type Tab = 'sender' | 'templates' | 'log';
 
@@ -19,7 +20,13 @@ type Tab = 'sender' | 'templates' | 'log';
 @Component({
   selector: 'app-email-settings',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, ReactiveFormsModule, PageHeaderComponent, IconComponent],
+  imports: [
+    DatePipe,
+    ReactiveFormsModule,
+    PageHeaderComponent,
+    IconComponent,
+    RichTextEditorComponent,
+  ],
   template: `
     <app-page-header
       title="Email"
@@ -248,10 +255,12 @@ type Tab = 'sender' | 'templates' | 'log';
                 </div>
 
                 <div class="field">
-                  <label class="field-label" for="tplHtml">Message body (HTML) <span class="req">*</span></label>
-                  <textarea id="tplHtml" class="input tpl-body" formControlName="htmlBody" rows="12"></textarea>
+                  <label class="field-label" for="tplHtml">Message body <span class="req">*</span></label>
+                  <app-rich-text-editor id="tplHtml" formControlName="htmlBody" [minHeight]="240" />
                   <span class="field-hint">
-                    The branded header and footer are added automatically — write only the message.
+                    Write it with the toolbar, or switch to HTML to edit the markup directly — both
+                    views edit the same message. Placeholders can be typed in either. The branded
+                    header and footer are added automatically.
                   </span>
                 </div>
 
