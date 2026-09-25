@@ -1,6 +1,12 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { Id, Marksheet, MarksheetSave } from '../models';
+import {
+  ExamAttemptReview,
+  ExamAttemptSummary,
+  Id,
+  Marksheet,
+  MarksheetSave,
+} from '../models';
 import { ApiService } from './api.service';
 
 /**
@@ -21,5 +27,17 @@ export class MarksheetService {
 
   save(programmeId: Id, payload: MarksheetSave): Observable<Marksheet> {
     return this.api.put<Marksheet>(`programs/${programmeId}/marksheet`, payload);
+  }
+
+  /** Every sitting one candidate has had on this programme. */
+  attempts(programmeId: Id, participantId: Id): Observable<ExamAttemptSummary[]> {
+    return this.api.get<ExamAttemptSummary[]>(`programs/${programmeId}/exam-attempts`, {
+      participantId,
+    });
+  }
+
+  /** One sitting in full — the evidence behind a written mark. */
+  attempt(programmeId: Id, attemptId: Id): Observable<ExamAttemptReview> {
+    return this.api.get<ExamAttemptReview>(`programs/${programmeId}/exam-attempts/${attemptId}`);
   }
 }

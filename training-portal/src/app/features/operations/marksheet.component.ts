@@ -4,6 +4,7 @@ import { Id, Marksheet, MarksheetRow, MarksheetRowSave } from '../../core/models
 import { MarksheetService } from '../../core/services/marksheet.service';
 import { ToastService } from '../../core/services/toast.service';
 import { IconComponent } from '../../shared/components/icon.component';
+import { ExamReviewComponent } from './exam-review.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
 
 /** An edit in progress: what is typed, before it has been sent. */
@@ -26,7 +27,7 @@ interface Draft {
 @Component({
   selector: 'app-marksheet',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, IconComponent, StatusBadgeComponent],
+  imports: [FormsModule, IconComponent, StatusBadgeComponent, ExamReviewComponent],
   template: `
     @if (sheet(); as data) {
       <div class="card__body stack stack-md">
@@ -156,9 +157,12 @@ interface Draft {
                         [title]="row.writtenFromExam ? 'From the paper sat online' : ''"
                       />
                       @if (row.writtenFromExam) {
-                        <div class="text-xs text-muted">
+                        <!-- The way into the paper behind the mark: somebody
+                             looking at a score is usually asking what it was
+                             made of. -->
+                        <button type="button" class="link-xs" (click)="reviewing.set(row)">
                           Online · {{ row.examPercentage }}%
-                        </div>
+                        </button>
                       }
                     </td>
                   }
@@ -209,6 +213,15 @@ interface Draft {
     } @else {
       <div class="card__body"><span class="text-sm text-muted">Loading the marksheet…</span></div>
     }
+
+    @if (reviewing(); as row) {
+      <app-exam-review
+        [programmeId]="programmeId()"
+        [participantId]="row.participantId"
+        [name]="row.name"
+        (closed)="reviewing.set(null)"
+      />
+    }
   `,
   styles: [
     `
@@ -238,6 +251,15 @@ interface Draft {
       tbody tr.is-dirty {
         background: var(--warning-50, #fff8e6);
       }
+      .link-xs {
+        background: none;
+        border: 0;
+        color: var(--brand-700, #82232f);
+        cursor: pointer;
+        font-size: 0.72rem;
+        padding: 2px 0 0;
+        text-decoration: underline;
+      }
     `,
   ],
 })
@@ -252,6 +274,9 @@ export class MarksheetComponent {
 
   /** Who is marking, applied to everything in this pass. */
   protected trainerId: Id | null = null;
+
+  /** The candidate whose sitting is open for review, if any. */
+  protected readonly reviewing = signal<MarksheetRow | null>(null);
 
   /** Edits not sent yet, by participant. */
   private readonly drafts = signal<Record<number, Draft>>({});

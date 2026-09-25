@@ -278,6 +278,34 @@ public class ProgrammeMarksheetController(MarksheetService service) : ApiControl
         Envelope(await service.SaveAsync(id, dto, ct), "Marks saved.");
 }
 
+/// <summary>
+/// What a candidate actually answered on the paper they sat.
+///
+/// Read only. A mark is disputed with the sitting behind it, and nothing here
+/// can change one: a wrong answer key is corrected on the paper and the sitting
+/// retaken, not edited afterwards.
+/// </summary>
+[Route("api/programs/{id:int}/exam-attempts")]
+public class ProgrammeExamAttemptsController(ExamReviewService service) : ApiControllerBase
+{
+    /// <summary>Every sitting one candidate has had on this programme.</summary>
+    [HttpGet]
+    [HasPermission(Permissions.ProgramsView)]
+    public async Task<ActionResult<ApiEnvelope<List<ExamAttemptSummaryDto>>>> List(
+        int id, [FromQuery] int participantId, CancellationToken ct) =>
+        Envelope(await service.ListAsync(id, participantId, ct));
+
+    /// <summary>
+    /// One sitting in full. The right answers are included only for an account
+    /// that may already read the paper.
+    /// </summary>
+    [HttpGet("{attemptId:int}")]
+    [HasPermission(Permissions.ProgramsView)]
+    public async Task<ActionResult<ApiEnvelope<ExamAttemptReviewDto>>> Get(
+        int id, int attemptId, CancellationToken ct) =>
+        Envelope(await service.GetAsync(id, attemptId, ct));
+}
+
 [Route("api/lookups")]
 public class LookupsController(LookupService service) : ApiControllerBase
 {

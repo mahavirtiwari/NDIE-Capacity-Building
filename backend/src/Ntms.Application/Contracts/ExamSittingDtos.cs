@@ -127,3 +127,94 @@ public class ExamResultDto
     /// </summary>
     public string ProgrammeResult { get; set; } = "Pending";
 }
+
+/* ------------------------------------------------------------- reviewing */
+
+/*
+  Looking back at a sitting, from the portal.
+
+  A candidate who disputes a mark is owed the paper they answered, not a
+  number. These carry what was asked, what they chose and what it scored — and,
+  for staff who may see the paper's content, which answer was the right one.
+*/
+
+/// <summary>One sitting, as it appears in a candidate's list of attempts.</summary>
+public class ExamAttemptSummaryDto
+{
+    public int AttemptId { get; set; }
+    public int AttemptNo { get; set; }
+    /// <summary>Submitted, or Expired when the clock ran out first.</summary>
+    public string Status { get; set; } = string.Empty;
+
+    public DateTime StartedOn { get; set; }
+    public DateTime? SubmittedOn { get; set; }
+    /// <summary>How long they actually took, in minutes.</summary>
+    public int? MinutesTaken { get; set; }
+
+    public decimal Score { get; set; }
+    public decimal PaperTotal { get; set; }
+    public decimal Percentage { get; set; }
+    public bool Passed { get; set; }
+
+    public int Answered { get; set; }
+    public int QuestionCount { get; set; }
+
+    /// <summary>True for the sitting whose score became the written mark.</summary>
+    public bool IsBest { get; set; }
+}
+
+/// <summary>One sitting in full: every question, and what the candidate did with it.</summary>
+public class ExamAttemptReviewDto : ExamAttemptSummaryDto
+{
+    public int ParticipantId { get; set; }
+    public string CandidateName { get; set; } = string.Empty;
+    public string ApplicationNo { get; set; } = string.Empty;
+
+    public string PaperCode { get; set; } = string.Empty;
+    public string PaperTitle { get; set; } = string.Empty;
+    public bool NegativeMarking { get; set; }
+
+    /// <summary>
+    /// Whether the right answers are included.
+    ///
+    /// The paper's content is a separate thing to be trusted with from a
+    /// candidate's result: somebody investigating a dispute can always see what
+    /// was chosen and what it scored, and only an account that may already read
+    /// the paper is shown which option was correct.
+    /// </summary>
+    public bool ShowsAnswerKey { get; set; }
+
+    public List<ExamAttemptQuestionDto> Questions { get; set; } = [];
+}
+
+public class ExamAttemptQuestionDto
+{
+    public int Id { get; set; }
+    public int DisplayOrder { get; set; }
+    public string Text { get; set; } = string.Empty;
+    public string Type { get; set; } = "SingleChoice";
+
+    public decimal Marks { get; set; }
+    public decimal NegativeMarks { get; set; }
+
+    /// <summary>What this question came to for this candidate, negative included.</summary>
+    public decimal MarksAwarded { get; set; }
+    public bool IsCorrect { get; set; }
+    /// <summary>False for a question the candidate never answered.</summary>
+    public bool Answered { get; set; }
+
+    /// <summary>The author's note on the answer, where the paper carries one.</summary>
+    public string? Explanation { get; set; }
+
+    public List<ExamAttemptOptionDto> Options { get; set; } = [];
+}
+
+public class ExamAttemptOptionDto
+{
+    public int Id { get; set; }
+    public string Text { get; set; } = string.Empty;
+    /// <summary>Whether the candidate chose it.</summary>
+    public bool Chosen { get; set; }
+    /// <summary>Null unless the answer key is being shown.</summary>
+    public bool? IsCorrect { get; set; }
+}

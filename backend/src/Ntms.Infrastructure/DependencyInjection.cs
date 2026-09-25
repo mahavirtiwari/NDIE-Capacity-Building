@@ -65,6 +65,7 @@ public static class DependencyInjection
         services.AddScoped<MarksheetService>();
         services.AddScoped<ResultRecorder>();
         services.AddScoped<ExamSittingService>();
+        services.AddScoped<ExamReviewService>();
         services.AddScoped<DelegationGuard>();
         services.AddScoped<AgencyService>();
         services.AddScoped<CurriculumService>();
