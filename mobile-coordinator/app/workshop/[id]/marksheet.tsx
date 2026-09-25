@@ -6,6 +6,7 @@ import { marksheet as marksheetApi } from '../../../src/api/endpoints';
 import type { Marksheet, MarksheetRow, MarksheetRowSave } from '../../../src/api/types';
 import { Banner, Button, Card, EmptyState, Field, Loading, StatusPill } from '../../../src/components/ui';
 import { Picker } from '../../../src/components/Picker';
+import { useSiteText } from '../../../src/content/SiteTextContext';
 import { colors, radius, spacing } from '../../../src/theme';
 import { useWorkshop } from '../../../src/workshop/WorkshopContext';
 
@@ -23,6 +24,7 @@ import { useWorkshop } from '../../../src/workshop/WorkshopContext';
  */
 export default function MarksheetScreen() {
   const { id } = useWorkshop();
+  const words = useSiteText();
 
   const [sheet, setSheet] = useState<Marksheet | null>(null);
   const [loading, setLoading] = useState(true);
@@ -84,8 +86,10 @@ export default function MarksheetScreen() {
 
         {scheme.hasViva && sheet.skills.length === 0 ? (
           <Banner tone="warning">
-            The viva has no skills set up yet, so it cannot be marked. They are added in the portal,
-            under the program type.
+            {words(
+              'coordinator.marksheet.noSkills',
+              'The viva has no skills set up yet, so it cannot be marked. They are added in the portal, under the program type.',
+            )}
           </Banner>
         ) : null}
 
@@ -112,7 +116,9 @@ export default function MarksheetScreen() {
                 {row.total != null ? ` · ${row.total} of ${scheme.totalMarks}` : ' · not marked'}
               </Text>
               {row.isLocked ? (
-                <Text style={styles.rowNote}>Certificate issued — marks locked</Text>
+                <Text style={styles.rowNote}>
+                  {words('marksheet.locked', 'Certificate issued — marks locked')}
+                </Text>
               ) : row.pending ? (
                 <Text style={styles.rowNote}>{row.pending}</Text>
               ) : row.shortfall ? (

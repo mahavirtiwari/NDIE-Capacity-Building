@@ -13,6 +13,7 @@ import { CertificateService } from '../../core/services/certificate.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ProgramService } from '../../core/services/workflow.service';
 import { IconComponent } from '../../shared/components/icon.component';
 import { MarksheetComponent } from './marksheet.component';
@@ -168,7 +169,7 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
             [class.is-active]="tab() === 'marksheet'"
             (click)="tab.set('marksheet')"
           >
-            Marksheet
+            {{ copy.text('marksheet.tab') }}
           </button>
           <button
             type="button"
@@ -475,6 +476,7 @@ export class ProgramDetailComponent {
   private readonly service = inject(ProgramService);
   private readonly toast = inject(ToastService);
   private readonly auth = inject(AuthService);
+  protected readonly copy = inject(SiteTextService);
   private readonly fb = inject(FormBuilder);
 
   readonly id = input.required<string>();

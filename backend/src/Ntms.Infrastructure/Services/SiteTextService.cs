@@ -79,6 +79,66 @@ public class SiteTextService(NtmsDbContext db)
             "Participants by social category"),
         new("charts.social.subtitle", "Charts", "Social category chart subtitle",
             "Share of candidates who attended"),
+
+        /* ----------------------------------------------- evaluation skills */
+        new("skills.title", "Evaluation skills", "Page heading", "Evaluation Skills"),
+        new("skills.subtitle", "Evaluation skills", "Page subtitle",
+            "What a trainer marks each candidate on in the viva or practical, set up per program type.",
+            null, true),
+        new("skills.typeHint", "Evaluation skills", "Program type hint",
+            "Only types whose evaluation includes a viva or practical are listed."),
+        new("skills.pick", "Evaluation skills", "Nothing picked yet",
+            "Pick a program type to set up its marksheet."),
+        new("skills.shortfall", "Evaluation skills", "Marks do not add up",
+            "The live skills add up to {allocated}, but the viva is marked out of {viva}. A trainer could not award the full marks.",
+            "{allocated} and {viva} are filled in with the numbers.", true),
+
+        /* ------------------------------------------------------- marksheet */
+        new("marksheet.tab", "Marksheet", "Tab label", "Marksheet"),
+        new("marksheet.noExam", "Marksheet", "Nothing to mark",
+            "{programType} has no examination, so there is nothing to mark.",
+            "{programType} is filled in with the name."),
+        new("marksheet.noSkills", "Marksheet", "Viva has no skills",
+            "The viva has no skills set up yet, so it cannot be marked. Add them under Evaluation Skills for {programType}.",
+            null, true),
+        new("marksheet.locked", "Marksheet", "Certificate issued",
+            "Certificate issued — marks locked"),
+        new("marksheet.fromExam", "Marksheet", "Mark came from the online paper", "Online"),
+
+        /* --------------------------------------------------- exam review */
+        new("examReview.keyHidden", "Examination review", "Answer key withheld",
+            "What the candidate chose is shown; which option was correct is not. That needs permission to read the question papers.",
+            null, true),
+        new("examReview.expired", "Examination review", "Sitting expired",
+            "The clock ran out. This sitting was marked on what had been answered by then.",
+            null, true),
+        new("examReview.none", "Examination review", "Never sat", "This candidate has not sat the paper."),
+
+        /* ------------------------------------- examination, applicant app */
+        new("exam.clockNote", "Examination (applicant app)", "Before starting",
+            "The clock starts as soon as you tap. Stay on this screen until you have a steady connection.",
+            null, true),
+        new("exam.negativeMarking", "Examination (applicant app)", "Negative marking warning",
+            "Wrong answers lose marks on this paper. A question left unanswered costs nothing.",
+            null, true),
+        new("exam.resumeNote", "Examination (applicant app)", "Resuming a paper",
+            "You have a paper open. Continuing picks it up where you left off — the clock has been running.",
+            null, true),
+        new("exam.unsent", "Examination (applicant app)", "Answers not sent",
+            "Find a signal — answers only count once they are sent, and they go again with your next tap.",
+            null, true),
+        new("exam.resultPending", "Examination (applicant app)", "Result still pending",
+            "Your programme result waits on the rest of the assessment — the viva or practical, where your programme has one.",
+            null, true),
+
+        /* --------------------------------- marksheet, coordinator's app */
+        new("coordinator.marksheet.title", "Marksheet (coordinator app)", "Menu row",
+            "Trainer marksheet"),
+        new("coordinator.marksheet.status", "Marksheet (coordinator app)", "Menu row status",
+            "Written and viva marks for the enrolled candidates"),
+        new("coordinator.marksheet.noSkills", "Marksheet (coordinator app)", "Viva has no skills",
+            "The viva has no skills set up yet, so it cannot be marked. They are added in the portal, under the program type.",
+            null, true),
     ];
 
     private static readonly HashSet<string> KnownKeys = [.. Registry.Select(e => e.Key)];

@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { ExamAttemptReview, ExamAttemptSummary, Id } from '../../core/models';
 import { MarksheetService } from '../../core/services/marksheet.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { IconComponent, IconName } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 
@@ -79,19 +80,14 @@ import { ModalComponent } from '../../shared/components/modal.component';
         @if (sitting.status === 'Expired') {
           <div class="alert alert--warning mb-md">
             <app-icon name="alert" [size]="16" />
-            <span>
-              The clock ran out. This sitting was marked on what had been answered by then.
-            </span>
+            <span>{{ copy.text('examReview.expired') }}</span>
           </div>
         }
 
         @if (!sitting.showsAnswerKey) {
           <div class="alert alert--info mb-md">
             <app-icon name="info" [size]="16" />
-            <span>
-              What the candidate chose is shown; which option was correct is not. That needs
-              permission to read the question papers.
-            </span>
+            <span>{{ copy.text('examReview.keyHidden') }}</span>
           </div>
         }
 
@@ -135,7 +131,7 @@ import { ModalComponent } from '../../shared/components/modal.component';
           }
         </div>
       } @else {
-        <p class="text-sm text-muted">This candidate has not sat the paper.</p>
+        <p class="text-sm text-muted">{{ copy.text('examReview.none') }}</p>
       }
 
       <div footer>
@@ -258,6 +254,7 @@ import { ModalComponent } from '../../shared/components/modal.component';
 })
 export class ExamReviewComponent {
   private readonly service = inject(MarksheetService);
+  protected readonly copy = inject(SiteTextService);
 
   readonly programmeId = input.required<Id>();
   readonly participantId = input.required<Id>();

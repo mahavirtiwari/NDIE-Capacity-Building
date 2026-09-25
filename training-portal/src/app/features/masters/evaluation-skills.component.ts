@@ -3,6 +3,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { EvaluationSkill, Id, ProgramType, RecordStatus } from '../../core/models';
 import { EvaluationSkillService, ProgramTypeService } from '../../core/services/masters.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import {
@@ -50,10 +51,10 @@ const COLUMNS: ColumnDef[] = [
   ],
   template: `
     <app-page-header
-      title="Evaluation Skills"
-      subtitle="What a trainer marks each candidate on in the viva or practical, set up per program type."
+      [title]="copy.text('skills.title')"
+      [subtitle]="copy.text('skills.subtitle')"
       icon="clipboard"
-      [breadcrumbs]="[{ label: 'Programme setup' }, { label: 'Evaluation Skills' }]"
+      [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('skills.title') }]"
     >
       <button type="button" class="btn btn--primary" [disabled]="!selected()" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New skill
@@ -76,9 +77,7 @@ const COLUMNS: ColumnDef[] = [
                 <option [value]="type.id">{{ type.name }} ({{ type.code }})</option>
               }
             </select>
-            <span class="field-hint">
-              Only types whose evaluation includes a viva or practical are listed.
-            </span>
+            <span class="field-hint">{{ copy.text('skills.typeHint') }}</span>
           </div>
 
           @if (selected(); as type) {
@@ -89,8 +88,12 @@ const COLUMNS: ColumnDef[] = [
               </p>
               @if (marksMismatch()) {
                 <span class="field-error">
-                  The live skills add up to {{ allocated() }}, but the viva is marked out of
-                  {{ type.evaluation.vivaMarks }}. A trainer could not award the full marks.
+                  {{
+                    copy.text('skills.shortfall', {
+                      allocated: allocated(),
+                      viva: type.evaluation.vivaMarks,
+                    })
+                  }}
                 </span>
               }
             </div>
@@ -101,7 +104,7 @@ const COLUMNS: ColumnDef[] = [
       @if (!selected()) {
         <div class="card__body">
           <p class="text-muted">
-            Pick a program type to set up its marksheet.
+            {{ copy.text('skills.pick') }}
             @if (vivaTypes().length === 0 && !loadingTypes()) {
               No program type is examined by viva or practical yet — set one up under
               <a routerLink="/masters/program-types">Program types</a> first.
@@ -216,6 +219,7 @@ export class EvaluationSkillsComponent {
   private readonly confirm = inject(ConfirmService);
   private readonly fb = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
+  protected readonly copy = inject(SiteTextService);
 
   protected readonly columns = COLUMNS;
 

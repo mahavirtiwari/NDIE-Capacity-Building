@@ -6,6 +6,7 @@ import { ApiError } from '../../src/api/client';
 import { exam } from '../../src/api/endpoints';
 import type { ExamAvailability } from '../../src/api/types';
 import { Banner, Button, Card, DetailRow, Loading, Muted, Title } from '../../src/components/ui';
+import { useSiteText } from '../../src/content/SiteTextContext';
 import { colors, font, radius, spacing } from '../../src/theme';
 
 /**
@@ -21,6 +22,7 @@ export default function ExamIntro() {
   const { participantId } = useLocalSearchParams<{ participantId: string }>();
   const id = Number(participantId);
   const router = useRouter();
+  const words = useSiteText();
 
   const [info, setInfo] = useState<ExamAvailability | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,7 +97,10 @@ export default function ExamIntro() {
 
           {info.negativeMarking ? (
             <Banner tone="warning">
-              Wrong answers lose marks on this paper. A question left unanswered costs nothing.
+              {words(
+                'exam.negativeMarking',
+                'Wrong answers lose marks on this paper. A question left unanswered costs nothing.',
+              )}
             </Banner>
           ) : null}
 
@@ -123,8 +128,10 @@ export default function ExamIntro() {
 
           {resuming ? (
             <Banner tone="info">
-              You have a paper open. Continuing picks it up where you left off — the clock has
-              been running.
+              {words(
+                'exam.resumeNote',
+                'You have a paper open. Continuing picks it up where you left off — the clock has been running.',
+              )}
             </Banner>
           ) : null}
 
@@ -137,8 +144,11 @@ export default function ExamIntro() {
               />
               {!resuming ? (
                 <Text style={styles.note}>
-                  <Ionicons name="time-outline" size={13} color={colors.ink500} /> The clock starts
-                  as soon as you tap. Stay on this screen until you have a steady connection.
+                  <Ionicons name="time-outline" size={13} color={colors.ink500} />{' '}
+                  {words(
+                    'exam.clockNote',
+                    'The clock starts as soon as you tap. Stay on this screen until you have a steady connection.',
+                  )}
                 </Text>
               ) : null}
             </>

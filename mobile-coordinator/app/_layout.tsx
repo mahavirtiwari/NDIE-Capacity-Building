@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../src/auth/AuthContext';
 import { BrandingProvider } from '../src/branding/BrandingContext';
+import { SiteTextProvider } from '../src/content/SiteTextContext';
 import { NetworkProvider } from '../src/offline/NetworkContext';
 import { OutboxNotice } from '../src/offline/OutboxNotice';
 import { colors } from '../src/theme';
@@ -13,6 +14,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <NetworkProvider>
         <BrandingProvider>
+          <SiteTextProvider>
           <AuthProvider>
             <StatusBar style="dark" />
             <View style={{ flex: 1 }}>
@@ -32,6 +34,7 @@ export default function RootLayout() {
               </Stack>
             </View>
           </AuthProvider>
+          </SiteTextProvider>
         </BrandingProvider>
       </NetworkProvider>
     </SafeAreaProvider>

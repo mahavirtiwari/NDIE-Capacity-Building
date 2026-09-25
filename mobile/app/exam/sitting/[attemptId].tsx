@@ -15,6 +15,7 @@ import { ApiError } from '../../../src/api/client';
 import { exam } from '../../../src/api/endpoints';
 import type { ExamResult, ExamSitting } from '../../../src/api/types';
 import { Banner, Button, Card, DetailRow, Loading, Title } from '../../../src/components/ui';
+import { useSiteText } from '../../../src/content/SiteTextContext';
 import { colors, font, radius, spacing } from '../../../src/theme';
 
 /**
@@ -34,6 +35,7 @@ export default function ExamSittingScreen() {
   const { attemptId } = useLocalSearchParams<{ attemptId: string }>();
   const id = Number(attemptId);
   const router = useRouter();
+  const words = useSiteText();
 
   const [sitting, setSitting] = useState<ExamSitting | null>(null);
   const [chosen, setChosen] = useState<Record<number, number[]>>({});
@@ -252,8 +254,11 @@ export default function ExamSittingScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         {unsent > 0 ? (
           <Banner tone="warning">
-            {unsent} answer{unsent === 1 ? ' has' : 's have'} not reached the server. Find a
-            signal — answers only count once they are sent, and they go again with your next tap.
+            {unsent} answer{unsent === 1 ? ' has' : 's have'} not reached the server.{' '}
+            {words(
+              'exam.unsent',
+              'Find a signal — answers only count once they are sent, and they go again with your next tap.',
+            )}
           </Banner>
         ) : null}
         {failure ? <Banner tone="danger">{failure}</Banner> : null}
@@ -354,6 +359,8 @@ export default function ExamSittingScreen() {
 /* --------------------------------------------------------------- result */
 
 function Result({ result, onDone }: { result: ExamResult; onDone: () => void }) {
+  const words = useSiteText();
+
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <Title>{result.status === 'Expired' ? 'Time up' : 'Paper submitted'}</Title>
@@ -373,8 +380,10 @@ function Result({ result, onDone }: { result: ExamResult; onDone: () => void }) 
 
       {result.programmeResult === 'Pending' ? (
         <Banner tone="info">
-          Your programme result waits on the rest of the assessment — the viva or practical, where
-          your programme has one.
+          {words(
+            'exam.resultPending',
+            'Your programme result waits on the rest of the assessment — the viva or practical, where your programme has one.',
+          )}
         </Banner>
       ) : null}
 

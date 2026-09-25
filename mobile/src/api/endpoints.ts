@@ -20,6 +20,12 @@ import type {
 
 /* ------------------------------------------------------------ anonymous */
 
+export const siteText = {
+  /* Anonymous like the branding, and cached like every other read: the wording
+     has to be there on a phone that has not reached the server today. */
+  map: () => api.get<Record<string, string>>('site-text/map', undefined, true),
+};
+
 export const branding = {
   get: () => api.get<Branding>('branding', undefined, true),
 };

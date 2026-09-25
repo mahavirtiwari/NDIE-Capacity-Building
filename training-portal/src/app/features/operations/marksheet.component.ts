@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, input, si
 import { FormsModule } from '@angular/forms';
 import { Id, Marksheet, MarksheetRow, MarksheetRowSave } from '../../core/models';
 import { MarksheetService } from '../../core/services/marksheet.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { IconComponent } from '../../shared/components/icon.component';
 import { ExamReviewComponent } from './exam-review.component';
@@ -89,17 +90,12 @@ interface Draft {
         @if (data.evaluation.kind === 'None') {
           <div class="alert alert--info">
             <app-icon name="info" [size]="16" />
-            <span>
-              {{ data.programTypeName }} has no examination, so there is nothing to mark.
-            </span>
+            <span>{{ copy.text('marksheet.noExam', { programType: data.programTypeName }) }}</span>
           </div>
         } @else if (data.evaluation.hasViva && data.skills.length === 0) {
           <div class="alert alert--warning">
             <app-icon name="alert" [size]="16" />
-            <span>
-              The viva has no skills set up yet, so it cannot be marked. Add them under
-              Evaluation Skills for {{ data.programTypeName }}.
-            </span>
+            <span>{{ copy.text('marksheet.noSkills', { programType: data.programTypeName }) }}</span>
           </div>
         }
       </div>
@@ -161,7 +157,7 @@ interface Draft {
                              looking at a score is usually asking what it was
                              made of. -->
                         <button type="button" class="link-xs" (click)="reviewing.set(row)">
-                          Online · {{ row.examPercentage }}%
+                          {{ copy.text('marksheet.fromExam') }} · {{ row.examPercentage }}%
                         </button>
                       }
                     </td>
@@ -192,7 +188,7 @@ interface Draft {
                     } @else {
                       <app-status-badge [value]="row.result" />
                       @if (row.isLocked) {
-                        <div class="text-xs text-muted">Certificate issued — marks locked</div>
+                        <div class="text-xs text-muted">{{ copy.text('marksheet.locked') }}</div>
                       } @else if (row.pending) {
                         <div class="text-xs text-muted">{{ row.pending }}</div>
                       } @else if (row.shortfall) {
@@ -266,6 +262,7 @@ interface Draft {
 export class MarksheetComponent {
   private readonly service = inject(MarksheetService);
   private readonly toast = inject(ToastService);
+  protected readonly copy = inject(SiteTextService);
 
   readonly programmeId = input.required<Id>();
 

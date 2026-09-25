@@ -4,6 +4,7 @@ import { RefreshControl, ScrollView, StyleSheet, Text } from 'react-native';
 import { Banner, Loading } from '../../../../src/components/ui';
 import { MenuRow } from '../../../../src/components/MenuRow';
 import { colors, spacing } from '../../../../src/theme';
+import { useSiteText } from '../../../../src/content/SiteTextContext';
 import { useWorkshop } from '../../../../src/workshop/WorkshopContext';
 
 /**
@@ -17,6 +18,7 @@ import { useWorkshop } from '../../../../src/workshop/WorkshopContext';
 export default function ProgrammeManagement() {
   const router = useRouter();
   const { id, detail, loading, failure, refresh, locked } = useWorkshop();
+  const words = useSiteText();
   const [refreshing, setRefreshing] = useState(false);
 
   if (loading && !detail) return <Loading label="Loading workshop…" />;
@@ -104,8 +106,11 @@ export default function ProgrammeManagement() {
 
       <MenuRow
         icon="ribbon-outline"
-        title="Trainer marksheet"
-        status="Written and viva marks for the enrolled candidates"
+        title={words('coordinator.marksheet.title', 'Trainer marksheet')}
+        status={words(
+          'coordinator.marksheet.status',
+          'Written and viva marks for the enrolled candidates',
+        )}
         onPress={() => go('marksheet')}
       />
 

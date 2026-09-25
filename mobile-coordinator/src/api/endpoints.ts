@@ -17,6 +17,12 @@ import type {
   WorkshopDetail,
 } from './types';
 
+export const siteText = {
+  /* Anonymous like the branding, and cached like every other read: the wording
+     has to be there on a phone that has not reached the server today. */
+  map: () => api.get<Record<string, string>>('site-text/map', undefined, true),
+};
+
 export const branding = {
   /* Anonymous, so the sign-in screen is branded before anyone has signed in -
      which is the screen where it matters most. */
