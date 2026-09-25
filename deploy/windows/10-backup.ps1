@@ -124,6 +124,26 @@ function Get-SqlServiceAccount {
     if ($isLocal) {
         $service = Get-CimInstance Win32_Service -Filter "Name = '$serviceName'" -ErrorAction SilentlyContinue
         if ($service -and $service.StartName) { return $service.StartName }
+
+        # The name derived from the connection string is a guess about how the
+        # instance was installed, and a connection string saying "localhost" is
+        # not a promise that the instance is the default one. So look at what is
+        # actually installed: a database engine is sqlservr.exe, which
+        # distinguishes it from the agent, the browser and full-text search.
+        $engines = @(Get-CimInstance Win32_Service -Filter "Name LIKE 'MSSQL%'" -ErrorAction SilentlyContinue |
+            Where-Object { $_.PathName -match 'sqlservr\.exe' })
+
+        if ($engines.Count -eq 1) {
+            Write-Host ("        (no {0} service here; using {1})" -f $serviceName, $engines[0].Name) -ForegroundColor DarkGray
+            if ($engines[0].StartName) { return $engines[0].StartName }
+        }
+        elseif ($engines.Count -gt 1) {
+            throw ("This machine runs more than one database engine and the connection string does not say which:`n{0}`n" +
+                   "Grant the right one write access to the backup folder by hand:`n" +
+                   "    icacls `"{1}`" /grant `"<account>:(OI)(CI)M`" /T") -f
+                  (($engines | ForEach-Object { "    {0}  runs as {1}" -f $_.Name, $_.StartName }) -join "`n"),
+                  $dbFolder
+        }
     }
 
     # The server, if it will say. Anything that is not shaped like an account
@@ -154,19 +174,33 @@ function Assert-BackupFolderWritable {
     #>
     param([string] $Folder)
 
-    $probe = Join-Path $Folder ('.writetest-{0}' -f [Guid]::NewGuid().ToString('N').Substring(0, 6))
+    function Test-ServerCanWrite {
+        # A zero-page backup of master is the cheapest thing the server can be
+        # asked to write, and it proves the one thing in question.
+        $probe = Join-Path $Folder ('.writetest-{0}' -f [Guid]::NewGuid().ToString('N').Substring(0, 6))
+        Invoke-Native 'sqlcmd' 'sqlcmd' ($sqlArgs + @('-Q',
+            ("BACKUP DATABASE [master] TO DISK = N'{0}' WITH INIT, COPY_ONLY, STATS = 100;" -f $probe)
+        )) -IgnoreExitCode | Out-Null
+        $ok = $LASTEXITCODE -eq 0
+        $global:LASTEXITCODE = 0
+        if ($ok) { Remove-Item $probe -Force -ErrorAction SilentlyContinue }
+        return $ok
+    }
 
-    # A zero-page backup of master is the cheapest thing the server can be
-    # asked to write, and it proves the one thing in question.
-    Invoke-Native 'sqlcmd' 'sqlcmd' ($sqlArgs + @('-Q',
-        ("BACKUP DATABASE [master] TO DISK = N'{0}' WITH INIT, COPY_ONLY, STATS = 100;" -f $probe)
-    )) -IgnoreExitCode | Out-Null
-    $ok = $LASTEXITCODE -eq 0
-    $global:LASTEXITCODE = 0
+    if (Test-ServerCanWrite) { return }
 
-    if ($ok) {
-        Remove-Item $probe -Force -ErrorAction SilentlyContinue
-        return
+    # Granting on this machine only helps if the database engine is on this
+    # machine. When it is somewhere else, the backup folder has to be a path
+    # that server can write — a share — and no amount of icacls here changes
+    # that. Said plainly rather than attempted and blamed on permissions.
+    $engineHost = if ($server) { ($server -split '\\')[0] } else { '' }
+    $engineIsLocal = -not $engineHost -or
+        $engineHost -in @('localhost', '.', '(local)', '127.0.0.1', $env:COMPUTERNAME)
+
+    if (-not $engineIsLocal) {
+        throw ("SQL Server is on {0} and cannot write to {1}, which is a path on this machine.`n" +
+               "Point -BackupRoot at a share that {0} can write to, and grant its service account " +
+               "access there.") -f $engineHost, $Folder
     }
 
     $account = Get-SqlServiceAccount -Instance $server
@@ -174,13 +208,35 @@ function Assert-BackupFolderWritable {
     Write-Host "        It runs as $account, and the backup is written by the server." -ForegroundColor DarkGray
     Write-Host "        Granting it access..." -ForegroundColor Gray
 
-    Invoke-Native 'icacls' 'icacls' @($Folder, '/grant', ('{0}:(OI)(CI)M' -f $account), '/T') -IgnoreExitCode | Out-Null
+    $output = Invoke-Native 'icacls' 'icacls' @(
+        $Folder, '/grant', ('{0}:(OI)(CI)M' -f $account), '/T') -IgnoreExitCode
     $granted = $LASTEXITCODE -eq 0
     $global:LASTEXITCODE = 0
 
+    $hint = if (-not $granted -and ($output -join ' ') -match 'No mapping between account names') {
+        "`n  There is no account of that name on this machine. What is installed:`n" +
+        ((Get-CimInstance Win32_Service -Filter "Name LIKE 'MSSQL%'" -ErrorAction SilentlyContinue |
+            Where-Object { $_.PathName -match 'sqlservr\.exe' } |
+            ForEach-Object { "      {0}  runs as {1}" -f $_.Name, $_.StartName }) -join "`n")
+    }
+    else { '' }
+
     if (-not $granted) {
-        throw ("SQL Server ({0}) cannot write to {1}, and granting it failed. Run this in an elevated prompt:`n" +
-               "    icacls `"{1}`" /grant `"{0}:(OI)(CI)M`" /T") -f $account, $Folder
+        throw (("SQL Server ({0}) cannot write to {1}, and granting it failed.{2}`n`n" +
+                "Grant it by hand in an elevated prompt:`n" +
+                "    icacls `"{1}`" /grant `"<account>:(OI)(CI)M`" /T") -f $account, $Folder, $hint)
+    }
+
+    # Granted is not the same as working: the account may have been the wrong
+    # one, or the folder may sit under something that denies it anyway. Ask the
+    # server again rather than believing icacls.
+    if (-not (Test-ServerCanWrite)) {
+        throw (("Granted $account write access to {0}, and SQL Server still cannot write there.`n" +
+                "Either that is not the account it runs as, or something above the folder denies it.`n" +
+                "What is installed here:`n{1}") -f $Folder,
+               ((Get-CimInstance Win32_Service -Filter "Name LIKE 'MSSQL%'" -ErrorAction SilentlyContinue |
+                    Where-Object { $_.PathName -match 'sqlservr\.exe' } |
+                    ForEach-Object { "      {0}  runs as {1}" -f $_.Name, $_.StartName }) -join "`n"))
     }
 
     Write-Host "  [ok]  $account may now write to $Folder" -ForegroundColor Green
