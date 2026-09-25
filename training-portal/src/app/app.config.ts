@@ -14,6 +14,7 @@ import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { errorInterceptor } from './core/interceptors/error.interceptor';
 import { mockApiInterceptor } from './core/mock/mock-api.interceptor';
 import { BrandingService } from './core/services/branding.service';
+import { SiteTextService } from './core/services/site-text.service';
 import { routes } from './app.routes';
 
 /* Indian English number, date and currency formats. */
@@ -43,6 +44,12 @@ export const appConfig: ApplicationConfig = {
        A failure here is swallowed: the service keeps its compiled-in defaults. */
     provideAppInitializer(() =>
       firstValueFrom(inject(BrandingService).load()).catch(() => undefined),
+    ),
+    /* The wording of the fixed screens, fetched before the first paint for the
+       same reason: the sign-in page is one of the screens it words, and text
+       arriving a frame later would be visible as a flicker. */
+    provideAppInitializer(() =>
+      firstValueFrom(inject(SiteTextService).load()).catch(() => undefined),
     ),
   ],
 };

@@ -1,6 +1,7 @@
 import { DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { StateCoverage, StateCoverageResult } from '../../core/models';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { INDIA_STATE_PATHS, INDIA_VIEWBOX } from './india-states.data';
 
 type Measure = 'participants' | 'programTypes';
@@ -25,20 +26,10 @@ interface Region {
     <section class="card map">
       <header class="map__head">
         <div>
-          <h3 class="map__title">Reach across India</h3>
+          <h3 class="map__title">{{ copy.text('dashboard.map.title') }}</h3>
           <!-- The subtitle follows the table down a level, so it does not
                count states beside a list of districts. -->
-          @if (districtsOf(); as state) {
-            <p class="map__sub">
-              {{ districtsCovered() }} of {{ (data()?.districts ?? []).length }} districts in
-              {{ state }} have a programme running.
-            </p>
-          } @else {
-            <p class="map__sub">
-              {{ data()?.statesCovered ?? 0 }} of {{ regions().length }} states and union
-              territories have a programme running.
-            </p>
-          }
+          <p class="map__sub">{{ subtitle() }}</p>
         </div>
 
         <div class="map__toggle" role="group" aria-label="What the shading shows">
@@ -588,6 +579,28 @@ export class StateCoverageMapComponent {
 
   /** Set when the filter names one state, which is what drops the table a level. */
   protected readonly districtsOf = computed(() => this.data()?.districtsOf || null);
+
+  /** Wording for this section, maintained under Administration → Site text. */
+  protected readonly copy = inject(SiteTextService);
+
+  /**
+   * One line, worded by whichever key matches the level being shown, with the
+   * numbers dropped into its placeholders. Keeping the counting here rather
+   * than in the template means a reworded line cannot lose them.
+   */
+  protected readonly subtitle = computed(() => {
+    const state = this.districtsOf();
+    return state
+      ? this.copy.text('dashboard.map.districtSubtitle', {
+          covered: this.districtsCovered(),
+          total: (this.data()?.districts ?? []).length,
+          state,
+        })
+      : this.copy.text('dashboard.map.subtitle', {
+          covered: this.data()?.statesCovered ?? 0,
+          total: this.regions().length,
+        });
+  });
 
   protected readonly districtsCovered = computed(
     () => (this.data()?.districts ?? []).filter((d) => d.programTypes > 0).length,

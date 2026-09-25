@@ -46,6 +46,9 @@ public class NtmsDbContext(DbContextOptions<NtmsDbContext> options, ICurrentUser
     public DbSet<SignupField> SignupFields => Set<SignupField>();
     public DbSet<SignupFieldOption> SignupFieldOptions => Set<SignupFieldOption>();
     public DbSet<ApplicantAnswer> ApplicantAnswers => Set<ApplicantAnswer>();
+
+    /* Overrides only: the shipped wording lives in code. */
+    public DbSet<SiteText> SiteTexts => Set<SiteText>();
     public DbSet<FeeStructure> FeeStructures => Set<FeeStructure>();
     public DbSet<FeeComponent> FeeComponents => Set<FeeComponent>();
     public DbSet<FeeConcession> FeeConcessions => Set<FeeConcession>();

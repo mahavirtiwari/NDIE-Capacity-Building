@@ -5,6 +5,7 @@ import { BehaviorSubject, switchMap } from 'rxjs';
 import { LookupItem, PROGRAM_MODES } from '../../core/models';
 import { AuthService } from '../../core/services/auth.service';
 import { LookupService } from '../../core/services/masters.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { DashboardData, DashboardFilters, DashboardService } from '../../core/services/workflow.service';
 import { StateCoverageResult } from '../../core/models';
 import { StateCoverageMapComponent } from './state-coverage-map.component';
@@ -137,8 +138,8 @@ const PERIODS: { value: number; label: string }[] = [
         <section class="card">
           <div class="card__header">
             <div class="stack stack-xs">
-              <span class="card__title">Programs conducted per month</span>
-              <span class="card__subtitle">Physical and virtual batches, latest month first</span>
+              <span class="card__title">{{ copy.text('charts.monthly.title') }}</span>
+              <span class="card__subtitle">{{ copy.text('charts.monthly.subtitle') }}</span>
             </div>
           </div>
           <div class="card__body">
@@ -149,8 +150,8 @@ const PERIODS: { value: number; label: string }[] = [
         <section class="card">
           <div class="card__header">
             <div class="stack stack-xs">
-              <span class="card__title">Participants by gender</span>
-              <span class="card__subtitle">Share of candidates who attended</span>
+              <span class="card__title">{{ copy.text('charts.gender.title') }}</span>
+              <span class="card__subtitle">{{ copy.text('charts.gender.subtitle') }}</span>
             </div>
           </div>
           <div class="card__body">
@@ -165,8 +166,8 @@ const PERIODS: { value: number; label: string }[] = [
         <section class="card">
           <div class="card__header">
             <div class="stack stack-xs">
-              <span class="card__title">Participants by social category</span>
-              <span class="card__subtitle">Share of candidates who attended</span>
+              <span class="card__title">{{ copy.text('charts.social.title') }}</span>
+              <span class="card__subtitle">{{ copy.text('charts.social.subtitle') }}</span>
             </div>
           </div>
           <div class="card__body">
@@ -231,6 +232,9 @@ const PERIODS: { value: number; label: string }[] = [
   ],
 })
 export class DashboardComponent {
+  /** Section wording, maintained under Administration → Site text. */
+  protected readonly copy = inject(SiteTextService);
+
   private readonly service = inject(DashboardService);
   private readonly lookups = inject(LookupService);
   private readonly fb = inject(FormBuilder);

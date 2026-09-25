@@ -66,6 +66,7 @@ public static class DependencyInjection
         services.AddScoped<CurriculumService>();
         services.AddScoped<RegistrationFormService>();
         services.AddScoped<SignupFormService>();
+        services.AddScoped<SiteTextService>();
         services.AddScoped<FeeService>();
         services.AddScoped<ExamPaperService>();
         services.AddScoped<TrainingMaterialService>();

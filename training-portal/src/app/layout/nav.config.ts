@@ -38,6 +38,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Roles & permissions', route: '/access/roles', icon: 'shield', permissions: ['roles.view'] },
       { label: 'Portal users', route: '/access/users', icon: 'users', permissions: ['users.view'] },
       { label: 'Branding', route: '/access/branding', icon: 'settings', permissions: ['settings.manage'] },
+      { label: 'Site text', route: '/access/site-text', icon: 'form', permissions: ['settings.manage'] },
       { label: 'Email', route: '/access/email', icon: 'mail', permissions: ['settings.manage'] },
       { label: 'Implementing agencies', route: '/admin/agencies', icon: 'building', permissions: ['agencies.view'] },
       { label: 'Sign-up form', route: '/academics/signup-form', icon: 'form', permissions: ['masters.view'] },

@@ -41,3 +41,28 @@ public class BrandingUpdateDto
     public string? LogoLinkUrl { get; set; }
     public string? PartnerLogoLinkUrl { get; set; }
 }
+
+/* --------------------------------------------------------------- site text */
+
+/// <summary>One editable string: what it says now, and what it shipped as.</summary>
+public class SiteTextDto
+{
+    public string Key { get; set; } = string.Empty;
+    /// <summary>Which screen it belongs to, for grouping in the editor.</summary>
+    public string Group { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public string? Hint { get; set; }
+    public bool Multiline { get; set; }
+
+    /// <summary>The wording the product ships with.</summary>
+    public string Default { get; set; } = string.Empty;
+    /// <summary>What is actually rendered — the override, or the default.</summary>
+    public string Value { get; set; } = string.Empty;
+    public bool IsOverridden { get; set; }
+}
+
+public class SiteTextUpdateDto
+{
+    /// <summary>Blank, or the shipped wording, restores the original.</summary>
+    public string? Value { get; set; }
+}

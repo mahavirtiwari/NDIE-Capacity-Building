@@ -162,6 +162,13 @@ export const routes: Routes = [
               import('./features/access/branding.component').then((m) => m.BrandingComponent),
           },
           {
+            path: 'site-text',
+            title: 'Site text · CBMS',
+            canActivate: [permissionGuard('settings.manage')],
+            loadComponent: () =>
+              import('./features/access/site-text.component').then((m) => m.SiteTextComponent),
+          },
+          {
             path: 'email',
             title: 'Email · CBMS',
             canActivate: [permissionGuard('settings.manage')],

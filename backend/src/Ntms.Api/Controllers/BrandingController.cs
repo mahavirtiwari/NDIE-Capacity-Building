@@ -86,3 +86,36 @@ public class BrandingController(BrandingService service) : ApiControllerBase
         Envelope(
             await service.RemoveLogoAsync(BrandingService.LogoSlot.Partner, ct), "Logo removed.");
 }
+
+/// <summary>
+/// The wording on screens that are not driven by data.
+///
+/// The map is anonymous for the same reason branding is: it words the sign-in
+/// page, which is read before anybody has an account. Editing is Super Admin.
+/// </summary>
+[Route("api/site-text")]
+public class SiteTextController(SiteTextService service) : ApiControllerBase
+{
+    [HttpGet("map")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiEnvelope<Dictionary<string, string>>>> Map(
+        CancellationToken ct) =>
+        Envelope(await service.MapAsync(ct));
+
+    [HttpGet]
+    [HasPermission(Permissions.SettingsManage)]
+    public async Task<ActionResult<ApiEnvelope<List<SiteTextDto>>>> List(CancellationToken ct) =>
+        Envelope(await service.ListAsync(ct));
+
+    [HttpPut("{key}")]
+    [HasPermission(Permissions.SettingsManage)]
+    public async Task<ActionResult<ApiEnvelope<SiteTextDto>>> Set(
+        string key, [FromBody] SiteTextUpdateDto dto, CancellationToken ct) =>
+        Envelope(await service.SetAsync(key, dto.Value, ct), "Wording saved.");
+
+    [HttpPost("restore")]
+    [HasPermission(Permissions.SettingsManage)]
+    public async Task<ActionResult<ApiEnvelope<List<SiteTextDto>>>> RestoreAll(
+        CancellationToken ct) =>
+        Envelope(await service.RestoreAllAsync(ct), "Every string is back to the original wording.");
+}

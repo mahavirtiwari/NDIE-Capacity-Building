@@ -5,6 +5,7 @@ import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { BrandingService } from '../../core/services/branding.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { BrandLogoComponent } from '../../shared/components/brand-logo.component';
 import { AuthArtComponent } from './auth-art.component';
 import { IconComponent } from '../../shared/components/icon.component';
@@ -47,34 +48,28 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
         </div>
 
         <div class="stack stack-lg">
+          <!-- Wording comes from Administration → Site text. The emphasis is
+               rendered from *markers* rather than by accepting HTML, so nothing
+               typed into a settings screen can inject markup here. -->
           <h2 class="auth__headline">
-            Run a programme end to end, from <em>application</em> to certificate.
+            @for (part of copy.parts('signin.heading'); track $index) {
+              @if (part.emphasis) { <em>{{ part.text }}</em> } @else { {{ part.text }} }
+            }
           </h2>
           <ul class="auth__points">
-            <li>
-              <span class="auth__tick"><app-icon name="check" [size]="13" /></span>
-              Set a programme up once — its form, fee and exam follow it
-            </li>
-            <li>
-              <span class="auth__tick"><app-icon name="check" [size]="13" /></span>
-              One scrutiny queue, with assignment, remarks and an audit trail
-            </li>
-            <li>
-              <span class="auth__tick"><app-icon name="check" [size]="13" /></span>
-              Attendance captured on site or online, in one register
-            </li>
-            <li>
-              <span class="auth__tick"><app-icon name="check" [size]="13" /></span>
-              Every state and district, straight from the LG Directory
-            </li>
+            @for (key of pointKeys; track key) {
+              @if (copy.text(key); as point) {
+                <li>
+                  <span class="auth__tick"><app-icon name="check" [size]="13" /></span>
+                  {{ point }}
+                </li>
+              }
+            }
           </ul>
         </div>
 
         <footer class="auth__footer">
-          <span>
-            Sign-in activity is logged. Your details are used only to administer training
-            programmes.
-          </span>
+          <span>{{ copy.text('signin.footerNote') }}</span>
           <span class="auth__footer-copy">&copy; {{ year }} {{ organisation() }}</span>
         </footer>
       </section>
@@ -83,8 +78,8 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
         <div class="auth__form-wrap">
           <div class="auth__card">
           <div class="stack stack-xs mb-md">
-            <h1 class="auth__title">Sign in</h1>
-            <p class="text-sm text-muted">Use the system generated user ID issued to you — not your email address.</p>
+            <h1 class="auth__title">{{ copy.text('signin.title') }}</h1>
+            <p class="text-sm text-muted">{{ copy.text('signin.subtitle') }}</p>
           </div>
 
           <form [formGroup]="form" (ngSubmit)="submit()" class="stack stack-md">
@@ -204,6 +199,15 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
   ],
 })
 export class LoginComponent {
+  /** Wording for this screen, maintained under Administration → Site text. */
+  protected readonly copy = inject(SiteTextService);
+  protected readonly pointKeys = [
+    'signin.point1',
+    'signin.point2',
+    'signin.point3',
+    'signin.point4',
+  ];
+
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);

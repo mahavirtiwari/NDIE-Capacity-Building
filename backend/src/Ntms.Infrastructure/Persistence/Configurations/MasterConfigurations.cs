@@ -249,3 +249,16 @@ public class CertificateTemplateConfiguration : IEntityTypeConfiguration<Certifi
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+public class SiteTextConfiguration : IEntityTypeConfiguration<SiteText>
+{
+    public void Configure(EntityTypeBuilder<SiteText> b)
+    {
+        b.ToTable("SiteTexts");
+        b.Property(x => x.Key).HasMaxLength(120).IsRequired();
+        b.Property(x => x.Value).HasMaxLength(2000).IsRequired();
+        /* One override per key: two rows would make which wins a matter of
+           row order. */
+        b.HasIndex(x => x.Key).IsUnique();
+    }
+}
