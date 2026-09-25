@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { BrandingService } from '../../core/services/branding.service';
+import { NgTemplateOutlet } from '@angular/common';
 import { IconComponent } from './icon.component';
 
 /**
@@ -13,8 +14,25 @@ import { IconComponent } from './icon.component';
 @Component({
   selector: 'app-brand-logo',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [IconComponent],
+  imports: [IconComponent, NgTemplateOutlet],
   template: `
+    <!-- Wrapped in a link only when one is set, so the mark stays a plain
+         image by default rather than an anchor that goes nowhere. -->
+    @if (link(); as href) {
+      <a
+        class="brand__link"
+        [href]="href"
+        target="_blank"
+        rel="noopener noreferrer"
+        [attr.aria-label]="organisation() + ' (opens in a new tab)'"
+      >
+        <ng-container [ngTemplateOutlet]="mark" />
+      </a>
+    } @else {
+      <ng-container [ngTemplateOutlet]="mark" />
+    }
+
+    <ng-template #mark>
     @if (src(); as logo) {
       <img
         class="brand__image"
@@ -32,10 +50,22 @@ import { IconComponent } from './icon.component';
         </span>
       </span>
     }
+    </ng-template>
   `,
   styles: [
     `
       :host { display: inline-flex; align-items: center; min-width: 0; }
+
+      /* The mark keeps its own look; only the cursor says it is clickable. */
+      .brand__link {
+        display: inline-flex;
+        align-items: center;
+        min-width: 0;
+        text-decoration: none;
+        color: inherit;
+        border-radius: var(--radius-sm);
+      }
+      .brand__link:focus-visible { outline: 2px solid var(--brand-600); outline-offset: 3px; }
 
       .brand__image { width: auto; max-width: 100%; object-fit: contain; }
 
@@ -84,6 +114,17 @@ export class BrandLogoComponent {
   protected readonly organisation = computed(() =>
     this.slot() === 'partner' ? this.branding.partnerName() : this.branding.organisationName(),
   );
+  /**
+   * Where the mark points, when an administrator has set an address. Opened in
+   * a new tab with noopener, because it is an address somebody typed into a
+   * settings screen and the portal should not hand its window over to it.
+   */
+  protected readonly link = computed(() =>
+    this.slot() === 'partner'
+      ? this.branding.branding().partnerLogoLinkUrl || null
+      : this.branding.branding().logoLinkUrl || null,
+  );
+
   protected readonly src = computed(() => {
     const url =
       this.slot() === 'partner' ? this.branding.partnerLogoSrc() : this.branding.logoSrc();

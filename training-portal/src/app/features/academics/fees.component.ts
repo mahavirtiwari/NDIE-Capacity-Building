@@ -416,9 +416,19 @@ export class FeesComponent {
     this.touch();
   }
 
-  /** What the agency actually receives if the applicant opts for each rate. */
-  protected readonly tdsPreviews = computed(() =>
-    this.tdsOptions().map((rate) => ({
+  /**
+   * What the agency actually receives if the applicant opts for each rate.
+   *
+   * dirtyTick is read for the same reason liveTotals reads it: the amounts
+   * live in a reactive form, which is not a signal, so nothing here would
+   * otherwise notice them changing. Without it these figures were computed
+   * once - when a rate was ticked - and then never again, so ticking a rate
+   * before typing an amount left both previews showing zero against a gross
+   * of thirteen thousand.
+   */
+  protected readonly tdsPreviews = computed(() => {
+    this.dirtyTick();
+    return this.tdsOptions().map((rate) => ({
       rate,
       netPayable: computeFeeTotals({
         gstPercent: Number(this.form.get('gstPercent')?.value ?? 0),
@@ -431,8 +441,8 @@ export class FeesComponent {
           isTaxable: !!c.get('isTaxable')?.value,
         })),
       }).netPayable,
-    })),
-  );
+    }));
+  });
 
   protected addComponent(): void {
     this.components.push(

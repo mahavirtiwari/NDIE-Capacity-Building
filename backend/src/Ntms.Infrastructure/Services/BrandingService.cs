@@ -59,9 +59,38 @@ public class BrandingService(NtmsDbContext db)
         entity.Tagline = dto.Tagline?.Trim();
         entity.SupportEmail = dto.SupportEmail?.Trim();
         entity.PartnerName = string.IsNullOrWhiteSpace(dto.PartnerName) ? null : dto.PartnerName.Trim();
+        entity.LogoLinkUrl = CleanLink(dto.LogoLinkUrl, "Logo link");
+        entity.PartnerLogoLinkUrl = CleanLink(dto.PartnerLogoLinkUrl, "Partner logo link");
 
         await db.SaveChangesAsync(ct);
         return ToDto(entity);
+    }
+
+    /// <summary>
+    /// Accepts a link, or refuses it plainly.
+    ///
+    /// http and https only. A javascript: or data: URL here would be stored by
+    /// one administrator and then clicked by everybody who uses the portal,
+    /// which is the whole of a stored cross-site scripting hole - the browser
+    /// would run it in the reader's session. A relative path is allowed so the
+    /// mark can point at a page of this portal.
+    /// </summary>
+    private static string? CleanLink(string? value, string label)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+
+        var trimmed = value.Trim();
+
+        if (trimmed.StartsWith('/')) return trimmed;
+
+        if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            throw new AppException(
+                $"{label} must be a full http or https address, or a path beginning with /.");
+        }
+
+        return uri.ToString();
     }
 
     /// <summary>Which mark is being written: the organisation's, or the partner's.</summary>
@@ -159,6 +188,7 @@ public class BrandingService(NtmsDbContext db)
         /* Relative so it works behind any host, with the version as a cache key. */
         LogoUrl = entity.HasLogo ? $"branding/logo?v={entity.LogoVersion}" : null,
         LogoVersion = entity.LogoVersion,
+        LogoLinkUrl = entity.LogoLinkUrl,
         PartnerName = entity.PartnerName,
         HasPartnerLogo = entity.HasPartnerLogo,
         PartnerLogoFileName = entity.PartnerLogoFileName,
@@ -166,6 +196,7 @@ public class BrandingService(NtmsDbContext db)
             ? $"branding/partner-logo?v={entity.PartnerLogoVersion}"
             : null,
         PartnerLogoVersion = entity.PartnerLogoVersion,
+        PartnerLogoLinkUrl = entity.PartnerLogoLinkUrl,
         UpdatedOn = entity.ModifiedOn ?? entity.CreatedOn,
     };
 }

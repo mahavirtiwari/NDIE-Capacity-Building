@@ -8,6 +8,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { describeError, formatValidator } from '../../core/validation/formats';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { IconComponent } from '../../shared/components/icon.component';
+import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { RichTextEditorComponent } from '../../shared/components/rich-text-editor.component';
 
@@ -25,6 +26,7 @@ type Tab = 'sender' | 'templates' | 'log';
     ReactiveFormsModule,
     PageHeaderComponent,
     IconComponent,
+    ModalComponent,
     RichTextEditorComponent,
   ],
   template: `
@@ -302,20 +304,22 @@ type Tab = 'sender' | 'templates' | 'log';
         }
       </div>
 
+      <!-- Over the top rather than below it. Rendered inline, the preview
+           appeared under an editor already tall enough to fill the screen, so
+           the thing you had just asked to see was off the bottom of it. -->
       @if (previewData(); as p) {
-        <section class="card mt-md">
-          <div class="card__header">
-            <span class="card__title">Preview</span>
-            <button type="button" class="btn btn--icon" aria-label="Close preview"
-              (click)="previewData.set(null)">
-              <app-icon name="x" [size]="15" />
-            </button>
+        <app-modal
+          title="Preview"
+          [subtitle]="p.subject"
+          size="lg"
+          (closed)="previewData.set(null)"
+        >
+          <div class="preview-frame" [innerHTML]="previewHtml()"></div>
+
+          <div footer>
+            <button type="button" class="btn" (click)="previewData.set(null)">Close</button>
           </div>
-          <div class="card__body stack stack-md">
-            <div><span class="text-xs text-muted">Subject</span><div><strong>{{ p.subject }}</strong></div></div>
-            <div class="preview-frame" [innerHTML]="previewHtml()"></div>
-          </div>
-        </section>
+        </app-modal>
       }
     } @else {
       <section class="card">

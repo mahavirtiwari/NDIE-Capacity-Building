@@ -178,6 +178,8 @@ public class BrandingConfiguration : IEntityTypeConfiguration<BrandingSetting>
         b.Property(x => x.PartnerName).HasMaxLength(120);
         b.Property(x => x.PartnerLogoFileName).HasMaxLength(260);
         b.Property(x => x.PartnerLogoContentType).HasMaxLength(100);
+        b.Property(x => x.LogoLinkUrl).HasMaxLength(500);
+        b.Property(x => x.PartnerLogoLinkUrl).HasMaxLength(500);
         b.Ignore(x => x.HasLogo);
         b.Ignore(x => x.HasPartnerLogo);
     }

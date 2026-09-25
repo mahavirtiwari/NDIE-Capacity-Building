@@ -48,27 +48,27 @@ const PERIODS: { value: number; label: string }[] = [
         <form [formGroup]="filterForm" class="filter-bar filter-bar--two-rows">
           <app-cascade-select [group]="filterForm" anyLabel="All" />
           <div class="field">
-            <label class="field-label" for="dashAgency">Implementing agency</label>
+            <label class="field-label" for="dashAgency">Implementing Agency</label>
             <select id="dashAgency" class="select" formControlName="agencyId">
-              <option [ngValue]="null">All agencies</option>
+              <option [ngValue]="null">All Agencies</option>
               @for (agency of agencies(); track agency.id) {
                 <option [ngValue]="agency.id">{{ agency.name }}</option>
               }
             </select>
           </div>
           <div class="field">
-            <label class="field-label" for="dashState">State</label>
+            <label class="field-label" for="dashState">State/UT</label>
             <select id="dashState" class="select" formControlName="state">
-              <option [ngValue]="null">All states</option>
+              <option [ngValue]="null">All States/UTs</option>
               @for (state of states(); track state.id) {
                 <option [ngValue]="state.name">{{ state.name }}</option>
               }
             </select>
           </div>
           <div class="field">
-            <label class="field-label" for="dashMode">Mode</label>
+            <label class="field-label" for="dashMode">Mode of Program</label>
             <select id="dashMode" class="select" formControlName="mode">
-              <option [ngValue]="null">All modes</option>
+              <option [ngValue]="null">All Modes</option>
               @for (mode of modes; track mode) {
                 <option [ngValue]="mode">{{ mode }}</option>
               }

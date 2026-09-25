@@ -34,7 +34,7 @@ import { LookupService } from '../../core/services/masters.service';
 
       <div class="field">
         <label class="field-label" [for]="idFor('sub')">
-          Sub-category @if (required()) { <span class="req">*</span> }
+          Sub-Category @if (required()) { <span class="req">*</span> }
         </label>
         <select
           class="select"
@@ -52,7 +52,7 @@ import { LookupService } from '../../core/services/masters.service';
       @if (showProgramType()) {
         <div class="field">
           <label class="field-label" [for]="idFor('pt')">
-            Program type @if (required()) { <span class="req">*</span> }
+            Program Type @if (required()) { <span class="req">*</span> }
           </label>
           <select class="select" [id]="idFor('pt')" formControlName="programTypeId">
             <option [ngValue]="null">{{ anyLabel() }}</option>

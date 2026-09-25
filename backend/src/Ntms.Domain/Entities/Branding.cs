@@ -31,6 +31,13 @@ public class BrandingSetting : AuditableEntity
     /// <summary>Bumped on every logo change so clients re-fetch it.</summary>
     public int LogoVersion { get; set; }
 
+    /// <summary>
+    /// Where the mark takes you when it is clicked. Optional: with nothing set
+    /// the logo is an image and not a link, which is the right default for a
+    /// mark that already sits next to the home navigation.
+    /// </summary>
+    public string? LogoLinkUrl { get; set; }
+
     public bool HasLogo => LogoData is { Length: > 0 };
 
     /* A second mark for the accrediting or partner body — QCI alongside NDIE,
@@ -40,6 +47,9 @@ public class BrandingSetting : AuditableEntity
     public string? PartnerLogoFileName { get; set; }
     public string? PartnerLogoContentType { get; set; }
     public int PartnerLogoVersion { get; set; }
+
+    /// <summary>Where the partner's mark takes you. Usually their own site.</summary>
+    public string? PartnerLogoLinkUrl { get; set; }
 
     public bool HasPartnerLogo => PartnerLogoData is { Length: > 0 };
 }

@@ -62,6 +62,22 @@ const MAX_BYTES = 512 * 1024;
           </div>
 
           <div class="field">
+            <label class="field-label" for="brLogoLink">Logo links to</label>
+            <input
+              id="brLogoLink"
+              type="url"
+              class="input"
+              placeholder="https://ndie.gov.in"
+              [value]="branding.branding().logoLinkUrl ?? ''"
+              (change)="saveLogoLink('primary', $event)"
+            />
+            <span class="field-hint">
+              Optional. With an address here the mark becomes a link and opens it in a new tab.
+              Leave it blank and the mark is just an image.
+            </span>
+          </div>
+
+          <div class="field">
             <label class="field-label" for="brLogo">Replace logo</label>
             <input
               id="brLogo"
@@ -132,6 +148,19 @@ const MAX_BYTES = 512 * 1024;
             <span class="field-hint">
               Used as the image's alt text, and shown in place of the mark if it fails to load.
             </span>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="brPartnerLink">Partner logo links to</label>
+            <input
+              id="brPartnerLink"
+              type="url"
+              class="input"
+              placeholder="https://qcin.org"
+              [value]="branding.branding().partnerLogoLinkUrl ?? ''"
+              (change)="saveLogoLink('partner', $event)"
+            />
+            <span class="field-hint">Optional. Usually the partner's own site.</span>
           </div>
 
           <div class="field">
@@ -352,6 +381,8 @@ export class BrandingComponent {
         tagline: raw.tagline.trim() || null,
         supportEmail: raw.supportEmail.trim() || null,
         partnerName: this.branding.branding().partnerName ?? null,
+        logoLinkUrl: this.branding.branding().logoLinkUrl ?? null,
+        partnerLogoLinkUrl: this.branding.branding().partnerLogoLinkUrl ?? null,
       })
       .subscribe({
         next: () => {
@@ -439,8 +470,38 @@ export class BrandingComponent {
         tagline: current.tagline ?? null,
         supportEmail: current.supportEmail ?? null,
         partnerName: value || null,
+        logoLinkUrl: current.logoLinkUrl ?? null,
+        partnerLogoLinkUrl: current.partnerLogoLinkUrl ?? null,
       })
       .subscribe(() => this.toast.success('Partner name updated'));
+  }
+
+  /**
+   * The link each mark carries. Saved on blur like the partner name, because
+   * it belongs to the logo card rather than to the names form beside it.
+   */
+  protected saveLogoLink(slot: LogoSlot, event: Event): void {
+    const value = (event.target as HTMLInputElement).value.trim();
+    const current = this.branding.branding();
+    const existing =
+      (slot === 'partner' ? current.partnerLogoLinkUrl : current.logoLinkUrl) ?? '';
+    if (existing === value) return;
+
+    this.branding
+      .save({
+        organisationName: current.organisationName,
+        shortName: current.shortName,
+        portalTitle: current.portalTitle,
+        tagline: current.tagline ?? null,
+        supportEmail: current.supportEmail ?? null,
+        partnerName: current.partnerName ?? null,
+        logoLinkUrl: slot === 'partner' ? current.logoLinkUrl ?? null : value || null,
+        partnerLogoLinkUrl:
+          slot === 'partner' ? value || null : current.partnerLogoLinkUrl ?? null,
+      })
+      .subscribe(() =>
+        this.toast.success(value ? 'Logo link saved' : 'Logo link removed'),
+      );
   }
 
   private clearLocalPreview(slot: LogoSlot = 'primary'): void {

@@ -75,22 +75,34 @@ interface Region {
                 [attr.aria-label]="label(region)"
                 tabindex="0"
                 (mouseenter)="hovered.set(region)"
+                (mousemove)="track($event)"
                 (mouseleave)="hovered.set(null)"
-                (focus)="hovered.set(region)"
+                (focus)="showAtShape(region, $event)"
                 (blur)="hovered.set(null)"
               />
             }
           </svg>
 
+          <!-- Beside the pointer rather than under the map. Read at the
+               bottom of the frame, the numbers were a long way from the state
+               they described, and the eye had to leave the map to find them. -->
           @if (hovered(); as region) {
-            <p class="map__caption">
-              <strong>{{ region.name }}</strong>
-              — {{ region.participants | number }} participants,
-              {{ region.programTypes }} programme
-              {{ region.programTypes === 1 ? 'type' : 'types' }}
-            </p>
-          } @else {
-            <p class="map__caption map__caption--idle">Point at a state for its numbers.</p>
+            <div
+              class="map__note"
+              [style.left.px]="notePosition().x"
+              [style.top.px]="notePosition().y"
+              role="status"
+            >
+              <strong class="map__note-name">{{ region.name }}</strong>
+              <span class="map__note-row">
+                <span>Programmes conducted</span>
+                <b>{{ region.programmes | number }}</b>
+              </span>
+              <span class="map__note-row">
+                <span>Participants</span>
+                <b>{{ region.participants | number }}</b>
+              </span>
+            </div>
           }
         </div>
 
@@ -214,6 +226,8 @@ interface Region {
     }
     .map__figure {
       min-width: 0;
+      /* The note is positioned against this. */
+      position: relative;
     }
     .map__svg {
       width: 100%;
@@ -246,16 +260,36 @@ interface Region {
       stroke: var(--ink-900);
       stroke-width: 1.4;
     }
-    .map__caption {
-      margin: 0.35rem 0 0;
-      text-align: center;
-      font-size: 0.78rem;
-      color: var(--ink-700);
-      min-height: 1.15rem;
+    /* Positioned against the map frame, which is the offsetParent. */
+    .map__note {
+      position: absolute;
+      z-index: 5;
+      pointer-events: none;
+      min-width: 12.5rem;
+      display: grid;
+      gap: 0.2rem;
+      padding: 0.5rem 0.65rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--brand-600);
+      border-radius: var(--radius);
+      box-shadow: 0 6px 20px rgb(28 26 26 / 14%);
+      font-size: var(--fs-xs);
+      /* Sits above and to the right of the cursor, clear of the pointer. */
+      transform: translate(0.75rem, -50%);
     }
-    .map__caption--idle {
+    .map__note-name {
+      font-size: var(--fs-sm);
+      color: var(--ink-900);
+      margin-bottom: 0.15rem;
+    }
+    .map__note-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
       color: var(--ink-500);
     }
+    .map__note-row b { color: var(--ink-900); font-variant-numeric: tabular-nums; }
 
     .map__table-wrap {
       /* Scrolls on its own so the whole page does not have to; the header and
@@ -419,6 +453,37 @@ export class StateCoverageMapComponent {
 
   protected readonly measure = signal<Measure>('participants');
   protected readonly hovered = signal<Region | null>(null);
+
+  /** Where the note sits, in pixels within the figure. */
+  protected readonly notePosition = signal<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  /** Follows the pointer, so the numbers stay next to what they describe. */
+  protected track(event: MouseEvent): void {
+    const figure = (event.currentTarget as SVGElement).closest('.map__figure');
+    if (!figure) return;
+
+    const box = figure.getBoundingClientRect();
+    this.notePosition.set({ x: event.clientX - box.left, y: event.clientY - box.top });
+  }
+
+  /**
+   * Keyboard focus has no pointer, so the note goes beside the shape itself.
+   * Without this, tabbing through the map would put every note in the corner.
+   */
+  protected showAtShape(region: Region, event: FocusEvent): void {
+    this.hovered.set(region);
+
+    const shape = event.target as SVGGraphicsElement;
+    const figure = shape.closest('.map__figure');
+    if (!figure) return;
+
+    const box = figure.getBoundingClientRect();
+    const bounds = shape.getBoundingClientRect();
+    this.notePosition.set({
+      x: bounds.right - box.left,
+      y: bounds.top + bounds.height / 2 - box.top,
+    });
+  }
 
   protected readonly viewBox = INDIA_VIEWBOX;
   protected readonly ramp = [0, 0.2, 0.4, 0.6, 0.8, 1];
