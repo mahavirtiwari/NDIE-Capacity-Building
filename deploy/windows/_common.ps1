@@ -151,6 +151,83 @@ function Get-SqlcmdArguments {
     return $arguments
 }
 
+function Sync-Checkout {
+    <#
+    .SYNOPSIS
+        Fast-forwards the checkout, and says what it landed on.
+
+    .DESCRIPTION
+        Every release starts here, so the awkward parts are dealt with once.
+
+        A pull over a dirty tree refuses, and git says so on a line that scrolls
+        past between two pages of fetch output — after which everything carries
+        on building the code that was already there. This checks first and stops
+        rather than reporting success for a build of yesterday.
+
+        The one dirty state that is not a problem is the two package.json files
+        an APK build rewrites: expo prebuild edits them and does not always put
+        them back. Those are restored and the pull continues. Anything else is
+        somebody's work, and is left where it is.
+
+    .PARAMETER Path
+        The checkout.
+
+    .OUTPUTS
+        The short commit and its subject, for the caller to print.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)] [string] $Path)
+
+    if (-not (Test-Path (Join-Path $Path '.git'))) {
+        throw "$Path is not a git checkout. Nothing to pull."
+    }
+
+    Push-Location $Path
+    try {
+        $expected = @('mobile/package.json', 'mobile-coordinator/package.json')
+
+        $dirty = @(Invoke-Native 'git status' 'git' @('status', '--porcelain') -IgnoreExitCode |
+            Where-Object { $_ })
+        $global:LASTEXITCODE = 0
+
+        if ($dirty) {
+            $paths = $dirty | ForEach-Object { ($_ -replace '^..\s*', '').Trim() }
+            $unexpected = @($paths | Where-Object { $_ -notin $expected })
+
+            if ($unexpected) {
+                # The concatenation is parenthesised before -f is applied: the
+                # operator binds tighter than +, so without these the format
+                # runs against the second string only and {0} survives into the
+                # message as itself.
+                throw (("The checkout has changes that are not ours to discard:`n{0}`n" +
+                        "Commit, stash or revert them. A release is of a commit.") -f
+                        (($unexpected | Select-Object -First 10 | ForEach-Object { "    $_" }) -join "`n"))
+            }
+
+            Write-Host "  Restoring the package.json files an APK build rewrote..." -ForegroundColor Gray
+            Invoke-Native 'git checkout' 'git' (@('checkout', '--') + $paths) | Out-Null
+        }
+
+        $before = (Invoke-Native 'git rev-parse' 'git' @('rev-parse', 'HEAD')).Trim()
+
+        Invoke-Native 'git fetch' 'git' @('fetch', '--all', '--prune') -Stream | Out-Null
+        Invoke-Native 'git pull'  'git' @('pull', '--ff-only') -Stream | Out-Null
+
+        $after   = (Invoke-Native 'git rev-parse' 'git' @('rev-parse', '--short', 'HEAD')).Trim()
+        $subject = (Invoke-Native 'git log' 'git' @('log', '-1', '--pretty=%s')).Trim()
+
+        if ($before -eq (Invoke-Native 'git rev-parse' 'git' @('rev-parse', 'HEAD')).Trim()) {
+            Write-Host "  [--]  Already on $after — nothing new to deploy." -ForegroundColor DarkGray
+        }
+        else {
+            Write-Host "  [ok]  Now on $after" -ForegroundColor Green
+        }
+
+        return ("{0}  {1}" -f $after, $subject)
+    }
+    finally { Pop-Location }
+}
+
 function Assert-Elevated {
     <#
         IIS, scheduled tasks and a backup folder outside a profile all need it,

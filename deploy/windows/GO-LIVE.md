@@ -73,11 +73,12 @@ That is expected — the server writes the file, not the script.
 ## 4. Release
 
 ```powershell
-.\20-release.ps1
+cd E:\NDIE-Capacity-Building-main\deploy
+.\release-web.ps1 -NoPull
 ```
 
-No `-Pull`: step 1 already did it, and the release refuses to pull over a dirty
-checkout anyway.
+`-NoPull` because step 1 already did it. Without it the script pulls first,
+which is what makes it one command on an ordinary release.
 
 It backs up the database, keeps the build that is running at
 `E:\inetpub\cbms.previous`, stops the site, publishes, applies the three
@@ -129,18 +130,24 @@ reports which way it is set.
 The marksheet and the online paper reach people only through new APKs. The
 portal deploy does nothing for them.
 
+Each is built on its own, so a change to one does not make everybody who uses
+the other update for nothing:
+
 ```powershell
-cd E:\NDIE-Capacity-Building-main\deploy\android
-.\03-build-apk.ps1 -App both -ApiBaseUrl 'https://leanstaging.qci.org.in/api' -VersionCode 2
+cd E:\NDIE-Capacity-Building-main\deploy
+.\release-applicant-app.ps1        # candidates: applying, enrolments, the written paper
+.\release-coordinator-app.ps1      # the hall: register, photographs, the marksheet
 ```
 
-Two things to get right:
+Both pull first, take the API address from `settings.production.psd1`, and let
+the version code look after itself — it comes from a counter beside the output
+and climbs every build, which is what Android insists on before it will install
+over what is already there.
 
-- **`-VersionCode` must be higher than the last build.** Android refuses to
-  install over a build with the same or a lower one.
-- **Sign with the keystores already in `E:\cbms-keystores`.** A different key
-  means every user has to uninstall before they can update, losing anything the
-  app had stored — including a coordinator's unsent work.
+The one thing to get right is the signing key. Both use the release keystores in
+`E:\cbms-keystores`; a build signed with a different one cannot update an
+installed app, so every user would have to uninstall first — and uninstalling
+takes whatever the app had stored, including a coordinator's unsent work.
 
 The APKs land in `E:\cbms-apk`. Distribute them the way the last ones went out.
 
