@@ -254,6 +254,30 @@ public class ProgramsController(ProgrammeService service) : ApiControllerBase
         Envelope(await service.EnrolAsync(id, dto, ct), "Applicants enrolled.");
 }
 
+/// <summary>
+/// The trainer's marksheet, from the portal.
+///
+/// The same sheet the coordinator's app writes to, under the route the portal
+/// already uses for a programme. Who may mark is decided inside
+/// <see cref="MarksheetService"/>, which also lets the assigned coordinator in
+/// — so the attribute here is the floor, not the whole rule.
+/// </summary>
+[Route("api/programs/{id:int}/marksheet")]
+public class ProgrammeMarksheetController(MarksheetService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.ProgramsView)]
+    public async Task<ActionResult<ApiEnvelope<MarksheetDto>>> Get(
+        int id, CancellationToken ct) =>
+        Envelope(await service.GetAsync(id, ct));
+
+    [HttpPut]
+    [HasPermission(Permissions.ProgramsView)]
+    public async Task<ActionResult<ApiEnvelope<MarksheetDto>>> Save(
+        int id, [FromBody] MarksheetSaveDto dto, CancellationToken ct) =>
+        Envelope(await service.SaveAsync(id, dto, ct), "Marks saved.");
+}
+
 [Route("api/lookups")]
 public class LookupsController(LookupService service) : ApiControllerBase
 {

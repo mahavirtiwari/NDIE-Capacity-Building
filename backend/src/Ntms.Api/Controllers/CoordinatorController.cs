@@ -18,7 +18,8 @@ namespace Ntms.Api.Controllers;
 /// </summary>
 [Route("api/coordinator")]
 [Authorize]
-public class CoordinatorController(MonitoringService service) : ApiControllerBase
+public class CoordinatorController(MonitoringService service, MarksheetService marksheets)
+    : ApiControllerBase
 {
     /* ------------------------------------------------------- programmes */
 
@@ -146,6 +147,27 @@ public class CoordinatorController(MonitoringService service) : ApiControllerBas
         Response.Headers.CacheControl = "private, max-age=3600";
         return File(content, contentType, fileName);
     }
+
+    /* -------------------------------------------------------- marksheet */
+
+    /// <summary>
+    /// The candidates enrolled on this programme, the skills the viva is marked
+    /// against, and what each of them has been given so far.
+    ///
+    /// Separate from the workshop detail because it is a different day's work:
+    /// the register is taken in the hall, the marking happens at the end, and
+    /// most programmes never open this screen at all.
+    /// </summary>
+    [HttpGet("programmes/{id:int}/marksheet")]
+    public async Task<ActionResult<ApiEnvelope<MarksheetDto>>> Marksheet(
+        int id, CancellationToken ct) =>
+        Envelope(await marksheets.GetAsync(id, ct));
+
+    /// <summary>A pass of the sheet, sent as one list so it lands together.</summary>
+    [HttpPut("programmes/{id:int}/marksheet")]
+    public async Task<ActionResult<ApiEnvelope<MarksheetDto>>> SaveMarksheet(
+        int id, [FromBody] MarksheetSaveDto dto, CancellationToken ct) =>
+        Envelope(await marksheets.SaveAsync(id, dto, ct), "Marks saved.");
 
     /* ------------------------------------------------------- submission */
 

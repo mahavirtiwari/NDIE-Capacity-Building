@@ -102,10 +102,67 @@ public class ProgrammeParticipant : AuditableEntity
 
     public DateOnly EnrolledOn { get; set; }
     public decimal AttendancePercent { get; set; }
+
+    /// <summary>
+    /// The written paper, out of the marks the programme type allots it.
+    ///
+    /// Null means not marked yet, which is not the same as zero: a candidate
+    /// who sat the paper and got nothing right has a result, and one who has
+    /// not been marked does not.
+    /// </summary>
+    public decimal? WrittenMarks { get; set; }
+
+    /// <summary>
+    /// The viva or practical, added up from the skills the trainer marked.
+    ///
+    /// Stored rather than recomputed on every read because it is the figure
+    /// that was reported: retiring a skill later must not silently restate a
+    /// result that has already been declared.
+    /// </summary>
+    public decimal? VivaMarks { get; set; }
+
+    /// <summary>Written and viva together — what the result was decided on.</summary>
     public decimal? ExamScore { get; set; }
+
     public ParticipantResult Result { get; set; } = ParticipantResult.Pending;
+
+    /// <summary>When the marks last added up to a decided result.</summary>
+    public DateTime? ResultRecordedOn { get; set; }
+
     public string? CertificateNo { get; set; }
     public int? FeedbackRating { get; set; }
 
     public ICollection<AttendanceRecord> Attendance { get; set; } = [];
+
+    /// <summary>What the trainer gave for each skill in the viva.</summary>
+    public ICollection<ParticipantSkillMark> SkillMarks { get; set; } = [];
+}
+
+/// <summary>
+/// One skill, marked for one candidate.
+///
+/// The marksheet is kept per skill rather than as a single viva figure because
+/// that is how it is marked and how it is disputed: a candidate asking why they
+/// failed is owed the line that cost them, not a total.
+///
+/// Which trainer gave the mark is recorded where the coordinator said so. It is
+/// nullable because the trainers on a workshop are registered on the day and a
+/// mark can be entered from the portal, where there may be nobody to attribute
+/// it to.
+/// </summary>
+public class ParticipantSkillMark : AuditableEntity
+{
+    public int ParticipantId { get; set; }
+    public ProgrammeParticipant? Participant { get; set; }
+
+    public int SkillId { get; set; }
+    public EvaluationSkill? Skill { get; set; }
+
+    /// <summary>Out of the skill's own maximum, never more.</summary>
+    public decimal Marks { get; set; }
+
+    public int? TrainerId { get; set; }
+    public ProgrammeTrainer? Trainer { get; set; }
+
+    public DateTime MarkedOn { get; set; } = DateTime.UtcNow;
 }

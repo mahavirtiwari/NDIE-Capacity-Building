@@ -312,6 +312,38 @@ public class ProgrammeParticipantConfiguration : IEntityTypeConfiguration<Progra
     }
 }
 
+public class ParticipantSkillMarkConfiguration : IEntityTypeConfiguration<ParticipantSkillMark>
+{
+    public void Configure(EntityTypeBuilder<ParticipantSkillMark> b)
+    {
+        b.ToTable("ParticipantSkillMarks");
+
+        b.HasOne(x => x.Participant).WithMany(x => x.SkillMarks)
+            .HasForeignKey(x => x.ParticipantId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        /* Restrict, not cascade: a skill is retired rather than deleted once it
+           has been marked against, and a delete that quietly took the marks
+           with it would rewrite results that have already been declared. */
+        b.HasOne(x => x.Skill).WithMany()
+            .HasForeignKey(x => x.SkillId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        /* No action, not set-null: a programme already cascades to its
+           participants and their marks, and a second cascading path to the
+           same rows through the trainers is more than SQL Server will accept.
+           Restricting is also the truer rule — a trainer who marked a
+           candidate is part of that record. */
+        b.HasOne(x => x.Trainer).WithMany()
+            .HasForeignKey(x => x.TrainerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        /* One mark per skill per candidate: a second row would make the viva
+           total depend on which one was read. */
+        b.HasIndex(x => new { x.ParticipantId, x.SkillId }).IsUnique();
+    }
+}
+
 public class AttendanceRecordConfiguration : IEntityTypeConfiguration<AttendanceRecord>
 {
     public void Configure(EntityTypeBuilder<AttendanceRecord> b)

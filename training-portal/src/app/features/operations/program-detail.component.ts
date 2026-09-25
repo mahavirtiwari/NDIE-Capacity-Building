@@ -15,11 +15,12 @@ import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ProgramService } from '../../core/services/workflow.service';
 import { IconComponent } from '../../shared/components/icon.component';
+import { MarksheetComponent } from './marksheet.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
 
-type Tab = 'sessions' | 'participants' | 'certificates';
+type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
 
 @Component({
   selector: 'app-program-detail',
@@ -32,6 +33,7 @@ type Tab = 'sessions' | 'participants' | 'certificates';
     StatusBadgeComponent,
     ModalComponent,
     IconComponent,
+    MarksheetComponent,
   ],
   template: `
     @if (programme(); as batch) {
@@ -163,12 +165,26 @@ type Tab = 'sessions' | 'participants' | 'certificates';
           <button
             type="button"
             class="tab"
+            [class.is-active]="tab() === 'marksheet'"
+            (click)="tab.set('marksheet')"
+          >
+            Marksheet
+          </button>
+          <button
+            type="button"
+            class="tab"
             [class.is-active]="tab() === 'certificates'"
             (click)="openCertificates()"
           >
             Certificates{{ certificates() ? ' (' + certificates()!.issued + ')' : '' }}
           </button>
         </div>
+
+        <!-- Mounted only while the tab is open, so the sheet is fetched when
+             somebody asks for it and re-read fresh next time. -->
+        @if (tab() === 'marksheet') {
+          <app-marksheet [programmeId]="batch.id" />
+        }
 
         @if (tab() === 'certificates') {
           @if (certificates(); as certs) {
@@ -326,7 +342,7 @@ type Tab = 'sessions' | 'participants' | 'certificates';
               </tbody>
             </table>
           </div>
-        } @else {
+        } @else if (tab() === 'participants') {
           <div class="table-wrap">
             <table class="table table--compact">
               <thead>

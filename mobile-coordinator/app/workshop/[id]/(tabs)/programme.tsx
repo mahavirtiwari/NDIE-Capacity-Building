@@ -103,6 +103,13 @@ export default function ProgrammeManagement() {
       />
 
       <MenuRow
+        icon="ribbon-outline"
+        title="Trainer marksheet"
+        status="Written and viva marks for the enrolled candidates"
+        onPress={() => go('marksheet')}
+      />
+
+      <MenuRow
         icon="star-outline"
         title="Participant feedback"
         status={

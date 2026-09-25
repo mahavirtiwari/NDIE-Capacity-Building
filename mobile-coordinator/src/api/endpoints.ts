@@ -3,6 +3,8 @@ import { enqueue, keepPhoto, newLocalId } from '../offline/outbox';
 import type {
   Branding,
   LoginResponse,
+  Marksheet,
+  MarksheetRowSave,
   MonitoringPhoto,
   MonitoringSession,
   Participant,
@@ -84,6 +86,32 @@ export const workshops = {
    */
   submit: (id: number, remarks?: string) =>
     api.post<Submission>(`coordinator/programmes/${id}/submit`, { remarks }),
+};
+
+export const marksheet = {
+  /*
+   * Cached like every other read, so a coordinator who loaded the sheet with a
+   * signal can still mark on it in a hall without one.
+   */
+  get: (id: number) => api.get<Marksheet>(`coordinator/programmes/${id}/marksheet`),
+
+  /**
+   * A pass of the sheet.
+   *
+   * Queued when there is no signal, like the register: marking happens
+   * candidate by candidate in a room, and losing an afternoon of it to a dead
+   * network would be the app failing at its job. The provisional answer is the
+   * sheet as it was, because the screen already shows what was typed - the
+   * server's recomputed results arrive when the queue drains.
+   */
+  save: (id: number, rows: MarksheetRowSave[], current: Marksheet) =>
+    writeOrQueue<Marksheet>({
+      label: 'Marks',
+      method: 'PUT',
+      path: `coordinator/programmes/${id}/marksheet`,
+      body: { rows },
+      provisional: current,
+    }),
 };
 
 export const venue = {

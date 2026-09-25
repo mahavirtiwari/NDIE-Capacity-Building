@@ -28,6 +28,7 @@ export default function WorkshopLayout() {
         <Stack.Screen name="attendance" options={{ title: 'Programme attendance' }} />
         <Stack.Screen name="attendance-photo" options={{ title: 'Attendance photo' }} />
         <Stack.Screen name="feedback" options={{ title: 'Participant feedback' }} />
+        <Stack.Screen name="marksheet" options={{ title: 'Trainer marksheet' }} />
       </Stack>
     </WorkshopProvider>
   );
