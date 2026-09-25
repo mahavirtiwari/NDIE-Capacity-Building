@@ -11,6 +11,7 @@ import {
 } from '../../core/models';
 import { CurriculumService } from '../../core/services/academics.service';
 import { LookupService } from '../../core/services/masters.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
@@ -41,10 +42,10 @@ const COLUMNS: ColumnDef[] = [
   ],
   template: `
     <app-page-header
-      title="Curriculum"
-      subtitle="Programme register. Open a programme code to maintain its day-wise sessions and topics."
+      [title]="copy.text('page.curriculum.title')"
+      [subtitle]="copy.text('page.curriculum.subtitle')"
       icon="book"
-      [breadcrumbs]="[{ label: 'Programme setup' }, { label: 'Curriculum' }]"
+      [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.curriculum.title') }]"
     >
       <button type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New curriculum
@@ -258,6 +259,7 @@ const COLUMNS: ColumnDef[] = [
   `,
 })
 export class CurriculumComponent {
+  protected readonly copy = inject(SiteTextService);
   private readonly service = inject(CurriculumService);
   private readonly toast = inject(ToastService);
   private readonly confirm = inject(ConfirmService);

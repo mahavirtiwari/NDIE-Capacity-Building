@@ -10,6 +10,7 @@ import {
   RecordStatus,
 } from '../../core/models';
 import { RoleService } from '../../core/services/people.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
@@ -68,10 +69,10 @@ const labelFor = (base: string): string => ROLE_LABELS[base as AppRole] ?? base;
   ],
   template: `
     <app-page-header
-      title="Roles & permissions"
-      subtitle="Super Admin defines admin roles and the exact screens and actions each one can reach."
+      [title]="copy.text('page.roles.title')"
+      [subtitle]="copy.text('page.roles.subtitle')"
       icon="shield"
-      [breadcrumbs]="[{ label: 'Administration' }, { label: 'Roles & permissions' }]"
+      [breadcrumbs]="[{ label: 'Administration' }, { label: copy.text('page.roles.title') }]"
     >
       <button type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New role
@@ -257,6 +258,7 @@ const labelFor = (base: string): string => ROLE_LABELS[base as AppRole] ?? base;
   ],
 })
 export class RolesComponent {
+  protected readonly copy = inject(SiteTextService);
   private readonly service = inject(RoleService);
   private readonly toast = inject(ToastService);
   private readonly confirm = inject(ConfirmService);

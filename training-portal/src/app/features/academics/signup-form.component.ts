@@ -9,6 +9,7 @@ import {
   fieldTypeHasOptions,
 } from '../../core/models';
 import { SignupFormService } from '../../core/services/academics.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { IconComponent } from '../../shared/components/icon.component';
@@ -36,10 +37,9 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
   template: `
     <app-page-header
       icon="form"
-      title="Applicant sign-up form"
-      subtitle="The fields somebody fills in to create an account. Switch any of them off, change
-                what they are called, and add your own."
-      [breadcrumbs]="[{ label: 'Administration' }, { label: 'Sign-up form' }]"
+      [title]="copy.text('page.signupForm.title')"
+      [subtitle]="copy.text('page.signupForm.subtitle')"
+      [breadcrumbs]="[{ label: 'Administration' }, { label: copy.text('page.signupForm.title') }]"
     >
       <button type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" />
@@ -262,6 +262,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
   ],
 })
 export class SignupFormComponent {
+  protected readonly copy = inject(SiteTextService);
   private readonly service = inject(SignupFormService);
   private readonly toast = inject(ToastService);
   private readonly confirm = inject(ConfirmService);

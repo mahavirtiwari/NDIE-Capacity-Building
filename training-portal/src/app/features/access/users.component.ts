@@ -12,9 +12,10 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AdminRole, LookupItem, PortalUser, RecordStatus } from '../../core/models';
-import { LookupService } from '../../core/services/masters.service';
 import { AuthService } from '../../core/services/auth.service';
+import { LookupService } from '../../core/services/masters.service';
 import { RoleService, UserService } from '../../core/services/people.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
@@ -88,16 +89,14 @@ const TIER_DEPTH: Record<string, number> = {
   ],
   template: `
     <app-page-header
-      [title]="isCoordinatorView() ? 'Coordinators' : 'Portal users'"
+      [title]="copy.text(isCoordinatorView() ? 'page.coordinators.title' : 'page.users.title')"
       [subtitle]="
-        isCoordinatorView()
-          ? 'Coordinators capture the programmes conducted on the ground, virtually or physically.'
-          : 'Admins, operation managers and coordinators. Each user gets a system generated user ID.'
+        copy.text(isCoordinatorView() ? 'page.coordinators.subtitle' : 'page.users.subtitle')
       "
       [icon]="isCoordinatorView() ? 'user-check' : 'users'"
       [breadcrumbs]="[
         { label: isCoordinatorView() ? 'Operations' : 'Administration' },
-        { label: isCoordinatorView() ? 'Coordinators' : 'Portal users' }
+        { label: copy.text(isCoordinatorView() ? 'page.coordinators.title' : 'page.users.title') }
       ]"
     >
       <button type="button" class="btn btn--primary" (click)="openForm()">
@@ -419,6 +418,7 @@ const TIER_DEPTH: Record<string, number> = {
   `,
 })
 export class UsersComponent {
+  protected readonly copy = inject(SiteTextService);
   private readonly service = inject(UserService);
   private readonly roleService = inject(RoleService);
   private readonly lookups = inject(LookupService);

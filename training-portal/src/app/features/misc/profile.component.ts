@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { IconComponent } from '../../shared/components/icon.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
@@ -12,10 +13,10 @@ import { describeError, requiredFormat } from '../../core/validation/formats';
   imports: [ReactiveFormsModule, PageHeaderComponent, IconComponent],
   template: `
     <app-page-header
-      title="My profile"
-      subtitle="Your user ID is issued by the system and cannot be changed. Contact details are yours to update."
+      [title]="copy.text('page.profile.title')"
+      [subtitle]="copy.text('page.profile.subtitle')"
       icon="settings"
-      [breadcrumbs]="[{ label: 'My profile' }]"
+      [breadcrumbs]="[{ label: copy.text('page.profile.title') }]"
     />
 
     @if (auth.user(); as user) {
@@ -125,6 +126,7 @@ import { describeError, requiredFormat } from '../../core/validation/formats';
   ],
 })
 export class ProfileComponent {
+  protected readonly copy = inject(SiteTextService);
   protected readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
   private readonly fb = inject(FormBuilder);

@@ -16,6 +16,7 @@ import {
 } from '../../core/models';
 import { RegistrationFormService } from '../../core/services/academics.service';
 import { LookupService } from '../../core/services/masters.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
@@ -72,10 +73,10 @@ function blankField(): RegistrationField {
   ],
   template: `
     <app-page-header
-      title="Registration forms"
-      subtitle="Design the applicant registration form for each program type — add fields, switch any of them off, and replicate a finished form onto another track."
+      [title]="copy.text('page.registrationForms.title')"
+      [subtitle]="copy.text('page.registrationForms.subtitle')"
       icon="form"
-      [breadcrumbs]="[{ label: 'Programme setup' }, { label: 'Registration forms' }]"
+      [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.registrationForms.title') }]"
     >
       <button type="button" class="btn btn--primary" (click)="openBuilder()">
         <app-icon name="plus" [size]="15" /> New form
@@ -618,6 +619,7 @@ function blankField(): RegistrationField {
   ],
 })
 export class RegistrationFormsComponent {
+  protected readonly copy = inject(SiteTextService);
   private readonly service = inject(RegistrationFormService);
   private readonly lookups = inject(LookupService);
   private readonly toast = inject(ToastService);

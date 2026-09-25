@@ -18,6 +18,7 @@ import {
   kindsForPolicy,
 } from '../../core/models';
 import { LookupService, ProgramTypeService } from '../../core/services/masters.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { CascadeSelectComponent } from '../../shared/components/cascade-select.component';
 import { ConfirmService } from '../../shared/components/confirm.service';
@@ -65,10 +66,10 @@ const COLUMNS: ColumnDef[] = [
   ],
   template: `
     <app-page-header
-      title="Program types"
-      subtitle="The applicant facing track — Master Trainer, Assessor, Consultant and others. Each type drives its own registration form, fee, curriculum and exam paper."
+      [title]="copy.text('page.programTypes.title')"
+      [subtitle]="copy.text('page.programTypes.subtitle')"
       icon="layers"
-      [breadcrumbs]="[{ label: 'Programme setup' }, { label: 'Program types' }]"
+      [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.programTypes.title') }]"
     >
       <button type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New program type
@@ -431,6 +432,7 @@ const COLUMNS: ColumnDef[] = [
   ],
 })
 export class ProgramTypesComponent {
+  protected readonly copy = inject(SiteTextService);
   private readonly service = inject(ProgramTypeService);
   private readonly lookups = inject(LookupService);
   private readonly toast = inject(ToastService);

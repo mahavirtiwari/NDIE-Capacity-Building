@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { BrandingService } from '../../core/services/branding.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { describeError, formatValidator } from '../../core/validation/formats';
 import { LogoSlot } from '../../core/models';
@@ -23,10 +24,10 @@ const MAX_BYTES = 512 * 1024;
   imports: [ReactiveFormsModule, PageHeaderComponent, IconComponent],
   template: `
     <app-page-header
-      title="Branding"
-      subtitle="Organisation name and logo used by the portal, the applicant app and email."
+      [title]="copy.text('page.branding.title')"
+      [subtitle]="copy.text('page.branding.subtitle')"
       icon="settings"
-      [breadcrumbs]="[{ label: 'Administration' }, { label: 'Branding' }]"
+      [breadcrumbs]="[{ label: 'Administration' }, { label: copy.text('page.branding.title') }]"
     />
 
     <div class="brand-grid">
@@ -298,6 +299,7 @@ const MAX_BYTES = 512 * 1024;
   ],
 })
 export class BrandingComponent {
+  protected readonly copy = inject(SiteTextService);
   protected readonly branding = inject(BrandingService);
   private readonly fb = inject(FormBuilder);
   private readonly toast = inject(ToastService);

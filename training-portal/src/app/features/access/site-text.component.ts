@@ -22,10 +22,9 @@ import { PageHeaderComponent } from '../../shared/components/page-header.compone
   template: `
     <app-page-header
       icon="form"
-      title="Site text"
-      subtitle="The headings and wording on the screens that are not driven by data. Change any of
-                them, or put one back to how it shipped."
-      [breadcrumbs]="[{ label: 'Administration' }, { label: 'Site text' }]"
+      [title]="copy.text('page.siteText.title')"
+      [subtitle]="copy.text('page.siteText.subtitle')"
+      [breadcrumbs]="[{ label: 'Administration' }, { label: copy.text('page.siteText.title') }]"
     >
       <button type="button" class="btn" [disabled]="overridden() === 0" (click)="restoreAll()">
         <app-icon name="refresh" [size]="15" />
@@ -115,6 +114,7 @@ import { PageHeaderComponent } from '../../shared/components/page-header.compone
   ],
 })
 export class SiteTextComponent {
+  protected readonly copy = inject(SiteTextService);
   private readonly api = inject(SiteTextApi);
   private readonly live = inject(SiteTextService);
   private readonly toast = inject(ToastService);

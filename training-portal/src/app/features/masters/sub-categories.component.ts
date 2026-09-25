@@ -7,6 +7,7 @@ import {
   SubCategory,
 } from '../../core/models';
 import { LookupService, SubCategoryService } from '../../core/services/masters.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
@@ -52,10 +53,10 @@ const COLUMNS: ColumnDef[] = [
   ],
   template: `
     <app-page-header
-      title="Sub-categories"
-      subtitle="Maturity levels or streams that sit under a category."
+      [title]="copy.text('page.subCategories.title')"
+      [subtitle]="copy.text('page.subCategories.subtitle')"
       icon="tag"
-      [breadcrumbs]="[{ label: 'Programme setup' }, { label: 'Sub-categories' }]"
+      [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.subCategories.title') }]"
     >
       <button type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New sub-category
@@ -183,6 +184,7 @@ const COLUMNS: ColumnDef[] = [
   `,
 })
 export class SubCategoriesComponent {
+  protected readonly copy = inject(SiteTextService);
   private readonly service = inject(SubCategoryService);
   private readonly lookups = inject(LookupService);
   private readonly toast = inject(ToastService);

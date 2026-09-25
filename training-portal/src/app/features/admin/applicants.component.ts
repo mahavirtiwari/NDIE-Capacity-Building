@@ -4,6 +4,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { Applicant, LookupItem } from '../../core/models';
 import { LookupService } from '../../core/services/masters.service';
 import { ApplicantService } from '../../core/services/people.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
@@ -38,10 +39,10 @@ const COLUMNS: ColumnDef[] = [
   ],
   template: `
     <app-page-header
-      title="Applicants"
-      subtitle="Accounts created from the mobile app. The applicant ID is system generated at sign-up; email and mobile stay editable by the applicant."
+      [title]="copy.text('page.applicants.title')"
+      [subtitle]="copy.text('page.applicants.subtitle')"
       icon="graduation"
-      [breadcrumbs]="[{ label: 'Administration' }, { label: 'Applicants' }]"
+      [breadcrumbs]="[{ label: 'Administration' }, { label: copy.text('page.applicants.title') }]"
     />
 
     <section class="card">
@@ -161,6 +162,7 @@ const COLUMNS: ColumnDef[] = [
   styles: [`.chip.is-off { opacity: 0.45; text-decoration: line-through; }`],
 })
 export class ApplicantsComponent {
+  protected readonly copy = inject(SiteTextService);
   private readonly service = inject(ApplicantService);
   private readonly lookups = inject(LookupService);
   private readonly toast = inject(ToastService);

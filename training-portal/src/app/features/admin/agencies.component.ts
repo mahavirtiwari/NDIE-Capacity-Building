@@ -4,6 +4,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AGENCY_TYPES, ImplementingAgency, LookupItem, RecordStatus } from '../../core/models';
 import { AgencyService, LookupService } from '../../core/services/masters.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
@@ -53,10 +54,10 @@ const COLUMNS: ColumnDef[] = [
   ],
   template: `
     <app-page-header
-      title="Implementing agencies"
-      subtitle="Empanelled bodies that conduct programmes on the ground, mapped to the masters they may deliver."
+      [title]="copy.text('page.agencies.title')"
+      [subtitle]="copy.text('page.agencies.subtitle')"
       icon="building"
-      [breadcrumbs]="[{ label: 'Administration' }, { label: 'Implementing agencies' }]"
+      [breadcrumbs]="[{ label: 'Administration' }, { label: copy.text('page.agencies.title') }]"
     >
       <button type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New agency
@@ -311,6 +312,7 @@ const COLUMNS: ColumnDef[] = [
   `,
 })
 export class AgenciesComponent {
+  protected readonly copy = inject(SiteTextService);
   private readonly service = inject(AgencyService);
   private readonly lookups = inject(LookupService);
   private readonly toast = inject(ToastService);

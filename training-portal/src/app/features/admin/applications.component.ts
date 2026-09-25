@@ -9,6 +9,7 @@ import {
   LookupItem,
 } from '../../core/models';
 import { LookupService } from '../../core/services/masters.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ApplicationService } from '../../core/services/workflow.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
 import { IconComponent } from '../../shared/components/icon.component';
@@ -44,10 +45,10 @@ const COLUMNS: ColumnDef[] = [
   ],
   template: `
     <app-page-header
-      title="Application scrutiny"
-      subtitle="Applications submitted from the mobile app, queued for document verification and eligibility scrutiny."
+      [title]="copy.text('page.applications.title')"
+      [subtitle]="copy.text('page.applications.subtitle')"
       icon="inbox"
-      [breadcrumbs]="[{ label: 'Administration' }, { label: 'Application scrutiny' }]"
+      [breadcrumbs]="[{ label: 'Administration' }, { label: copy.text('page.applications.title') }]"
     />
 
     <div class="queue-strip mb-md">
@@ -211,6 +212,7 @@ const COLUMNS: ColumnDef[] = [
   ],
 })
 export class ApplicationsComponent {
+  protected readonly copy = inject(SiteTextService);
   private readonly service = inject(ApplicationService);
   private readonly lookups = inject(LookupService);
 

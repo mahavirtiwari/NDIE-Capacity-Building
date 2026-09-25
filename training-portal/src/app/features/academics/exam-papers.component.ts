@@ -10,6 +10,7 @@ import {
   examTotalMarks,
 } from '../../core/models';
 import { ExamPaperService } from '../../core/services/academics.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ProgramTypeLinkageComponent } from '../../shared/components/program-type-linkage.component';
 import { ConfirmService } from '../../shared/components/confirm.service';
@@ -51,10 +52,10 @@ const COLUMNS: ColumnDef[] = [
   ],
   template: `
     <app-page-header
-      title="Exam papers"
-      subtitle="Certification question papers with marks, negative marking and pass criteria per program type."
+      [title]="copy.text('page.examPapers.title')"
+      [subtitle]="copy.text('page.examPapers.subtitle')"
       icon="clipboard"
-      [breadcrumbs]="[{ label: 'Programme setup' }, { label: 'Exam papers' }]"
+      [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.examPapers.title') }]"
     >
       <button type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New exam paper
@@ -284,6 +285,7 @@ const COLUMNS: ColumnDef[] = [
   ],
 })
 export class ExamPapersComponent {
+  protected readonly copy = inject(SiteTextService);
   private readonly service = inject(ExamPaperService);
   private readonly toast = inject(ToastService);
   private readonly confirm = inject(ConfirmService);

@@ -11,6 +11,7 @@ import {
   computeFeeTotals,
 } from '../../core/models';
 import { FeeService } from '../../core/services/academics.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ProgramTypeLinkageComponent } from '../../shared/components/program-type-linkage.component';
 import { ConfirmService } from '../../shared/components/confirm.service';
@@ -55,10 +56,10 @@ const COLUMNS: ColumnDef[] = [
   ],
   template: `
     <app-page-header
-      title="Fee structures"
-      subtitle="Component-wise fee with GST and concessions, effective dated per program type."
+      [title]="copy.text('page.fees.title')"
+      [subtitle]="copy.text('page.fees.subtitle')"
       icon="rupee"
-      [breadcrumbs]="[{ label: 'Programme setup' }, { label: 'Fee structures' }]"
+      [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.fees.title') }]"
     >
       <button type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New fee structure
@@ -330,6 +331,7 @@ const COLUMNS: ColumnDef[] = [
   ],
 })
 export class FeesComponent {
+  protected readonly copy = inject(SiteTextService);
   private readonly service = inject(FeeService);
   private readonly toast = inject(ToastService);
   private readonly confirm = inject(ConfirmService);

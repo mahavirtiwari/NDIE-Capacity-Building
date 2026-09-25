@@ -8,6 +8,7 @@ import {
   TrainingMaterial,
 } from '../../core/models';
 import { TrainingMaterialService } from '../../core/services/academics.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { CascadeSelectComponent } from '../../shared/components/cascade-select.component';
 import { ConfirmService } from '../../shared/components/confirm.service';
@@ -58,10 +59,10 @@ const KIND_ICONS: Record<string, IconName> = {
   ],
   template: `
     <app-page-header
-      title="Training material"
-      subtitle="Files and videos published against a program type, with role based visibility."
+      [title]="copy.text('page.materials.title')"
+      [subtitle]="copy.text('page.materials.subtitle')"
       icon="video"
-      [breadcrumbs]="[{ label: 'Programme setup' }, { label: 'Training material' }]"
+      [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.materials.title') }]"
     >
       <button type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="upload" [size]="15" /> Publish material
@@ -309,6 +310,7 @@ const KIND_ICONS: Record<string, IconName> = {
   ],
 })
 export class MaterialsComponent {
+  protected readonly copy = inject(SiteTextService);
   private readonly service = inject(TrainingMaterialService);
   private readonly toast = inject(ToastService);
   private readonly confirm = inject(ConfirmService);

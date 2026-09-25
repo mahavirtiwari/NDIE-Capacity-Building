@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { EmailLogEntry, EmailPreview, EmailSettings, EmailTemplate } from '../../core/models';
 import { EmailService } from '../../core/services/email.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { describeError, formatValidator } from '../../core/validation/formats';
 import { ConfirmService } from '../../shared/components/confirm.service';
@@ -31,10 +32,10 @@ type Tab = 'sender' | 'templates' | 'log';
   ],
   template: `
     <app-page-header
-      title="Email"
-      subtitle="The account messages are sent from, and the wording of each one."
+      [title]="copy.text('page.email.title')"
+      [subtitle]="copy.text('page.email.subtitle')"
       icon="mail"
-      [breadcrumbs]="[{ label: 'Administration' }, { label: 'Email' }]"
+      [breadcrumbs]="[{ label: 'Administration' }, { label: copy.text('page.email.title') }]"
     />
 
     <div class="tabs">
@@ -464,6 +465,7 @@ type Tab = 'sender' | 'templates' | 'log';
   ],
 })
 export class EmailSettingsComponent {
+  protected readonly copy = inject(SiteTextService);
   private readonly fb = inject(FormBuilder);
   private readonly service = inject(EmailService);
   private readonly toast = inject(ToastService);

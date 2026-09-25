@@ -13,10 +13,11 @@ import {
   ProgramStatus,
   programActions,
 } from '../../core/models';
+import { ExamPaperService } from '../../core/services/academics.service';
 import { AuthService } from '../../core/services/auth.service';
 import { LookupService } from '../../core/services/masters.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
-import { ExamPaperService } from '../../core/services/academics.service';
 import { ProgramService } from '../../core/services/workflow.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
@@ -56,10 +57,10 @@ const COLUMNS: ColumnDef[] = [
   ],
   template: `
     <app-page-header
-      title="Programmes"
-      subtitle="Every batch conducted physically or virtually, with its permission, calendar and conduct status."
+      [title]="copy.text('page.programmes.title')"
+      [subtitle]="copy.text('page.programmes.subtitle')"
       icon="calendar"
-      [breadcrumbs]="[{ label: 'Operations' }, { label: 'Programmes' }]"
+      [breadcrumbs]="[{ label: 'Operations' }, { label: copy.text('page.programmes.title') }]"
     >
       @if (canManage()) {
         <button type="button" class="btn btn--primary" (click)="openForm()">
@@ -358,6 +359,7 @@ const COLUMNS: ColumnDef[] = [
   `,
 })
 export class ProgramsComponent {
+  protected readonly copy = inject(SiteTextService);
   private readonly service = inject(ProgramService);
   private readonly lookups = inject(LookupService);
   private readonly toast = inject(ToastService);

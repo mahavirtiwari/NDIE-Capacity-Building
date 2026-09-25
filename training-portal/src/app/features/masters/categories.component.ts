@@ -6,6 +6,7 @@ import {
   RecordStatus,
 } from '../../core/models';
 import { CategoryService, LookupService } from '../../core/services/masters.service';
+import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
@@ -48,10 +49,10 @@ const COLUMNS: ColumnDef[] = [
   ],
   template: `
     <app-page-header
-      title="Categories"
-      subtitle="Top level grouping for every training programme run under the scheme."
+      [title]="copy.text('page.categories.title')"
+      [subtitle]="copy.text('page.categories.subtitle')"
       icon="folder"
-      [breadcrumbs]="[{ label: 'Programme setup' }, { label: 'Categories' }]"
+      [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.categories.title') }]"
     >
       <button type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New category
@@ -170,6 +171,7 @@ const COLUMNS: ColumnDef[] = [
   `,
 })
 export class CategoriesComponent {
+  protected readonly copy = inject(SiteTextService);
   private readonly service = inject(CategoryService);
   private readonly lookups = inject(LookupService);
   private readonly toast = inject(ToastService);
