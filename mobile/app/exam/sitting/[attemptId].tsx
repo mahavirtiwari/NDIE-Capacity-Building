@@ -1,7 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, BackHandler, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  AppState,
+  BackHandler,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { ApiError } from '../../../src/api/client';
 import { exam } from '../../../src/api/endpoints';
 import type { ExamResult, ExamSitting } from '../../../src/api/types';
@@ -31,12 +40,52 @@ export default function ExamSittingScreen() {
   const [at, setAt] = useState(0);
   const [remaining, setRemaining] = useState(0);
   const [failure, setFailure] = useState<string | null>(null);
-  const [unsent, setUnsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<ExamResult | null>(null);
 
+  /*
+   * Answers the server has not taken yet.
+   *
+   * An answer that fails to send stays here and goes with the next one, and
+   * again before the paper is submitted. Clearing the warning on the next
+   * success would tell the candidate everything had landed while one of their
+   * answers was still sitting on the phone.
+   */
+  const pending = useRef<Map<number, number[]>>(new Map());
+  const [unsent, setUnsent] = useState(0);
+
   /* Guards the auto-submit: a tick and a tap must not both submit. */
   const closing = useRef(false);
+
+  /** Sends everything outstanding. Returns whether the server took it all. */
+  const flush = useCallback(async () => {
+    if (pending.current.size === 0) return true;
+
+    const batch = [...pending.current].map(([questionId, optionIds]) => ({
+      questionId,
+      optionIds,
+    }));
+
+    try {
+      await exam.answer(id, batch);
+
+      /* Only what was actually sent is cleared: a tap during the round trip
+         changed the answer again, and that one still has to go. */
+      for (const answer of batch) {
+        const latest = pending.current.get(answer.questionId);
+        if (latest && sameIds(latest, answer.optionIds)) {
+          pending.current.delete(answer.questionId);
+        }
+      }
+      setUnsent(pending.current.size);
+      setFailure(null);
+      return pending.current.size === 0;
+    } catch (caught) {
+      setUnsent(pending.current.size);
+      if (caught instanceof ApiError && caught.status !== 0) setFailure(caught.message);
+      return false;
+    }
+  }, [id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,6 +112,18 @@ export default function ExamSittingScreen() {
   const finish = useCallback(
     async (reason: 'timeUp' | 'byHand') => {
       if (closing.current) return;
+
+      /* One last try at anything outstanding. On the bell it goes either way —
+         the server closes the paper on what it has, which is the honest
+         outcome — but by hand it waits, because there is still time to find a
+         signal. */
+      const sent = await flush();
+      if (!sent && reason === 'byHand') {
+        setFailure('Some answers have not reached the server yet. Find a signal and try again.');
+        return;
+      }
+
+      if (closing.current) return;
       closing.current = true;
       setSubmitting(true);
       try {
@@ -79,7 +140,7 @@ export default function ExamSittingScreen() {
         );
       }
     },
-    [id],
+    [id, flush],
   );
 
   /* One timer for the whole sitting, counting the server's seconds down. */
@@ -97,6 +158,29 @@ export default function ExamSittingScreen() {
     }, 1000);
     return () => clearInterval(tick);
   }, [sitting, result, finish]);
+
+  /*
+   * The clock again, from the server, whenever the app comes back.
+   *
+   * A phone that is locked or put in a pocket stops running timers, so the
+   * countdown would carry on from where it was rather than from where the
+   * examination is. The seconds are the server's to give; this only asks for
+   * them again.
+   */
+  useEffect(() => {
+    if (result) return;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      void exam
+        .resume(id)
+        .then((fresh) => setRemaining(fresh.secondsRemaining))
+        .catch(() => {
+          /* No signal. The countdown carries on from what it has, and the
+             server still decides what counts when the paper is submitted. */
+        });
+    });
+    return () => sub.remove();
+  }, [id, result]);
 
   /* The hardware back button must not drop somebody out of a running paper. */
   useEffect(() => {
@@ -147,16 +231,11 @@ export default function ExamSittingScreen() {
 
     setChosen((prev) => ({ ...prev, [question.id]: next }));
 
-    try {
-      await exam.answer(id, [{ questionId: question.id, optionIds: next }]);
-      setUnsent(false);
-      setFailure(null);
-    } catch (caught) {
-      /* Kept on screen and flagged: the answer is in the app but not on the
-         server, and the candidate should know before the clock runs out. */
-      setUnsent(true);
-      if (caught instanceof ApiError && caught.status !== 0) setFailure(caught.message);
-    }
+    /* Queued first, sent second: anything a previous tap could not get through
+       goes with it. */
+    pending.current.set(question.id, next);
+    setUnsent(pending.current.size);
+    await flush();
   };
 
   return (
@@ -171,10 +250,10 @@ export default function ExamSittingScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {unsent ? (
+        {unsent > 0 ? (
           <Banner tone="warning">
-            The last answer has not reached the server. Find a signal — answers only count once
-            they are sent.
+            {unsent} answer{unsent === 1 ? ' has' : 's have'} not reached the server. Find a
+            signal — answers only count once they are sent, and they go again with your next tap.
           </Banner>
         ) : null}
         {failure ? <Banner tone="danger">{failure}</Banner> : null}
@@ -302,6 +381,11 @@ function Result({ result, onDone }: { result: ExamResult; onDone: () => void }) 
       <Button label="Back to my enrolments" onPress={onDone} />
     </ScrollView>
   );
+}
+
+/** Whether two choices are the same answer, order aside. */
+function sameIds(a: number[], b: number[]): boolean {
+  return a.length === b.length && [...a].sort().every((id, i) => id === [...b].sort()[i]);
 }
 
 /** mm:ss, which is how long is left rather than what the time is. */

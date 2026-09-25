@@ -227,8 +227,10 @@ public class ExamSittingService(NtmsDbContext db, ResultRecorder results)
                clock on the same attempt. */
             if (open.ExpiresOn > DateTime.UtcNow) return await SittingAsync(open.Id, paper, ct);
 
+            /* Closed, but still counted. It was a sitting: dropping it from the
+               tally would hand out an extra attempt, and would give the next
+               one the number this one already holds. */
             await CloseAsync(open.Id, ExamAttemptStatus.Expired, ct);
-            attempts.Remove(open);
         }
 
         if (WhyNot(participant, programme, paper, attempts.Count) is { } refusal)
@@ -239,7 +241,7 @@ public class ExamSittingService(NtmsDbContext db, ResultRecorder results)
         {
             ParticipantId = participant.Id,
             ExamPaperId = paper.Id,
-            AttemptNo = attempts.Count + 1,
+            AttemptNo = attempts.Count == 0 ? 1 : attempts.Max(a => a.AttemptNo) + 1,
             StartedOn = now,
             ExpiresOn = now.AddMinutes(paper.DurationMinutes),
             Status = ExamAttemptStatus.InProgress,
@@ -461,6 +463,18 @@ public class ExamSittingService(NtmsDbContext db, ResultRecorder results)
         var participant = await db.ProgrammeParticipants
             .Include(p => p.SkillMarks)
             .FirstAsync(p => p.Id == attempt.ParticipantId, ct);
+
+        /* A certificate issued while the paper was open settles the result. The
+           sitting is still recorded — it happened — but it does not restate a
+           mark somebody is already holding a certificate for. */
+        var settled = await db.Certificates.AsNoTracking()
+            .AnyAsync(c => c.ParticipantId == participant.Id && c.RevokedOn == null, ct);
+
+        if (settled)
+        {
+            await db.SaveChangesAsync(ct);
+            return ToResult(attempt, paper.Questions.Count, participant);
+        }
 
         var scheme = await db.Programmes.AsNoTracking()
             .Where(p => p.Id == participant.ProgrammeId)

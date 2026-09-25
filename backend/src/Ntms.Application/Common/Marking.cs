@@ -51,6 +51,16 @@ public static class Marking
                 "This program type has no examination.", null);
         }
 
+        /* A type created through the API without a marking pattern examines
+           something out of nothing. Said plainly here rather than reported as
+           an unmarked paper for ever, which is what it looks like otherwise. */
+        if ((scheme.HasWritten ? scheme.WrittenMarks : 0)
+            + (scheme.HasViva ? scheme.VivaMarks : 0) <= 0)
+        {
+            return new Outcome(ParticipantResult.Pending, null, null, null,
+                "The marking pattern for this program type has not been set up.", null);
+        }
+
         var writtenMark = scheme.HasWritten ? written : null;
         var vivaMark = scheme.HasViva ? viva : null;
 

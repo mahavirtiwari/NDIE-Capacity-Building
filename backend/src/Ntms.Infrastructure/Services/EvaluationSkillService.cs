@@ -16,7 +16,7 @@ namespace Ntms.Infrastructure.Services;
 /// because a marksheet that loses the name of what was marked stops being
 /// evidence of anything.
 /// </summary>
-public class EvaluationSkillService(NtmsDbContext db)
+public class EvaluationSkillService(NtmsDbContext db, ResultRecorder results)
 {
     private IQueryable<EvaluationSkill> Base =>
         db.EvaluationSkills.AsNoTracking().Include(s => s.ProgramType);
@@ -85,9 +85,58 @@ public class EvaluationSkillService(NtmsDbContext db)
     {
         var entity = await db.EvaluationSkills.FirstOrDefaultAsync(s => s.Id == id, ct)
                      ?? throw AppException.NotFound("Skill");
+
+        var was = entity.Status;
         entity.Status = EnumMaps.ToStatus(status);
         await db.SaveChangesAsync(ct);
+
+        if (was != entity.Status) await RestateResultsAsync(entity.ProgramTypeId, ct);
+
         return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// Works every affected candidate's result out again.
+    ///
+    /// Retiring a skill takes it out of the viva total, and bringing one back
+    /// adds a mark nobody has given yet. Either way the results already
+    /// recorded were decided under a different sheet, and leaving them would
+    /// have a marksheet showing a pass beside a line saying the viva is not
+    /// fully marked.
+    ///
+    /// A candidate holding a certificate is left alone: that result has been
+    /// acted on, and it is revoked rather than quietly restated.
+    /// </summary>
+    private async Task RestateResultsAsync(int programTypeId, CancellationToken ct)
+    {
+        var certified = db.Certificates.Where(c => c.RevokedOn == null).Select(c => c.ParticipantId);
+
+        var participants = await db.ProgrammeParticipants
+            .Include(p => p.SkillMarks)
+            .Where(p => p.Programme!.ProgramTypeId == programTypeId
+                        && !certified.Contains(p.Id)
+                        && (p.SkillMarks.Count > 0 || p.Result != ParticipantResult.Pending))
+            .ToListAsync(ct);
+
+        if (participants.Count == 0) return;
+
+        var scheme = await db.ProgramTypes.AsNoTracking()
+            .Where(p => p.Id == programTypeId)
+            .Select(p => p.Evaluation)
+            .FirstAsync(ct);
+
+        var active = await db.EvaluationSkills.AsNoTracking()
+            .Where(s => s.ProgramTypeId == programTypeId && s.Status == RecordStatus.Active)
+            .ToListAsync(ct);
+
+        var now = DateTime.UtcNow;
+        foreach (var participant in participants)
+        {
+            ResultRecorder.Recompute(
+                participant, scheme ?? new EvaluationScheme(), active, now);
+        }
+
+        await db.SaveChangesAsync(ct);
     }
 
     private static void Apply(EvaluationSkill entity, EvaluationSkillUpsertDto dto)

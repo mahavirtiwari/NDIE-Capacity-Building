@@ -40,19 +40,17 @@ public class ResultRecorder(NtmsDbContext db)
             .Where(s => s.ProgramTypeId == programTypeId && s.Status == RecordStatus.Active)
             .ToListAsync(ct);
 
-        if (participant.SkillMarks.Count == 0)
-        {
-            /* Not loaded is not the same as none, and the difference is a viva
-               total. Read them rather than assume the candidate was unmarked. */
-            participant.SkillMarks =
-            [
-                .. await db.ParticipantSkillMarks.AsNoTracking()
-                    .Where(m => m.ParticipantId == participant.Id)
-                    .ToListAsync(ct),
-            ];
-        }
+        /* Not loaded is not the same as none, and the difference is a viva
+           total. Read them rather than assume the candidate was unmarked —
+           but keep them out of the tracked collection: rows attached to a
+           tracked participant would be taken for new ones and inserted. */
+        List<ParticipantSkillMark> marks = participant.SkillMarks.Count > 0
+            ? [.. participant.SkillMarks]
+            : await db.ParticipantSkillMarks.AsNoTracking()
+                .Where(m => m.ParticipantId == participant.Id)
+                .ToListAsync(ct);
 
-        Recompute(participant, scheme ?? new EvaluationScheme(), skills, DateTime.UtcNow);
+        Recompute(participant, scheme ?? new EvaluationScheme(), skills, marks, DateTime.UtcNow);
     }
 
     /// <summary>
@@ -68,10 +66,22 @@ public class ResultRecorder(NtmsDbContext db)
         ProgrammeParticipant participant,
         EvaluationScheme scheme,
         IReadOnlyCollection<EvaluationSkill> activeSkills,
+        DateTime now) =>
+        Recompute(participant, scheme, activeSkills, [.. participant.SkillMarks], now);
+
+    /// <summary>
+    /// As above, for a caller holding the marks separately from the entity —
+    /// the exam, which reads them without attaching them.
+    /// </summary>
+    public static void Recompute(
+        ProgrammeParticipant participant,
+        EvaluationScheme scheme,
+        IReadOnlyCollection<EvaluationSkill> activeSkills,
+        IReadOnlyCollection<ParticipantSkillMark> skillMarks,
         DateTime now)
     {
         var live = activeSkills.Select(s => s.Id).ToHashSet();
-        var counted = participant.SkillMarks.Where(m => live.Contains(m.SkillId)).ToList();
+        var counted = skillMarks.Where(m => live.Contains(m.SkillId)).ToList();
 
         var viva = counted.Count > 0 ? counted.Sum(m => m.Marks) : (decimal?)null;
         var allMarked = activeSkills.Count > 0 && counted.Count == activeSkills.Count;
