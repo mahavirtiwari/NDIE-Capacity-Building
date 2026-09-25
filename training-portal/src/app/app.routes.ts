@@ -106,6 +106,15 @@ export const routes: Routes = [
               ),
           },
           {
+            path: 'signup-form',
+            title: 'Applicant sign-up form · CBMS',
+            canActivate: [permissionGuard('masters.view')],
+            loadComponent: () =>
+              import('./features/academics/signup-form.component').then(
+                (m) => m.SignupFormComponent,
+              ),
+          },
+          {
             path: 'fees',
             title: 'Fee structures · CBMS',
             canActivate: [permissionGuard('fees.view')],

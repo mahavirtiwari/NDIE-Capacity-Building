@@ -40,6 +40,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Branding', route: '/access/branding', icon: 'settings', permissions: ['settings.manage'] },
       { label: 'Email', route: '/access/email', icon: 'mail', permissions: ['settings.manage'] },
       { label: 'Implementing agencies', route: '/admin/agencies', icon: 'building', permissions: ['agencies.view'] },
+      { label: 'Sign-up form', route: '/academics/signup-form', icon: 'form', permissions: ['masters.view'] },
       { label: 'Applicants', route: '/admin/applicants', icon: 'graduation', permissions: ['applications.view'] },
       { label: 'Application scrutiny', route: '/admin/applications', icon: 'inbox', permissions: ['applications.view'] },
     ],

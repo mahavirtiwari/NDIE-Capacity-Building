@@ -40,6 +40,12 @@ public class NtmsDbContext(DbContextOptions<NtmsDbContext> options, ICurrentUser
     public DbSet<RegistrationSection> RegistrationSections => Set<RegistrationSection>();
     public DbSet<RegistrationField> RegistrationFields => Set<RegistrationField>();
     public DbSet<RegistrationFieldOption> RegistrationFieldOptions => Set<RegistrationFieldOption>();
+
+    /* The account creation form, which exists once and before any applicant
+       does - not to be confused with the per programme type form above. */
+    public DbSet<SignupField> SignupFields => Set<SignupField>();
+    public DbSet<SignupFieldOption> SignupFieldOptions => Set<SignupFieldOption>();
+    public DbSet<ApplicantAnswer> ApplicantAnswers => Set<ApplicantAnswer>();
     public DbSet<FeeStructure> FeeStructures => Set<FeeStructure>();
     public DbSet<FeeComponent> FeeComponents => Set<FeeComponent>();
     public DbSet<FeeConcession> FeeConcessions => Set<FeeConcession>();

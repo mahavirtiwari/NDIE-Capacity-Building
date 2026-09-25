@@ -50,6 +50,7 @@ public class DbSeeder(
         await SeedSuperAdminAsync(ct);
         await SeedBrandingAsync(ct);
         await SeedEmailAsync(ct);
+        await SeedSignupFormAsync(ct);
         await BackfillDelegationScopeAsync(ct);
 
         if (includeSampleData)
@@ -209,6 +210,60 @@ public class DbSeeder(
             "Seeded Super Admin SA0001 with the first-run password: {Password}. " +
             "It must be changed at first sign-in, and this is the only time it is shown.",
             firstRunPassword);
+    }
+
+    /* --------------------------------------------------- account sign-up form */
+
+    /// <summary>
+    /// The fields an applicant fills in to create an account.
+    ///
+    /// These eight exist as columns on the applicant record whether or not
+    /// there is a row here, so seeding them is not creating the form - it is
+    /// making the form that already exists editable. Only the ones missing are
+    /// added, so a label somebody changed is never quietly put back.
+    /// </summary>
+    private async Task SeedSignupFormAsync(CancellationToken ct)
+    {
+        /* key, label, placeholder, type, required, locked */
+        var builtIn = new (string Key, string Label, string? Placeholder, FieldType Type, bool Required, bool Locked)[]
+        {
+            ("fullName", "Full name", "As printed on your PAN", FieldType.Text, true, true),
+            ("email", "Email", "Enter email address", FieldType.Email, true, true),
+            ("mobile", "Mobile", "Enter mobile number", FieldType.Mobile, true, true),
+            ("pan", "PAN", "ABCDE1234F", FieldType.Pan, true, false),
+            ("gender", "Gender", "Select a gender", FieldType.Select, true, false),
+            ("socialCategory", "Social category", "Select a social category", FieldType.Select, true, false),
+            ("categoryId", "Category", "Select a category", FieldType.Select, true, true),
+            ("subCategoryId", "Sub-category", "Select a sub-category", FieldType.Select, true, true),
+        };
+
+        var existing = await db.SignupFields.Select(f => f.Key).ToListAsync(ct);
+        var order = await db.SignupFields.MaxAsync(f => (int?)f.DisplayOrder, ct) ?? 0;
+        var added = 0;
+
+        foreach (var field in builtIn)
+        {
+            if (existing.Contains(field.Key)) continue;
+
+            db.SignupFields.Add(new SignupField
+            {
+                Key = field.Key,
+                Label = field.Label,
+                Placeholder = field.Placeholder,
+                Type = field.Type,
+                Required = field.Required,
+                IsBuiltIn = true,
+                IsLocked = field.Locked,
+                DisplayOrder = ++order,
+                Status = RecordStatus.Active,
+            });
+            added++;
+        }
+
+        if (added == 0) return;
+
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Seeded {Count} sign-up form fields", added);
     }
 
     /* ---------------------------------------------------- portal identity */

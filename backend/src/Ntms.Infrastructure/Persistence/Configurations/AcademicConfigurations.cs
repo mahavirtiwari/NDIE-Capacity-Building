@@ -217,3 +217,48 @@ public class TrainingMaterialConfiguration : IEntityTypeConfiguration<TrainingMa
             .OnDelete(DeleteBehavior.SetNull);
     }
 }
+
+public class SignupFieldConfiguration : IEntityTypeConfiguration<SignupField>
+{
+    public void Configure(EntityTypeBuilder<SignupField> b)
+    {
+        b.ToTable("SignupFields");
+        b.Property(x => x.Key).HasMaxLength(80).IsRequired();
+        b.Property(x => x.Label).HasMaxLength(250).IsRequired();
+        b.Property(x => x.Placeholder).HasMaxLength(200);
+        b.Property(x => x.HelpText).HasMaxLength(500);
+
+        /* One field per key. The sign-up code looks fields up by key, so two
+           rows claiming the same one would make which is honoured a matter of
+           row order. */
+        b.HasIndex(x => x.Key).IsUnique();
+    }
+}
+
+public class SignupFieldOptionConfiguration : IEntityTypeConfiguration<SignupFieldOption>
+{
+    public void Configure(EntityTypeBuilder<SignupFieldOption> b)
+    {
+        b.ToTable("SignupFieldOptions");
+        b.Property(x => x.Value).HasMaxLength(120).IsRequired();
+        b.Property(x => x.Label).HasMaxLength(250).IsRequired();
+        b.HasOne(x => x.Field).WithMany(x => x.Options).HasForeignKey(x => x.FieldId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class ApplicantAnswerConfiguration : IEntityTypeConfiguration<ApplicantAnswer>
+{
+    public void Configure(EntityTypeBuilder<ApplicantAnswer> b)
+    {
+        b.ToTable("ApplicantAnswers");
+        b.Property(x => x.Key).HasMaxLength(80).IsRequired();
+        b.Property(x => x.Value).HasMaxLength(2000);
+
+        b.HasOne(x => x.Applicant).WithMany().HasForeignKey(x => x.ApplicantId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        /* One answer per question per applicant. */
+        b.HasIndex(x => new { x.ApplicantId, x.Key }).IsUnique();
+    }
+}

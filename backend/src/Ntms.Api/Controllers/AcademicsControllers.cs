@@ -234,3 +234,51 @@ public class MaterialsController(TrainingMaterialService service) : ApiControlle
         int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
         Envelope(await service.SetStatusAsync(id, dto.Status, ct));
 }
+
+/// <summary>
+/// The form an applicant fills in to create an account.
+///
+/// One form, so no paging and no id in the collection route. The public read
+/// is anonymous on purpose: the applicant app has to render this before
+/// anybody has an account to authenticate with.
+/// </summary>
+[Route("api/signup-form")]
+public class SignupFormController(SignupFormService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.MastersView)]
+    public async Task<ActionResult<ApiEnvelope<List<SignupFieldDto>>>> List(CancellationToken ct) =>
+        Envelope(await service.ListAsync(false, ct));
+
+    [HttpPost]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<SignupFieldDto>>> Create(
+        [FromBody] SignupFieldUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.CreateAsync(dto, ct), "Field added.");
+
+    [HttpPut("{id:int}")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<SignupFieldDto>>> Update(
+        int id, [FromBody] SignupFieldUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.UpdateAsync(id, dto, ct), "Field updated.");
+
+    [HttpPatch("{id:int}/status")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<SignupFieldDto>>> SetStatus(
+        int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
+        Envelope(await service.SetStatusAsync(id, dto.Status, ct));
+
+    [HttpDelete("{id:int}")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<bool>>> Delete(int id, CancellationToken ct)
+    {
+        await service.DeleteAsync(id, ct);
+        return Envelope(true, "Field removed.");
+    }
+
+    [HttpPut("order")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<List<SignupFieldDto>>>> Reorder(
+        [FromBody] ReorderDto dto, CancellationToken ct) =>
+        Envelope(await service.ReorderAsync(dto.Ids, ct), "Order saved.");
+}

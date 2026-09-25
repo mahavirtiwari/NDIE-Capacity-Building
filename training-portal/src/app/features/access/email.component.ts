@@ -400,7 +400,19 @@ type Tab = 'sender' | 'templates' | 'log';
         .tpl-grid { grid-template-columns: minmax(0, 1fr); }
       }
 
-      .tpl-list { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.5rem; }
+      /* Fifteen templates make a column taller than the editor beside it, so
+         the page grew and the editor scrolled away while you were reading the
+         list. The list scrolls within itself instead, and stays beside what it
+         is selecting. */
+      .tpl-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        padding: 0.5rem;
+        max-height: calc(100vh - 19rem);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
       .tpl-item {
         display: grid;
         gap: 0.15rem;

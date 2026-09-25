@@ -6,6 +6,7 @@ export * from './email.model';
 export * from './masters.model';
 export * from './curriculum.model';
 export * from './registration-field.model';
+export * from './signup-field.model';
 export * from './fee.model';
 export * from './exam.model';
 export * from './material.model';

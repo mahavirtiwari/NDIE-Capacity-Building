@@ -5,6 +5,7 @@ using Ntms.Infrastructure.Email;
 using Ntms.Infrastructure.Identity;
 using Ntms.Infrastructure.Persistence;
 using Ntms.Infrastructure.Services;
+using Ntms.Infrastructure.Verification;
 using Ntms.Infrastructure.Storage;
 
 namespace Ntms.Infrastructure;
@@ -38,6 +39,8 @@ public static class DependencyInjection
 
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
+        services.Configure<PanVerificationOptions>(
+            configuration.GetSection(PanVerificationOptions.SectionName));
 
         services.AddSingleton<IPasswordService, PasswordService>();
         services.AddSingleton<ITokenService, JwtTokenService>();
@@ -47,6 +50,11 @@ public static class DependencyInjection
         services.AddScoped<IEmailSettingsProvider, EmailSettingsProvider>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddScoped<INotificationService, NotificationService>();
+
+        /* Through the factory so the handler is pooled and the timeout is the
+           one in settings rather than the default hundred seconds. */
+        services.AddHttpClient(nameof(PanVerifier));
+        services.AddScoped<IPanVerifier, PanVerifier>();
         services.AddScoped<OtpService>();
         services.AddScoped<DbSeeder>();
 
@@ -57,6 +65,7 @@ public static class DependencyInjection
         services.AddScoped<AgencyService>();
         services.AddScoped<CurriculumService>();
         services.AddScoped<RegistrationFormService>();
+        services.AddScoped<SignupFormService>();
         services.AddScoped<FeeService>();
         services.AddScoped<ExamPaperService>();
         services.AddScoped<TrainingMaterialService>();

@@ -304,3 +304,51 @@ public class TrainingMaterialUpsertDto
     public bool DownloadAllowed { get; set; } = true;
     public string Status { get; set; } = "Active";
 }
+
+/* ------------------------------------------------- the account sign-up form */
+
+public class SignupFieldOptionDto
+{
+    public string Value { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+}
+
+public class SignupFieldDto
+{
+    public int Id { get; set; }
+    public string Key { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public string? Placeholder { get; set; }
+    public string? HelpText { get; set; }
+    public string Type { get; set; } = "Text";
+    public bool Required { get; set; }
+    public int DisplayOrder { get; set; }
+
+    /// <summary>Backed by a column on the applicant: editable, never removable.</summary>
+    public bool IsBuiltIn { get; set; }
+
+    /// <summary>Cannot be switched off; an account would not work without it.</summary>
+    public bool IsLocked { get; set; }
+
+    public string Status { get; set; } = "Active";
+    public List<SignupFieldOptionDto> Options { get; set; } = [];
+}
+
+public class SignupFieldUpsertDto
+{
+    /// <summary>Ignored on update: the key is what answers are stored against.</summary>
+    public string Key { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public string? Placeholder { get; set; }
+    public string? HelpText { get; set; }
+    public string Type { get; set; } = "Text";
+    public bool Required { get; set; }
+    public int DisplayOrder { get; set; }
+    public string Status { get; set; } = "Active";
+    public List<SignupFieldOptionDto>? Options { get; set; }
+}
+
+public class ReorderDto
+{
+    public List<int> Ids { get; set; } = [];
+}
