@@ -6,6 +6,12 @@
     # Change a value here, not in the scripts. A script with the host baked into
     # it is a script that only works on the host somebody happened to write it
     # on.
+    #
+    # Production and staging are the same machine. That is worth knowing before
+    # a release rather than during one: there is nowhere to try a build first,
+    # the backups sit on the box they protect, and 20-release.ps1's "previous
+    # build" is the only way back that does not involve a rebuild. Everything
+    # below is written for that arrangement.
 
     # The checkout the release is built from.
     SourcePath  = 'E:\NDIE-Capacity-Building-main'
@@ -18,28 +24,33 @@
     # the site folder on purpose.
     StorageRoot = 'E:\cbms-data'
 
-    # Where backups are written. A second physical disc is better than a second
-    # folder on the same one; better still is a copy that leaves the machine.
+    # Where backups are written.
+    #
+    # The same disc as the site, for now, which survives a mistake and not a
+    # disc. Copying E:\cbms-backups off the machine is still the one thing
+    # missing from this deployment; when there is somewhere to put it, point
+    # this at that folder or add the copy to the nightly task.
     BackupRoot  = 'E:\cbms-backups'
 
     # How many days of database backups to keep. The most recent is never
     # pruned, whatever this says.
     KeepDays    = 30
 
-    # IIS.
+    # IIS. These match what 05-install-iis.ps1 created.
     SiteName    = 'CBMS'
     PoolName    = 'CbmsAppPool'
-    HostName    = 'training.ndie.gov.in'
+    HostName    = 'leanstaging.qci.org.in'
 
     # What the verification step asks for. Must match the certificate.
-    BaseUrl     = 'https://training.ndie.gov.in'
+    BaseUrl     = 'https://leanstaging.qci.org.in'
 
-    # The database, as SQL Server knows it. The connection string itself lives
-    # in appsettings.Production.json and is never copied here — one place for a
-    # password is enough.
+    # The database, as SQL Server knows it: the default instance on this
+    # machine. The connection string itself lives in appsettings.Production.json
+    # and is never copied here — one place for a password is enough.
     SqlInstance = 'localhost'
     Database    = 'CbmsDb'
 
-    # The hour a scheduled backup runs, on the 24-hour clock.
+    # The hour a scheduled backup runs, on the 24-hour clock. Before the working
+    # day and after any late marking.
     BackupAt    = '01:30'
 }

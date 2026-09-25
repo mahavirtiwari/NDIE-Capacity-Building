@@ -20,9 +20,23 @@ wins, for the one-off case.
 SourcePath  = 'E:\NDIE-Capacity-Building-main'   # the checkout
 SitePath    = 'E:\inetpub\cbms'                  # emptied and replaced every release
 StorageRoot = 'E:\cbms-data'                     # photographs and artwork; never touched
-BackupRoot  = 'E:\cbms-backups'                  # a second disc is worth more than a second folder
-BaseUrl     = 'https://training.ndie.gov.in'
+BackupRoot  = 'E:\cbms-backups'                  # on the same disc, for now
+BaseUrl     = 'https://leanstaging.qci.org.in'
 ```
+
+### One machine
+
+Production and staging are the same server. Nothing in these scripts minds
+that, but three things follow, and they are better known now than during a
+release:
+
+- **There is nowhere to try a build first.** `20-release.ps1` verifies after it
+  deploys and puts the previous build back when that fails, which is the whole
+  of the safety net.
+- **The backups sit on the box they protect.** Good against a wrong `DELETE`,
+  useless against the disc.
+- **A release is a short outage.** The site is stopped while files are replaced
+  — seconds rather than minutes, but pick the hour anyway.
 
 ## Before you call it production
 
