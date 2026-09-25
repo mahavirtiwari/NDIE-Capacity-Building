@@ -63,8 +63,21 @@ export interface StateCoverage {
   participants: number;
 }
 
+/** One district, returned only when a single state is filtered. */
+export interface DistrictCoverage {
+  districtCode: number;
+  district: string;
+  programTypes: number;
+  programmes: number;
+  participants: number;
+}
+
 export interface StateCoverageResult {
   states: StateCoverage[];
+  /** The filtered state's districts. Empty unless exactly one state is chosen. */
+  districts?: DistrictCoverage[];
+  /** Which state those districts belong to, for the column heading. */
+  districtsOf?: string | null;
   maxProgramTypes: number;
   maxParticipants: number;
   totalParticipants: number;

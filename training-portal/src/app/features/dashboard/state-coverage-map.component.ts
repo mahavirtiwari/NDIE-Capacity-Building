@@ -26,10 +26,19 @@ interface Region {
       <header class="map__head">
         <div>
           <h3 class="map__title">Reach across India</h3>
-          <p class="map__sub">
-            {{ data()?.statesCovered ?? 0 }} of {{ regions().length }} states and union
-            territories have a programme running.
-          </p>
+          <!-- The subtitle follows the table down a level, so it does not
+               count states beside a list of districts. -->
+          @if (districtsOf(); as state) {
+            <p class="map__sub">
+              {{ districtsCovered() }} of {{ (data()?.districts ?? []).length }} districts in
+              {{ state }} have a programme running.
+            </p>
+          } @else {
+            <p class="map__sub">
+              {{ data()?.statesCovered ?? 0 }} of {{ regions().length }} states and union
+              territories have a programme running.
+            </p>
+          }
         </div>
 
         <div class="map__toggle" role="group" aria-label="What the shading shows">
@@ -113,7 +122,8 @@ interface Region {
                 <tr>
                   <th [attr.aria-sort]="ariaSort('name')">
                     <button type="button" class="map__sort" (click)="sortBy('name')">
-                      State <span class="map__caret">{{ caret('name') }}</span>
+                      {{ districtsOf() ? 'District' : 'State/UT' }}
+                      <span class="map__caret">{{ caret('name') }}</span>
                     </button>
                   </th>
                   <th class="num" [attr.aria-sort]="ariaSort('participants')">
@@ -129,24 +139,39 @@ interface Region {
                 </tr>
               </thead>
               <tbody>
-                @for (region of ranked(); track region.code) {
-                  <tr
-                    [class.map__row--active]="hovered()?.code === region.code"
-                    [class.map__row--idle]="region.programmes === 0"
-                    (mouseenter)="hovered.set(region)"
-                    (mouseleave)="hovered.set(null)"
-                  >
-                    <td>{{ region.name }}</td>
-                    <td class="num">{{ region.participants | number }}</td>
-                    <td class="num">{{ region.programmes | number }}</td>
-                  </tr>
+                @if (districtsOf()) {
+                  <!-- Districts have no shape on the map, so these rows do not
+                       drive the hover highlight the state rows do. -->
+                  @for (row of rankedDistricts(); track row.districtCode) {
+                    <tr [class.map__row--idle]="row.programmes === 0">
+                      <td>{{ row.district }}</td>
+                      <td class="num">{{ row.participants | number }}</td>
+                      <td class="num">{{ row.programmes | number }}</td>
+                    </tr>
+                  }
+                  @if (rankedDistricts().length === 0) {
+                    <tr><td colspan="3" class="map__none">No districts recorded for this state.</td></tr>
+                  }
+                } @else {
+                  @for (region of ranked(); track region.code) {
+                    <tr
+                      [class.map__row--active]="hovered()?.code === region.code"
+                      [class.map__row--idle]="region.programmes === 0"
+                      (mouseenter)="hovered.set(region)"
+                      (mouseleave)="hovered.set(null)"
+                    >
+                      <td>{{ region.name }}</td>
+                      <td class="num">{{ region.participants | number }}</td>
+                      <td class="num">{{ region.programmes | number }}</td>
+                    </tr>
+                  }
                 }
               </tbody>
               <tfoot>
                 <tr>
-                  <th>All India</th>
-                  <th class="num">{{ data()?.totalParticipants ?? 0 | number }}</th>
-                  <th class="num">{{ data()?.totalProgrammes ?? 0 | number }}</th>
+                  <th>{{ districtsOf() ? 'All ' + districtsOf() : 'All India' }}</th>
+                  <th class="num">{{ tableTotals().participants | number }}</th>
+                  <th class="num">{{ tableTotals().programmes | number }}</th>
                 </tr>
               </tfoot>
             </table>
@@ -404,6 +429,11 @@ interface Region {
       font-weight: 650;
       padding: 0.4rem 0.55rem;
     }
+    .map__none {
+      text-align: center;
+      color: var(--ink-500);
+      padding: 1rem 0.5rem;
+    }
     .map__table tfoot .num {
       text-align: center;
     }
@@ -555,6 +585,49 @@ export class StateCoverageMapComponent {
     if (this.sort().key !== key) return 'none';
     return this.sort().dir === 'asc' ? 'ascending' : 'descending';
   }
+
+  /** Set when the filter names one state, which is what drops the table a level. */
+  protected readonly districtsOf = computed(() => this.data()?.districtsOf || null);
+
+  protected readonly districtsCovered = computed(
+    () => (this.data()?.districts ?? []).filter((d) => d.programTypes > 0).length,
+  );
+
+  /** Sorted by the same column and direction the state table is using. */
+  protected readonly rankedDistricts = computed(() => {
+    const rows = this.data()?.districts ?? [];
+    const { key, dir } = this.sort();
+    const factor = dir === 'asc' ? 1 : -1;
+
+    return [...rows].sort((a, b) => {
+      const primary =
+        key === 'name'
+          ? a.district.localeCompare(b.district)
+          : ((a[key as 'participants' | 'programmes'] as number) -
+             (b[key as 'participants' | 'programmes'] as number));
+      return primary !== 0 ? primary * factor : a.district.localeCompare(b.district);
+    });
+  });
+
+  /**
+   * The footer totals whatever the table is showing.
+   *
+   * Leaving the All India figures under a list of one state's districts would
+   * put a total beside rows that do not add up to it.
+   */
+  protected readonly tableTotals = computed(() => {
+    const districts = this.data()?.districts ?? [];
+    if (this.districtsOf()) {
+      return {
+        participants: districts.reduce((sum, d) => sum + d.participants, 0),
+        programmes: districts.reduce((sum, d) => sum + d.programmes, 0),
+      };
+    }
+    return {
+      participants: this.data()?.totalParticipants ?? 0,
+      programmes: this.data()?.totalProgrammes ?? 0,
+    };
+  });
 
   protected readonly ranked = computed(() => {
     const { key, dir } = this.sort();

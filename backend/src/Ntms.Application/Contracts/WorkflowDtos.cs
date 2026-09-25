@@ -357,9 +357,34 @@ public class StateCoverageDto
     public int Participants { get; set; }
 }
 
+/// <summary>
+/// One district, for when a single state is being looked at.
+///
+/// Districts are only ever returned for one state at a time. Returning all
+/// seven hundred and sixty-odd on every dashboard load, for a table that shows
+/// thirty-six rows, would be a great deal of work for nothing.
+/// </summary>
+public class DistrictCoverageDto
+{
+    public int DistrictCode { get; set; }
+    public string District { get; set; } = string.Empty;
+    public int ProgramTypes { get; set; }
+    public int Programmes { get; set; }
+    public int Participants { get; set; }
+}
+
 public class StateCoverageResultDto
 {
     public List<StateCoverageDto> States { get; set; } = [];
+
+    /// <summary>
+    /// The districts of the filtered state, when exactly one is filtered.
+    /// Empty otherwise, which is how the table knows which level it is showing.
+    /// </summary>
+    public List<DistrictCoverageDto> Districts { get; set; } = [];
+
+    /// <summary>The state those districts belong to, for the column heading.</summary>
+    public string? DistrictsOf { get; set; }
     /// <summary>Highest value on each measure, so the map can scale its shading.</summary>
     public int MaxProgramTypes { get; set; }
     public int MaxParticipants { get; set; }

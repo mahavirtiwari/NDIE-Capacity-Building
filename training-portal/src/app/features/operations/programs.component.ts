@@ -240,10 +240,26 @@ const COLUMNS: ColumnDef[] = [
           </div>
           <div class="field">
             <label class="field-label" for="npState">State <span class="req">*</span></label>
-            <select id="npState" class="select" formControlName="stateCode">
+            <select id="npState" class="select" formControlName="stateCode"
+              (change)="onStateChange()">
               <option [ngValue]="null">Select</option>
               @for (state of states(); track state.id) {
                 <option [ngValue]="state.id">{{ state.name }}</option>
+              }
+            </select>
+          </div>
+
+          <!-- Optional, but it is what the dashboard drills into: without it
+               every district in the state reads zero however many programmes
+               have run there. -->
+          <div class="field">
+            <label class="field-label" for="npDistrict">District</label>
+            <select id="npDistrict" class="select" formControlName="districtCode">
+              <option [ngValue]="null">
+                {{ form.value.stateCode ? 'Select' : 'Choose a state first' }}
+              </option>
+              @for (district of districts(); track district.id) {
+                <option [ngValue]="district.id">{{ district.name }}</option>
               }
             </select>
           </div>
@@ -322,6 +338,25 @@ export class ProgramsComponent {
   protected readonly actions = programActions;
 
   protected readonly states = toSignal(this.lookups.states(), { initialValue: [] as LookupItem[] });
+
+  /* Every district, loaded once, and narrowed in the browser. There are around
+     seven hundred and sixty; a request per state change would be slower and no
+     more correct. */
+  private readonly allDistricts = toSignal(this.lookups.districts(), {
+    initialValue: [] as LookupItem[],
+  });
+  private readonly chosenState = signal<number | null>(null);
+
+  protected readonly districts = computed(() => {
+    const state = this.chosenState();
+    return state ? this.allDistricts().filter((d) => d.parentId === state) : [];
+  });
+
+  /** A district belongs to one state, so changing the state clears it. */
+  protected onStateChange(): void {
+    this.chosenState.set(this.form.controls.stateCode.value);
+    this.form.controls.districtCode.setValue(null);
+  }
   protected readonly agencies = toSignal(this.lookups.agencies(), { initialValue: [] as LookupItem[] });
   protected readonly programTypes = toSignal(this.lookups.programTypes(null), { initialValue: [] as LookupItem[] });
   protected readonly coordinators = signal<LookupItem[]>([]);
@@ -351,6 +386,7 @@ export class ProgramsComponent {
     coordinatorId: [null as number | null, Validators.required],
     mode: ['Virtual'],
     stateCode: [null as number | null, Validators.required],
+    districtCode: [null as number | null],
     venue: [''],
     meetingPlatform: ['Microsoft Teams'],
     meetingLink: [''],
@@ -377,6 +413,7 @@ export class ProgramsComponent {
       coordinatorId: null,
       mode: 'Virtual',
       stateCode: null,
+      districtCode: null,
       venue: '',
       meetingPlatform: 'Microsoft Teams',
       meetingLink: '',
@@ -385,6 +422,7 @@ export class ProgramsComponent {
       maxParticipants: 30,
     });
     this.coordinators.set([]);
+    this.chosenState.set(null);
     this.formOpen.set(true);
   }
 

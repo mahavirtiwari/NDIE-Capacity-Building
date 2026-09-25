@@ -89,6 +89,9 @@ export interface Program extends AuditInfo {
   /** LGD state code; `state` is the display name. */
   stateCode?: number;
   state: string;
+  /** Optional, and what the dashboard drills into below state level. */
+  districtCode?: number | null;
+  district?: string | null;
   meetingPlatform?: string;
   meetingLink?: string;
   startDate: string;

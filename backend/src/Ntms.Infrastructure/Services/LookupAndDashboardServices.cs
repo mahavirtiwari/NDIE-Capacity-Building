@@ -205,7 +205,80 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
            covered even though nothing has been conducted there yet. A state has
            a programme type recorded only if it has at least one programme. */
         result.StatesCovered = result.States.Count(s => s.ProgramTypes > 0);
+
+        await AddDistrictsAsync(result, programmes, filter, ct);
         return result;
+    }
+
+    /// <summary>
+    /// The districts of the filtered state, when exactly one state is filtered.
+    ///
+    /// The map always draws states - there are no district outlines - so this
+    /// is for the table beside it, which drops a level when the filter does.
+    /// Looking at one state and being shown a list of every other state was
+    /// the table answering a question nobody had asked.
+    ///
+    /// Districts with nothing are listed too, for the same reason states are:
+    /// an empty district is the more interesting half of the answer, and a
+    /// missing row would be read as an oversight.
+    /// </summary>
+    private async Task AddDistrictsAsync(
+        StateCoverageResultDto result,
+        IQueryable<Programme> programmes,
+        DashboardFilterDto filter,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(filter.State)) return;
+
+        var name = filter.State.Trim().ToUpperInvariant();
+        var state = await db.States.AsNoTracking()
+            .Where(s => s.Name == name)
+            .Select(s => new { s.Code, s.Name })
+            .FirstOrDefaultAsync(ct);
+
+        if (state is null) return;
+
+        /* A manager who does not hold this state sees nothing for it, the same
+           way the state list above is filtered. */
+        if (currentUser.IsMasterScoped && currentUser.ScopeStateCodes.Count > 0 &&
+            !currentUser.ScopeStateCodes.Contains(state.Code))
+        {
+            return;
+        }
+
+        var rows = await programmes
+            .Where(p => p.DistrictCode != null)
+            .GroupBy(p => p.DistrictCode!.Value)
+            .Select(g => new
+            {
+                DistrictCode = g.Key,
+                ProgramTypes = g.Select(p => p.ProgramTypeId).Distinct().Count(),
+                Programmes = g.Count(p => p.Status == ProgramStatus.Conducted),
+                Participants = g.SelectMany(p => p.Participants).Count(),
+            })
+            .ToListAsync(ct);
+
+        var byDistrict = rows.ToDictionary(r => r.DistrictCode);
+
+        var districts = await db.Districts.AsNoTracking()
+            .Where(d => d.StateCode == state.Code)
+            .OrderBy(d => d.Name)
+            .Select(d => new { d.Code, d.Name })
+            .ToListAsync(ct);
+
+        result.DistrictsOf = Title(state.Name);
+        foreach (var district in districts)
+        {
+            var row = byDistrict.GetValueOrDefault(district.Code);
+            result.Districts.Add(new DistrictCoverageDto
+            {
+                DistrictCode = district.Code,
+                District = Title(district.Name),
+                ProgramTypes = row?.ProgramTypes ?? 0,
+                Programmes = row?.Programmes ?? 0,
+                Participants = row?.Participants ?? 0,
+            });
+        }
     }
 
     /// <summary>
