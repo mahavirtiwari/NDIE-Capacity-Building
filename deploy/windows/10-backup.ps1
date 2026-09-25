@@ -97,23 +97,53 @@ function Get-SqlServiceAccount {
         That is the single most common reason a backup script that looks
         correct fails with "Operating system error 5".
 
-        Asked of the server when it will say, and derived from the instance
-        name when it will not: a virtual service account is NT SERVICE\MSSQLSERVER
-        for a default instance and NT SERVICE\MSSQL$<INSTANCE> for a named one.
+        Windows is asked first. The site connects as an ordinary application
+        login, which has no business holding VIEW SERVER STATE, so the server's
+        own answer to this question is usually a permission error — and an
+        error read as a name is worse than no answer, because what follows is
+        an attempt to grant file rights to a sentence.
+
+        Three sources, in order of how much they can be trusted: the service
+        control manager, which knows; the server, if this login happens to be
+        allowed to ask; and the name a default installation would have used,
+        which is right far more often than not.
     #>
     param([string] $Instance)
 
+    # The service name: MSSQLSERVER for a default instance, MSSQL$NAME for a
+    # named one. The connection string's server may carry the instance after a
+    # backslash, and may be an address rather than this machine.
+    $named = if ($Instance -match '\\(.+)$') { $Matches[1] } else { $null }
+    $serviceName = if ($named) { "MSSQL`$$named" } else { 'MSSQLSERVER' }
+
+    # Not $host: that is PowerShell's own, and assigning to it is an error.
+    $serverHost = if ($Instance) { ($Instance -split '\\')[0] } else { '' }
+    $isLocal = -not $serverHost -or
+               $serverHost -in @('localhost', '.', '(local)', '127.0.0.1', $env:COMPUTERNAME)
+
+    if ($isLocal) {
+        $service = Get-CimInstance Win32_Service -Filter "Name = '$serviceName'" -ErrorAction SilentlyContinue
+        if ($service -and $service.StartName) { return $service.StartName }
+    }
+
+    # The server, if it will say. Anything that is not shaped like an account
+    # is an error message wearing one's clothes.
     $answer = Invoke-Native 'sqlcmd' 'sqlcmd' ($sqlArgs + @('-Q',
         "SET NOCOUNT ON; SELECT TOP 1 service_account FROM sys.dm_server_services WHERE servicename LIKE 'SQL Server%';"
     )) -IgnoreExitCode
+    $failed = $LASTEXITCODE -ne 0
     $global:LASTEXITCODE = 0
 
-    $account = ($answer | Where-Object { $_ -and $_ -notmatch '^Msg |^Level |^\s*$' } | Select-Object -First 1)
-    if ($account) { return $account.Trim() }
+    if (-not $failed) {
+        $account = $answer |
+            ForEach-Object { "$_".Trim() } |
+            Where-Object { $_ -match '^[\w .\-$]+\\[\w .\-$]+$' } |
+            Select-Object -First 1
+        if ($account) { return $account }
+    }
 
-    $named = if ($Instance -match '\\(.+)$') { $Matches[1] } else { $null }
-    if ($named) { return "NT SERVICE\MSSQL`$$named" }
-    return 'NT SERVICE\MSSQLSERVER'
+    # What a default installation uses: a virtual account per instance.
+    return "NT SERVICE\$serviceName"
 }
 
 function Assert-BackupFolderWritable {
