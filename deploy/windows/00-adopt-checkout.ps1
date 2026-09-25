@@ -33,6 +33,10 @@ param(
     [string] $Path,
     [string] $Remote = 'https://github.com/mahavirtiwari/NDIE-Capacity-Building.git',
     [string] $Branch = 'main',
+    # Remove files the older download left behind. Kept separate from the
+    # adoption itself: deleting things is worth asking for, and the list is
+    # printed first so it can be read before it is agreed to.
+    [switch] $Clean,
     [switch] $Force
 )
 
@@ -62,10 +66,29 @@ if (Test-Path (Join-Path $Path '.git')) {
         $origin = (Invoke-Native 'git remote' 'git' @('remote', 'get-url', 'origin') -IgnoreExitCode | Select-Object -First 1)
         $global:LASTEXITCODE = 0
         $commit = (Invoke-Native 'git rev-parse' 'git' @('rev-parse', '--short', 'HEAD')).Trim()
+
+        $stray = @(Invoke-Native 'git status' 'git' @('status', '--porcelain') -IgnoreExitCode |
+            Where-Object { $_ -match '^\?\?' })
+        $global:LASTEXITCODE = 0
+
+        # -Clean is useful on an already-adopted folder too: it is how somebody
+        # clears the leftovers this script warned about the first time.
+        if ($stray -and $Clean) {
+            Invoke-Native 'git clean' 'git' @('clean', '-fd') -Stream | Out-Null
+            Write-Host "  [ok]  removed $($stray.Count) untracked file(s)" -ForegroundColor Green
+            $stray = @()
+        }
     }
     finally { Pop-Location }
 
     Write-Host "  Already a checkout of $origin, on $commit." -ForegroundColor Green
+
+    if ($stray) {
+        Write-Host "`n  [!!]  $($stray.Count) untracked file(s) will stop a release from pulling." -ForegroundColor Yellow
+        Write-Host "        .\00-adopt-checkout.ps1 -Clean  removes them.`n" -ForegroundColor Cyan
+        return
+    }
+
     Write-Host "`nNothing to adopt. Releases pull for themselves:" -ForegroundColor Cyan
     Write-Host "  cd $Path\deploy"
     Write-Host "  .\release-web.ps1`n"
@@ -97,16 +120,59 @@ try {
     Write-Host "  Fetching..." -ForegroundColor Gray
     Invoke-Native 'git fetch' 'git' @('fetch', '--all', '--prune') -Stream | Out-Null
 
+    # Reset, and never checkout here. Every file from the ZIP is untracked, and
+    # git checkout refuses rather than overwrite untracked files — which is the
+    # whole of what this has to do. git reset --hard makes the working tree
+    # match the commit without asking, which is right when the folder is meant
+    # to be that commit.
     Write-Host "  Resetting to origin/$Branch..." -ForegroundColor Gray
-    Invoke-Native 'git checkout' 'git' @('checkout', '-B', $Branch, "origin/$Branch") -Stream | Out-Null
     Invoke-Native 'git reset' 'git' @('reset', '--hard', "origin/$Branch") -Stream | Out-Null
+
+    # Whatever `git init` called the branch, it is $Branch now, and it follows
+    # the remote — so `git pull` works from here without arguments.
+    Invoke-Native 'git branch' 'git' @('branch', '-M', $Branch) | Out-Null
+    Invoke-Native 'git branch' 'git' @(
+        'branch', '--set-upstream-to', "origin/$Branch", $Branch) | Out-Null
 
     $commit  = (Invoke-Native 'git rev-parse' 'git' @('rev-parse', '--short', 'HEAD')).Trim()
     $subject = (Invoke-Native 'git log' 'git' @('log', '-1', '--pretty=%s')).Trim()
+
+    # A reset makes the tracked files match the commit and leaves everything
+    # else alone — which includes whatever an older ZIP left behind. Those show
+    # as untracked, and a release refuses on an untracked tree rather than
+    # pulling over somebody's work, so they have to be dealt with now or they
+    # will stop every release from here on.
+    $leftovers = @(Invoke-Native 'git status' 'git' @(
+        'status', '--porcelain', '--untracked-files=normal') -IgnoreExitCode |
+        Where-Object { $_ -match '^\?\?' } |
+        ForEach-Object { ($_ -replace '^\?\?\s*', '').Trim() })
+    $global:LASTEXITCODE = 0
+
+    if ($leftovers -and $Clean) {
+        # -fd, not -fdx: build outputs are ignored rather than untracked, and
+        # removing node_modules and bin here would only mean rebuilding them.
+        Invoke-Native 'git clean' 'git' @('clean', '-fd') -Stream | Out-Null
+        Write-Host "  [ok]  removed $($leftovers.Count) leftover file(s) from the old copy" -ForegroundColor Green
+        $leftovers = @()
+    }
 }
 finally { Pop-Location }
 
 Write-Host "`n  [ok]  now a checkout of $Branch, on $commit  $subject" -ForegroundColor Green
+
+if ($leftovers) {
+    Write-Host "`n  [!!]  $($leftovers.Count) file(s) are here that the repository does not have:" -ForegroundColor Yellow
+    $leftovers | Select-Object -First 10 | ForEach-Object { Write-Host "          $_" -ForegroundColor DarkGray }
+    if ($leftovers.Count -gt 10) { Write-Host "          ... and $($leftovers.Count - 10) more" -ForegroundColor DarkGray }
+
+    Write-Host "`n  They are almost certainly from the older download. A release refuses" -ForegroundColor Yellow
+    Write-Host "  to pull over untracked files, so it will stop until these are gone:" -ForegroundColor Yellow
+    Write-Host "`n    .\00-adopt-checkout.ps1 -Clean" -ForegroundColor Cyan
+    Write-Host "`n  That removes them and keeps what is ignored — node_modules, bin, obj —"
+    Write-Host "  so the next build does not start from nothing.`n"
+    return
+}
+
 Write-Host "`nFrom here on, a release pulls for itself — no more downloading:" -ForegroundColor Cyan
 Write-Host "  cd $Path\deploy"
 Write-Host "  .\release-web.ps1`n"
