@@ -16,7 +16,7 @@ namespace Ntms.Infrastructure.Services;
 /// because a marksheet that loses the name of what was marked stops being
 /// evidence of anything.
 /// </summary>
-public class EvaluationSkillService(NtmsDbContext db, ResultRecorder results)
+public class EvaluationSkillService(NtmsDbContext db)
 {
     private IQueryable<EvaluationSkill> Base =>
         db.EvaluationSkills.AsNoTracking().Include(s => s.ProgramType);

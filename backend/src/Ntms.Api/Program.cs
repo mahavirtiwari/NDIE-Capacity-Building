@@ -159,15 +159,68 @@ else
     app.UseHttpsRedirection();
 
     /* Set here rather than in web.config, which `dotnet publish` regenerates on
-       every deployment, and which would not travel if this ever moved off IIS.
+       every deployment, and which would not travel if this ever moved off IIS. */
 
-       No Content-Security-Policy: Angular's runtime needs style-src 'unsafe-inline'
-       and getting the rest wrong breaks the portal silently in one browser.
-       It deserves its own change, measured against the built bundle. */
     /* A staging host carries real programme data on pages that are genuinely
        public, so it must not end up in search results competing with the live
        site. Off by default — it is the live site that wants to be found. */
     var discourageCrawlers = builder.Configuration.GetValue("Site:DiscourageSearchEngines", false);
+
+    /* --------------------------------------------- content security policy --
+       Off until somebody turns it on, and report-only when they first do.
+
+       A policy that is too tight does not fail loudly: the portal loads, one
+       screen is missing its chart or its logo, and the reason is a line in a
+       console nobody has open. So the rollout is report-only first — the
+       browser reports what the policy would have blocked and blocks nothing —
+       and enforcing is a second, deliberate step once the reports are quiet.
+
+       The default below is measured against the built bundle rather than
+       guessed. What it allows and why:
+
+         script-src 'self'      the bundles, and nothing else. Angular is built
+                                ahead of time, so there is no eval and no inline
+                                script in index.html to make room for.
+         style-src  'unsafe-inline'
+                                Angular injects component styles as <style>
+                                elements while it runs. The alternative is a
+                                per-response nonce rewritten into index.html,
+                                which is real work for a much smaller risk than
+                                inline script.
+         img-src    data: blob: charts draw into data URIs and an uploaded file
+                                is previewed from a blob before it is sent.
+         frame-ancestors 'none' the same statement as X-Frame-Options, in the
+                                header that modern browsers actually read. */
+    var cspSection = builder.Configuration.GetSection("Site:ContentSecurityPolicy");
+    var cspEnabled = cspSection.GetValue("Enabled", false);
+    var cspReportOnly = cspSection.GetValue("ReportOnly", true);
+
+    var cspPolicy = cspSection.GetValue<string>("Policy");
+    if (string.IsNullOrWhiteSpace(cspPolicy))
+    {
+        cspPolicy = string.Join("; ",
+            "default-src 'self'",
+            "script-src 'self'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob:",
+            "font-src 'self' data:",
+            "connect-src 'self'",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'none'");
+    }
+
+    /* Only while reporting: an endpoint that accepts anonymous writes is worth
+       having for the week it is useful and not a day longer. */
+    if (cspEnabled && cspReportOnly)
+    {
+        cspPolicy += "; report-uri /api/csp-report";
+    }
+
+    var cspHeader = cspReportOnly
+        ? "Content-Security-Policy-Report-Only"
+        : "Content-Security-Policy";
 
     app.Use(async (context, next) =>
     {
@@ -176,6 +229,8 @@ else
         headers["X-Frame-Options"] = "DENY";
         headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
         headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()";
+
+        if (cspEnabled) headers[cspHeader] = cspPolicy;
 
         /* The header as well as robots.txt: a crawler that reached a page
            through a link somebody shared never asked for robots.txt, and this
@@ -215,6 +270,59 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHealthChecks("/health");
+
+/* ------------------------------------------------- policy violation reports
+   Where a browser sends what the policy would have blocked, while the policy
+   is still only reporting. Mounted only then: an endpoint that takes anonymous
+   writes earns its place for the week it is useful and not a day longer.
+
+   Appended to a file rather than logged, because there is no log anybody reads
+   on this deployment — the application writes to stdout and IIS throws it away.
+   The file is capped, so a bored stranger posting reports fills a megabyte and
+   then nothing. */
+if (app.Configuration.GetValue("Site:ContentSecurityPolicy:Enabled", false)
+    && app.Configuration.GetValue("Site:ContentSecurityPolicy:ReportOnly", true))
+{
+    app.MapPost("/api/csp-report", async (HttpContext context) =>
+    {
+        var folder = app.Configuration["Storage:MonitoringRoot"] is { Length: > 0 } configured
+            ? Path.GetDirectoryName(configured.TrimEnd(Path.DirectorySeparatorChar))
+              ?? AppContext.BaseDirectory
+            : AppContext.BaseDirectory;
+
+        var path = Path.Combine(folder, "csp-reports.log");
+
+        try
+        {
+            if (File.Exists(path) && new FileInfo(path).Length > 1_000_000) return Results.NoContent();
+
+            using var reader = new StreamReader(context.Request.Body);
+            /* Bounded read: the browser sends a small JSON object, and anything
+               larger is not a report. */
+            var buffer = new char[4096];
+            var read = await reader.ReadBlockAsync(buffer, 0, buffer.Length);
+            /* One report to a line, so the file can be read with anything
+               that reads lines. A report carrying its own newlines would
+               otherwise look like several. */
+            var body = new string(buffer, 0, read)
+                .Replace('\r', ' ')
+                .Replace('\n', ' ');
+
+            await File.AppendAllTextAsync(path, string.Join('\t',
+                DateTime.UtcNow.ToString("O"),
+                context.Request.Headers.UserAgent.ToString(),
+                body) + Environment.NewLine);
+        }
+        catch (IOException)
+        {
+            /* Two browsers reporting at once, or a folder that has gone away.
+               A violation report is diagnostics: losing one must never turn
+               into a 500 on somebody's page load. */
+        }
+
+        return Results.NoContent();
+    }).AllowAnonymous();
+}
 
 if (app.Configuration.GetValue("Site:DiscourageSearchEngines", false))
 {

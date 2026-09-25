@@ -149,10 +149,18 @@ of marking.
 
 ## Two things still to decide
 
-**A Content-Security-Policy header.** The other security headers are set by the
-application; CSP is not, because a policy that is wrong breaks the portal
-silently in one browser and a policy that is right has to be measured against
-the built bundle. It deserves its own change.
+**Turning the content security policy on.** It ships off, and goes on in two
+steps rather than one, because a policy that is too tight does not fail loudly:
+
+```powershell
+.\13-csp.ps1              # report-only — the browser reports, blocks nothing
+.\13-csp.ps1 -Reports     # what it would have blocked
+.\13-csp.ps1 -Enforce     # once that is empty
+```
+
+Leave it reporting for a few days of ordinary use, and make sure somebody opens
+the screens nobody opens often. `.\13-csp.ps1` on its own puts it back to
+reporting if enforcing turns out to break something.
 
 **Where the off-machine copy goes.** Everything above keeps backups on the
 server. That survives a mistake, not a disc and not the building.

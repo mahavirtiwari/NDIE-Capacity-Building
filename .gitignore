@@ -33,3 +33,8 @@ mobile/android/
 mobile/ios/
 mobile-coordinator/android/
 mobile-coordinator/ios/
+
+# The portal is built into the API's wwwroot at publish time. A developer who
+# copies a build there to see the two halves served as one — which is how they
+# run in production — should not find it staged for commit.
+backend/src/Ntms.Api/wwwroot/

@@ -171,7 +171,8 @@ Neither blocks this release; both are worth a decision.
 - **Backups do not leave the machine.** They survive a mistake, not a disc.
   When there is somewhere to put them, point `BackupRoot` in
   `settings.production.psd1` at it, or add a copy step to the nightly task.
-- **No Content-Security-Policy header.** The other security headers are set by
-  the application. CSP is not, because a wrong policy breaks the portal
-  silently in one browser and a right one has to be measured against the built
-  bundle.
+- **The content security policy is off until somebody turns it on.** It is
+  written and measured against the built portal, but it ships off so that
+  nobody discovers it during a release. Turn it on afterwards, in its own
+  step: `.\13-csp.ps1` for report-only, then `-Enforce` once the reports are
+  empty.

@@ -103,6 +103,17 @@ else {
             'Nobody gets their credentials, their OTP or a result notification until this is on. Set it up on the Email screen.'
     }
 
+    $csp = $config.Site.ContentSecurityPolicy
+    if (-not $csp -or -not $csp.Enabled) {
+        Report warn 'No content security policy' 'Site:ContentSecurityPolicy is off' `
+            'Run 13-csp.ps1 — it starts in report-only, which blocks nothing.'
+    }
+    elseif ($csp.ReportOnly) {
+        Report warn 'The policy is reporting, not enforcing' '' `
+            'Run 13-csp.ps1 -Reports, then -Enforce once that is empty.'
+    }
+    else { Report ok 'Content security policy is enforced' }
+
     if ($config.Site.DiscourageSearchEngines) {
         Report warn 'The site asks search engines to stay away' 'Site:DiscourageSearchEngines is true' `
             'Right for staging, wrong for the live site: set it to false so the public pages can be found.'
