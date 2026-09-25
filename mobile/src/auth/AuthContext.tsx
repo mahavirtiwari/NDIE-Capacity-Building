@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { Platform } from 'react-native';
+import { forgetCachedData } from '../offline/store';
 import { configureApi } from '../api/client';
 import { auth as authApi, me as meApi } from '../api/endpoints';
 import type { Applicant } from '../api/types';
@@ -73,7 +74,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     tokenRef.current = null;
     setApplicant(null);
-    await Promise.all([storage.remove(TOKEN_KEY), storage.remove(APPLICANT_KEY)]);
+    /* The cache holds this applicant's programmes, applications and profile.
+       A shared phone must not show them to whoever signs in next, so it goes
+       with the token rather than being left to age out. The branding and the
+       downloaded logo are kept: they belong to the installation, not to a
+       person, and the next sign-in screen should still be branded offline. */
+    await Promise.all([
+      storage.remove(TOKEN_KEY),
+      storage.remove(APPLICANT_KEY),
+      forgetCachedData(),
+    ]);
   }, []);
 
   useEffect(() => {

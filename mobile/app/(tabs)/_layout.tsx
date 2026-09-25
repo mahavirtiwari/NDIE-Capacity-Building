@@ -13,12 +13,12 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: colors.brand900 },
-        headerTintColor: colors.white,
+        headerStyle: { backgroundColor: colors.blush },
+        headerTintColor: colors.brand700,
         headerTitleStyle: { fontWeight: '600' },
-        tabBarActiveTintColor: colors.brand600,
+        tabBarActiveTintColor: colors.brand700,
         tabBarInactiveTintColor: colors.ink500,
-        tabBarStyle: { borderTopColor: colors.border },
+        tabBarStyle: { backgroundColor: colors.blush, borderTopColor: colors.brand100 },
         sceneStyle: { backgroundColor: colors.page },
       }}
     >

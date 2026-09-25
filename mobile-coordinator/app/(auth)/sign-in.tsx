@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../src/api/client';
 import { useAuth } from '../../src/auth/AuthContext';
+import { BrandLogo, useBranding } from '../../src/branding/BrandingContext';
 import { Banner, Button, Card, Field, Subtitle, Title } from '../../src/components/ui';
 import { colors, spacing } from '../../src/theme';
 
@@ -13,6 +14,7 @@ import { colors, spacing } from '../../src/theme';
 export default function SignIn() {
   const router = useRouter();
   const { signIn } = useAuth();
+  const { branding } = useBranding();
 
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
@@ -46,7 +48,10 @@ export default function SignIn() {
     >
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <Text style={styles.mark}>CBMS</Text>
+          {/* The organisation's own mark, served by the API and kept on the
+              device, so this screen is branded even with no signal. */}
+          <BrandLogo size={46} />
+          <Text style={styles.org}>{branding.organisationName}</Text>
           <Title>Workshop monitoring</Title>
           <Subtitle>
             Sign in with the coordinator ID issued to you — not your email address.
@@ -91,20 +96,10 @@ export default function SignIn() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.page },
+  flex: { flex: 1, backgroundColor: colors.blush },
   content: { padding: spacing.lg, paddingTop: spacing.xxl * 2, gap: spacing.lg, flexGrow: 1 },
-  header: { gap: spacing.xs },
-  mark: {
-    alignSelf: 'flex-start',
-    color: '#fff',
-    backgroundColor: colors.brand700,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginBottom: spacing.sm,
-  },
+  header: { gap: spacing.xs, alignItems: 'flex-start' },
+  org: { color: colors.ink600, fontSize: 12, marginBottom: spacing.sm },
   card: { gap: spacing.lg },
   footnote: { marginTop: 'auto', textAlign: 'center', color: colors.ink500, fontSize: 12 },
 });

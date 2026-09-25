@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { cacheKeyFor, readCache, writeCache } from '../offline/store';
 import { Platform } from 'react-native';
 import type { ApiEnvelope } from './types';
 
@@ -45,12 +46,26 @@ export class ApiError extends Error {
 
 type TokenReader = () => string | null;
 let readToken: TokenReader = () => null;
+let readCode: TokenReader = () => null;
 let onUnauthorised: () => void = () => {};
 
 /** Wired up once by the auth provider. */
-export function configureApi(reader: TokenReader, unauthorised: () => void): void {
+export function configureApi(
+  reader: TokenReader,
+  unauthorised: () => void,
+  userCode: TokenReader = () => null,
+): void {
   readToken = reader;
   onUnauthorised = unauthorised;
+  readCode = userCode;
+}
+
+/**
+ * Who is signed in, for the outbox: queued work is stamped with its owner so
+ * it can never be replayed under somebody else's token.
+ */
+export function readUserCode(): string | null {
+  return readCode();
 }
 
 /**
@@ -70,6 +85,13 @@ interface RequestOptions {
   query?: Record<string, string | number | boolean | null | undefined>;
   /** Skips the bearer header, for sign-up and OTP. */
   anonymous?: boolean;
+  /**
+   * Keep the answer for use when the server cannot be reached, and serve it
+   * then. On by default for GET. A coordinator opens a workshop in a hall with
+   * no signal, so the workshop, its participants and its curriculum have to be
+   * readable from whatever the phone last saw.
+   */
+  cache?: boolean;
   signal?: AbortSignal;
 }
 
@@ -97,6 +119,18 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       signal: options.signal,
     });
   } catch {
+    /*
+     * The server could not be reached. A read falls back to the last answer it
+     * gave, so a coordinator who opened the workshop while they had signal can
+     * still work through it in a hall that has none. Writes do not come from
+     * here - they go to the outbox instead, which is a different thing and is
+     * the caller's decision to make.
+     */
+    if ((options.method ?? 'GET') === 'GET' && options.cache !== false) {
+      const cached = await readCache<T>(cacheKeyFor(path, options.query));
+      if (cached) return cached.data;
+    }
+
     throw new ApiError(
       `Cannot reach the server at ${API_BASE_URL}. Check your connection.`,
       0,
@@ -123,7 +157,15 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     );
   }
 
-  return (envelope?.data ?? (null as T)) as T;
+  const data = (envelope?.data ?? (null as T)) as T;
+
+  /* Written after the fact, so only an answer the server stood behind is ever
+     replayed. Not awaited: storage should not hold up the screen. */
+  if ((options.method ?? 'GET') === 'GET' && options.cache !== false && data !== null) {
+    void writeCache(cacheKeyFor(path, options.query), data);
+  }
+
+  return data;
 }
 
 export const api = {

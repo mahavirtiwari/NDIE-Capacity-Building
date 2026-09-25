@@ -161,3 +161,18 @@ export const SOCIAL_CATEGORIES = [
   { value: 'SC', label: 'SC' },
   { value: 'ST', label: 'ST' },
 ];
+
+/** The organisation's own identity, set by an administrator in the portal. */
+export interface Branding {
+  organisationName: string;
+  shortName: string;
+  portalTitle: string;
+  tagline?: string | null;
+  supportEmail?: string | null;
+  hasLogo: boolean;
+  logoFileName?: string | null;
+  /** Relative to the API base, already carrying a cache-busting version. */
+  logoUrl?: string | null;
+  logoVersion: number;
+  updatedOn: string;
+}

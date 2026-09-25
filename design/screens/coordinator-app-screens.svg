@@ -2,41 +2,44 @@
 <rect width="100%" height="100%" fill="#f7f8fa"/>
 <text x="52" y="62" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="26" font-weight="700" fill="#82232f">CBMS Coordinator</text>
 <text x="52" y="88" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#6a7686">Every screen in the coordinator app. Copy taken from the source, not invented. Package in.gov.msme.cbms.coordinator.</text>
-<rect x="52" y="130" width="300" height="620" rx="26" fill="#82232f"/>
-<circle cx="202.0" cy="420.0" r="42" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="2"/>
-<text x="202.0" y="428.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="22" fill="#ffffff" font-weight="700" text-anchor="middle">CBMS</text>
-<text x="202.0" y="494.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10.5" fill="#ffffff" font-weight="400" text-anchor="middle">Workshop monitoring</text>
-<circle cx="202.0" cy="538.0" r="12" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="2.5" stroke-dasharray="14 10"/>
+<rect x="52" y="130" width="300" height="620" rx="26" fill="#fbecee" stroke="#dfe3e9" stroke-width="1.5"/>
+<rect x="142.0" y="390.0" width="120" height="44" rx="8" fill="#82232f"/>
+<text x="202.0" y="421.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="19" fill="#ffffff" font-weight="700" text-anchor="middle">CBMS</text>
+<text x="202.0" y="460.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="8.5" fill="#6a7686" font-weight="400" text-anchor="middle">NDIE logo, served by the API</text>
+<text x="202.0" y="494.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10.5" fill="#16202e" font-weight="400" text-anchor="middle">Workshop monitoring</text>
+<circle cx="202.0" cy="538.0" r="12" fill="none" stroke="#82232f" stroke-opacity="0.6" stroke-width="2.5" stroke-dasharray="14 10"/>
 <text x="54.0" y="776.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">Launch</text>
 <text x="54.0" y="792.0" font-family="Consolas,'SF Mono',monospace" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">app/index.tsx</text>
-<rect x="396" y="130" width="300" height="620" rx="26" fill="#ffffff" stroke="#dfe3e9" stroke-width="1.5"/>
+<rect x="396" y="130" width="300" height="620" rx="26" fill="#fbecee" stroke="#dfe3e9" stroke-width="1.5"/>
 <text x="414.0" y="154.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">9:41</text>
 <circle cx="654.0" cy="150.5" r="2.0" fill="#6a7686"/>
 <circle cx="663.0" cy="150.5" r="2.6" fill="#6a7686"/>
 <circle cx="672.0" cy="150.5" r="3.2" fill="#6a7686"/>
-<path d="M396 162 h300 v52 h-300 z" fill="#82232f"/>
-<text x="414.0" y="198.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#ffffff" font-weight="600" text-anchor="start">Sign in</text>
+<path d="M396 162 h300 v52 h-300 z" fill="#fbecee"/>
+<line x1="396" y1="214" x2="696" y2="214" stroke="#f1d8dc"/>
+<text x="414.0" y="198.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#16202e" font-weight="600" text-anchor="start">Sign in</text>
 <text x="398.0" y="776.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">Sign in</text>
 <text x="398.0" y="792.0" font-family="Consolas,'SF Mono',monospace" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">app/(auth)/sign-in.tsx</text>
 <text x="414.0" y="238.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">CBMS</text>
 <text x="414.0" y="258.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">Workshop monitoring</text>
 <text x="414.0" y="287.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">User ID</text>
-<rect x="414" y="300.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="414" y="300.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="424.0" y="319.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">CO0001</text>
 <text x="414.0" y="338.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Password</text>
-<rect x="414" y="351.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="414" y="351.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="424.0" y="370.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Your password</text>
 <rect x="414" y="393.0" width="264" height="34" rx="8" fill="#82232f" stroke="none"/>
 <text x="546.0" y="415.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="11" fill="#ffffff" font-weight="600" text-anchor="middle">Sign in</text>
 <text x="414.0" y="447.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">Capacity Building Management System</text>
 <text x="414.0" y="462.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">Ministry of MSME</text>
-<rect x="740" y="130" width="300" height="620" rx="26" fill="#ffffff" stroke="#dfe3e9" stroke-width="1.5"/>
+<rect x="740" y="130" width="300" height="620" rx="26" fill="#fbecee" stroke="#dfe3e9" stroke-width="1.5"/>
 <text x="758.0" y="154.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">9:41</text>
 <circle cx="998.0" cy="150.5" r="2.0" fill="#6a7686"/>
 <circle cx="1007.0" cy="150.5" r="2.6" fill="#6a7686"/>
 <circle cx="1016.0" cy="150.5" r="3.2" fill="#6a7686"/>
-<path d="M740 162 h300 v52 h-300 z" fill="#82232f"/>
-<text x="758.0" y="198.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#ffffff" font-weight="600" text-anchor="start">My workshops</text>
+<path d="M740 162 h300 v52 h-300 z" fill="#fbecee"/>
+<line x1="740" y1="214" x2="1040" y2="214" stroke="#f1d8dc"/>
+<text x="758.0" y="198.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#16202e" font-weight="600" text-anchor="start">My workshops</text>
 <text x="742.0" y="776.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">Assigned workshops</text>
 <text x="742.0" y="792.0" font-family="Consolas,'SF Mono',monospace" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">app/workshops.tsx</text>
 <rect x="758" y="238.0" width="264" height="58" rx="9" fill="#ffffff" stroke="#dfe3e9"/>
@@ -60,13 +63,14 @@
 <text x="758.0" y="452.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">No workshops assigned</text>
 <rect x="758" y="607.0" width="264" height="34" rx="8" fill="#ffffff" stroke="#82232f"/>
 <text x="890.0" y="629.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="11" fill="#82232f" font-weight="600" text-anchor="middle">Sign out</text>
-<rect x="1084" y="130" width="300" height="620" rx="26" fill="#ffffff" stroke="#dfe3e9" stroke-width="1.5"/>
+<rect x="1084" y="130" width="300" height="620" rx="26" fill="#fbecee" stroke="#dfe3e9" stroke-width="1.5"/>
 <text x="1102.0" y="154.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">9:41</text>
 <circle cx="1342.0" cy="150.5" r="2.0" fill="#6a7686"/>
 <circle cx="1351.0" cy="150.5" r="2.6" fill="#6a7686"/>
 <circle cx="1360.0" cy="150.5" r="3.2" fill="#6a7686"/>
-<path d="M1084 162 h300 v52 h-300 z" fill="#82232f"/>
-<text x="1102.0" y="198.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#ffffff" font-weight="600" text-anchor="start">Registration</text>
+<path d="M1084 162 h300 v52 h-300 z" fill="#fbecee"/>
+<line x1="1084" y1="214" x2="1384" y2="214" stroke="#f1d8dc"/>
+<text x="1102.0" y="198.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#16202e" font-weight="600" text-anchor="start">Registration</text>
 <text x="1086.0" y="776.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">Venue and trainers</text>
 <text x="1086.0" y="792.0" font-family="Consolas,'SF Mono',monospace" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">app/workshop/[id]/(tabs)/registration.tsx</text>
 <text x="1102.0" y="238.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">Venue</text>
@@ -79,7 +83,7 @@
 <text x="1102.0" y="382.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">No trainer registered yet</text>
 <rect x="1102" y="405.0" width="264" height="34" rx="8" fill="#ffffff" stroke="#82232f"/>
 <text x="1234.0" y="427.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="11" fill="#82232f" font-weight="600" text-anchor="middle">Register trainer</text>
-<line x1="1084" y1="696" x2="1384" y2="696" stroke="#dfe3e9"/>
+<line x1="1084" y1="696" x2="1384" y2="696" stroke="#f1d8dc"/>
 <rect x="1114.0" y="709.0" width="15" height="15" rx="4" fill="none" stroke="#82232f" stroke-width="1.6"/>
 <text x="1121.5" y="739.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="7.8" fill="#82232f" font-weight="600" text-anchor="middle">Registration</text>
 <rect x="1189.0" y="709.0" width="15" height="15" rx="4" fill="none" stroke="#aeb7c2" stroke-width="1.6"/>
@@ -88,13 +92,14 @@
 <text x="1271.5" y="739.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="7.8" fill="#6a7686" font-weight="400" text-anchor="middle">Submission</text>
 <rect x="1339.0" y="709.0" width="15" height="15" rx="4" fill="none" stroke="#aeb7c2" stroke-width="1.6"/>
 <text x="1346.5" y="739.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="7.8" fill="#6a7686" font-weight="400" text-anchor="middle">Exit</text>
-<rect x="52" y="834" width="300" height="620" rx="26" fill="#ffffff" stroke="#dfe3e9" stroke-width="1.5"/>
+<rect x="52" y="834" width="300" height="620" rx="26" fill="#fbecee" stroke="#dfe3e9" stroke-width="1.5"/>
 <text x="70.0" y="858.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">9:41</text>
 <circle cx="310.0" cy="854.5" r="2.0" fill="#6a7686"/>
 <circle cx="319.0" cy="854.5" r="2.6" fill="#6a7686"/>
 <circle cx="328.0" cy="854.5" r="3.2" fill="#6a7686"/>
-<path d="M52 866 h300 v52 h-300 z" fill="#82232f"/>
-<text x="70.0" y="902.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#ffffff" font-weight="600" text-anchor="start">Programme</text>
+<path d="M52 866 h300 v52 h-300 z" fill="#fbecee"/>
+<line x1="52" y1="918" x2="352" y2="918" stroke="#f1d8dc"/>
+<text x="70.0" y="902.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#16202e" font-weight="600" text-anchor="start">Programme</text>
 <text x="54.0" y="1480.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">The day as it happens</text>
 <text x="54.0" y="1496.0" font-family="Consolas,'SF Mono',monospace" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">app/workshop/[id]/(tabs)/programme.tsx</text>
 <text x="70.0" y="942.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">Record the workshop as it happens.</text>
@@ -116,7 +121,7 @@
 <rect x="70" y="1233.0" width="264" height="44" rx="9" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="82.0" y="1253.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10.5" fill="#16202e" font-weight="600" text-anchor="start">Participant feedback</text>
 <text x="82.0" y="1269.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="400" text-anchor="start">Not given</text>
-<line x1="52" y1="1400" x2="352" y2="1400" stroke="#dfe3e9"/>
+<line x1="52" y1="1400" x2="352" y2="1400" stroke="#f1d8dc"/>
 <rect x="82.0" y="1413.0" width="15" height="15" rx="4" fill="none" stroke="#aeb7c2" stroke-width="1.6"/>
 <text x="89.5" y="1443.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="7.8" fill="#6a7686" font-weight="400" text-anchor="middle">Registration</text>
 <rect x="157.0" y="1413.0" width="15" height="15" rx="4" fill="none" stroke="#82232f" stroke-width="1.6"/>
@@ -125,13 +130,14 @@
 <text x="239.5" y="1443.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="7.8" fill="#6a7686" font-weight="400" text-anchor="middle">Submission</text>
 <rect x="307.0" y="1413.0" width="15" height="15" rx="4" fill="none" stroke="#aeb7c2" stroke-width="1.6"/>
 <text x="314.5" y="1443.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="7.8" fill="#6a7686" font-weight="400" text-anchor="middle">Exit</text>
-<rect x="396" y="834" width="300" height="620" rx="26" fill="#ffffff" stroke="#dfe3e9" stroke-width="1.5"/>
+<rect x="396" y="834" width="300" height="620" rx="26" fill="#fbecee" stroke="#dfe3e9" stroke-width="1.5"/>
 <text x="414.0" y="858.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">9:41</text>
 <circle cx="654.0" cy="854.5" r="2.0" fill="#6a7686"/>
 <circle cx="663.0" cy="854.5" r="2.6" fill="#6a7686"/>
 <circle cx="672.0" cy="854.5" r="3.2" fill="#6a7686"/>
-<path d="M396 866 h300 v52 h-300 z" fill="#82232f"/>
-<text x="414.0" y="902.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#ffffff" font-weight="600" text-anchor="start">Submission</text>
+<path d="M396 866 h300 v52 h-300 z" fill="#fbecee"/>
+<line x1="396" y1="918" x2="696" y2="918" stroke="#f1d8dc"/>
+<text x="414.0" y="902.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#16202e" font-weight="600" text-anchor="start">Submission</text>
 <text x="398.0" y="1480.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">Final submission</text>
 <text x="398.0" y="1496.0" font-family="Consolas,'SF Mono',monospace" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">app/workshop/[id]/(tabs)/submit.tsx</text>
 <text x="414.0" y="942.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#6a7686" font-weight="400" text-anchor="start">Venue</text>
@@ -155,11 +161,11 @@
 <text x="414.0" y="1103.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">Still to do</text>
 <text x="414.0" y="1123.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9.5" fill="#1f7a4d" font-weight="400" text-anchor="start">Everything required has been captured.</text>
 <text x="414.0" y="1144.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Remarks</text>
-<rect x="414" y="1157.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="414" y="1157.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="424.0" y="1176.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Anything the reviewer should know (optional)</text>
 <rect x="414" y="1195.0" width="264" height="34" rx="8" fill="#82232f" stroke="none"/>
 <text x="546.0" y="1217.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="11" fill="#ffffff" font-weight="600" text-anchor="middle">Submit finally</text>
-<line x1="396" y1="1400" x2="696" y2="1400" stroke="#dfe3e9"/>
+<line x1="396" y1="1400" x2="696" y2="1400" stroke="#f1d8dc"/>
 <rect x="426.0" y="1413.0" width="15" height="15" rx="4" fill="none" stroke="#aeb7c2" stroke-width="1.6"/>
 <text x="433.5" y="1443.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="7.8" fill="#6a7686" font-weight="400" text-anchor="middle">Registration</text>
 <rect x="501.0" y="1413.0" width="15" height="15" rx="4" fill="none" stroke="#aeb7c2" stroke-width="1.6"/>
@@ -168,13 +174,14 @@
 <text x="583.5" y="1443.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="7.8" fill="#82232f" font-weight="600" text-anchor="middle">Submission</text>
 <rect x="651.0" y="1413.0" width="15" height="15" rx="4" fill="none" stroke="#aeb7c2" stroke-width="1.6"/>
 <text x="658.5" y="1443.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="7.8" fill="#6a7686" font-weight="400" text-anchor="middle">Exit</text>
-<rect x="740" y="834" width="300" height="620" rx="26" fill="#ffffff" stroke="#dfe3e9" stroke-width="1.5"/>
+<rect x="740" y="834" width="300" height="620" rx="26" fill="#fbecee" stroke="#dfe3e9" stroke-width="1.5"/>
 <text x="758.0" y="858.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">9:41</text>
 <circle cx="998.0" cy="854.5" r="2.0" fill="#6a7686"/>
 <circle cx="1007.0" cy="854.5" r="2.6" fill="#6a7686"/>
 <circle cx="1016.0" cy="854.5" r="3.2" fill="#6a7686"/>
-<path d="M740 866 h300 v52 h-300 z" fill="#82232f"/>
-<text x="758.0" y="902.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#ffffff" font-weight="600" text-anchor="start">Exit</text>
+<path d="M740 866 h300 v52 h-300 z" fill="#fbecee"/>
+<line x1="740" y1="918" x2="1040" y2="918" stroke="#f1d8dc"/>
+<text x="758.0" y="902.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#16202e" font-weight="600" text-anchor="start">Exit</text>
 <text x="742.0" y="1480.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">Leave the workshop</text>
 <text x="742.0" y="1496.0" font-family="Consolas,'SF Mono',monospace" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">app/workshop/[id]/(tabs)/exit.tsx</text>
 <rect x="758" y="1112.0" width="264" height="34" rx="8" fill="#ffffff" stroke="#82232f"/>
@@ -183,7 +190,7 @@
 <text x="890.0" y="1186.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="11" fill="#ffffff" font-weight="600" text-anchor="middle">Sign out</text>
 <text x="758.0" y="1222.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">You will need your user ID and password to</text>
 <text x="758.0" y="1237.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">sign back in.</text>
-<line x1="740" y1="1400" x2="1040" y2="1400" stroke="#dfe3e9"/>
+<line x1="740" y1="1400" x2="1040" y2="1400" stroke="#f1d8dc"/>
 <rect x="770.0" y="1413.0" width="15" height="15" rx="4" fill="none" stroke="#aeb7c2" stroke-width="1.6"/>
 <text x="777.5" y="1443.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="7.8" fill="#6a7686" font-weight="400" text-anchor="middle">Registration</text>
 <rect x="845.0" y="1413.0" width="15" height="15" rx="4" fill="none" stroke="#aeb7c2" stroke-width="1.6"/>
@@ -192,23 +199,24 @@
 <text x="927.5" y="1443.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="7.8" fill="#6a7686" font-weight="400" text-anchor="middle">Submission</text>
 <rect x="995.0" y="1413.0" width="15" height="15" rx="4" fill="none" stroke="#82232f" stroke-width="1.6"/>
 <text x="1002.5" y="1443.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="7.8" fill="#82232f" font-weight="600" text-anchor="middle">Exit</text>
-<rect x="1084" y="834" width="300" height="620" rx="26" fill="#ffffff" stroke="#dfe3e9" stroke-width="1.5"/>
+<rect x="1084" y="834" width="300" height="620" rx="26" fill="#fbecee" stroke="#dfe3e9" stroke-width="1.5"/>
 <text x="1102.0" y="858.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">9:41</text>
 <circle cx="1342.0" cy="854.5" r="2.0" fill="#6a7686"/>
 <circle cx="1351.0" cy="854.5" r="2.6" fill="#6a7686"/>
 <circle cx="1360.0" cy="854.5" r="3.2" fill="#6a7686"/>
-<path d="M1084 866 h300 v52 h-300 z" fill="#82232f"/>
-<text x="1102.0" y="902.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#ffffff" font-weight="600" text-anchor="start">Register venue</text>
+<path d="M1084 866 h300 v52 h-300 z" fill="#fbecee"/>
+<line x1="1084" y1="918" x2="1384" y2="918" stroke="#f1d8dc"/>
+<text x="1102.0" y="902.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#16202e" font-weight="600" text-anchor="start">Register venue</text>
 <text x="1086.0" y="1480.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">Venue with geo-tag</text>
 <text x="1086.0" y="1496.0" font-family="Consolas,'SF Mono',monospace" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">app/workshop/[id]/venue.tsx</text>
 <text x="1102.0" y="942.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Venue name</text>
-<rect x="1102" y="955.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="1102" y="955.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="1112.0" y="974.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Venue name</text>
 <text x="1102.0" y="993.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Address</text>
-<rect x="1102" y="1006.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="1102" y="1006.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="1112.0" y="1025.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Street, area, city</text>
 <text x="1102.0" y="1044.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Landmark</text>
-<rect x="1102" y="1057.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="1102" y="1057.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="1112.0" y="1076.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Optional</text>
 <text x="1102.0" y="1099.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">Geo-tag</text>
 <text x="1102.0" y="1119.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">No location captured yet</text>
@@ -224,51 +232,53 @@
 <text x="1234.0" y="1301.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="8.5" fill="#6a7686" font-weight="400" text-anchor="middle">Interior photo, the hall as set up</text>
 <rect x="1102" y="1318.0" width="264" height="34" rx="8" fill="#82232f" stroke="none"/>
 <text x="1234.0" y="1340.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="11" fill="#ffffff" font-weight="600" text-anchor="middle">Save venue</text>
-<rect x="52" y="1538" width="300" height="620" rx="26" fill="#ffffff" stroke="#dfe3e9" stroke-width="1.5"/>
+<rect x="52" y="1538" width="300" height="620" rx="26" fill="#fbecee" stroke="#dfe3e9" stroke-width="1.5"/>
 <text x="70.0" y="1562.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">9:41</text>
 <circle cx="310.0" cy="1558.5" r="2.0" fill="#6a7686"/>
 <circle cx="319.0" cy="1558.5" r="2.6" fill="#6a7686"/>
 <circle cx="328.0" cy="1558.5" r="3.2" fill="#6a7686"/>
-<path d="M52 1570 h300 v52 h-300 z" fill="#82232f"/>
-<text x="70.0" y="1606.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#ffffff" font-weight="600" text-anchor="start">Add a trainer</text>
+<path d="M52 1570 h300 v52 h-300 z" fill="#fbecee"/>
+<line x1="52" y1="1622" x2="352" y2="1622" stroke="#f1d8dc"/>
+<text x="70.0" y="1606.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#16202e" font-weight="600" text-anchor="start">Add a trainer</text>
 <text x="54.0" y="2184.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">Trainer</text>
 <text x="54.0" y="2200.0" font-family="Consolas,'SF Mono',monospace" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">app/workshop/[id]/trainer.tsx</text>
 <text x="70.0" y="1646.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Full name</text>
-<rect x="70" y="1659.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="70" y="1659.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="80.0" y="1678.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Trainer</text>
 <text x="70.0" y="1697.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Mobile</text>
-<rect x="70" y="1710.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="70" y="1710.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="80.0" y="1729.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Enter mobile number</text>
 <text x="70.0" y="1748.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Email</text>
-<rect x="70" y="1761.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="70" y="1761.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="80.0" y="1780.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Enter email address</text>
 <text x="70.0" y="1799.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Designation</text>
-<rect x="70" y="1812.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="70" y="1812.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="80.0" y="1831.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Designation</text>
 <text x="70.0" y="1850.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Organisation</text>
-<rect x="70" y="1863.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="70" y="1863.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="80.0" y="1882.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Organisation</text>
 <rect x="70" y="1907.0" width="264" height="34" rx="8" fill="#82232f" stroke="none"/>
 <text x="202.0" y="1929.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="11" fill="#ffffff" font-weight="600" text-anchor="middle">Add trainer</text>
-<rect x="396" y="1538" width="300" height="620" rx="26" fill="#ffffff" stroke="#dfe3e9" stroke-width="1.5"/>
+<rect x="396" y="1538" width="300" height="620" rx="26" fill="#fbecee" stroke="#dfe3e9" stroke-width="1.5"/>
 <text x="414.0" y="1562.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">9:41</text>
 <circle cx="654.0" cy="1558.5" r="2.0" fill="#6a7686"/>
 <circle cx="663.0" cy="1558.5" r="2.6" fill="#6a7686"/>
 <circle cx="672.0" cy="1558.5" r="3.2" fill="#6a7686"/>
-<path d="M396 1570 h300 v52 h-300 z" fill="#82232f"/>
-<text x="414.0" y="1606.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#ffffff" font-weight="600" text-anchor="start">Record a session</text>
+<path d="M396 1570 h300 v52 h-300 z" fill="#fbecee"/>
+<line x1="396" y1="1622" x2="696" y2="1622" stroke="#f1d8dc"/>
+<text x="414.0" y="1606.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#16202e" font-weight="600" text-anchor="start">Record a session</text>
 <text x="398.0" y="2184.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">Session</text>
 <text x="398.0" y="2200.0" font-family="Consolas,'SF Mono',monospace" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">app/workshop/[id]/session.tsx</text>
 <text x="414.0" y="1646.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Trainer</text>
-<rect x="414" y="1659.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="414" y="1659.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="424.0" y="1678.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Select the trainer</text>
 <path d="M658 1672.0 l4 5 l4 -5" stroke="#6a7686" stroke-width="1.5" fill="none"/>
 <text x="414.0" y="1697.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Topic</text>
-<rect x="414" y="1710.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="414" y="1710.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="424.0" y="1729.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Select the topic</text>
 <path d="M658 1723.0 l4 5 l4 -5" stroke="#6a7686" stroke-width="1.5" fill="none"/>
 <text x="414.0" y="1748.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Sub-topic</text>
-<rect x="414" y="1761.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="414" y="1761.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="424.0" y="1780.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Choose a topic first</text>
 <path d="M658 1774.0 l4 5 l4 -5" stroke="#6a7686" stroke-width="1.5" fill="none"/>
 <rect x="414" y="1803.0" width="264" height="62" rx="9" fill="#f4f6f8" stroke="#c3cbd6" stroke-dasharray="4 3"/>
@@ -276,52 +286,54 @@
 <circle cx="546.0" cy="1829.5" r="5" fill="none" stroke="#6a7686" stroke-width="1.6"/>
 <text x="546.0" y="1856.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="8.5" fill="#6a7686" font-weight="400" text-anchor="middle">Session photo, participants visible</text>
 <text x="414.0" y="1873.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Comments</text>
-<rect x="414" y="1886.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="414" y="1886.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="424.0" y="1905.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Optional</text>
 <rect x="414" y="1924.0" width="264" height="34" rx="8" fill="#82232f" stroke="none"/>
 <text x="546.0" y="1946.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="11" fill="#ffffff" font-weight="600" text-anchor="middle">Save session</text>
-<rect x="740" y="1538" width="300" height="620" rx="26" fill="#ffffff" stroke="#dfe3e9" stroke-width="1.5"/>
+<rect x="740" y="1538" width="300" height="620" rx="26" fill="#fbecee" stroke="#dfe3e9" stroke-width="1.5"/>
 <text x="758.0" y="1562.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">9:41</text>
 <circle cx="998.0" cy="1558.5" r="2.0" fill="#6a7686"/>
 <circle cx="1007.0" cy="1558.5" r="2.6" fill="#6a7686"/>
 <circle cx="1016.0" cy="1558.5" r="3.2" fill="#6a7686"/>
-<path d="M740 1570 h300 v52 h-300 z" fill="#82232f"/>
-<text x="758.0" y="1606.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#ffffff" font-weight="600" text-anchor="start">Register participant</text>
+<path d="M740 1570 h300 v52 h-300 z" fill="#fbecee"/>
+<line x1="740" y1="1622" x2="1040" y2="1622" stroke="#f1d8dc"/>
+<text x="758.0" y="1606.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#16202e" font-weight="600" text-anchor="start">Register participant</text>
 <text x="742.0" y="2184.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">On-spot registration</text>
 <text x="742.0" y="2200.0" font-family="Consolas,'SF Mono',monospace" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">app/workshop/[id]/participant.tsx</text>
 <text x="758.0" y="1646.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Full name</text>
-<rect x="758" y="1659.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="758" y="1659.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="768.0" y="1678.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">As they would like it on the certificate</text>
 <text x="758.0" y="1697.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Mobile</text>
-<rect x="758" y="1710.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="758" y="1710.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="768.0" y="1729.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Enter mobile number</text>
 <text x="758.0" y="1748.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Email</text>
-<rect x="758" y="1761.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="758" y="1761.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="768.0" y="1780.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Enter email address</text>
 <text x="758.0" y="1799.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Enterprise name</text>
-<rect x="758" y="1812.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="758" y="1812.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="768.0" y="1831.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Name of the unit</text>
 <text x="758.0" y="1850.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Udyam number</text>
-<rect x="758" y="1863.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="758" y="1863.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="768.0" y="1882.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">UDYAM-XX-00-0000000</text>
 <text x="758.0" y="1901.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">Tap NA if the enterprise is not registered.</text>
 <text x="758.0" y="1916.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Gender</text>
-<rect x="758" y="1929.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="758" y="1929.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="768.0" y="1948.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Select a gender</text>
 <path d="M1002 1942.0 l4 5 l4 -5" stroke="#6a7686" stroke-width="1.5" fill="none"/>
 <text x="758.0" y="1967.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Social category</text>
-<rect x="758" y="1980.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="758" y="1980.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="768.0" y="1999.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Select a social category</text>
 <path d="M1002 1993.0 l4 5 l4 -5" stroke="#6a7686" stroke-width="1.5" fill="none"/>
 <rect x="758" y="2018.0" width="264" height="34" rx="8" fill="#82232f" stroke="none"/>
 <text x="890.0" y="2040.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="11" fill="#ffffff" font-weight="600" text-anchor="middle">Register participant</text>
-<rect x="1084" y="1538" width="300" height="620" rx="26" fill="#ffffff" stroke="#dfe3e9" stroke-width="1.5"/>
+<rect x="1084" y="1538" width="300" height="620" rx="26" fill="#fbecee" stroke="#dfe3e9" stroke-width="1.5"/>
 <text x="1102.0" y="1562.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">9:41</text>
 <circle cx="1342.0" cy="1558.5" r="2.0" fill="#6a7686"/>
 <circle cx="1351.0" cy="1558.5" r="2.6" fill="#6a7686"/>
 <circle cx="1360.0" cy="1558.5" r="3.2" fill="#6a7686"/>
-<path d="M1084 1570 h300 v52 h-300 z" fill="#82232f"/>
-<text x="1102.0" y="1606.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#ffffff" font-weight="600" text-anchor="start">Participant photo</text>
+<path d="M1084 1570 h300 v52 h-300 z" fill="#fbecee"/>
+<line x1="1084" y1="1622" x2="1384" y2="1622" stroke="#f1d8dc"/>
+<text x="1102.0" y="1606.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#16202e" font-weight="600" text-anchor="start">Participant photo</text>
 <text x="1086.0" y="2184.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">One photo each</text>
 <text x="1086.0" y="2200.0" font-family="Consolas,'SF Mono',monospace" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">app/workshop/[id]/participant-photo.tsx</text>
 <text x="1102.0" y="1646.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">Optional. A clear head and shoulders shot.</text>
@@ -344,13 +356,14 @@
 <rect x="1221.0" y="1852.0" width="26" height="19" rx="3.5" fill="none" stroke="#6a7686" stroke-width="1.6"/>
 <circle cx="1234.0" cy="1861.5" r="5" fill="none" stroke="#6a7686" stroke-width="1.6"/>
 <text x="1234.0" y="1888.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="8.5" fill="#6a7686" font-weight="400" text-anchor="middle">Upload photo</text>
-<rect x="52" y="2242" width="300" height="620" rx="26" fill="#ffffff" stroke="#dfe3e9" stroke-width="1.5"/>
+<rect x="52" y="2242" width="300" height="620" rx="26" fill="#fbecee" stroke="#dfe3e9" stroke-width="1.5"/>
 <text x="70.0" y="2266.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">9:41</text>
 <circle cx="310.0" cy="2262.5" r="2.0" fill="#6a7686"/>
 <circle cx="319.0" cy="2262.5" r="2.6" fill="#6a7686"/>
 <circle cx="328.0" cy="2262.5" r="3.2" fill="#6a7686"/>
-<path d="M52 2274 h300 v52 h-300 z" fill="#82232f"/>
-<text x="70.0" y="2310.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#ffffff" font-weight="600" text-anchor="start">Attendance</text>
+<path d="M52 2274 h300 v52 h-300 z" fill="#fbecee"/>
+<line x1="52" y1="2326" x2="352" y2="2326" stroke="#f1d8dc"/>
+<text x="70.0" y="2310.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#16202e" font-weight="600" text-anchor="start">Attendance</text>
 <text x="54.0" y="2888.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">Mark present or absent</text>
 <text x="54.0" y="2904.0" font-family="Consolas,'SF Mono',monospace" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">app/workshop/[id]/attendance.tsx</text>
 <rect x="70.0" y="2350.0" width="86.2" height="22" rx="11" fill="#82232f" stroke="#82232f"/>
@@ -358,30 +371,31 @@
 <rect x="162.2" y="2350.0" width="49.0" height="22" rx="11" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="186.7" y="2365.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="middle">Clear</text>
 <text x="70.0" y="2382.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#16202e" font-weight="400" text-anchor="start">Anita Sharma</text>
-<rect x="300.0" y="2368.0" width="34" height="19" rx="9.5" fill="#1f7a4d"/>
+<rect x="300.0" y="2368.0" width="34" height="19" rx="9.5" fill="#3d6b11"/>
 <circle cx="324.5" cy="2377.5" r="7.5" fill="#ffffff"/>
 <text x="70.0" y="2408.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#16202e" font-weight="400" text-anchor="start">Rakesh Kumar</text>
-<rect x="300.0" y="2394.0" width="34" height="19" rx="9.5" fill="#1f7a4d"/>
+<rect x="300.0" y="2394.0" width="34" height="19" rx="9.5" fill="#3d6b11"/>
 <circle cx="324.5" cy="2403.5" r="7.5" fill="#ffffff"/>
 <text x="70.0" y="2434.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#16202e" font-weight="400" text-anchor="start">Sunita Devi</text>
 <rect x="300.0" y="2420.0" width="34" height="19" rx="9.5" fill="#ccd3db"/>
 <circle cx="309.5" cy="2429.5" r="7.5" fill="#ffffff"/>
 <text x="70.0" y="2460.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#16202e" font-weight="400" text-anchor="start">Imran Qureshi</text>
-<rect x="300.0" y="2446.0" width="34" height="19" rx="9.5" fill="#1f7a4d"/>
+<rect x="300.0" y="2446.0" width="34" height="19" rx="9.5" fill="#3d6b11"/>
 <circle cx="324.5" cy="2455.5" r="7.5" fill="#ffffff"/>
 <text x="70.0" y="2486.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#16202e" font-weight="400" text-anchor="start">Meera Nair</text>
-<rect x="300.0" y="2472.0" width="34" height="19" rx="9.5" fill="#1f7a4d"/>
+<rect x="300.0" y="2472.0" width="34" height="19" rx="9.5" fill="#3d6b11"/>
 <circle cx="324.5" cy="2481.5" r="7.5" fill="#ffffff"/>
 <text x="70.0" y="2522.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">Not marked: 0</text>
 <rect x="70" y="2617.0" width="264" height="34" rx="8" fill="#82232f" stroke="none"/>
 <text x="202.0" y="2639.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="11" fill="#ffffff" font-weight="600" text-anchor="middle">Save attendance</text>
-<rect x="396" y="2242" width="300" height="620" rx="26" fill="#ffffff" stroke="#dfe3e9" stroke-width="1.5"/>
+<rect x="396" y="2242" width="300" height="620" rx="26" fill="#fbecee" stroke="#dfe3e9" stroke-width="1.5"/>
 <text x="414.0" y="2266.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">9:41</text>
 <circle cx="654.0" cy="2262.5" r="2.0" fill="#6a7686"/>
 <circle cx="663.0" cy="2262.5" r="2.6" fill="#6a7686"/>
 <circle cx="672.0" cy="2262.5" r="3.2" fill="#6a7686"/>
-<path d="M396 2274 h300 v52 h-300 z" fill="#82232f"/>
-<text x="414.0" y="2310.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#ffffff" font-weight="600" text-anchor="start">Signed sheet</text>
+<path d="M396 2274 h300 v52 h-300 z" fill="#fbecee"/>
+<line x1="396" y1="2326" x2="696" y2="2326" stroke="#f1d8dc"/>
+<text x="414.0" y="2310.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#16202e" font-weight="600" text-anchor="start">Signed sheet</text>
 <text x="398.0" y="2888.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">Signed attendance sheets</text>
 <text x="398.0" y="2904.0" font-family="Consolas,'SF Mono',monospace" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">app/workshop/[id]/attendance-photo.tsx</text>
 <text x="414.0" y="2350.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">One photo per page. Make sure the signatures</text>
@@ -399,13 +413,14 @@
 <text x="426.0" y="2577.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="400" text-anchor="start">Uploaded 12 Oct, 16:42</text>
 <rect x="414" y="2595.0" width="264" height="34" rx="8" fill="#82232f" stroke="none"/>
 <text x="546.0" y="2617.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="11" fill="#ffffff" font-weight="600" text-anchor="middle">Upload sheet</text>
-<rect x="740" y="2242" width="300" height="620" rx="26" fill="#ffffff" stroke="#dfe3e9" stroke-width="1.5"/>
+<rect x="740" y="2242" width="300" height="620" rx="26" fill="#fbecee" stroke="#dfe3e9" stroke-width="1.5"/>
 <text x="758.0" y="2266.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">9:41</text>
 <circle cx="998.0" cy="2262.5" r="2.0" fill="#6a7686"/>
 <circle cx="1007.0" cy="2262.5" r="2.6" fill="#6a7686"/>
 <circle cx="1016.0" cy="2262.5" r="3.2" fill="#6a7686"/>
-<path d="M740 2274 h300 v52 h-300 z" fill="#82232f"/>
-<text x="758.0" y="2310.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#ffffff" font-weight="600" text-anchor="start">Feedback</text>
+<path d="M740 2274 h300 v52 h-300 z" fill="#fbecee"/>
+<line x1="740" y1="2326" x2="1040" y2="2326" stroke="#f1d8dc"/>
+<text x="758.0" y="2310.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="13" fill="#16202e" font-weight="600" text-anchor="start">Feedback</text>
 <text x="742.0" y="2888.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">Participant feedback</text>
 <text x="742.0" y="2904.0" font-family="Consolas,'SF Mono',monospace" font-size="9.5" fill="#6a7686" font-weight="400" text-anchor="start">app/workshop/[id]/feedback.tsx</text>
 <text x="758.0" y="2350.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">Anita Sharma</text>
@@ -421,7 +436,7 @@
 <rect x="878.8" y="2383.0" width="24.2" height="22" rx="11" fill="#82232f" stroke="#82232f"/>
 <text x="890.9" y="2398.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#ffffff" font-weight="600" text-anchor="middle">5</text>
 <text x="758.0" y="2415.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Comments</text>
-<rect x="758" y="2428.0" width="264" height="30" rx="7" fill="#f4f6f8" stroke="#dfe3e9"/>
+<rect x="758" y="2428.0" width="264" height="30" rx="7" fill="#ffffff" stroke="#dfe3e9"/>
 <text x="768.0" y="2447.5" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="10" fill="#9aa4b2" font-weight="400" text-anchor="start">Optional</text>
 <text x="758.0" y="2472.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="12.5" fill="#16202e" font-weight="600" text-anchor="start">Rakesh Kumar</text>
 <text x="758.0" y="2492.0" font-family="-apple-system,'Segoe UI',Roboto,sans-serif" font-size="9" fill="#6a7686" font-weight="600" text-anchor="start">Rating</text>

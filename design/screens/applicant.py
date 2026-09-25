@@ -2,19 +2,19 @@
 """The CBMS Applicant app, screen by screen."""
 from gen import Frame, sheet
 
-NAVY = '#0b2545'
+BRAND = '#82232f'
 TABS = ['Programmes', 'Batches', 'Applications', 'Material', 'Profile']
 
 
 def splash(x, y):
-    f = Frame(x, y, NAVY, '', 'Launch', 'app/index.tsx')
+    f = Frame(x, y, BRAND, '', 'Launch', 'app/index.tsx')
     f.out = []
     f.splash('CBMS', 'Applicant')
     return f.svg() if hasattr(f, 'svg') else '\n'.join(f.out)
 
 
 def sign_in(x, y):
-    f = Frame(x, y, NAVY, 'Sign in', 'Sign in', 'app/(auth)/sign-in.tsx')
+    f = Frame(x, y, BRAND, 'Sign in', 'Sign in', 'app/(auth)/sign-in.tsx')
     f.note('Enter your applicant ID and password.')
     f.gap(8)
     f.label('Applicant ID')
@@ -32,7 +32,7 @@ def sign_in(x, y):
 
 
 def sign_up(x, y):
-    f = Frame(x, y, NAVY, 'Create account', 'Register', 'app/(auth)/sign-up.tsx')
+    f = Frame(x, y, BRAND, 'Create account', 'Register', 'app/(auth)/sign-up.tsx')
     f.label('Full name')
     f.field('As printed on your PAN')
     f.label('Email')
@@ -54,7 +54,7 @@ def sign_up(x, y):
 
 
 def verify(x, y):
-    f = Frame(x, y, NAVY, 'Check your email', 'Verify email', 'app/(auth)/verify.tsx')
+    f = Frame(x, y, BRAND, 'Check your email', 'Verify email', 'app/(auth)/verify.tsx')
     f.note('Enter the 6 digit code from your email.')
     f.gap(10)
     f.label('Verification code')
@@ -69,7 +69,7 @@ def verify(x, y):
 
 
 def programs(x, y):
-    f = Frame(x, y, NAVY, 'Programmes', 'Programmes (tab 1)', 'app/(tabs)/programs.tsx')
+    f = Frame(x, y, BRAND, 'Programmes', 'Programmes (tab 1)', 'app/(tabs)/programs.tsx')
     f.field('Search programmes')
     f.chips(['All categories', 'ZED'], 0)
     f.card('5-day assessor training', ['ZED / Assessor', 'Minimum qualification: Graduation'],
@@ -81,7 +81,7 @@ def programs(x, y):
 
 
 def batches(x, y):
-    f = Frame(x, y, NAVY, 'Batches', 'Batches (tab 2)', 'app/(tabs)/batches.tsx')
+    f = Frame(x, y, BRAND, 'Batches', 'Batches (tab 2)', 'app/(tabs)/batches.tsx')
     f.note('Scheduled batches you can join.')
     f.gap(6)
     f.card('QCI / New Delhi', ['12 Oct to 16 Oct', 'Physical, 30 seats'], 'Apply')
@@ -93,7 +93,7 @@ def batches(x, y):
 
 
 def applications(x, y):
-    f = Frame(x, y, NAVY, 'Applications', 'Applications (tab 3)', 'app/(tabs)/applications.tsx')
+    f = Frame(x, y, BRAND, 'Applications', 'Applications (tab 3)', 'app/(tabs)/applications.tsx')
     f.card('5-day assessor training', ['Submitted 24 Sept 2026', 'Payment: Free'], 'View', '#5a6472')
     f.gap(2)
     f.heading('Enrolment')
@@ -108,7 +108,7 @@ def applications(x, y):
 
 
 def materials(x, y):
-    f = Frame(x, y, NAVY, 'Material', 'Training material (tab 4)', 'app/(tabs)/materials.tsx')
+    f = Frame(x, y, BRAND, 'Material', 'Training material (tab 4)', 'app/(tabs)/materials.tsx')
     f.note('Reading for the programmes you are on.')
     f.gap(6)
     f.card('ZED assessor handbook', ['PDF, 4.2 MB'])
@@ -121,7 +121,7 @@ def materials(x, y):
 
 
 def profile(x, y):
-    f = Frame(x, y, NAVY, 'Profile', 'Profile (tab 5)', 'app/(tabs)/profile.tsx')
+    f = Frame(x, y, BRAND, 'Profile', 'Profile (tab 5)', 'app/(tabs)/profile.tsx')
     f.row('Applicant ID', 'APP240001', True)
     f.row('Category', 'ZED')
     f.row('Sub-category', 'Assessor')
@@ -142,7 +142,7 @@ def profile(x, y):
 
 
 def apply(x, y):
-    f = Frame(x, y, NAVY, 'Apply', 'Registration form', 'app/apply/[programTypeId].tsx')
+    f = Frame(x, y, BRAND, 'Apply', 'Registration form', 'app/apply/[programTypeId].tsx')
     f.note('Fields come from the form built in the portal.')
     f.gap(6)
     f.label('Full name')
@@ -164,7 +164,7 @@ def apply(x, y):
 
 
 def application(x, y):
-    f = Frame(x, y, NAVY, 'Application', 'Application detail', 'app/application/[id].tsx')
+    f = Frame(x, y, BRAND, 'Application', 'Application detail', 'app/application/[id].tsx')
     f.card('5-day assessor training', ['ZED / Assessor'], 'Verified', '#1f7a4d')
     f.row('Submitted', '24 Sept 2026')
     f.row('Payment', 'Free')
@@ -189,7 +189,7 @@ SCREENS = [splash, sign_in, sign_up, verify, programs, batches,
            applications, materials, profile, apply, application]
 
 if __name__ == '__main__':
-    sheet('applicant-app-screens.svg', NAVY,
+    sheet('applicant-app-screens.svg', BRAND,
           'CBMS Applicant',
           'Every screen in the applicant app. Copy taken from the source, not invented. '
           'Package in.gov.msme.ntms.applicant.',

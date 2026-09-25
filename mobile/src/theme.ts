@@ -43,6 +43,11 @@ export const colors = {
   /* Muted text for use on the dark brand panels. */
   onBrandMuted: '#c49aa2',
 
+  /* The pale blush the portal puts behind its navigation: brand100 at 55%
+     over white. Light enough to carry ink text, tinted enough that a screen
+     using it still reads as part of the same product. */
+  blush: '#fbecee',
+
   page: '#f8f5f4',
   border: '#e6e0de',
   borderStrong: '#ccc4c1',

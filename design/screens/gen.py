@@ -16,8 +16,10 @@ INK = '#16202e'
 MUTED = '#6a7686'
 LINE = '#dfe3e9'
 FIELD = '#f4f6f8'
-OK = '#1f7a4d'
-WARN = '#b4690e'
+OK = '#3d6b11'
+WARN = '#a16207'
+BLUSH = '#fbecee'      # the portal's pale navigation tint
+SURFACE = '#ffffff'    # cards sit on the blush, as they do in the portal
 
 
 def esc(t):
@@ -41,14 +43,16 @@ class Frame:
 
     def chrome(self):
         x, y, o = self.x, self.y0, self.out
-        o.append('<rect x="%d" y="%d" width="%d" height="%d" rx="26" fill="#ffffff" '
-                 'stroke="%s" stroke-width="1.5"/>' % (x, y, W, H, LINE))
+        o.append('<rect x="%d" y="%d" width="%d" height="%d" rx="26" fill="%s" '
+                 'stroke="%s" stroke-width="1.5"/>' % (x, y, W, H, BLUSH, LINE))
         self._t(x + 18, y + 24, '9:41', 9, MUTED, '600')
         for i, r in enumerate([2, 2.6, 3.2]):
             o.append('<circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s"/>'
                      % (x + W - 42 + i * 9, y + 20.5, r, MUTED))
-        o.append('<path d="M%d %d h%d v52 h-%d z" fill="%s"/>' % (x, y + 32, W, W, self.brand))
-        self._t(x + 18, y + 68, self.title, 13, '#ffffff', '600')
+        o.append('<path d="M%d %d h%d v52 h-%d z" fill="%s"/>' % (x, y + 32, W, W, BLUSH))
+        o.append('<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="#f1d8dc"/>'
+                 % (x, y + 84, x + W, y + 84))
+        self._t(x + 18, y + 68, self.title, 13, INK, '600')
         self._t(x + 2, y + H + 26, self.caption, 12.5, INK, '600')
         self._t(x + 2, y + H + 42, self.route, 9.5, MUTED, '400', mono=True)
 
@@ -69,13 +73,13 @@ class Frame:
 
     def field(self, placeholder, filled=False):
         self.out.append('<rect x="%d" y="%.1f" width="%d" height="30" rx="7" fill="%s" '
-                        'stroke="%s"/>' % (self.x + 18, self.cy, W - 36, FIELD, LINE))
+                        'stroke="%s"/>' % (self.x + 18, self.cy, W - 36, SURFACE, LINE))
         self._t(self.x + 28, self.cy + 19.5, placeholder, 10, INK if filled else '#9aa4b2')
         self.cy += 38
 
     def select(self, s):
         self.out.append('<rect x="%d" y="%.1f" width="%d" height="30" rx="7" fill="%s" '
-                        'stroke="%s"/>' % (self.x + 18, self.cy, W - 36, FIELD, LINE))
+                        'stroke="%s"/>' % (self.x + 18, self.cy, W - 36, SURFACE, LINE))
         self._t(self.x + 28, self.cy + 19.5, s, 10, '#9aa4b2')
         self.out.append('<path d="M%d %.1f l4 5 l4 -5" stroke="%s" stroke-width="1.5" '
                         'fill="none"/>' % (self.x + W - 38, self.cy + 13, MUTED))
@@ -155,8 +159,8 @@ class Frame:
 
     def tabbar(self, names, active):
         y = self.y0 + H - 54
-        self.out.append('<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="%s"/>'
-                        % (self.x, y, self.x + W, y, LINE))
+        self.out.append('<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="#f1d8dc"/>'
+                        % (self.x, y, self.x + W, y))
         step = W / len(names)
         for i, n in enumerate(names):
             cx = self.x + step * (i + 0.5)
@@ -168,15 +172,17 @@ class Frame:
 
     def splash(self, word, sub):
         cx, cy = self.x + W / 2, self.y0 + H / 2 - 20
-        self.out.append('<rect x="%d" y="%d" width="%d" height="%d" rx="26" fill="%s"/>'
-                        % (self.x, self.y0, W, H, self.brand))
-        self.out.append('<circle cx="%.1f" cy="%.1f" r="42" fill="none" stroke="#ffffff" '
-                        'stroke-opacity="0.35" stroke-width="2"/>' % (cx, cy))
-        self._t(cx, cy + 8, word, 22, '#ffffff', '700', 'middle')
-        self._t(cx, cy + 74, sub, 10.5, '#ffffff', '400', 'middle')
-        self.out.append('<circle cx="%.1f" cy="%.1f" r="12" fill="none" stroke="#ffffff" '
-                        'stroke-opacity="0.5" stroke-width="2.5" stroke-dasharray="14 10"/>'
-                        % (cx, cy + 118))
+        self.out.append('<rect x="%d" y="%d" width="%d" height="%d" rx="26" fill="%s" '
+                        'stroke="%s" stroke-width="1.5"/>' % (self.x, self.y0, W, H, BLUSH, LINE))
+        # the uploaded mark, drawn as the block it occupies
+        self.out.append('<rect x="%.1f" y="%.1f" width="120" height="44" rx="8" fill="%s"/>'
+                        % (cx - 60, cy - 30, self.brand))
+        self._t(cx, cy + 1, word, 19, '#ffffff', '700', 'middle')
+        self._t(cx, cy + 40, 'NDIE logo, served by the API', 8.5, MUTED, '400', 'middle')
+        self._t(cx, cy + 74, sub, 10.5, INK, '400', 'middle')
+        self.out.append('<circle cx="%.1f" cy="%.1f" r="12" fill="none" stroke="%s" '
+                        'stroke-opacity="0.6" stroke-width="2.5" stroke-dasharray="14 10"/>'
+                        % (cx, cy + 118, self.brand))
         self._t(self.x + 2, self.y0 + H + 26, self.caption, 12.5, INK, '600')
         self._t(self.x + 2, self.y0 + H + 42, self.route, 9.5, MUTED, '400', mono=True)
 

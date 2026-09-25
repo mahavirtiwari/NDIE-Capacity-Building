@@ -23,5 +23,5 @@ export default function Entry() {
 }
 
 const styles = StyleSheet.create({
-  centre: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.page },
+  centre: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.blush },
 });

@@ -1,5 +1,7 @@
-import { API_BASE_URL, api, readAuthToken } from './client';
+import { ApiError, API_BASE_URL, api, readAuthToken, readUserCode } from './client';
+import { enqueue, keepPhoto, newLocalId } from '../offline/outbox';
 import type {
+  Branding,
   LoginResponse,
   MonitoringPhoto,
   MonitoringSession,
@@ -13,16 +15,73 @@ import type {
   WorkshopDetail,
 } from './types';
 
+export const branding = {
+  /* Anonymous, so the sign-in screen is branded before anyone has signed in -
+     which is the screen where it matters most. */
+  get: () => api.get<Branding>('branding', undefined, true),
+};
+
 export const auth = {
   /** Portal credentials: the system generated user ID, never an email. */
   login: (username: string, password: string) =>
     api.post<LoginResponse>('auth/login', { username, password }, true),
 };
 
+/* ------------------------------------------------------- writing offline */
+
+/**
+ * Sends a write, and keeps it for later if the server cannot be reached.
+ *
+ * The caller says what the record will look like once it exists, and that is
+ * what the screen gets straight away. Offline, the coordinator sees the
+ * participant they just registered in the list, exactly as they would with a
+ * signal — the difference is a provisional id and a line in the banner, not a
+ * different way of working.
+ *
+ * Only a failure to reach the server is queued. A refusal is a refusal: the
+ * server has seen the request and said no, and pretending otherwise would show
+ * the coordinator a record that is never going to exist.
+ */
+async function writeOrQueue<T>(spec: {
+  label: string;
+  method: 'POST' | 'PUT';
+  path: string;
+  body?: unknown;
+  localId?: number;
+  provisional: T;
+}): Promise<T> {
+  try {
+    return spec.method === 'POST'
+      ? await api.post<T>(spec.path, spec.body)
+      : await api.put<T>(spec.path, spec.body);
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 0) throw error;
+
+    await enqueue({
+      owner: readUserCode() ?? 'unknown',
+      label: spec.label,
+      method: spec.method,
+      path: spec.path,
+      body: spec.body,
+      localId: spec.localId,
+    });
+
+    return spec.provisional;
+  }
+}
+
+const NOW = () => new Date().toISOString();
+
 export const workshops = {
   mine: () => api.get<Workshop[]>('coordinator/programmes'),
   get: (id: number) => api.get<WorkshopDetail>(`coordinator/programmes/${id}`),
   curriculum: (id: number) => api.get<SessionTopic[]>(`coordinator/programmes/${id}/curriculum`),
+  /*
+   * Deliberately not queued. Submitting seals the workshop, and the server
+   * decides whether everything required is there — telling a coordinator it is
+   * submitted when nothing has left the phone, and having it refused hours
+   * later, is worse than telling them to find a signal for this one step.
+   */
   submit: (id: number, remarks?: string) =>
     api.post<Submission>(`coordinator/programmes/${id}/submit`, { remarks }),
 };
@@ -38,14 +97,45 @@ export const venue = {
       longitude?: number | null;
       accuracyMetres?: number | null;
     },
-  ) => api.put<Venue>(`coordinator/programmes/${id}/venue`, body),
+  ) =>
+    writeOrQueue<Venue>({
+      label: 'Venue',
+      method: 'PUT',
+      path: `coordinator/programmes/${id}/venue`,
+      body,
+      provisional: {
+        id: newLocalId(),
+        name: body.name,
+        address: body.address,
+        landmark: body.landmark ?? null,
+        latitude: body.latitude ?? null,
+        longitude: body.longitude ?? null,
+        accuracyMetres: body.accuracyMetres ?? null,
+        geoTaggedOn: body.latitude != null ? NOW() : null,
+      },
+    }),
 };
 
 export const trainers = {
-  add: (id: number, body: Omit<Trainer, 'id'>) =>
-    api.post<Trainer>(`coordinator/programmes/${id}/trainers`, body),
+  add: (id: number, body: Omit<Trainer, 'id'>) => {
+    const localId = newLocalId();
+    return writeOrQueue<Trainer>({
+      label: 'Trainer',
+      method: 'POST',
+      path: `coordinator/programmes/${id}/trainers`,
+      body,
+      localId,
+      provisional: { id: localId, ...body },
+    });
+  },
   update: (trainerId: number, body: Omit<Trainer, 'id'>) =>
-    api.put<Trainer>(`coordinator/trainers/${trainerId}`, body),
+    writeOrQueue<Trainer>({
+      label: 'Trainer',
+      method: 'PUT',
+      path: `coordinator/trainers/${trainerId}`,
+      body,
+      provisional: { id: trainerId, ...body },
+    }),
 };
 
 export const sessions = {
@@ -57,7 +147,24 @@ export const sessions = {
       curriculumTopicId: number;
       comments?: string;
     },
-  ) => api.post<MonitoringSession>(`coordinator/programmes/${id}/sessions`, body),
+  ) => {
+    const localId = newLocalId();
+    return writeOrQueue<MonitoringSession>({
+      label: 'Session',
+      method: 'POST',
+      path: `coordinator/programmes/${id}/sessions`,
+      body,
+      localId,
+      provisional: {
+        id: localId,
+        trainerId: body.trainerId,
+        curriculumSessionId: body.curriculumSessionId,
+        curriculumTopicId: body.curriculumTopicId,
+        conductedOn: NOW(),
+        comments: body.comments ?? null,
+      },
+    });
+  },
 };
 
 export const participants = {
@@ -73,16 +180,46 @@ export const participants = {
       gender: string;
       socialCategory: string;
     },
-  ) => api.post<Participant>(`coordinator/programmes/${id}/participants`, body),
+  ) => {
+    const localId = newLocalId();
+    return writeOrQueue<Participant>({
+      label: 'Participant',
+      method: 'POST',
+      path: `coordinator/programmes/${id}/participants`,
+      body,
+      localId,
+      provisional: { id: localId, ...body },
+    });
+  },
 
   /** The whole register in one call, so a pass of the room lands together. */
   attendance: (id: number, marks: { participantId: number; isPresent: boolean }[]) =>
-    api.put<number>(`coordinator/programmes/${id}/attendance`, marks),
+    writeOrQueue<number>({
+      label: 'Attendance',
+      method: 'PUT',
+      path: `coordinator/programmes/${id}/attendance`,
+      body: marks,
+      provisional: marks.length,
+    }),
 
   feedback: (participantId: number, rating: number, comments?: string) =>
-    api.put<Participant>(`coordinator/participants/${participantId}/feedback`, {
-      rating,
-      comments,
+    writeOrQueue<Participant>({
+      label: 'Feedback',
+      method: 'PUT',
+      path: `coordinator/participants/${participantId}/feedback`,
+      body: { rating, comments },
+      /* The screen only reads the feedback back off this, so the rest of the
+         participant is filled in from the list it already has. */
+      provisional: {
+        id: participantId,
+        fullName: '',
+        mobile: '',
+        email: '',
+        enterpriseName: '',
+        udyamNumber: '',
+        feedbackRating: rating,
+        feedbackComments: comments ?? null,
+      },
     }),
 };
 
@@ -108,6 +245,49 @@ export interface Fix {
  * the Content-Type header is deliberately left unset.
  */
 async function upload(path: string, image: CapturedImage, fix?: Fix | null): Promise<MonitoringPhoto> {
+  try {
+    return await send(path, image, fix);
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 0) throw error;
+
+    /*
+     * The photograph outlives the attempt. expo-image-picker returns a path in
+     * a cache the system may empty, so a copy is taken before the entry is
+     * queued - otherwise the upload that runs hours later has nothing to send.
+     */
+    const name = image.fileName ?? `photo-${Date.now()}.jpg`;
+    const kept = await keepPhoto(image.uri, name, image.mimeType ?? 'image/jpeg');
+
+    const query = fix ? `?latitude=${fix.latitude}&longitude=${fix.longitude}` : '';
+    const withFix = path.includes('?')
+      ? `${path}${fix ? `&latitude=${fix.latitude}&longitude=${fix.longitude}` : ''}`
+      : `${path}${query}`;
+
+    await enqueue({
+      owner: readUserCode() ?? 'unknown',
+      label: 'Photo',
+      method: 'POST',
+      path: withFix,
+      photo: { ...kept, latitude: fix?.latitude ?? null, longitude: fix?.longitude ?? null },
+    });
+
+    return {
+      id: newLocalId(),
+      kind: 'Venue' as MonitoringPhoto['kind'],
+      fileName: name,
+      contentType: image.mimeType ?? 'image/jpeg',
+      sizeBytes: 0,
+      latitude: fix?.latitude ?? null,
+      longitude: fix?.longitude ?? null,
+      capturedOn: NOW(),
+      /* The local copy, so the screen shows the photo that was just taken
+         rather than a gap where the server's copy will eventually be. */
+      url: kept.uri,
+    };
+  }
+}
+
+async function send(path: string, image: CapturedImage, fix?: Fix | null): Promise<MonitoringPhoto> {
   const url = new URL(`${API_BASE_URL}/${path}`);
   if (fix) {
     url.searchParams.set('latitude', String(fix.latitude));
@@ -123,14 +303,21 @@ async function upload(path: string, image: CapturedImage, fix?: Fix | null): Pro
 
   const token = readAuthToken();
 
-  const response = await fetch(url.toString(), {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: form,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: form,
+    });
+  } catch {
+    /* Status 0 is how the rest of the client says "could not reach the
+       server", and the caller queues on exactly that. */
+    throw new ApiError('Cannot reach the server.', 0);
+  }
 
   const envelope = (await response.json().catch(() => null)) as
     | { success: boolean; data: MonitoringPhoto; message?: string }

@@ -1,28 +1,39 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../src/auth/AuthContext';
+import { BrandingProvider } from '../src/branding/BrandingContext';
+import { NetworkProvider } from '../src/offline/NetworkContext';
+import { OutboxNotice } from '../src/offline/OutboxNotice';
 import { colors } from '../src/theme';
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <StatusBar style="light" />
-        <Stack
+      <NetworkProvider>
+        <BrandingProvider>
+          <AuthProvider>
+            <StatusBar style="dark" />
+            <View style={{ flex: 1 }}>
+              <OutboxNotice />
+              <Stack
           screenOptions={{
-            headerStyle: { backgroundColor: colors.brand700 },
-            headerTintColor: '#fff',
+            headerStyle: { backgroundColor: colors.blush },
+            headerTintColor: colors.brand700,
             headerTitleStyle: { fontWeight: '600' },
-            contentStyle: { backgroundColor: colors.page },
+            contentStyle: { backgroundColor: colors.blush },
           }}
         >
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="workshops" options={{ title: 'My workshops' }} />
           <Stack.Screen name="workshop/[id]" options={{ headerShown: false }} />
-        </Stack>
-      </AuthProvider>
+              </Stack>
+            </View>
+          </AuthProvider>
+        </BrandingProvider>
+      </NetworkProvider>
     </SafeAreaProvider>
   );
 }

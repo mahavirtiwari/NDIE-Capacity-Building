@@ -14,7 +14,7 @@ export default function Index() {
       <View style={styles.splash}>
         <BrandLogo size={58} />
         <Text style={styles.org}>{branding.organisationName}</Text>
-        <ActivityIndicator color={colors.white} style={styles.spinner} />
+        <ActivityIndicator color={colors.brand700} style={styles.spinner} />
       </View>
     );
   }
@@ -27,9 +27,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.brand900,
+    backgroundColor: colors.blush,
     gap: spacing.xs,
   },
-  org: { fontSize: font.sm, color: colors.onBrandMuted, marginTop: spacing.sm, textAlign: 'center' },
+  org: { fontSize: font.sm, color: colors.ink600, marginTop: spacing.sm, textAlign: 'center' },
   spinner: { marginTop: spacing.lg },
 });

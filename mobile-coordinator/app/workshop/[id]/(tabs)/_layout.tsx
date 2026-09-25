@@ -10,12 +10,12 @@ export default function WorkshopTabs() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: colors.brand700 },
-        headerTintColor: '#fff',
+        headerStyle: { backgroundColor: colors.blush },
+        headerTintColor: colors.brand700,
         headerTitleStyle: { fontWeight: '600' },
         tabBarActiveTintColor: colors.brand700,
         tabBarInactiveTintColor: colors.ink500,
-        tabBarStyle: { backgroundColor: '#fff', borderTopColor: colors.ink200 },
+        tabBarStyle: { backgroundColor: colors.blush, borderTopColor: colors.brand100 },
         tabBarLabelStyle: { fontSize: 11 },
         sceneStyle: { backgroundColor: colors.page },
       }}

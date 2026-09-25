@@ -136,7 +136,7 @@ export default function SignIn() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.brand900 },
+  safe: { flex: 1, backgroundColor: colors.blush },
   flex: { flex: 1 },
   content: { flexGrow: 1, paddingBottom: spacing.xl },
 
@@ -144,15 +144,15 @@ const styles = StyleSheet.create({
   brand: {
     fontSize: font.lg,
     fontWeight: '700',
-    color: colors.white,
+    color: colors.ink900,
     textAlign: 'center',
     lineHeight: 24,
   },
-  org: { fontSize: font.sm, color: colors.onBrandMuted },
+  org: { fontSize: font.sm, color: colors.ink500 },
 
   panel: {
     flex: 1,
-    backgroundColor: colors.page,
+    backgroundColor: colors.blush,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: spacing.xl,

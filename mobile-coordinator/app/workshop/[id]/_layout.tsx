@@ -13,10 +13,10 @@ export default function WorkshopLayout() {
     <WorkshopProvider id={Number(id)}>
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: colors.brand700 },
-          headerTintColor: '#fff',
+          headerStyle: { backgroundColor: colors.blush },
+          headerTintColor: colors.brand700,
           headerTitleStyle: { fontWeight: '600' },
-          contentStyle: { backgroundColor: colors.page },
+          contentStyle: { backgroundColor: colors.blush },
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { cacheKeyFor, readCache, writeCache } from '../offline/store';
 import { Platform } from 'react-native';
 import type { ApiEnvelope } from './types';
 
@@ -60,6 +61,12 @@ interface RequestOptions {
   /** Skips the bearer header, for sign-up and OTP. */
   anonymous?: boolean;
   signal?: AbortSignal;
+  /**
+   * Keep the answer for use when the server cannot be reached, and serve it
+   * then. On by default for GET. Turn it off for anything whose staleness
+   * would mislead rather than help.
+   */
+  cache?: boolean;
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -86,6 +93,17 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       signal: options.signal,
     });
   } catch {
+    /*
+     * The server could not be reached. For a read, the last answer it gave is
+     * far better than an error screen — the applicant on a train wants to see
+     * their application, not be told about the network. Writes are not served
+     * from here: a stale write is not a write.
+     */
+    if ((options.method ?? 'GET') === 'GET' && options.cache !== false) {
+      const cached = await readCache<T>(cacheKeyFor(path, options.query));
+      if (cached) return cached.data;
+    }
+
     throw new ApiError(
       `Cannot reach the server at ${API_BASE_URL}. Check your connection.`,
       0,
@@ -112,12 +130,24 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     );
   }
 
-  return (envelope?.data ?? (null as T)) as T;
+  const data = (envelope?.data ?? (null as T)) as T;
+
+  /* Kept after the fact rather than before, so only an answer the server
+     actually stood behind is ever replayed. Not awaited: a slow write to
+     storage should not hold up the screen that asked for the data. */
+  if ((options.method ?? 'GET') === 'GET' && options.cache !== false && data !== null) {
+    void writeCache(cacheKeyFor(path, options.query), data);
+  }
+
+  return data;
 }
 
 export const api = {
   get: <T>(path: string, query?: RequestOptions['query'], anonymous = false) =>
     request<T>(path, { method: 'GET', query, anonymous }),
+  /** A read that must be fresh or fail, such as a fee about to be paid. */
+  getLive: <T>(path: string, query?: RequestOptions['query'], anonymous = false) =>
+    request<T>(path, { method: 'GET', query, anonymous, cache: false }),
   post: <T>(path: string, body?: unknown, anonymous = false) =>
     request<T>(path, { method: 'POST', body, anonymous }),
   put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),

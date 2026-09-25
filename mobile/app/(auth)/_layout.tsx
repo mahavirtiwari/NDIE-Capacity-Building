@@ -5,9 +5,9 @@ export default function AuthLayout() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: colors.brand900 },
-        headerTintColor: colors.white,
-        contentStyle: { backgroundColor: colors.page },
+        headerStyle: { backgroundColor: colors.blush },
+        headerTintColor: colors.brand700,
+        contentStyle: { backgroundColor: colors.blush },
       }}
     >
       <Stack.Screen name="sign-in" options={{ headerShown: false }} />

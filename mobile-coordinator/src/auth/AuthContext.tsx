@@ -59,6 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(null);
         SecureStore.deleteItemAsync(KEY).catch(() => {});
       },
+      /* The outbox stamps queued work with whoever recorded it. */
+      () => current.current?.userCode ?? null,
     );
   }, []);
 
