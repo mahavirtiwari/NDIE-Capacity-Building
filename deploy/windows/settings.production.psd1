@@ -44,10 +44,14 @@
     # What the verification step asks for. Must match the certificate.
     BaseUrl     = 'https://leanstaging.qci.org.in'
 
-    # The database, as SQL Server knows it: the default instance on this
-    # machine. The connection string itself lives in appsettings.Production.json
-    # and is never copied here — one place for a password is enough.
-    SqlInstance = 'localhost'
+    # The database, as SQL Server knows it. A named Express instance, not the
+    # default one — the service on this machine is MSSQL$SQLEXPRESS, which is
+    # also why backups are written without compression: Express does not have
+    # it, and 10-backup.ps1 checks the edition rather than assuming.
+    #
+    # The connection string itself lives in appsettings.Production.json and is
+    # never copied here — one place for a password is enough.
+    SqlInstance = 'localhost\SQLEXPRESS'
     Database    = 'CbmsDb'
 
     # The hour a scheduled backup runs, on the 24-hour clock. Before the working
