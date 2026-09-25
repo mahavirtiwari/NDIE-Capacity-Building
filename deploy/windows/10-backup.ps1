@@ -166,32 +166,22 @@ function Get-SqlServiceAccount {
     return "NT SERVICE\$serviceName"
 }
 
-function Assert-BackupFolderWritable {
+function Grant-ServerWrite {
     <#
-        Checked before the backup rather than diagnosed after it. The server
-        writes the file; if it cannot, every run fails the same way and the
-        message is about a device rather than about a permission.
+    .SYNOPSIS
+        Lets the account SQL Server runs as write to the backup folder.
+
+    .DESCRIPTION
+        Granted on the backup root rather than the folder below it, and
+        inheritable, so the server can traverse down to where the file goes.
+        A grant on the leaf alone leaves the parent unreadable, and the error
+        that produces looks exactly like the one it was meant to fix.
     #>
     param([string] $Folder)
 
-    function Test-ServerCanWrite {
-        # A zero-page backup of master is the cheapest thing the server can be
-        # asked to write, and it proves the one thing in question.
-        $probe = Join-Path $Folder ('.writetest-{0}' -f [Guid]::NewGuid().ToString('N').Substring(0, 6))
-        Invoke-Native 'sqlcmd' 'sqlcmd' ($sqlArgs + @('-Q',
-            ("BACKUP DATABASE [master] TO DISK = N'{0}' WITH INIT, COPY_ONLY, STATS = 100;" -f $probe)
-        )) -IgnoreExitCode | Out-Null
-        $ok = $LASTEXITCODE -eq 0
-        $global:LASTEXITCODE = 0
-        if ($ok) { Remove-Item $probe -Force -ErrorAction SilentlyContinue }
-        return $ok
-    }
-
-    if (Test-ServerCanWrite) { return }
-
     # Granting on this machine only helps if the database engine is on this
     # machine. When it is somewhere else, the backup folder has to be a path
-    # that server can write — a share — and no amount of icacls here changes
+    # that server can write - a share - and no amount of icacls here changes
     # that. Said plainly rather than attempted and blamed on permissions.
     $engineHost = if ($server) { ($server -split '\\')[0] } else { '' }
     $engineIsLocal = -not $engineHost -or
@@ -199,47 +189,32 @@ function Assert-BackupFolderWritable {
 
     if (-not $engineIsLocal) {
         throw ("SQL Server is on {0} and cannot write to {1}, which is a path on this machine.`n" +
-               "Point -BackupRoot at a share that {0} can write to, and grant its service account " +
-               "access there.") -f $engineHost, $Folder
+               "Point -BackupRoot at a share that {0} can write to, and grant its service " +
+               "account access there.") -f $engineHost, $Folder
     }
 
     $account = Get-SqlServiceAccount -Instance $server
-    Write-Host "  [--]  SQL Server cannot write to $Folder" -ForegroundColor Yellow
-    Write-Host "        It runs as $account, and the backup is written by the server." -ForegroundColor DarkGray
-    Write-Host "        Granting it access..." -ForegroundColor Gray
+    Write-Host "        SQL Server runs as $account; granting it access to $Folder" -ForegroundColor Gray
 
     $output = Invoke-Native 'icacls' 'icacls' @(
         $Folder, '/grant', ('{0}:(OI)(CI)M' -f $account), '/T') -IgnoreExitCode
     $granted = $LASTEXITCODE -eq 0
     $global:LASTEXITCODE = 0
 
-    $hint = if (-not $granted -and ($output -join ' ') -match 'No mapping between account names') {
-        "`n  There is no account of that name on this machine. What is installed:`n" +
-        ((Get-CimInstance Win32_Service -Filter "Name LIKE 'MSSQL%'" -ErrorAction SilentlyContinue |
-            Where-Object { $_.PathName -match 'sqlservr\.exe' } |
-            ForEach-Object { "      {0}  runs as {1}" -f $_.Name, $_.StartName }) -join "`n")
-    }
-    else { '' }
-
     if (-not $granted) {
-        throw (("SQL Server ({0}) cannot write to {1}, and granting it failed.{2}`n`n" +
-                "Grant it by hand in an elevated prompt:`n" +
-                "    icacls `"{1}`" /grant `"<account>:(OI)(CI)M`" /T") -f $account, $Folder, $hint)
+        $installed = (Get-CimInstance Win32_Service -Filter "Name LIKE 'MSSQL%'" -ErrorAction SilentlyContinue |
+            Where-Object { $_.PathName -match 'sqlservr' + [regex]::Escape('.') + 'exe' } |
+            ForEach-Object { "      {0}  runs as {1}" -f $_.Name, $_.StartName }) -join "`n"
+
+        throw (("Could not grant {0} write access to {1}.`n{2}`n`n" +
+                "What is installed here:`n{3}`n`n" +
+                "Grant it by hand in an elevated prompt, in single quotes so the " +
+                "instance name survives:`n" +
+                "    icacls '{1}' /grant 'ACCOUNT:(OI)(CI)M' /T") -f
+               $account, $Folder, ($output -join "`n"), $installed)
     }
 
-    # Granted is not the same as working: the account may have been the wrong
-    # one, or the folder may sit under something that denies it anyway. Ask the
-    # server again rather than believing icacls.
-    if (-not (Test-ServerCanWrite)) {
-        throw (("Granted $account write access to {0}, and SQL Server still cannot write there.`n" +
-                "Either that is not the account it runs as, or something above the folder denies it.`n" +
-                "What is installed here:`n{1}") -f $Folder,
-               ((Get-CimInstance Win32_Service -Filter "Name LIKE 'MSSQL%'" -ErrorAction SilentlyContinue |
-                    Where-Object { $_.PathName -match 'sqlservr\.exe' } |
-                    ForEach-Object { "      {0}  runs as {1}" -f $_.Name, $_.StartName }) -join "`n"))
-    }
-
-    Write-Host "  [ok]  $account may now write to $Folder" -ForegroundColor Green
+    Write-Host "  [ok]  $account may now write there" -ForegroundColor Green
 }
 
 function Invoke-Sql {
@@ -260,14 +235,41 @@ $canCompress = $edition -ne 4   # 4 is Express
 $options = @('CHECKSUM', 'INIT', 'STATS = 10', "NAME = N'$database full backup'")
 if ($canCompress) { $options = @('COMPRESSION') + $options }
 
-Assert-BackupFolderWritable -Folder $dbFolder
+$statement = "BACKUP DATABASE [{0}] TO DISK = N'{1}' WITH {2};" -f
+    $database, $backupPath, ($options -join ', ')
 
 Write-Host "  Backing up [$database]..." -ForegroundColor Gray
-Invoke-Sql ("BACKUP DATABASE [{0}] TO DISK = N'{1}' WITH {2};" -f
-    $database, $backupPath, ($options -join ', ')) | Out-Null
+
+# Attempted, then diagnosed from what actually went wrong. An earlier version
+# tested the folder first by backing master to it, which fails for a login that
+# is only db_owner of its own database — and then blamed the folder for a
+# permission the folder never had anything to do with. The real backup is the
+# only honest test of whether the real backup works.
+$output = Invoke-Native 'sqlcmd' 'sqlcmd' ($sqlArgs + @('-Q', $statement)) -IgnoreExitCode
+$failed = $LASTEXITCODE -ne 0
+$global:LASTEXITCODE = 0
+
+if ($failed) {
+    $message = ($output -join "`n")
+
+    # Operating system error 5 is access denied and 3 is a missing path: both
+    # are the server failing to write, which is the one thing this script can
+    # do something about. Anything else — a permission inside SQL Server, a
+    # database in the wrong state — is not ours to fix by granting.
+    if ($message -match 'Operating system error (5|3)|Cannot open backup device') {
+        Write-Host "  [--]  SQL Server cannot write to $dbFolder" -ForegroundColor Yellow
+        Grant-ServerWrite -Folder $BackupRoot
+
+        Write-Host "  Backing up [$database] again..." -ForegroundColor Gray
+        Invoke-Native 'sqlcmd' 'sqlcmd' ($sqlArgs + @('-Q', $statement)) | Out-Null
+    }
+    else {
+        throw "The backup was refused:`n$message"
+    }
+}
 
 if (-not (Test-Path $backupPath)) {
-    throw "sqlcmd reported success but $backupPath is not there. Check that SQL Server's service account can write to $dbFolder — the backup is written by the server, not by this script."
+    throw "sqlcmd reported success but $backupPath is not there. The backup is written by the server, not by this script, so check what it can see: a mapped drive or a path that only exists in this session would do exactly this."
 }
 
 Write-Host "  Verifying the file reads back..." -ForegroundColor Gray

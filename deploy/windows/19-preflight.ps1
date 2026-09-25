@@ -147,12 +147,21 @@ if ($drive) {
 }
 
 # --- backups ----------------------------------------------------------------
+#
+# Scheduled or by hand is a decision, not a defect, so this reports what it
+# finds rather than insisting on the scheduled task. What it will not let pass
+# quietly is a production database with no recent backup by any means.
 
-$task = Get-ScheduledTask -TaskName 'CBMS nightly backup' -ErrorAction SilentlyContinue
-if (-not $task) {
-    Report fail 'No scheduled backup' '' '.\12-schedule-backups.ps1'
+$anywhere = @(
+    (Join-Path $BackupRoot 'database'), $BackupRoot
+) | Where-Object { Test-Path $_ } | ForEach-Object {
+    Get-ChildItem $_ -Filter '*.bak' -ErrorAction SilentlyContinue
 }
-else {
+
+$latest = $anywhere | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+$task = Get-ScheduledTask -TaskName 'CBMS nightly backup' -ErrorAction SilentlyContinue
+
+if ($task) {
     $info = Get-ScheduledTaskInfo -TaskName 'CBMS nightly backup'
     if ($info.LastRunTime -and $info.LastRunTime -gt (Get-Date).AddDays(-2) -and $info.LastTaskResult -eq 0) {
         Report ok ("Nightly backup ran {0:dd MMM HH:mm}" -f $info.LastRunTime)
@@ -162,20 +171,27 @@ else {
             "Start-ScheduledTask -TaskName 'CBMS nightly backup'"
     }
     else {
-        Report fail ("Last backup {0:dd MMM HH:mm}, result {1}" -f $info.LastRunTime, $info.LastTaskResult) '' `
-            "Check $BackupRoot\logs."
+        Report warn ("The scheduled backup last ran {0:dd MMM HH:mm} and returned {1}" -f
+            $info.LastRunTime, $info.LastTaskResult) '' "Check $BackupRoot\logs."
     }
 }
 
-$latest = Get-ChildItem (Join-Path $BackupRoot 'database') -Filter '*.bak' -ErrorAction SilentlyContinue |
-    Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if ($latest) {
     $age = ((Get-Date) - $latest.LastWriteTime).TotalHours
+    $where = Split-Path $latest.FullName -Parent
+
     if ($age -gt 48) {
-        Report fail ("The newest backup is {0:n0} hours old" -f $age) $latest.Name '.\10-backup.ps1'
+        Report fail ("The newest backup is {0:n0} hours old" -f $age) "$($latest.Name) in $where" `
+            'Take one before releasing. A release applies migrations, and the backup is what makes that reversible.'
     }
-    else { Report ok ("Newest backup {0:dd MMM HH:mm}, {1} MB" -f $latest.LastWriteTime,
-        [math]::Round($latest.Length / 1MB, 1)) }
+    else {
+        Report ok ("Newest backup {0:dd MMM HH:mm}, {1} MB" -f $latest.LastWriteTime,
+            [math]::Round($latest.Length / 1MB, 1))
+    }
+}
+elseif (-not $task) {
+    Report fail 'No backups, scheduled or otherwise' "Nothing in $BackupRoot" `
+        'Take one by hand before releasing, or run .\12-schedule-backups.ps1 to have it done nightly.'
 }
 
 if ($BackupRoot.Substring(0, 1) -eq $SitePath.Substring(0, 1)) {
