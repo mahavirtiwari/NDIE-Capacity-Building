@@ -56,18 +56,30 @@ public class AgencyService(
                      || a.ContactPerson.Contains(request.Search!) || a.Email.Contains(request.Search!))
             .ApplySort(request, db.Model.FindEntityType(typeof(ImplementingAgency))!, a => a.Name);
 
-        return await query.ToPagedResultAsync(request, a => a.ToDto(), ct);
+        return await query.ToPagedResultAsync(request, Describe, ct);
     }
 
     public async Task<List<AgencyDto>> AllAsync(string? status, CancellationToken ct) =>
         [.. (await Base
                 .WhereIf(!string.IsNullOrWhiteSpace(status), a => a.Status == EnumMaps.ToStatus(status))
                 .OrderBy(a => a.Name).ToListAsync(ct))
-            .Select(a => a.ToDto())];
+            .Select(Describe)];
 
     public async Task<AgencyDto> GetAsync(int id, CancellationToken ct) =>
-        (await Base.FirstOrDefaultAsync(a => a.Id == id, ct)
-         ?? throw AppException.NotFound("Implementing agency")).ToDto();
+        Describe(await Base.FirstOrDefaultAsync(a => a.Id == id, ct)
+                 ?? throw AppException.NotFound("Implementing agency"));
+
+    /// <summary>
+    /// The record plus whether this caller may change it, so the screen can
+    /// withhold an Edit button the API would refuse rather than offering one
+    /// that fails when pressed.
+    /// </summary>
+    private AgencyDto Describe(ImplementingAgency entity)
+    {
+        var dto = entity.ToDto();
+        dto.CanEdit = delegation.CanEditRecord(BaseRole.AgencyAdmin, entity.CreatedBy);
+        return dto;
+    }
 
     public async Task<AgencyDto> CreateAsync(AgencyUpsertDto dto, CancellationToken ct)
     {
@@ -174,6 +186,11 @@ public class AgencyService(
             .AsSplitQuery()
             .FirstOrDefaultAsync(a => a.Id == id, ct)
             ?? throw AppException.NotFound("Implementing agency");
+
+        /* An agency is an Implementing Agency account plus its empanelment, so
+           editing one is editing that account: it sits with the Operation
+           Manager who appointed them, or with whoever added the record. */
+        delegation.EnsureCanEditRecord(BaseRole.AgencyAdmin, entity.CreatedBy, "agency");
 
         var code = Formats.Normalise(dto.Code)!;
         if (await db.Agencies.AnyAsync(a => a.Code == code && a.Id != id, ct))

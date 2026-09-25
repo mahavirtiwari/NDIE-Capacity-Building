@@ -49,6 +49,8 @@ public class NtmsDbContext(DbContextOptions<NtmsDbContext> options, ICurrentUser
 
     /* Overrides only: the shipped wording lives in code. */
     public DbSet<SiteText> SiteTexts => Set<SiteText>();
+
+    public DbSet<EvaluationSkill> EvaluationSkills => Set<EvaluationSkill>();
     public DbSet<FeeStructure> FeeStructures => Set<FeeStructure>();
     public DbSet<FeeComponent> FeeComponents => Set<FeeComponent>();
     public DbSet<FeeConcession> FeeConcessions => Set<FeeConcession>();

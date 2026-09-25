@@ -41,20 +41,6 @@ public class DelegationGuard(ICurrentUser user, NtmsDbContext db)
     }
 
     /// <summary>
-    /// Refuses a change to an account of a tier this caller is not responsible
-    /// for creating.
-    ///
-    /// Editing an account and creating one are the same authority: whoever may
-    /// set somebody's details and allocation in the first place is the tier
-    /// that answers for them. A Super Admin may therefore edit an Admin or a
-    /// Ministry account, but not an Operation Manager — that is the Admin's
-    /// responsibility, and reaching past them would leave the Admin accountable
-    /// for an allocation somebody else changed.
-    ///
-    /// Oversight of the tiers further down is kept, but as
-    /// <see cref="EnsureOutranks"/> allows: look, enable, disable.
-    /// </summary>
-    /// <summary>
     /// Restoring access to an account, which any tier above it may do.
     ///
     /// Editing a profile stays with the tier that created it, and that is
@@ -77,6 +63,61 @@ public class DelegationGuard(ICurrentUser user, NtmsDbContext db)
             $"{RoleHierarchy.DisplayName(target)} account.", 403);
     }
 
+    /// <summary>
+    /// Editing a record that belongs to a tier below: allowed for the tier that
+    /// may edit that tier, and for whoever actually created the record.
+    ///
+    /// An implementing agency is an Implementing Agency account plus what it is
+    /// empanelled for, so editing one is editing that account — and by the
+    /// rule everywhere else, that sits with the Operation Manager who appoints
+    /// them, not with the Super Admin above. The exception is the obvious one:
+    /// somebody may always edit what they themselves added, or setting a record
+    /// up and then being unable to correct it would be the result.
+    /// </summary>
+    public bool CanEditRecord(BaseRole target, string? createdBy)
+    {
+        /* The tier that appoints this one edits it, as everywhere else. */
+        if (RoleHierarchy.CanCreate(Tier, target)) return true;
+
+        /*
+         * Otherwise, whoever added it. The audit column holds a display name
+         * rather than a user code, and a display name is set by an
+         * administrator and need not be unique — so on its own it is not an
+         * identity worth deciding access on. It is only consulted for a caller
+         * who already outranks the record's tier, which means the worst a
+         * duplicated name can do is let one senior account edit what another
+         * senior account added. A Coordinator named "System Administrator"
+         * gets nothing.
+         */
+        if (!RoleHierarchy.Outranks(Tier, target)) return false;
+
+        return !string.IsNullOrWhiteSpace(createdBy) &&
+               string.Equals(createdBy, user.DisplayName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void EnsureCanEditRecord(BaseRole target, string? createdBy, string what)
+    {
+        if (CanEditRecord(target, createdBy)) return;
+
+        throw AppException.Forbidden(
+            $"A {RoleHierarchy.DisplayName(Tier)} can view this {what} and enable or disable it, " +
+            $"but it is edited by the tier that appointed it — or by whoever added it.");
+    }
+
+    /// <summary>
+    /// Refuses a change to an account of a tier this caller is not responsible
+    /// for creating.
+    ///
+    /// Editing an account and creating one are the same authority: whoever may
+    /// set somebody's details and allocation in the first place is the tier
+    /// that answers for them. A Super Admin may therefore edit an Admin or a
+    /// Ministry account, but not an Operation Manager — that is the Admin's
+    /// responsibility, and reaching past them would leave the Admin accountable
+    /// for an allocation somebody else changed.
+    ///
+    /// Oversight of the tiers further down is kept, but as
+    /// <see cref="EnsureOutranks"/> allows: look, enable, disable.
+    /// </summary>
     public void EnsureCanEdit(BaseRole target, string action)
     {
         if (RoleHierarchy.CanCreate(Tier, target)) return;

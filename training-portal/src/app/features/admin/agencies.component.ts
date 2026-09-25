@@ -150,9 +150,13 @@ const COLUMNS: ColumnDef[] = [
         </ng-template>
         <ng-template appCell="actions" let-row>
           <div class="btn-row btn-row--end">
-            <button type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
-              <app-icon name="edit" [size]="15" />
-            </button>
+            <!-- Withheld rather than shown and refused: an agency is edited
+                 by the tier that appointed it, or by whoever added it. -->
+            @if ($any(row).canEdit !== false) {
+              <button type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
+                <app-icon name="edit" [size]="15" />
+              </button>
+            }
             <app-status-toggle [status]="$any(row).status" (toggled)="setStatus($any(row), $event)" />
           </div>
         </ng-template>

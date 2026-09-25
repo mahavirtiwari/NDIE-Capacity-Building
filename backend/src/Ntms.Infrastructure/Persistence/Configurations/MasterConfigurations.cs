@@ -77,6 +77,41 @@ public class ProgramTypeConfiguration : IEntityTypeConfiguration<ProgramType>
             .OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(x => x.Code).IsUnique();
         b.HasIndex(x => new { x.CategoryId, x.SubCategoryId });
+
+        /* Owned, so the marking pattern reads as part of the programme type
+           rather than as a table nobody would think to join. */
+        b.OwnsOne(x => x.Evaluation, e =>
+        {
+            /* No explicit conversion: the context stores every enum as text,
+               and an int here would be the one column nobody could read. */
+            e.Property(p => p.Kind).HasColumnName("Evaluation_Kind");
+            e.Property(p => p.TotalMarks).HasColumnName("Evaluation_TotalMarks");
+            e.Property(p => p.WrittenMarks).HasColumnName("Evaluation_WrittenMarks");
+            e.Property(p => p.VivaMarks).HasColumnName("Evaluation_VivaMarks");
+            e.Property(p => p.WrittenPassMarks).HasColumnName("Evaluation_WrittenPassMarks");
+            e.Property(p => p.VivaPassMarks).HasColumnName("Evaluation_VivaPassMarks");
+            e.Property(p => p.OverallPassMarks).HasColumnName("Evaluation_OverallPassMarks");
+            e.Ignore(p => p.HasWritten);
+            e.Ignore(p => p.HasViva);
+        });
+    }
+}
+
+public class EvaluationSkillConfiguration : IEntityTypeConfiguration<EvaluationSkill>
+{
+    public void Configure(EntityTypeBuilder<EvaluationSkill> b)
+    {
+        b.ToTable("EvaluationSkills");
+        b.Property(x => x.Name).HasMaxLength(160).IsRequired();
+        b.Property(x => x.Description).HasMaxLength(500);
+
+        b.HasOne(x => x.ProgramType).WithMany(x => x.Skills)
+            .HasForeignKey(x => x.ProgramTypeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        /* One skill of a given name per programme type: two rows reading
+           "Communication" against the same practical would be marked twice. */
+        b.HasIndex(x => new { x.ProgramTypeId, x.Name }).IsUnique();
     }
 }
 

@@ -157,6 +157,12 @@ export interface ImplementingAgency extends AuditInfo {
   empanelledOn: string;
   empanelmentValidTill: string;
   status: RecordStatus;
+  /**
+   * Whether this account may change the record. Decided on the server: an
+   * agency is edited by the Operation Manager who appointed it, or by whoever
+   * added it. False still allows viewing and enabling or disabling.
+   */
+  canEdit?: boolean;
 }
 
 /* --------------------------------------------------- issued certificates */

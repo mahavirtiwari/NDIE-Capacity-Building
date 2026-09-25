@@ -232,3 +232,17 @@ public enum CertificateKind
     Qualification = 1,
     Participation = 2,
 }
+
+/// <summary>
+/// How a programme type decides whether a candidate has passed.
+///
+/// Both is a separate value rather than a pair of flags, so an impossible
+/// state - neither, while still examining - cannot be written down.
+/// </summary>
+public enum ExaminationKind
+{
+    None = 1,
+    Written = 2,
+    VivaPractical = 3,
+    WrittenAndViva = 4,
+}

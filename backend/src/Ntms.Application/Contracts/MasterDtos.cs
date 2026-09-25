@@ -85,6 +85,53 @@ public class ProgramTypeDto : AuditDto
     public List<string> CertificateKinds { get; set; } = [];
     public List<CertificateTemplateDto> CertificateTemplates { get; set; } = [];
 
+    /// <summary>What is examined, out of how many marks, and what passes.</summary>
+    public EvaluationSchemeDto Evaluation { get; set; } = new();
+    /// <summary>How many skills are configured for the viva or practical.</summary>
+    public int SkillCount { get; set; }
+
+    public string Status { get; set; } = "Active";
+}
+
+/// <summary>The marking pattern. Marks are per section, because passing is.</summary>
+public class EvaluationSchemeDto
+{
+    /// <summary>None, Written, VivaPractical or WrittenAndViva.</summary>
+    public string Kind { get; set; } = "Written";
+    /// <summary>Reader-facing wording for that.</summary>
+    public string? KindLabel { get; set; }
+
+    public int TotalMarks { get; set; }
+    public int WrittenMarks { get; set; }
+    public int VivaMarks { get; set; }
+    public int WrittenPassMarks { get; set; }
+    public int VivaPassMarks { get; set; }
+    public int OverallPassMarks { get; set; }
+
+    public bool HasWritten { get; set; }
+    public bool HasViva { get; set; }
+}
+
+/// <summary>One thing a trainer marks a candidate on in the viva or practical.</summary>
+public class EvaluationSkillDto : AuditDto
+{
+    public int Id { get; set; }
+    public int ProgramTypeId { get; set; }
+    public string ProgramTypeName { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public int MaxMarks { get; set; }
+    public int DisplayOrder { get; set; }
+    public string Status { get; set; } = "Active";
+}
+
+public class EvaluationSkillUpsertDto
+{
+    public int ProgramTypeId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public int MaxMarks { get; set; }
+    public int DisplayOrder { get; set; }
     public string Status { get; set; } = "Active";
 }
 
@@ -116,6 +163,13 @@ public class ProgramTypeUpsertDto
     public bool IsExamMandatory { get; set; } = true;
     public bool IsFeeApplicable { get; set; } = true;
     public string CertificationPolicy { get; set; } = "QualificationOnly";
+
+    /// <summary>
+    /// Optional on the wire: a client that does not send one leaves the
+    /// existing pattern alone, so an older caller cannot silently wipe it.
+    /// </summary>
+    public EvaluationSchemeDto? Evaluation { get; set; }
+
     public string Status { get; set; } = "Active";
 }
 
@@ -147,6 +201,15 @@ public class AgencyDto : AuditDto
     public List<int> ProgramTypeIds { get; set; } = [];
     /// <summary>LGD state codes the agency is empanelled for.</summary>
     public List<int> StateCodes { get; set; } = [];
+
+    /// <summary>
+    /// Whether the caller may change this record. Decided on the server and
+    /// sent, rather than worked out again in the browser: the two would drift,
+    /// and the one that matters is this one. False still allows viewing and
+    /// enabling or disabling.
+    /// </summary>
+    public bool CanEdit { get; set; } = true;
+
     public string Status { get; set; } = "Active";
 }
 

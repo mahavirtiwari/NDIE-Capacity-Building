@@ -47,7 +47,21 @@ public class ProgramType : AuditableStatusEntity
     public string? MinQualification { get; set; }
     public int MinExperienceYears { get; set; }
     public int CertificateValidityMonths { get; set; } = 36;
+    /// <summary>
+    /// Kept in step with the evaluation scheme rather than set on its own:
+    /// true whenever anything is examined. Older code reads this, and two
+    /// places to say the same thing is one place to contradict it.
+    /// </summary>
     public bool IsExamMandatory { get; set; } = true;
+
+    /// <summary>What is examined, out of how many marks, and what passes.</summary>
+    public EvaluationScheme Evaluation { get; set; } = new();
+
+    /// <summary>
+    /// What a trainer marks a candidate on in the viva or practical. Empty for
+    /// a type with no practical component.
+    /// </summary>
+    public ICollection<EvaluationSkill> Skills { get; set; } = [];
     public bool IsFeeApplicable { get; set; } = true;
 
     /// <summary>
@@ -154,4 +168,49 @@ public class AgencyProgramType
     public ImplementingAgency? Agency { get; set; }
     public int ProgramTypeId { get; set; }
     public ProgramType? ProgramType { get; set; }
+}
+
+/// <summary>
+/// The marking pattern for a programme type, owned by it.
+///
+/// Marks are held per section rather than as one total with a split, because
+/// the pass rule is per section: a candidate can reach the overall mark and
+/// still fail for missing the written minimum, and that has to be expressible.
+/// </summary>
+public class EvaluationScheme
+{
+    public ExaminationKind Kind { get; set; } = ExaminationKind.Written;
+
+    public int TotalMarks { get; set; }
+    public int WrittenMarks { get; set; }
+    public int VivaMarks { get; set; }
+
+    /// <summary>Minimum for that section on its own.</summary>
+    public int WrittenPassMarks { get; set; }
+    public int VivaPassMarks { get; set; }
+
+    /// <summary>Minimum across both, which a candidate must also reach.</summary>
+    public int OverallPassMarks { get; set; }
+
+    public bool HasWritten => Kind is ExaminationKind.Written or ExaminationKind.WrittenAndViva;
+    public bool HasViva => Kind is ExaminationKind.VivaPractical or ExaminationKind.WrittenAndViva;
+}
+
+/// <summary>
+/// One thing a trainer scores a candidate on in the viva or practical, and how
+/// many marks it carries.
+///
+/// Per programme type, because what is worth marking in an assessor's practical
+/// is not what is worth marking in a master trainer's.
+/// </summary>
+public class EvaluationSkill : AuditableStatusEntity
+{
+    public int ProgramTypeId { get; set; }
+    public ProgramType? ProgramType { get; set; }
+
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+
+    public int MaxMarks { get; set; }
+    public int DisplayOrder { get; set; }
 }
