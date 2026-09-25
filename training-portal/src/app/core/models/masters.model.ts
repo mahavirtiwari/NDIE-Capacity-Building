@@ -54,8 +54,77 @@ export interface ProgramType extends AuditInfo {
   /** The kinds this policy awards, so the screen knows which templates to offer. */
   certificateKinds: CertificateKind[];
   certificateTemplates: CertificateTemplate[];
+  /** What is examined, out of how many marks, and what passes. */
+  evaluation: EvaluationScheme;
+  /** How many live skills the viva or practical is marked against. */
+  skillCount: number;
   status: RecordStatus;
 }
+
+/* ------------------------------------------------------------ evaluation */
+
+export type ExaminationKind = 'None' | 'Written' | 'VivaPractical' | 'WrittenAndViva';
+
+/** Mirrors ExaminationKinds on the server, which is the authority. */
+export const EXAMINATION_KINDS: { value: ExaminationKind; label: string; hint: string }[] = [
+  {
+    value: 'Written',
+    label: 'Written examination',
+    hint: 'One written paper decides the result.',
+  },
+  {
+    value: 'VivaPractical',
+    label: 'Viva / practical only',
+    hint: 'Trainers mark each candidate against the skills set up for this program type.',
+  },
+  {
+    value: 'WrittenAndViva',
+    label: 'Written and viva / practical',
+    hint: 'Both are marked, and a candidate has to clear each section as well as the total.',
+  },
+  {
+    value: 'None',
+    label: 'No examination',
+    hint: 'Nothing is marked. Attendance alone decides what the candidate is awarded.',
+  },
+];
+
+/**
+ * The marking pattern.
+ *
+ * Marks are per section because passing is: a candidate can reach the overall
+ * mark and still fail for missing the written minimum.
+ */
+export interface EvaluationScheme {
+  kind: ExaminationKind;
+  kindLabel?: string;
+  totalMarks: number;
+  writtenMarks: number;
+  vivaMarks: number;
+  writtenPassMarks: number;
+  vivaPassMarks: number;
+  overallPassMarks: number;
+  hasWritten: boolean;
+  hasViva: boolean;
+}
+
+/** One thing a trainer marks a candidate on in the viva or practical. */
+export interface EvaluationSkill extends AuditInfo {
+  id: Id;
+  programTypeId: Id;
+  programTypeName: string;
+  name: string;
+  description?: string;
+  maxMarks: number;
+  displayOrder: number;
+  status: RecordStatus;
+}
+
+export const examinesViva = (kind: ExaminationKind): boolean =>
+  kind === 'VivaPractical' || kind === 'WrittenAndViva';
+
+export const examinesWritten = (kind: ExaminationKind): boolean =>
+  kind === 'Written' || kind === 'WrittenAndViva';
 
 export type CertificationPolicy =
   | 'None'

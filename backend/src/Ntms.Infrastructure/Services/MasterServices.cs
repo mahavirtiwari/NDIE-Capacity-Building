@@ -246,7 +246,8 @@ public class ProgramTypeService(NtmsDbContext db, CertificateTemplateStore templ
         db.ProgramTypes.AsNoTracking()
             .Include(p => p.Category)
             .Include(p => p.SubCategory)
-            .Include(p => p.CertificateTemplates);
+            .Include(p => p.CertificateTemplates)
+            .Include(p => p.Skills);
 
     public async Task<PagedResult<ProgramTypeDto>> ListAsync(
         PagedRequest request, int? categoryId, int? subCategoryId,
@@ -325,11 +326,106 @@ public class ProgramTypeService(NtmsDbContext db, CertificateTemplateStore templ
         entity.MinQualification = QualificationLevels.Normalise(dto.MinQualification);
         entity.MinExperienceYears = dto.MinExperienceYears;
         entity.CertificateValidityMonths = dto.CertificateValidityMonths;
-        entity.IsExamMandatory = dto.IsExamMandatory;
         entity.IsFeeApplicable = dto.IsFeeApplicable;
         entity.CertificationPolicy = EnumMaps.ParseEnum(
             dto.CertificationPolicy, CertificationPolicy.QualificationOnly);
         entity.Status = EnumMaps.ToStatus(dto.Status);
+
+        /* A caller that sends no scheme leaves the existing one alone, so an
+           older client cannot wipe a marking pattern it does not know about. */
+        if (dto.Evaluation is not null)
+        {
+            entity.Evaluation = BuildEvaluation(dto.Evaluation);
+        }
+
+        /* Kept in step rather than set separately: a type is examined whenever
+           its scheme examines something, and two places to say that is one
+           place to contradict it. */
+        entity.IsExamMandatory = entity.Evaluation.Kind != ExaminationKind.None;
+    }
+
+    /// <summary>
+    /// Reads the marking pattern off the request, and refuses one that cannot
+    /// be marked against.
+    ///
+    /// The rules are the ones an examiner would state. A section that is not
+    /// examined carries no marks. The sections add up to the total, because a
+    /// candidate's paper is marked out of the parts and reported out of the
+    /// whole, and a total that disagrees with its parts is a dispute waiting
+    /// to happen. Nothing passes at more than it is marked out of, which would
+    /// be a programme nobody could ever pass.
+    /// </summary>
+    private static EvaluationScheme BuildEvaluation(EvaluationSchemeDto dto)
+    {
+        var kind = EnumMaps.ParseEnum(dto.Kind, ExaminationKind.Written);
+
+        var scheme = new EvaluationScheme { Kind = kind };
+
+        if (kind == ExaminationKind.None)
+        {
+            /* Nothing is examined, so nothing is marked. Keeping the numbers a
+               previous scheme had would leave a pass mark on a programme with
+               no examination. */
+            return scheme;
+        }
+
+        scheme.WrittenMarks = scheme.HasWritten ? Math.Max(0, dto.WrittenMarks) : 0;
+        scheme.VivaMarks = scheme.HasViva ? Math.Max(0, dto.VivaMarks) : 0;
+        scheme.WrittenPassMarks = scheme.HasWritten ? Math.Max(0, dto.WrittenPassMarks) : 0;
+        scheme.VivaPassMarks = scheme.HasViva ? Math.Max(0, dto.VivaPassMarks) : 0;
+        scheme.TotalMarks = Math.Max(0, dto.TotalMarks);
+        scheme.OverallPassMarks = Math.Max(0, dto.OverallPassMarks);
+
+        var errors = new List<string>();
+        var sectionTotal = scheme.WrittenMarks + scheme.VivaMarks;
+
+        if (sectionTotal == 0)
+        {
+            errors.Add("An examined programme needs marks against at least one section.");
+        }
+
+        if (scheme.TotalMarks == 0)
+        {
+            /* The obvious intent, rather than an error: somebody who filled in
+               the sections and left the total blank meant their sum. */
+            scheme.TotalMarks = sectionTotal;
+        }
+        else if (scheme.TotalMarks != sectionTotal)
+        {
+            errors.Add(
+                $"The sections add up to {sectionTotal}, which does not match the total of " +
+                $"{scheme.TotalMarks}.");
+        }
+
+        if (scheme.WrittenPassMarks > scheme.WrittenMarks)
+        {
+            errors.Add("The written pass mark is higher than the written paper is marked out of.");
+        }
+
+        if (scheme.VivaPassMarks > scheme.VivaMarks)
+        {
+            errors.Add("The viva pass mark is higher than the viva is marked out of.");
+        }
+
+        if (scheme.OverallPassMarks > scheme.TotalMarks)
+        {
+            errors.Add("The overall pass mark is higher than the total marks.");
+        }
+
+        if (scheme.OverallPassMarks > 0 &&
+            scheme.OverallPassMarks < scheme.WrittenPassMarks + scheme.VivaPassMarks)
+        {
+            /* Not fatal, but worth refusing: an overall bar below the sum of
+               the section bars can never decide anything, because a candidate
+               who clears both sections has already cleared it. */
+            errors.Add(
+                "The overall pass mark is below the section minimums added together, so it would " +
+                "never decide an outcome.");
+        }
+
+        if (errors.Count > 0) throw new AppException(string.Join(" ", errors));
+
+        return scheme;
     }
 
     /* --------------------------------------------- certificate templates */

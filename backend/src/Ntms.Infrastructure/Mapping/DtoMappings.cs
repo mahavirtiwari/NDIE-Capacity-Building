@@ -85,6 +85,41 @@ public static class DtoMappings
             [
                 .. e.CertificateTemplates.OrderBy(t => t.Kind).Select(t => t.ToDto()),
             ],
+            Evaluation = e.Evaluation.ToDto(),
+            /* Only the live ones: a retired skill is history on past marksheets,
+               not something a trainer will be asked to mark against. */
+            SkillCount = e.Skills.Count(s => s.Status == RecordStatus.Active),
+            Status = e.Status.ToApi(),
+        };
+        FillAudit(dto, e);
+        return dto;
+    }
+
+    public static EvaluationSchemeDto ToDto(this EvaluationScheme e) => new()
+    {
+        Kind = e.Kind.ToString(),
+        KindLabel = ExaminationKinds.Label(e.Kind),
+        TotalMarks = e.TotalMarks,
+        WrittenMarks = e.WrittenMarks,
+        VivaMarks = e.VivaMarks,
+        WrittenPassMarks = e.WrittenPassMarks,
+        VivaPassMarks = e.VivaPassMarks,
+        OverallPassMarks = e.OverallPassMarks,
+        HasWritten = e.HasWritten,
+        HasViva = e.HasViva,
+    };
+
+    public static EvaluationSkillDto ToDto(this EvaluationSkill e)
+    {
+        var dto = new EvaluationSkillDto
+        {
+            Id = e.Id,
+            ProgramTypeId = e.ProgramTypeId,
+            ProgramTypeName = e.ProgramType?.Name ?? string.Empty,
+            Name = e.Name,
+            Description = e.Description,
+            MaxMarks = e.MaxMarks,
+            DisplayOrder = e.DisplayOrder,
             Status = e.Status.ToApi(),
         };
         FillAudit(dto, e);

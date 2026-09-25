@@ -3,6 +3,7 @@ import { Observable, catchError, of, shareReplay } from 'rxjs';
 import {
   Category,
   CertificateKind,
+  EvaluationSkill,
   Id,
   ImplementingAgency,
   LookupItem,
@@ -53,6 +54,21 @@ export class ProgramTypeService extends CrudService<ProgramType> {
   /** Where the stored template can be downloaded from. */
   templateUrl(id: Id, kind: CertificateKind): string {
     return this.api.fileUrl(`${this.resource}/${id}/certificate-templates/${kind}`);
+  }
+}
+
+/**
+ * The skills a viva or practical is marked against, per program type.
+ *
+ * Its own resource rather than part of the program type, because it is
+ * maintained on its own screen and read on its own by the trainer's app.
+ */
+@Injectable({ providedIn: 'root' })
+export class EvaluationSkillService extends CrudService<EvaluationSkill> {
+  protected readonly resource = 'evaluation-skills';
+
+  byProgramType(programTypeId?: Id | null, status?: string): Observable<EvaluationSkill[]> {
+    return this.api.get<EvaluationSkill[]>(this.resource, { programTypeId, status });
   }
 }
 

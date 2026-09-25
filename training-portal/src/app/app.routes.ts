@@ -72,6 +72,14 @@ export const routes: Routes = [
                 (m) => m.ProgramTypesComponent,
               ),
           },
+          {
+            path: 'evaluation-skills',
+            title: 'Evaluation skills · CBMS',
+            loadComponent: () =>
+              import('./features/masters/evaluation-skills.component').then(
+                (m) => m.EvaluationSkillsComponent,
+              ),
+          },
         ],
       },
 

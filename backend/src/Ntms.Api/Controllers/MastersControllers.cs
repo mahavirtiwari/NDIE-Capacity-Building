@@ -170,6 +170,45 @@ public class ProgramTypesController(ProgramTypeService service) : ApiControllerB
         Envelope(await service.RemoveTemplateAsync(id, kind, ct), "Template removed.");
 }
 
+/// <summary>
+/// What trainers mark candidates on in the viva or practical, per programme
+/// type. Its own resource rather than a list hung off the program type, because
+/// it is maintained on its own screen and read on its own by the trainer's app.
+/// </summary>
+[Route("api/evaluation-skills")]
+public class EvaluationSkillsController(EvaluationSkillService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.MastersView)]
+    public async Task<ActionResult<ApiEnvelope<List<EvaluationSkillDto>>>> List(
+        [FromQuery] int? programTypeId, [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.ListAsync(programTypeId, status, ct));
+
+    [HttpGet("{id:int}")]
+    [HasPermission(Permissions.MastersView)]
+    public async Task<ActionResult<ApiEnvelope<EvaluationSkillDto>>> Get(
+        int id, CancellationToken ct) =>
+        Envelope(await service.GetAsync(id, ct));
+
+    [HttpPost]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<EvaluationSkillDto>>> Create(
+        [FromBody] EvaluationSkillUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.CreateAsync(dto, ct), "Skill added.");
+
+    [HttpPut("{id:int}")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<EvaluationSkillDto>>> Update(
+        int id, [FromBody] EvaluationSkillUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.UpdateAsync(id, dto, ct), "Skill updated.");
+
+    [HttpPatch("{id:int}/status")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<EvaluationSkillDto>>> SetStatus(
+        int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
+        Envelope(await service.SetStatusAsync(id, dto.Status, ct));
+}
+
 [Route("api/agencies")]
 public class AgenciesController(AgencyService service) : ApiControllerBase
 {

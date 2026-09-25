@@ -8,9 +8,13 @@ import {
   CertificateKind,
   CertificateTemplate,
   DELIVERY_MODES,
+  EXAMINATION_KINDS,
+  ExaminationKind,
   LookupItem,
   ProgramType,
   RecordStatus,
+  examinesViva,
+  examinesWritten,
   kindsForPolicy,
 } from '../../core/models';
 import { LookupService, ProgramTypeService } from '../../core/services/masters.service';
@@ -148,7 +152,9 @@ const COLUMNS: ColumnDef[] = [
         </ng-template>
         <ng-template appCell="config" let-row>
           <div class="row row-sm">
-            <span class="chip" [class.is-off]="!$any(row).isExamMandatory">Exam</span>
+            <span class="chip" [class.is-off]="$any(row).evaluation?.kind === 'None'">
+              {{ examChip($any(row)) }}
+            </span>
             <span class="chip" [class.is-off]="!$any(row).isFeeApplicable">Fee</span>
             <span class="chip">{{ $any(row).certificateValidityMonths }} m validity</span>
           </div>
@@ -253,14 +259,84 @@ const COLUMNS: ColumnDef[] = [
               <span class="field-label">Options</span>
               <div class="row row-md row-wrap">
                 <label class="check">
-                  <input type="checkbox" formControlName="isExamMandatory" />
-                  <span>Certification exam is mandatory</span>
-                </label>
-                <label class="check">
                   <input type="checkbox" formControlName="isFeeApplicable" />
                   <span>Fee is applicable</span>
                 </label>
               </div>
+            </div>
+
+            <!-- ------------------------------------------------ evaluation --
+                 What is examined, out of how many marks, and what passes.
+                 Whether an exam is mandatory follows from the choice rather
+                 than being a separate tick, so the two cannot contradict. -->
+            <div class="field field--span-2" formGroupName="evaluation">
+              <span class="field-label">Evaluation</span>
+
+              <select id="ptExamKind" class="select" formControlName="kind">
+                @for (option of examinationKinds; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+              <span class="field-hint">{{ examHint() }}</span>
+
+              @if (examKind() !== 'None') {
+                <div class="marks-grid mt-sm">
+                  @if (hasWritten()) {
+                    <div class="field">
+                      <label class="field-label" for="ptWritten">Written exam marks</label>
+                      <input id="ptWritten" type="number" min="0" class="input"
+                        formControlName="writtenMarks" />
+                    </div>
+                    <div class="field">
+                      <label class="field-label" for="ptWrittenPass">Written minimum to pass</label>
+                      <input id="ptWrittenPass" type="number" min="0" class="input"
+                        formControlName="writtenPassMarks" />
+                    </div>
+                  }
+                  @if (hasViva()) {
+                    <div class="field">
+                      <label class="field-label" for="ptViva">Viva / practical marks</label>
+                      <input id="ptViva" type="number" min="0" class="input"
+                        formControlName="vivaMarks" />
+                    </div>
+                    <div class="field">
+                      <label class="field-label" for="ptVivaPass">Viva minimum to pass</label>
+                      <input id="ptVivaPass" type="number" min="0" class="input"
+                        formControlName="vivaPassMarks" />
+                    </div>
+                  }
+                  <div class="field">
+                    <label class="field-label" for="ptTotal">Total marks</label>
+                    <input id="ptTotal" type="number" min="0" class="input"
+                      formControlName="totalMarks" [placeholder]="sectionTotal()" />
+                    <span class="field-hint">Leave blank and the sections are added up.</span>
+                  </div>
+                  <div class="field">
+                    <label class="field-label" for="ptOverall">Overall minimum to pass</label>
+                    <input id="ptOverall" type="number" min="0" class="input"
+                      formControlName="overallPassMarks" />
+                  </div>
+                </div>
+
+                @if (marksProblem(); as problem) {
+                  <span class="field-error">{{ problem }}</span>
+                } @else {
+                  <span class="field-hint">
+                    {{ marksSummary() }}
+                  </span>
+                }
+
+                @if (hasViva() && editing(); as row) {
+                  <div class="row row-sm mt-sm">
+                    <a class="btn btn--ghost btn--sm"
+                      [routerLink]="['/masters/evaluation-skills']"
+                      [queryParams]="{ programTypeId: $any(row).id }">
+                      <app-icon name="clipboard" [size]="15" />
+                      {{ $any(row).skillCount }} skill{{ $any(row).skillCount === 1 ? '' : 's' }} to mark against
+                    </a>
+                  </div>
+                }
+              }
             </div>
 
             <!-- Templates hang off a saved programme type, so they appear once
@@ -343,7 +419,16 @@ const COLUMNS: ColumnDef[] = [
       </app-modal>
     }
   `,
-  styles: [`.chip.is-off { opacity: 0.4; text-decoration: line-through; }`],
+  styles: [
+    `
+      .chip.is-off { opacity: 0.4; text-decoration: line-through; }
+      .marks-grid {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      }
+    `,
+  ],
 })
 export class ProgramTypesComponent {
   private readonly service = inject(ProgramTypeService);
@@ -384,6 +469,87 @@ export class ProgramTypesComponent {
   protected readonly policyHint = computed(() => {
     const chosen = this.formValue().certificationPolicy;
     return CERTIFICATION_POLICIES.find((p) => p.value === chosen)?.hint ?? '';
+  });
+
+  /* -------------------------------------------------------- evaluation */
+
+  protected readonly examinationKinds = EXAMINATION_KINDS;
+
+  /** The scheme in a few words, for the list. */
+  protected examChip(row: ProgramType): string {
+    const scheme = row.evaluation;
+    if (!scheme || scheme.kind === 'None') return 'No exam';
+    const what =
+      scheme.kind === 'Written' ? 'Written' : scheme.kind === 'VivaPractical' ? 'Viva' : 'Written + viva';
+    return scheme.totalMarks > 0 ? `${what} · ${scheme.totalMarks}` : what;
+  }
+
+  protected readonly examKind = computed<ExaminationKind>(
+    () => (this.formValue().evaluation?.kind as ExaminationKind) ?? 'Written',
+  );
+
+  protected readonly examHint = computed(
+    () => EXAMINATION_KINDS.find((k) => k.value === this.examKind())?.hint ?? '',
+  );
+
+  protected readonly hasWritten = computed(() => examinesWritten(this.examKind()));
+  protected readonly hasViva = computed(() => examinesViva(this.examKind()));
+
+  /** What the sections add up to, which is what the total has to agree with. */
+  protected readonly sectionTotal = computed(() => {
+    const marks = this.formValue().evaluation;
+    return (this.hasWritten() ? Number(marks?.writtenMarks ?? 0) : 0) +
+      (this.hasViva() ? Number(marks?.vivaMarks ?? 0) : 0);
+  });
+
+  /**
+   * The same rules the server enforces, said before the save rather than after
+   * it — somebody splitting 100 marks across two sections should see the sum
+   * disagree while they are still typing.
+   */
+  protected readonly marksProblem = computed<string | null>(() => {
+    if (this.examKind() === 'None') return null;
+
+    const marks = this.formValue().evaluation;
+    const sections = this.sectionTotal();
+    const total = Number(marks?.totalMarks ?? 0) || sections;
+
+    if (sections === 0) return 'An examined programme needs marks against at least one section.';
+    if (total !== sections) {
+      return `The sections add up to ${sections}, which does not match the total of ${total}.`;
+    }
+    if (this.hasWritten() && Number(marks?.writtenPassMarks ?? 0) > Number(marks?.writtenMarks ?? 0)) {
+      return 'The written pass mark is higher than the written paper is marked out of.';
+    }
+    if (this.hasViva() && Number(marks?.vivaPassMarks ?? 0) > Number(marks?.vivaMarks ?? 0)) {
+      return 'The viva pass mark is higher than the viva is marked out of.';
+    }
+
+    const overall = Number(marks?.overallPassMarks ?? 0);
+    if (overall > total) return 'The overall pass mark is higher than the total marks.';
+
+    const sectionMinimums =
+      (this.hasWritten() ? Number(marks?.writtenPassMarks ?? 0) : 0) +
+      (this.hasViva() ? Number(marks?.vivaPassMarks ?? 0) : 0);
+    if (overall > 0 && overall < sectionMinimums) {
+      return 'The overall pass mark is below the section minimums added together, so it would never decide an outcome.';
+    }
+    return null;
+  });
+
+  /** Reads back the pattern in a sentence, so it can be checked at a glance. */
+  protected readonly marksSummary = computed(() => {
+    const marks = this.formValue().evaluation;
+    const total = Number(marks?.totalMarks ?? 0) || this.sectionTotal();
+    const parts: string[] = [];
+    if (this.hasWritten()) {
+      parts.push(`written ${marks?.writtenMarks ?? 0} (pass ${marks?.writtenPassMarks ?? 0})`);
+    }
+    if (this.hasViva()) {
+      parts.push(`viva ${marks?.vivaMarks ?? 0} (pass ${marks?.vivaPassMarks ?? 0})`);
+    }
+    return `Out of ${total}: ${parts.join(', ')}. A candidate also needs ` +
+      `${marks?.overallPassMarks ?? 0} overall.`;
   });
 
   /* Follows the policy in the form, not the saved record, so choosing "both"
@@ -469,8 +635,16 @@ export class ProgramTypesComponent {
     minExperienceYears: [0],
     certificateValidityMonths: [36],
     certificationPolicy: ['QualificationOnly' as ProgramType['certificationPolicy']],
-    isExamMandatory: [true],
     isFeeApplicable: [true],
+    evaluation: this.fb.nonNullable.group({
+      kind: ['Written' as ExaminationKind],
+      totalMarks: [100],
+      writtenMarks: [100],
+      vivaMarks: [0],
+      writtenPassMarks: [40],
+      vivaPassMarks: [0],
+      overallPassMarks: [40],
+    }),
     status: ['Active' as ProgramType['status']],
   });
 
@@ -548,8 +722,16 @@ export class ProgramTypesComponent {
       minExperienceYears: row?.minExperienceYears ?? 0,
       certificateValidityMonths: row?.certificateValidityMonths ?? 36,
       certificationPolicy: row?.certificationPolicy ?? 'QualificationOnly',
-      isExamMandatory: row?.isExamMandatory ?? true,
       isFeeApplicable: row?.isFeeApplicable ?? true,
+      evaluation: {
+        kind: row?.evaluation?.kind ?? 'Written',
+        totalMarks: row?.evaluation?.totalMarks ?? 100,
+        writtenMarks: row?.evaluation?.writtenMarks ?? 100,
+        vivaMarks: row?.evaluation?.vivaMarks ?? 0,
+        writtenPassMarks: row?.evaluation?.writtenPassMarks ?? 40,
+        vivaPassMarks: row?.evaluation?.vivaPassMarks ?? 0,
+        overallPassMarks: row?.evaluation?.overallPassMarks ?? 40,
+      },
       status: row?.status ?? 'Active',
     });
     this.formOpen.set(true);
@@ -565,8 +747,24 @@ export class ProgramTypesComponent {
       this.form.markAllAsTouched();
       return;
     }
+    if (this.marksProblem()) {
+      this.toast.error('Check the marks', this.marksProblem()!);
+      return;
+    }
+
     this.saving.set(true);
-    const payload = this.form.getRawValue();
+    const raw = this.form.getRawValue();
+    /* Whether an exam is mandatory is not asked separately: it is what the
+       chosen scheme says. Sent anyway because the contract carries it, and the
+       server derives the same answer. */
+    const payload = {
+      ...raw,
+      isExamMandatory: raw.evaluation.kind !== 'None',
+      evaluation: {
+        ...raw.evaluation,
+        totalMarks: raw.evaluation.totalMarks || this.sectionTotal(),
+      },
+    };
     const current = this.editing();
     const request = current ? this.service.update(current.id, payload) : this.service.create(payload);
 

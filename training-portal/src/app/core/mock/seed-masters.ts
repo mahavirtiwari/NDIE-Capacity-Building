@@ -78,6 +78,34 @@ export const PROGRAM_TYPES: ProgramType[] = PT_SEED.map((p) => ({
   certificationPolicy: p.exam ? 'QualificationAndParticipation' : 'ParticipationOnly',
   certificateKinds: p.exam ? ['Qualification', 'Participation'] : ['Participation'],
   certificateTemplates: [],
+  /* Mirrors the spread above: an examined track is marked out of 100 across a
+     written paper and a viva, one without an exam is marked out of nothing. */
+  evaluation: p.exam
+    ? {
+        kind: 'WrittenAndViva',
+        kindLabel: 'Written and viva / practical',
+        totalMarks: 100,
+        writtenMarks: 70,
+        vivaMarks: 30,
+        writtenPassMarks: 28,
+        vivaPassMarks: 12,
+        overallPassMarks: 40,
+        hasWritten: true,
+        hasViva: true,
+      }
+    : {
+        kind: 'None',
+        kindLabel: 'No examination',
+        totalMarks: 0,
+        writtenMarks: 0,
+        vivaMarks: 0,
+        writtenPassMarks: 0,
+        vivaPassMarks: 0,
+        overallPassMarks: 0,
+        hasWritten: false,
+        hasViva: false,
+      },
+  skillCount: 0,
   status: p.id === 10 ? 'Inactive' : 'Active',
 }));
 
