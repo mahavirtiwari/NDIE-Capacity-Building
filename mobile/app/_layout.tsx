@@ -36,6 +36,13 @@ export default function RootLayout() {
               options={{ title: 'Apply', presentation: 'card' }}
             />
             <Stack.Screen name="application/[id]" options={{ title: 'Application' }} />
+            <Stack.Screen name="exam/[participantId]" options={{ title: 'Examination' }} />
+            {/* No back arrow: a paper is left through the submit button or the
+                warning behind the hardware key, not by drifting out of it. */}
+            <Stack.Screen
+              name="exam/sitting/[attemptId]"
+              options={{ title: 'Examination', headerBackVisible: false, gestureEnabled: false }}
+            />
             </Stack>
           </View>
         </AuthProvider>

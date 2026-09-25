@@ -7,6 +7,9 @@ import type {
   Application,
   Branding,
   Enrolment,
+  ExamAvailability,
+  ExamResult,
+  ExamSitting,
   FeeStructure,
   Gender,
   LookupItem,
@@ -99,4 +102,29 @@ export const me = {
 
   materials: (programTypeId?: number) =>
     api.get<TrainingMaterial[]>('me/materials', { programTypeId }),
+};
+
+/* --------------------------------------------------------------- the paper */
+
+/**
+ * Sitting the written paper.
+ *
+ * Deliberately none of this is queued for later. An examination is timed on the
+ * server, and an answer accepted by a phone hours after the paper closed would
+ * be a promise nobody can keep — the candidate is told plainly when the network
+ * is the problem, while there is still time to do something about it.
+ */
+export const exam = {
+  availability: (participantId: number) =>
+    api.get<ExamAvailability>(`me/enrolments/${participantId}/exam`),
+
+  start: (participantId: number) =>
+    api.post<ExamSitting>(`me/enrolments/${participantId}/exam/start`),
+
+  resume: (attemptId: number) => api.get<ExamSitting>(`me/exam/${attemptId}`),
+
+  answer: (attemptId: number, answers: { questionId: number; optionIds: number[] }[]) =>
+    api.put<number>(`me/exam/${attemptId}/answers`, { answers }),
+
+  submit: (attemptId: number) => api.post<ExamResult>(`me/exam/${attemptId}/submit`),
 };

@@ -7,6 +7,7 @@ import type { Application, Enrolment } from '../../src/api/types';
 import { useResource } from '../../src/api/useResource';
 import {
   Banner,
+  Button,
   Card,
   Chip,
   EmptyState,
@@ -168,6 +169,8 @@ function ApplicationCard({
 }
 
 function EnrolmentCard({ enrolment }: { enrolment: Enrolment }) {
+  const router = useRouter();
+
   return (
     <Card style={styles.card}>
       <View style={styles.cardTop}>
@@ -201,6 +204,19 @@ function EnrolmentCard({ enrolment }: { enrolment: Enrolment }) {
 
       {enrolment.certificateNo ? (
         <Banner tone="success">{`Certificate ${enrolment.certificateNo} issued.`}</Banner>
+      ) : null}
+
+      {/* Offered once an examination has been scheduled. Whether it can
+          actually be sat — the window, the attempts left, whether the paper is
+          online at all — is the server's answer, given on the screen behind
+          this, rather than guessed at from the little this card knows. */}
+      {enrolment.examDateTime ? (
+        <Button
+          label="Written examination"
+          variant="secondary"
+          icon="document-text-outline"
+          onPress={() => router.push(`/exam/${enrolment.participantId}`)}
+        />
       ) : null}
     </Card>
   );

@@ -167,6 +167,49 @@ public class ExamPaperConfiguration : IEntityTypeConfiguration<ExamPaper>
     }
 }
 
+public class ExamAttemptConfiguration : IEntityTypeConfiguration<ExamAttempt>
+{
+    public void Configure(EntityTypeBuilder<ExamAttempt> b)
+    {
+        b.ToTable("ExamAttempts");
+
+        b.HasOne(x => x.Participant).WithMany()
+            .HasForeignKey(x => x.ParticipantId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        /* Restrict: a paper that has been sat is evidence of what was asked,
+           and deleting it would leave scores nobody could explain. */
+        b.HasOne(x => x.ExamPaper).WithMany()
+            .HasForeignKey(x => x.ExamPaperId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        /* One attempt number per candidate: the limit is counted on this, so
+           two rows claiming the same sitting would let it be exceeded. */
+        b.HasIndex(x => new { x.ParticipantId, x.AttemptNo }).IsUnique();
+    }
+}
+
+public class ExamAnswerConfiguration : IEntityTypeConfiguration<ExamAnswer>
+{
+    public void Configure(EntityTypeBuilder<ExamAnswer> b)
+    {
+        b.ToTable("ExamAnswers");
+        b.Property(x => x.SelectedOptionIds).HasMaxLength(200);
+
+        b.HasOne(x => x.Attempt).WithMany(x => x.Answers)
+            .HasForeignKey(x => x.AttemptId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        b.HasOne(x => x.Question).WithMany()
+            .HasForeignKey(x => x.QuestionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        /* One answer per question: answering again replaces it rather than
+           adding a second row that would be marked twice. */
+        b.HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();
+    }
+}
+
 public class ExamQuestionConfiguration : IEntityTypeConfiguration<ExamQuestion>
 {
     public void Configure(EntityTypeBuilder<ExamQuestion> b)

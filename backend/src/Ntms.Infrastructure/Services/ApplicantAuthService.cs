@@ -234,6 +234,7 @@ public class ApplicantAuthService(
         [
             .. rows.Select(p => new ApplicantEnrolmentDto
             {
+                ParticipantId = p.Id,
                 ProgrammeId = p.Programme!.ProgrammeId,
                 ProgrammeName = p.Programme.ProgrammeName,
                 AgencyName = p.Programme.Agency?.Name,

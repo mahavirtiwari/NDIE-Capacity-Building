@@ -274,6 +274,8 @@ public class ProgrammeConfiguration : IEntityTypeConfiguration<Programme>
             .OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.OperationManager).WithMany().HasForeignKey(x => x.OperationManagerId)
             .OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.ExamPaper).WithMany().HasForeignKey(x => x.ExamPaperId)
+            .OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.State).WithMany().HasForeignKey(x => x.StateCode)
             .OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.District).WithMany().HasForeignKey(x => x.DistrictCode)

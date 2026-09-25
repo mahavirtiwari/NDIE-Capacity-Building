@@ -197,6 +197,8 @@ public class ProgrammeDto : AuditDto
     public string? ProgramTypeName { get; set; }
     public int AgencyId { get; set; }
     public string? AgencyName { get; set; }
+    public int? ExamPaperId { get; set; }
+    public string? ExamPaperTitle { get; set; }
     public int CoordinatorId { get; set; }
     public string? CoordinatorName { get; set; }
     public int? OperationManagerId { get; set; }
@@ -252,6 +254,13 @@ public class ProgrammeStatusDto
 public class SetExamTimeDto
 {
     public DateTime ExamDateTime { get; set; }
+
+    /// <summary>
+    /// The paper this batch sits online. Optional: left out, the program type's
+    /// single live paper is used, and a type with several is asked about when a
+    /// candidate tries to sit rather than guessed at here.
+    /// </summary>
+    public int? ExamPaperId { get; set; }
 }
 
 public class AttendanceMarkDto

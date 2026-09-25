@@ -57,6 +57,12 @@ public class ApplicantProgramDto
 /// <summary>A batch the applicant is enrolled in.</summary>
 public class ApplicantEnrolmentDto
 {
+    /// <summary>
+    /// The enrolment's own id, which the exam endpoints are scoped by. Not the
+    /// applicant's and not the batch's: one person on one batch.
+    /// </summary>
+    public int ParticipantId { get; set; }
+
     public string ProgrammeId { get; set; } = string.Empty;
     public string ProgrammeName { get; set; } = string.Empty;
     public string? AgencyName { get; set; }

@@ -103,6 +103,9 @@ export interface Program extends AuditInfo {
   comments?: string;
   registrationsOpen: boolean;
   examDateTime?: string | null;
+  /** The paper this batch sits online, chosen when the exam is scheduled. */
+  examPaperId?: number | null;
+  examPaperTitle?: string | null;
   status: ProgramStatus;
   sessions: ProgramSession[];
   participants: ProgramParticipant[];

@@ -228,6 +228,8 @@ export interface Application {
 }
 
 export interface Enrolment {
+  /** The enrolment's own id — one person on one batch — which the exam is keyed by. */
+  participantId: number;
   programmeId: string;
   programmeName: string;
   agencyName?: string;
@@ -243,6 +245,83 @@ export interface Enrolment {
   examScore?: number | null;
   result: string;
   certificateNo?: string | null;
+}
+
+/* ------------------------------------------------------------ examination */
+
+/**
+ * Whether this enrolment's written paper can be sat, and what has been done.
+ *
+ * Nothing the server sends about a paper ever says which option is correct: the
+ * questions arrive with their options and no answer key.
+ */
+export interface ExamAvailability {
+  participantId: number;
+  programmeName: string;
+  hasPaper: boolean;
+  paperTitle?: string | null;
+  instructions?: string | null;
+  durationMinutes: number;
+  questionCount: number;
+  totalMarks: number;
+  passPercentage: number;
+  negativeMarking: boolean;
+  /** When the paper opens. Null when no exam has been scheduled. */
+  opensOn?: string | null;
+  attemptsUsed: number;
+  maxAttempts: number;
+  canSit: boolean;
+  /** Why not, when it cannot be sat. */
+  blocker?: string | null;
+  /** A sitting left open, which resuming continues rather than restarts. */
+  inProgressAttemptId?: number | null;
+  expiresOn?: string | null;
+  /** The best sitting so far, which is the one that counts. */
+  best?: ExamResult | null;
+}
+
+export interface ExamSitting {
+  attemptId: number;
+  attemptNo: number;
+  paperTitle: string;
+  instructions?: string | null;
+  totalMarks: number;
+  negativeMarking: boolean;
+  startedOn: string;
+  expiresOn: string;
+  /** Worked out on the server; the countdown runs from this, not the device clock. */
+  secondsRemaining: number;
+  questions: ExamQuestion[];
+}
+
+export interface ExamQuestion {
+  id: number;
+  displayOrder: number;
+  text: string;
+  type: 'SingleChoice' | 'MultipleChoice' | 'TrueFalse';
+  marks: number;
+  negativeMarks: number;
+  options: { id: number; text: string }[];
+  /** What was chosen so far, so a resume looks unbroken. */
+  selectedOptionIds: number[];
+}
+
+export interface ExamResult {
+  attemptId: number;
+  attemptNo: number;
+  status: 'Submitted' | 'Expired' | 'InProgress';
+  submittedOn?: string | null;
+  score: number;
+  paperTotal: number;
+  percentage: number;
+  /** Against the paper's own pass mark — not the same as qualifying. */
+  passed: boolean;
+  answered: number;
+  questionCount: number;
+  /** What this contributed to the programme marksheet. */
+  writtenMarks?: number | null;
+  /** Where the candidate stands on the programme: pending until the viva is marked. */
+  programmeResult: 'Pending' | 'Pass' | 'Fail';
 }
 
 export interface TrainingMaterial {

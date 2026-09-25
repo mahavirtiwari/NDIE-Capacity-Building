@@ -26,6 +26,7 @@ public class ProgrammeService(
         .Include(p => p.Agency)
         .Include(p => p.Coordinator)
         .Include(p => p.OperationManager)
+        .Include(p => p.ExamPaper)
         .Include(p => p.State)
         .Include(p => p.Sessions)
         .Include(p => p.Participants).ThenInclude(x => x.Applicant)
@@ -227,6 +228,17 @@ public class ProgrammeService(
         if (dto.ExamDateTime.Date < entity.StartDate.ToDateTime(TimeOnly.MinValue).Date)
             throw new AppException("The exam cannot be scheduled before the batch starts.");
 
+        if (dto.ExamPaperId is { } paperId)
+        {
+            /* The paper has to belong to this batch's programme type, or the
+               candidates would sit somebody else's examination. */
+            var belongs = await db.ExamPapers.AsNoTracking()
+                .AnyAsync(e => e.Id == paperId && e.ProgramTypeId == entity.ProgramTypeId, ct);
+            if (!belongs)
+                throw new AppException("That paper belongs to a different program type.");
+        }
+
+        entity.ExamPaperId = dto.ExamPaperId;
         entity.ExamDateTime = dto.ExamDateTime;
         entity.RegistrationsOpen = false;
         if (entity.Status == ProgramStatus.PermissionAccepted)

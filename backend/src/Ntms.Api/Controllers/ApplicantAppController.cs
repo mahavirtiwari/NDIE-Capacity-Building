@@ -30,7 +30,8 @@ public class ApplicantAppController(
     RegistrationFormService forms,
     FeeService fees,
     TrainingMaterialService materials,
-    ProgrammeCatalogueService catalogue) : ApiControllerBase
+    ProgrammeCatalogueService catalogue,
+    ExamSittingService exams) : ApiControllerBase
 {
     private int ApplicantId =>
         CurrentUser.ApplicantId
@@ -107,4 +108,38 @@ public class ApplicantAppController(
     public async Task<ActionResult<ApiEnvelope<List<TrainingMaterialDto>>>> Materials(
         [FromQuery] int? programTypeId, CancellationToken ct) =>
         Envelope(await materials.VisibleToMeAsync(programTypeId, ct));
+
+    /* ---------------------------------------------------- written paper ----
+       Sitting the paper online. Every route is scoped to the applicant on the
+       token inside the service, so none of them can be pointed at somebody
+       else's sitting by changing a number in the address. */
+
+    /// <summary>Whether this enrolment's paper can be sat, and what is done so far.</summary>
+    [HttpGet("enrolments/{participantId:int}/exam")]
+    public async Task<ActionResult<ApiEnvelope<ExamAvailabilityDto>>> Exam(
+        int participantId, CancellationToken ct) =>
+        Envelope(await exams.AvailabilityAsync(ApplicantId, participantId, ct));
+
+    /// <summary>Opens a sitting — the clock starts here — and serves the paper.</summary>
+    [HttpPost("enrolments/{participantId:int}/exam/start")]
+    public async Task<ActionResult<ApiEnvelope<ExamSittingDto>>> StartExam(
+        int participantId, CancellationToken ct) =>
+        Envelope(await exams.StartAsync(ApplicantId, participantId, ct));
+
+    /// <summary>The paper as it stands, for an app that was closed mid-sitting.</summary>
+    [HttpGet("exam/{attemptId:int}")]
+    public async Task<ActionResult<ApiEnvelope<ExamSittingDto>>> Sitting(
+        int attemptId, CancellationToken ct) =>
+        Envelope(await exams.ResumeAsync(ApplicantId, attemptId, ct));
+
+    /// <summary>Answers as they are given, so nothing rides on the submit.</summary>
+    [HttpPut("exam/{attemptId:int}/answers")]
+    public async Task<ActionResult<ApiEnvelope<int>>> Answer(
+        int attemptId, [FromBody] ExamAnswerBatchDto dto, CancellationToken ct) =>
+        Envelope(await exams.AnswerAsync(ApplicantId, attemptId, dto, ct));
+
+    [HttpPost("exam/{attemptId:int}/submit")]
+    public async Task<ActionResult<ApiEnvelope<ExamResultDto>>> SubmitExam(
+        int attemptId, CancellationToken ct) =>
+        Envelope(await exams.SubmitAsync(ApplicantId, attemptId, ct), "Paper submitted.");
 }

@@ -97,6 +97,19 @@ public class MarksheetRowDto
     /// </summary>
     public bool IsLocked { get; set; }
 
+    /// <summary>
+    /// True when the written mark came from the paper the candidate sat online.
+    ///
+    /// The box is then read only on both clients and the server refuses to
+    /// change it: a typed-over exam score is not a correction, it is a
+    /// different answer to the one the candidate gave.
+    /// </summary>
+    public bool WrittenFromExam { get; set; }
+
+    /// <summary>The percentage on the best sitting, when there was one.</summary>
+    public decimal? ExamPercentage { get; set; }
+    public int ExamAttempts { get; set; }
+
     public List<MarksheetSkillMarkDto> SkillMarks { get; set; } = [];
 }
 

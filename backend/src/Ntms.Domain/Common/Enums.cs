@@ -84,6 +84,20 @@ public enum QuestionType
     Descriptive = 4,
 }
 
+/// <summary>
+/// Where one sitting of an online paper got to.
+///
+/// Expired is its own state rather than a submitted attempt with a flag: a
+/// candidate whose time ran out did sit the paper, and what they had answered
+/// by then is what they scored.
+/// </summary>
+public enum ExamAttemptStatus
+{
+    InProgress = 1,
+    Submitted = 2,
+    Expired = 3,
+}
+
 public enum DifficultyLevel
 {
     Easy = 1,

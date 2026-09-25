@@ -4,6 +4,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
+  ExamPaper,
   LookupItem,
   PROGRAM_MODES,
   PROGRAM_STATUSES,
@@ -15,6 +16,7 @@ import {
 import { AuthService } from '../../core/services/auth.service';
 import { LookupService } from '../../core/services/masters.service';
 import { ToastService } from '../../core/services/toast.service';
+import { ExamPaperService } from '../../core/services/academics.service';
 import { ProgramService } from '../../core/services/workflow.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
@@ -311,9 +313,41 @@ const COLUMNS: ColumnDef[] = [
         size="sm"
         (closed)="examFor.set(null)"
       >
-        <div class="field">
-          <label class="field-label" for="examWhen">Examination date &amp; time</label>
-          <input id="examWhen" type="datetime-local" class="input" [value]="examValue()" (change)="examValue.set(value($event))" />
+        <div class="stack stack-md">
+          <div class="field">
+            <label class="field-label" for="examWhen">Examination date &amp; time</label>
+            <input id="examWhen" type="datetime-local" class="input" [value]="examValue()" (change)="examValue.set(value($event))" />
+            <span class="field-hint">The online paper opens to candidates at this time.</span>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="examPaper">Question paper</label>
+            <!-- Selected through the options rather than the select's value:
+                 the options are rendered from a list that arrives after the
+                 binding would run, and the choice would be dropped. -->
+            <select id="examPaper" class="select"
+              (change)="examPaperId.set(value($event) ? +value($event) : null)">
+              <option value="" [selected]="examPaperId() === null">
+                {{ papersFor(programme).length === 1 ? 'Use the only live paper' : 'Not set' }}
+              </option>
+              @for (paper of papersFor(programme); track paper.id) {
+                <option [value]="paper.id" [selected]="paper.id === examPaperId()">
+                  {{ paper.code }} · {{ paper.title }}
+                </option>
+              }
+            </select>
+            @if (papersFor(programme).length === 0) {
+              <span class="field-hint">
+                This program type has no live paper, so the written mark is entered by hand on
+                the marksheet.
+              </span>
+            } @else {
+              <span class="field-hint">
+                Leave unset and the program type's single live paper is used; a type with
+                several has to be told which.
+              </span>
+            }
+          </div>
         </div>
         <div footer>
           <button type="button" class="btn btn--secondary" (click)="examFor.set(null)">Cancel</button>
@@ -377,6 +411,17 @@ export class ProgramsComponent {
   protected readonly saving = signal(false);
   protected readonly examFor = signal<Program | null>(null);
   protected readonly examValue = signal('');
+  protected readonly examPaperId = signal<number | null>(null);
+
+  /* Every live paper, filtered per batch when the modal opens: the list is
+     short and fetched once rather than on each programme. */
+  private readonly papers = toSignal(inject(ExamPaperService).all({ status: 'Active' }), {
+    initialValue: [] as ExamPaper[],
+  });
+
+  protected papersFor(programme: Program): ExamPaper[] {
+    return this.papers().filter((paper) => paper.programTypeId === programme.programTypeId);
+  }
 
   protected readonly canManage = computed(() => this.auth.hasPermission('programs.manage'));
 
@@ -481,19 +526,25 @@ export class ProgramsComponent {
 
   protected openExam(programme: Program): void {
     this.examFor.set(programme);
-    this.examValue.set(programme.examDateTime ?? `${programme.endDate}T15:00`);
+    this.examValue.set(
+      programme.examDateTime
+        ? localInput(programme.examDateTime)
+        : `${programme.endDate}T15:00`,
+    );
+    this.examPaperId.set(programme.examPaperId ?? null);
   }
 
   protected saveExam(): void {
     const programme = this.examFor();
     if (!programme) return;
-    this.service
-      .update(programme.id, { ...programme, examDateTime: this.examValue(), status: 'CalendarCreated' })
-      .subscribe(() => {
-        this.toast.success('Exam time set', programme.programmeId);
-        this.examFor.set(null);
-        this.list.reload();
-      });
+    /* The dedicated endpoint, not the programme update: the update contract
+       carries neither the exam time nor the paper, so sending them there was
+       quietly doing nothing. */
+    this.service.setExamTime(programme.id, this.examValue(), this.examPaperId()).subscribe(() => {
+      this.toast.success('Exam time set', programme.programmeId);
+      this.examFor.set(null);
+      this.list.reload();
+    });
   }
 
   protected async postpone(programme: Program): Promise<void> {
@@ -515,4 +566,19 @@ export class ProgramsComponent {
         this.list.reload();
       });
   }
+}
+
+/**
+ * An instant as a `datetime-local` input wants it: local time, to the minute,
+ * with no zone marker. A stored UTC string handed straight to the input is
+ * rejected by the browser, and the field comes up blank.
+ */
+function localInput(iso: string): string {
+  const when = new Date(iso);
+  if (Number.isNaN(when.getTime())) return '';
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return (
+    `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}` +
+    `T${pad(when.getHours())}:${pad(when.getMinutes())}`
+  );
 }

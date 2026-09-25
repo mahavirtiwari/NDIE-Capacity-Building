@@ -208,7 +208,11 @@ function CandidateSheet({
       trainerId,
       /* Only sent when this program type has one: a sheet that never showed
          the written box must not wipe a mark it did not display. */
-      ...(scheme.hasWritten ? { writtenMarks: written === '' ? null : Number(written) } : {}),
+      /* Never sent when the paper decided it: the server refuses a typed-over
+         exam score, and offering it here would only queue a refusal. */
+      ...(scheme.hasWritten && !row.writtenFromExam
+        ? { writtenMarks: written === '' ? null : Number(written) }
+        : {}),
       skillMarks: sheet.skills
         .filter((skill) => !skill.isRetired && skills[skill.id] !== undefined)
         .map((skill) => ({
@@ -260,9 +264,15 @@ function CandidateSheet({
         <Field
           label="Written examination"
           keyboardType="number-pad"
+          editable={!row.writtenFromExam}
           value={written}
           onChangeText={setWritten}
-          hint={`Out of ${scheme.writtenMarks}. Leave blank if the paper is not marked yet.`}
+          hint={
+            row.writtenFromExam
+              ? `From the paper sat online — ${row.examPercentage}% on the best of ` +
+                `${row.examAttempts} attempt${row.examAttempts === 1 ? '' : 's'}.`
+              : `Out of ${scheme.writtenMarks}. Leave blank if the paper is not marked yet.`
+          }
         />
       ) : null}
 

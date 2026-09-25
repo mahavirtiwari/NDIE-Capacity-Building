@@ -610,6 +610,8 @@ public static class DtoMappings
             Comments = e.Comments,
             RegistrationsOpen = e.RegistrationsOpen,
             ExamDateTime = e.ExamDateTime,
+            ExamPaperId = e.ExamPaperId,
+            ExamPaperTitle = e.ExamPaper?.Title,
             Status = e.Status.ToApi(),
             Sessions =
             [

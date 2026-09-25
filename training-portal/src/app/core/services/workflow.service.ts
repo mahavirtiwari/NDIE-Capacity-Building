@@ -52,6 +52,20 @@ export class ProgramService extends CrudService<Program> {
   enrol(programId: Id, applicationIds: Id[]): Observable<Program> {
     return this.api.post<Program>(`${this.resource}/${programId}/enrol`, { applicationIds });
   }
+
+  /**
+   * Schedules the examination, and says which paper the batch sits online.
+   *
+   * Its own endpoint rather than part of the programme update: the update
+   * contract carries none of this, and sending it there was quietly doing
+   * nothing.
+   */
+  setExamTime(programId: Id, examDateTime: string, examPaperId?: Id | null): Observable<Program> {
+    return this.api.post<Program>(`${this.resource}/${programId}/exam-time`, {
+      examDateTime,
+      examPaperId: examPaperId ?? null,
+    });
+  }
 }
 
 export interface DashboardKpi {

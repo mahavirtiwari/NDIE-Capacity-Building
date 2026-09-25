@@ -73,6 +73,9 @@ interface Draft {
         <span class="text-xs text-muted">
           {{ data.markedCount }} of {{ data.rows.length }} decided · {{ data.passCount }} passed ·
           {{ data.failCount }} did not qualify
+          @if (satOnline() > 0) {
+            · {{ satOnline() }} sat the paper online
+          }
         </span>
 
         @if (data.readOnlyReason) {
@@ -147,10 +150,16 @@ interface Draft {
                         type="number"
                         min="0"
                         [max]="data.evaluation.writtenMarks"
-                        [disabled]="!data.canEdit || row.isLocked"
+                        [disabled]="!data.canEdit || row.isLocked || row.writtenFromExam"
                         [ngModel]="writtenOf(row)"
                         (ngModelChange)="setWritten(row, $event)"
+                        [title]="row.writtenFromExam ? 'From the paper sat online' : ''"
                       />
+                      @if (row.writtenFromExam) {
+                        <div class="text-xs text-muted">
+                          Online · {{ row.examPercentage }}%
+                        </div>
+                      }
                     </td>
                   }
 
@@ -269,6 +278,11 @@ export class MarksheetComponent {
     return `Out of ${scheme.totalMarks}: ${parts.join(', ')}. ` +
       `${scheme.overallPassMarks} needed overall.`;
   });
+
+  /** How many written marks came from the online paper rather than a typist. */
+  protected readonly satOnline = computed(
+    () => this.sheet()?.rows.filter((row) => row.writtenFromExam).length ?? 0,
+  );
 
   protected isDirty(participantId: Id): boolean {
     return this.drafts()[participantId] !== undefined;

@@ -55,6 +55,16 @@ public class Programme : AuditableEntity
 
     public bool RegistrationsOpen { get; set; }
     public DateTime? ExamDateTime { get; set; }
+
+    /// <summary>
+    /// The paper this batch sits online, chosen when the exam is scheduled.
+    ///
+    /// Held per batch rather than taken from the programme type, because a type
+    /// can have more than one live paper and which one a batch answered has to
+    /// stay answerable long after both have been revised.
+    /// </summary>
+    public int? ExamPaperId { get; set; }
+    public ExamPaper? ExamPaper { get; set; }
     public ProgramStatus Status { get; set; } = ProgramStatus.New;
 
     public ICollection<ProgrammeSession> Sessions { get; set; } = [];

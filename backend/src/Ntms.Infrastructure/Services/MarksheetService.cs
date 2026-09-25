@@ -106,6 +106,20 @@ public class MarksheetService(NtmsDbContext db, ICurrentUser currentUser)
         var activeSkillIds = skills.Where(s => s.Status == RecordStatus.Active)
             .Select(s => s.Id).ToHashSet();
 
+        /* Sittings of the online paper, so a written mark the candidate earned
+           can be shown as theirs rather than as somebody's typing. */
+        var sittings = await db.ExamAttempts.AsNoTracking()
+            .Where(a => a.Participant!.ProgrammeId == programmeId
+                        && a.Status != ExamAttemptStatus.InProgress)
+            .GroupBy(a => a.ParticipantId)
+            .Select(g => new
+            {
+                ParticipantId = g.Key,
+                Attempts = g.Count(),
+                Best = g.Max(a => a.Percentage),
+            })
+            .ToDictionaryAsync(x => x.ParticipantId, ct);
+
         var dto = new MarksheetDto
         {
             ProgrammeId = programme.Id,
@@ -165,6 +179,9 @@ public class MarksheetService(NtmsDbContext db, ICurrentUser currentUser)
                 Pending = outcome.Pending,
                 Shortfall = outcome.Shortfall,
                 IsLocked = issued.Contains(participant.Id),
+                WrittenFromExam = sittings.ContainsKey(participant.Id),
+                ExamPercentage = sittings.GetValueOrDefault(participant.Id)?.Best,
+                ExamAttempts = sittings.GetValueOrDefault(participant.Id)?.Attempts ?? 0,
                 SkillMarks =
                 [
                     .. participant.SkillMarks
@@ -235,6 +252,13 @@ public class MarksheetService(NtmsDbContext db, ICurrentUser currentUser)
         var activeSkills = skills.Where(s => s.Status == RecordStatus.Active).ToList();
         var byId = skills.ToDictionary(s => s.Id);
 
+        /* Whose written mark is the paper's, and so not open to typing. */
+        var sat = await db.ExamAttempts.AsNoTracking()
+            .Where(a => ids.Contains(a.ParticipantId) && a.Status != ExamAttemptStatus.InProgress)
+            .Select(a => a.ParticipantId)
+            .Distinct()
+            .ToListAsync(ct);
+
         var trainerIds = await db.ProgrammeTrainers.AsNoTracking()
             .Where(t => t.ProgrammeId == programmeId)
             .Select(t => t.Id)
@@ -260,6 +284,14 @@ public class MarksheetService(NtmsDbContext db, ICurrentUser currentUser)
             {
                 if (!scheme.HasWritten)
                     throw new AppException("This program type has no written paper.");
+
+                if (sat.Contains(participant.Id))
+                {
+                    throw AppException.Conflict(
+                        "This candidate's written mark comes from the paper they sat online " +
+                        "and cannot be typed over.");
+                }
+
                 if (written < 0 || written > scheme.WrittenMarks)
                 {
                     throw new AppException(
@@ -325,40 +357,11 @@ public class MarksheetService(NtmsDbContext db, ICurrentUser currentUser)
                 }
             }
 
-            Recompute(participant, scheme, activeSkills, now);
+            ResultRecorder.Recompute(participant, scheme, activeSkills, now);
         }
 
         await db.SaveChangesAsync(ct);
         return await GetAsync(programmeId, ct);
     }
 
-    /// <summary>
-    /// Adds the marks up and writes the result back onto the candidate.
-    ///
-    /// Only marks against live skills count towards the viva total. A retired
-    /// skill's mark stays on the record — it was part of a result that may
-    /// already have been reported — but it is not added to a total being
-    /// worked out now, or the same sheet would total differently before and
-    /// after somebody tidied the skill list.
-    /// </summary>
-    private static void Recompute(
-        ProgrammeParticipant participant,
-        EvaluationScheme scheme,
-        List<EvaluationSkill> activeSkills,
-        DateTime now)
-    {
-        var live = activeSkills.Select(s => s.Id).ToHashSet();
-        var counted = participant.SkillMarks.Where(m => live.Contains(m.SkillId)).ToList();
-
-        var viva = counted.Count > 0 ? counted.Sum(m => m.Marks) : (decimal?)null;
-        var allMarked = activeSkills.Count > 0 && counted.Count == activeSkills.Count;
-
-        var outcome = Marking.Decide(scheme, participant.WrittenMarks, viva, allMarked);
-
-        participant.VivaMarks = outcome.Viva;
-        participant.ExamScore = outcome.Total;
-        participant.Result = outcome.Result;
-        participant.ResultRecordedOn =
-            outcome.Result == ParticipantResult.Pending ? null : now;
-    }
 }

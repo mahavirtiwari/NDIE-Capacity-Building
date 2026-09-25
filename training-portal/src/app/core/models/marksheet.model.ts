@@ -58,6 +58,11 @@ export interface MarksheetRow {
   shortfall?: string | null;
   /** True once a certificate has been issued: the line is then read only. */
   isLocked: boolean;
+  /** True when the written mark came from the paper the candidate sat online. */
+  writtenFromExam: boolean;
+  /** The percentage on their best sitting, when there was one. */
+  examPercentage?: number | null;
+  examAttempts: number;
   skillMarks: MarksheetSkillMark[];
 }
 
