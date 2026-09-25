@@ -25,7 +25,7 @@ export default function RootLayout() {
               headerStyle: { backgroundColor: colors.blush },
               headerTintColor: colors.brand700,
               headerTitleStyle: { fontWeight: '600', color: colors.ink900 },
-              contentStyle: { backgroundColor: colors.blush },
+              contentStyle: { backgroundColor: colors.page },
             }}
           >
             <Stack.Screen name="index" options={{ headerShown: false }} />

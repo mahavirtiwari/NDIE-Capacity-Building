@@ -97,7 +97,7 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
                   class="input"
                   formControlName="username"
                   autocomplete="username"
-                  placeholder="System generated ID, e.g. SA0001"
+                  placeholder="Enter user ID"
                   [class.is-invalid]="invalid('username')"
                 />
               </div>
@@ -121,7 +121,7 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
                   [type]="showPassword() ? 'text' : 'password'"
                   formControlName="password"
                   autocomplete="current-password"
-                  placeholder="Password@123"
+                  placeholder="Enter password"
                   [class.is-invalid]="invalid('password')"
                 />
                 <button

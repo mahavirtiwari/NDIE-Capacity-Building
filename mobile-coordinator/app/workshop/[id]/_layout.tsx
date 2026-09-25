@@ -16,7 +16,7 @@ export default function WorkshopLayout() {
           headerStyle: { backgroundColor: colors.blush },
           headerTintColor: colors.brand700,
           headerTitleStyle: { fontWeight: '600' },
-          contentStyle: { backgroundColor: colors.blush },
+          contentStyle: { backgroundColor: colors.page },
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
