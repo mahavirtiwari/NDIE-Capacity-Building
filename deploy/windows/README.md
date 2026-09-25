@@ -35,6 +35,10 @@ E:\cbms-data                     uploaded files      (never touched by a deploy)
 `E:\cbms-data` is deliberately outside `E:\inetpub\cbms`. A deploy empties the
 site folder; anything in it would go with it.
 
+For production — backups, releases with a way back, and a check that the box is
+configured to be the live one — see **[README-production.md](README-production.md)**.
+The scripts below are the install; that is the running of it.
+
 ## First time
 
 Run from an **elevated** PowerShell, in order. Each one stops on failure and
