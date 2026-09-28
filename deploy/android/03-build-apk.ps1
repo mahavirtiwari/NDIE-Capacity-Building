@@ -39,6 +39,8 @@ param(
     [string] $OutputDir = 'E:\cbms-apk',
     [string] $KeystoreDir = 'E:\cbms-keystores',
     [int] $VersionCode = 0,
+    # Where the C++ build tree goes. Short on purpose — see Add-ShortBuildTree.
+    [string] $NativeBuildRoot = 'C:\cbms-cxx',
     [switch] $KeepNativeProject
 )
 
@@ -173,6 +175,71 @@ function Add-SigningConfig {
     }
     Write-Host ("  [ok]  build.gradle starts {0}" -f `
         (($head | Select-Object -First 4 | ForEach-Object { $_.ToString('X2') }) -join ' ')) -ForegroundColor Gray
+}
+
+function Add-ShortBuildTree {
+    <#
+    .SYNOPSIS
+        Moves the C++ build tree somewhere short enough for Windows.
+
+    .DESCRIPTION
+        CMake names an object file by mirroring the whole absolute source path
+        underneath the object directory. For react-native-gesture-handler that
+        mirrored tail is about 175 characters on its own, and the object
+        directory it sits under —
+
+            <project>/android/app/.cxx/RelWithDebInfo/<hash>/<abi>/
+            rngesturehandler_codegen_autolinked_build/CMakeFiles/
+            react_codegen_rngesturehandler_codegen.dir/
+
+        — is another 180. Ninja then refuses: "Filename longer than 260
+        characters".
+
+        CMAKE_OBJECT_PATH_MAX is meant to solve this by hashing the mirrored
+        tail instead, and it does — but only when the directory itself leaves
+        room for a name. At 180 characters against a 240 limit there is no
+        room, so CMake warns that the object "cannot be safely placed under
+        this directory" and writes the long name anyway.
+
+        So the directory has to shrink, and buildStagingDirectory is what moves
+        it. C:\cbms-cxx\<app> in place of the project folder takes the
+        directory from about 180 characters to about 120, which is enough for
+        CMake to fit a hashed name under it — and the build goes through.
+
+        Nothing of value lives there: it is object files, regenerated whenever
+        the native project is.
+    #>
+    param(
+        [Parameter(Mandatory)] [string] $GradlePath,
+        [Parameter(Mandatory)] [string] $Root,
+        [Parameter(Mandatory)] [string] $Name
+    )
+
+    $gradle = [System.IO.File]::ReadAllText($GradlePath).TrimStart([char] 0xFEFF)
+    if ($gradle -match 'buildStagingDirectory') { return }
+
+    $staging = (Join-Path $Root $Name) -replace '\\', '/'
+    New-Item -ItemType Directory -Path (Join-Path $Root $Name) -Force | Out-Null
+
+    $block = @"
+    externalNativeBuild {
+        cmake {
+            // Injected by deploy/android/03-build-apk.ps1: the object paths do
+            // not fit under the project folder on Windows.
+            buildStagingDirectory = file("$staging")
+        }
+    }
+"@
+
+    if ($gradle -notmatch '(?m)^android\s*\{') {
+        throw "No android block in $GradlePath, so the build tree cannot be relocated."
+    }
+
+    $gradle = [regex]::Replace(
+        $gradle, '(?m)^(android\s*\{)', ('$1' + "`n" + $block), 'None', [TimeSpan]::FromSeconds(5))
+
+    Set-PlainTextFile -Path $GradlePath -Content $gradle
+    Write-Host "  [ok]  C++ build tree moved to $staging" -ForegroundColor Gray
 }
 
 function Add-ShortObjectPaths {
@@ -348,6 +415,7 @@ foreach ($name in $targets) {
             -Content ("sdk.dir=" + ($sdk -replace '\\', '\\\\'))
 
         Add-ShortObjectPaths -GradlePath (Join-Path $androidPath 'app\build.gradle')
+        Add-ShortBuildTree -GradlePath (Join-Path $androidPath 'app\build.gradle') -Root $NativeBuildRoot -Name $name
         Add-SigningConfig -GradlePath (Join-Path $androidPath 'app\build.gradle')
         Write-Host "  [ok]  Release signing configured" -ForegroundColor Green
 
