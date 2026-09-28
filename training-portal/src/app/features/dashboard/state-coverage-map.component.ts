@@ -113,7 +113,7 @@ interface Region {
                 <tr>
                   <th [attr.aria-sort]="ariaSort('name')">
                     <button type="button" class="map__sort" (click)="sortBy('name')">
-                      {{ districtsOf() ? 'District' : 'State/UT' }}
+                      District
                       <span class="map__caret">{{ caret('name') }}</span>
                     </button>
                   </th>
@@ -130,32 +130,32 @@ interface Region {
                 </tr>
               </thead>
               <tbody>
-                @if (districtsOf()) {
-                  <!-- Districts have no shape on the map, so these rows do not
-                       drive the hover highlight the state rows do. -->
-                  @for (row of rankedDistricts(); track row.districtCode) {
-                    <tr [class.map__row--idle]="row.programmes === 0">
-                      <td>{{ row.district }}</td>
-                      <td class="num">{{ row.participants | number }}</td>
-                      <td class="num">{{ row.programmes | number }}</td>
-                    </tr>
-                  }
-                  @if (rankedDistricts().length === 0) {
-                    <tr><td colspan="3" class="map__none">No districts recorded for this state.</td></tr>
-                  }
-                } @else {
-                  @for (region of ranked(); track region.code) {
-                    <tr
-                      [class.map__row--active]="hovered()?.code === region.code"
-                      [class.map__row--idle]="region.programmes === 0"
-                      (mouseenter)="hovered.set(region)"
-                      (mouseleave)="hovered.set(null)"
-                    >
-                      <td>{{ region.name }}</td>
-                      <td class="num">{{ region.participants | number }}</td>
-                      <td class="num">{{ region.programmes | number }}</td>
-                    </tr>
-                  }
+                <!-- Districts, whether or not a state is filtered. The map
+                     draws states because there are no district outlines to
+                     draw, so hovering a row highlights the state it sits in
+                     rather than the district itself. -->
+                @for (row of rankedDistricts(); track row.districtCode) {
+                  <tr
+                    [class.map__row--active]="hovered()?.code === row.stateCode"
+                    [class.map__row--idle]="row.programmes === 0"
+                    (mouseenter)="hoverState(row.stateCode)"
+                    (mouseleave)="hovered.set(null)"
+                  >
+                    <td>{{ row.district }}</td>
+                    <td class="num">{{ row.participants | number }}</td>
+                    <td class="num">{{ row.programmes | number }}</td>
+                  </tr>
+                }
+                @if (rankedDistricts().length === 0) {
+                  <tr>
+                    <td colspan="3" class="map__none">
+                      {{
+                        districtsOf()
+                          ? 'No districts recorded for this state.'
+                          : 'No districts to show.'
+                      }}
+                    </td>
+                  </tr>
                 }
               </tbody>
               <tfoot>
@@ -475,6 +475,17 @@ export class StateCoverageMapComponent {
   protected readonly measure = signal<Measure>('participants');
   protected readonly hovered = signal<Region | null>(null);
 
+  /**
+   * Highlights the state a district row belongs to.
+   *
+   * The map has state shapes and no district ones, so a district row lights up
+   * the state containing it. That is the honest amount of precision the map
+   * has: it says where in the country to look, and the row says which district.
+   */
+  protected hoverState(stateCode: number): void {
+    this.hovered.set(this.regions().find((r) => r.code === stateCode) ?? null);
+  }
+
   /** Where the note sits, in pixels within the figure. */
   protected readonly notePosition = signal<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -618,7 +629,21 @@ export class StateCoverageMapComponent {
           ? a.district.localeCompare(b.district)
           : ((a[key as 'participants' | 'programmes'] as number) -
              (b[key as 'participants' | 'programmes'] as number));
-      return primary !== 0 ? primary * factor : a.district.localeCompare(b.district);
+
+      if (primary !== 0) return primary * factor;
+
+      /* Across the whole country this list is seven hundred rows, nearly all of
+         them empty. Sorting by participants alone buries a district that has
+         had a programme but no attendance yet underneath the alphabet, so the
+         other measure breaks the tie before the name does — anything that has
+         happened sorts above everything that has not. */
+      if (key !== 'name') {
+        const other = key === 'participants' ? 'programmes' : 'participants';
+        const secondary = (a[other] as number) - (b[other] as number);
+        if (secondary !== 0) return secondary * factor;
+      }
+
+      return a.district.localeCompare(b.district);
     });
   });
 

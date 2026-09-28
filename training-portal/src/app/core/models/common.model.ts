@@ -67,6 +67,12 @@ export interface StateCoverage {
 export interface DistrictCoverage {
   districtCode: number;
   district: string;
+  /**
+   * The state it sits in. On every row because district names are not unique
+   * across India, and because the map highlights the state a row belongs to.
+   */
+  state: string;
+  stateCode: number;
   programTypes: number;
   programmes: number;
   participants: number;

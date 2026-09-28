@@ -211,16 +211,16 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
     }
 
     /// <summary>
-    /// The districts of the filtered state, when exactly one state is filtered.
+    /// The districts behind the map, which is what the table beside it lists.
     ///
-    /// The map always draws states - there are no district outlines - so this
-    /// is for the table beside it, which drops a level when the filter does.
-    /// Looking at one state and being shown a list of every other state was
-    /// the table answering a question nobody had asked.
+    /// Districts everywhere by default, and one state's districts when the
+    /// filter names a state. The map itself still draws states, because there
+    /// are no district outlines to draw — but the question the table answers
+    /// is "where did this happen", and a district is the answer to that.
     ///
-    /// Districts with nothing are listed too, for the same reason states are:
+    /// Districts with nothing are listed too, for the same reason states were:
     /// an empty district is the more interesting half of the answer, and a
-    /// missing row would be read as an oversight.
+    /// missing row reads as an oversight rather than a zero.
     /// </summary>
     private async Task AddDistrictsAsync(
         StateCoverageResultDto result,
@@ -228,22 +228,28 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
         DashboardFilterDto filter,
         CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(filter.State)) return;
+        int? onlyState = null;
 
-        var name = filter.State.Trim().ToUpperInvariant();
-        var state = await db.States.AsNoTracking()
-            .Where(s => s.Name == name)
-            .Select(s => new { s.Code, s.Name })
-            .FirstOrDefaultAsync(ct);
-
-        if (state is null) return;
-
-        /* A manager who does not hold this state sees nothing for it, the same
-           way the state list above is filtered. */
-        if (currentUser.IsMasterScoped && currentUser.ScopeStateCodes.Count > 0 &&
-            !currentUser.ScopeStateCodes.Contains(state.Code))
+        if (!string.IsNullOrWhiteSpace(filter.State))
         {
-            return;
+            var name = filter.State.Trim().ToUpperInvariant();
+            var state = await db.States.AsNoTracking()
+                .Where(s => s.Name == name)
+                .Select(s => new { s.Code, s.Name })
+                .FirstOrDefaultAsync(ct);
+
+            if (state is null) return;
+
+            /* A manager who does not hold this state sees nothing for it, the
+               same way the state list above is filtered. */
+            if (currentUser.IsMasterScoped && currentUser.ScopeStateCodes.Count > 0 &&
+                !currentUser.ScopeStateCodes.Contains(state.Code))
+            {
+                return;
+            }
+
+            onlyState = state.Code;
+            result.DistrictsOf = Title(state.Name);
         }
 
         var rows = await programmes
@@ -260,20 +266,29 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
 
         var byDistrict = rows.ToDictionary(r => r.DistrictCode);
 
+        /* Scoped the same way the states are: a manager who holds three states
+           gets the districts of those three and no others. */
+        var visible = currentUser.IsMasterScoped && currentUser.ScopeStateCodes.Count > 0
+            ? currentUser.ScopeStateCodes.ToHashSet()
+            : null;
+
         var districts = await db.Districts.AsNoTracking()
-            .Where(d => d.StateCode == state.Code)
+            .WhereIf(onlyState.HasValue, d => d.StateCode == onlyState!.Value)
             .OrderBy(d => d.Name)
-            .Select(d => new { d.Code, d.Name })
+            .Select(d => new { d.Code, d.Name, d.StateCode, StateName = d.State!.Name })
             .ToListAsync(ct);
 
-        result.DistrictsOf = Title(state.Name);
         foreach (var district in districts)
         {
+            if (visible is not null && !visible.Contains(district.StateCode)) continue;
+
             var row = byDistrict.GetValueOrDefault(district.Code);
             result.Districts.Add(new DistrictCoverageDto
             {
                 DistrictCode = district.Code,
                 District = Title(district.Name),
+                StateCode = district.StateCode,
+                State = Title(district.StateName),
                 ProgramTypes = row?.ProgramTypes ?? 0,
                 Programmes = row?.Programmes ?? 0,
                 Participants = row?.Participants ?? 0,

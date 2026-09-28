@@ -377,6 +377,15 @@ public class DistrictCoverageDto
 {
     public int DistrictCode { get; set; }
     public string District { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The state it sits in. Carried on every row because district names are
+    /// not unique across India — there is an Aurangabad in Bihar and another
+    /// in Maharashtra — so a national list of districts alone is ambiguous.
+    /// </summary>
+    public string State { get; set; } = string.Empty;
+    public int StateCode { get; set; }
+
     public int ProgramTypes { get; set; }
     public int Programmes { get; set; }
     public int Participants { get; set; }
