@@ -134,7 +134,7 @@ public class ExamSittingService(NtmsDbContext db, ResultRecorder results)
 
         if (best is not null)
         {
-            dto.Best = ToResult(best, paper.Questions.Count, participant);
+            dto.Best = ToResult(best, participant);
         }
 
         if (open is not null)
@@ -246,6 +246,7 @@ public class ExamSittingService(NtmsDbContext db, ResultRecorder results)
             ExpiresOn = now.AddMinutes(paper.DurationMinutes),
             Status = ExamAttemptStatus.InProgress,
             PaperTotal = paper.Questions.Sum(q => q.Marks),
+            QuestionCount = paper.Questions.Count,
         };
 
         db.ExamAttempts.Add(attempt);
@@ -449,7 +450,7 @@ public class ExamSittingService(NtmsDbContext db, ResultRecorder results)
            not put a candidate in debt. */
         attempt.Score = Math.Max(0m, raw);
         attempt.Percentage = attempt.PaperTotal > 0
-            ? Math.Round(attempt.Score / attempt.PaperTotal * 100m, 2)
+            ? Rounding.Half(attempt.Score / attempt.PaperTotal * 100m)
             : 0m;
 
         var paper = await db.ExamPapers.AsNoTracking()
@@ -473,7 +474,7 @@ public class ExamSittingService(NtmsDbContext db, ResultRecorder results)
         if (settled)
         {
             await db.SaveChangesAsync(ct);
-            return ToResult(attempt, paper.Questions.Count, participant);
+            return ToResult(attempt, participant);
         }
 
         var scheme = await db.Programmes.AsNoTracking()
@@ -500,7 +501,7 @@ public class ExamSittingService(NtmsDbContext db, ResultRecorder results)
         await results.RecomputeAsync(participant, ct);
         await db.SaveChangesAsync(ct);
 
-        return ToResult(attempt, paper.Questions.Count, participant);
+        return ToResult(attempt, participant);
     }
 
     /// <summary>
@@ -514,11 +515,11 @@ public class ExamSittingService(NtmsDbContext db, ResultRecorder results)
     private static decimal? Scale(ExamAttempt attempt, EvaluationScheme scheme)
     {
         if (!scheme.HasWritten || attempt.PaperTotal <= 0) return null;
-        return Math.Round(attempt.Score / attempt.PaperTotal * scheme.WrittenMarks, 2);
+        return Rounding.Half(attempt.Score / attempt.PaperTotal * scheme.WrittenMarks);
     }
 
     private static ExamResultDto ToResult(
-        ExamAttempt attempt, int questionCount, ProgrammeParticipant participant) => new()
+        ExamAttempt attempt, ProgrammeParticipant participant) => new()
     {
         AttemptId = attempt.Id,
         AttemptNo = attempt.AttemptNo,
@@ -529,7 +530,7 @@ public class ExamSittingService(NtmsDbContext db, ResultRecorder results)
         Percentage = attempt.Percentage,
         Passed = attempt.Passed,
         Answered = attempt.Answers.Count,
-        QuestionCount = questionCount,
+        QuestionCount = attempt.QuestionCount,
         WrittenMarks = participant.WrittenMarks,
         ProgrammeResult = participant.Result.ToString(),
     };

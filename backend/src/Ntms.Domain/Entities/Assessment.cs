@@ -79,6 +79,14 @@ public class ExamAttempt : AuditableEntity
     public decimal Score { get; set; }
     /// <summary>What the paper was out of when it was sat.</summary>
     public decimal PaperTotal { get; set; }
+
+    /// <summary>
+    /// How many questions the paper held when it was sat. Recorded for the
+    /// same reason as <see cref="PaperTotal"/>: "answered 18" means nothing
+    /// without the number it was out of at the time, and reading that off the
+    /// paper afterwards reports today's paper, not the one that was sat.
+    /// </summary>
+    public int QuestionCount { get; set; }
     public decimal Percentage { get; set; }
 
     /// <summary>

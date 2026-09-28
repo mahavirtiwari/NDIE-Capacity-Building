@@ -22,6 +22,11 @@ namespace Ntms.Infrastructure.Services;
 ///
 /// Read only, throughout. Nothing here can change a mark: a wrong key is fixed
 /// on the paper and the sitting is retaken, not edited after the fact.
+///
+/// The questions come from the paper rather than from the answers, which is
+/// only sound because a paper that has been sat can no longer have its
+/// questions changed — ExamPaperService refuses. Were that relaxed, this would
+/// start showing a candidate questions they were never asked.
 /// </summary>
 public class ExamReviewService(NtmsDbContext db, ICurrentUser currentUser)
 {
@@ -172,7 +177,17 @@ public class ExamReviewService(NtmsDbContext db, ICurrentUser currentUser)
         dto.Percentage = attempt.Percentage;
         dto.Passed = attempt.Passed;
         dto.Answered = attempt.Answers.Count;
-        dto.QuestionCount = attempt.ExamPaper?.Questions.Count ?? 0;
+
+        /* The paper as it was sat. Reading the count off the paper reports
+           what it holds today, and "answered 18 of 20" against a paper that
+           has since grown to 25 is a discrepancy nobody can explain.
+
+           Sittings taken before this was recorded have a zero, so the paper is
+           the only answer left for them — right for all but a paper edited in
+           between, which can no longer happen. */
+        dto.QuestionCount = attempt.QuestionCount > 0
+            ? attempt.QuestionCount
+            : attempt.ExamPaper?.Questions.Count ?? 0;
         dto.IsBest = isBest;
     }
 

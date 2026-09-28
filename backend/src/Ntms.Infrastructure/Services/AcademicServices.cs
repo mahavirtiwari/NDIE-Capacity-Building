@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Ntms.Application.Common;
 using Ntms.Application.Contracts;
@@ -213,12 +214,115 @@ public class ExamPaperService(NtmsDbContext db)
             throw AppException.Conflict($"Exam paper code '{code}' is already in use.");
         Validate(dto);
 
-        db.ExamQuestions.RemoveRange(entity.Questions);
-        entity.Questions.Clear();
-        Apply(entity, dto, code);
+        /* Nothing at all while somebody is part way through. The duration is
+           the clock they are being timed against and the questions are what
+           they are answering; either one changing under them is unanswerable
+           when they query the result. */
+        var sitting = await db.ExamAttempts.AsNoTracking()
+            .AnyAsync(a => a.ExamPaperId == id && a.Status == ExamAttemptStatus.InProgress, ct);
+        if (sitting)
+        {
+            throw new AppException(
+                "Somebody is sitting this paper right now. Wait until the sitting is over, " +
+                "or the paper changes underneath them.");
+        }
+
+        if (SameQuestions(entity.Questions, dto))
+        {
+            /* Unchanged, so they are left exactly as they are — including
+               their ids, which the answers of every past sitting point at.
+               The old code deleted and rebuilt the lot on every save, so
+               renaming a paper renumbered its questions. */
+            ApplySettings(entity, dto, code);
+            ApplyQuestionNotes(entity, dto);
+        }
+        else
+        {
+            var sittings = await db.ExamAttempts.CountAsync(a => a.ExamPaperId == id, ct);
+            if (sittings > 0)
+            {
+                /* The marks already recorded were awarded against these
+                   questions, and the review screen reads the paper to show a
+                   candidate what they answered. Rewriting it would restate
+                   both. A new paper leaves the record of what happened intact.
+
+                   Without this the delete failed on the answers' foreign key
+                   and surfaced as a database error nobody could act on. */
+                throw new AppException(
+                    $"This paper has been sat {sittings} time(s), so its questions can no longer " +
+                    "be changed — the marks already given were awarded against them. Create a new " +
+                    "paper for the new questions and switch this one off.");
+            }
+
+            db.ExamQuestions.RemoveRange(entity.Questions);
+            entity.Questions.Clear();
+            Apply(entity, dto, code);
+        }
 
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// Whether the paper still asks the same things, worth the same marks,
+    /// with the same answers. This is the line between an edit that leaves
+    /// past sittings meaning what they meant and one that does not.
+    ///
+    /// The wording of a question, its type, its marks and its options all
+    /// count. The explanation, the difficulty and the module reference do not:
+    /// they are notes about a question, not the question, so a typo in one
+    /// stays fixable on a paper that has been sat.
+    ///
+    /// Marks are formatted to two places rather than printed as they come. A
+    /// decimal carries its scale, so the 0m this normalises an unmarked
+    /// negative to and the 0.00m read back from the column are the same number
+    /// and different strings — and a paper compared against itself came out
+    /// changed.
+    /// </summary>
+    private static bool SameQuestions(
+        ICollection<ExamQuestion> stored, ExamPaperUpsertDto dto)
+    {
+        if (stored.Count != dto.Questions.Count) return false;
+
+        var before = stored.OrderBy(q => q.DisplayOrder).ThenBy(q => q.Id).Select(Signature);
+        var after = dto.Questions.OrderBy(q => q.DisplayOrder).Select(q => Signature(q, dto));
+        return before.SequenceEqual(after, StringComparer.Ordinal);
+    }
+
+    private static string Signature(ExamQuestion question) =>
+        string.Join('\u001f', [
+            question.Text.Trim(),
+            question.Type.ToString(),
+            question.Marks.ToString("F2", CultureInfo.InvariantCulture),
+            question.NegativeMarks.ToString("F2", CultureInfo.InvariantCulture),
+            .. question.Options.OrderBy(o => o.DisplayOrder).ThenBy(o => o.Id)
+                .Select(o => $"{o.Text.Trim()}={o.IsCorrect}"),
+        ]);
+
+    private static string Signature(ExamQuestionDto question, ExamPaperUpsertDto paper) =>
+        string.Join('\u001f', [
+            question.Text.Trim(),
+            EnumMaps.ParseEnum(question.Type, QuestionType.SingleChoice).ToString(),
+            question.Marks.ToString("F2", CultureInfo.InvariantCulture),
+            /* Apply normalises this away when the paper does not mark
+               negatively, so the comparison has to as well or a paper with
+               that switched off never matches itself. */
+            (paper.NegativeMarking ? question.NegativeMarks : 0m).ToString("F2", CultureInfo.InvariantCulture),
+            .. question.Options.Select(o => $"{o.Text.Trim()}={o.IsCorrect}"),
+        ]);
+
+    /// <summary>The notes on a question, which no mark was awarded against.</summary>
+    private static void ApplyQuestionNotes(ExamPaper entity, ExamPaperUpsertDto dto)
+    {
+        var stored = entity.Questions.OrderBy(q => q.DisplayOrder).ThenBy(q => q.Id).ToList();
+        var incoming = dto.Questions.OrderBy(q => q.DisplayOrder).ToList();
+
+        foreach (var (question, source) in stored.Zip(incoming))
+        {
+            question.Difficulty = EnumMaps.ParseEnum(source.Difficulty, DifficultyLevel.Moderate);
+            question.ModuleRef = source.ModuleRef;
+            question.Explanation = source.Explanation;
+        }
     }
 
     public async Task<ExamPaperDto> SetStatusAsync(int id, string status, CancellationToken ct)
@@ -265,6 +369,17 @@ public class ExamPaperService(NtmsDbContext db)
 
     private static void Apply(ExamPaper entity, ExamPaperUpsertDto dto, string code)
     {
+        ApplySettings(entity, dto, code);
+        AddQuestions(entity, dto);
+    }
+
+    /// <summary>
+    /// Everything about the paper that is not a question. Separate because a
+    /// paper that has been sat may still be renamed, reworded or have its
+    /// attempt limit changed — none of that restates a mark.
+    /// </summary>
+    private static void ApplySettings(ExamPaper entity, ExamPaperUpsertDto dto, string code)
+    {
         entity.ProgramTypeId = dto.ProgramTypeId;
         entity.Code = code;
         entity.Title = dto.Title.Trim();
@@ -275,7 +390,10 @@ public class ExamPaperService(NtmsDbContext db)
         entity.ShuffleQuestions = dto.ShuffleQuestions;
         entity.NegativeMarking = dto.NegativeMarking;
         entity.Status = EnumMaps.ToStatus(dto.Status);
+    }
 
+    private static void AddQuestions(ExamPaper entity, ExamPaperUpsertDto dto)
+    {
         var order = 0;
         foreach (var questionDto in dto.Questions.OrderBy(q => q.DisplayOrder))
         {
