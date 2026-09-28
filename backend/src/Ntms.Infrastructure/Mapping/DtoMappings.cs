@@ -38,6 +38,22 @@ public static class DtoMappings
         return dto;
     }
 
+    public static QualificationDto ToDto(this Qualification e, int programTypeCount = 0)
+    {
+        var dto = new QualificationDto
+        {
+            Id = e.Id,
+            Code = e.Code,
+            Label = e.Label,
+            Rank = e.Rank,
+            Status = e.Status.ToApi(),
+            IsSystem = string.Equals(e.Code, QualificationLevels.None, StringComparison.OrdinalIgnoreCase),
+            ProgramTypeCount = programTypeCount,
+        };
+        FillAudit(dto, e);
+        return dto;
+    }
+
     public static SubCategoryDto ToDto(this SubCategory e)
     {
         var dto = new SubCategoryDto
@@ -239,10 +255,15 @@ public static class DtoMappings
                 .. e.Sections.OrderBy(s => s.DisplayOrder).Select(s => new RegistrationSectionDto
                 {
                     Id = s.Id,
+                    Key = s.Key,
                     Title = s.Title,
                     Description = s.Description,
                     DisplayOrder = s.DisplayOrder,
                     IsEnabled = s.IsEnabled,
+                    IsRepeatable = s.IsRepeatable,
+                    MinEntries = s.MinEntries,
+                    MaxEntries = s.MaxEntries,
+                    ItemLabel = s.ItemLabel,
                     Fields =
                     [
                         .. s.Fields.OrderBy(f => f.DisplayOrder).Select(f => new RegistrationFieldDto

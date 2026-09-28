@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Ntms.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Ntms.Infrastructure.Persistence;
 namespace Ntms.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(NtmsDbContext))]
-    partial class NtmsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260928041937_QualificationCatalogue")]
+    partial class QualificationCatalogue
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2799,24 +2802,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsEnabled")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("IsRepeatable")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("ItemLabel")
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.Property<string>("Key")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.Property<int>("MaxEntries")
-                        .HasColumnType("int");
-
-                    b.Property<int>("MinEntries")
-                        .HasColumnType("int");
-
                     b.Property<string>("ModifiedBy")
                         .HasColumnType("nvarchar(max)");
 
@@ -2830,8 +2815,7 @@ namespace Ntms.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("FormId", "Key")
-                        .IsUnique();
+                    b.HasIndex("FormId");
 
                     b.ToTable("RegistrationSections", (string)null);
                 });

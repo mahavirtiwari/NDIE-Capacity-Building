@@ -231,6 +231,10 @@ const COLUMNS: ColumnDef[] = [
                   <option [value]="level.code">{{ level.name }}</option>
                 }
               </select>
+              <span class="field-hint">
+                Not listed? Add it under
+                <a routerLink="/masters/qualifications">Qualifications</a>.
+              </span>
             </div>
             <div class="field">
               <label class="field-label" for="ptExp">Minimum experience (years)</label>

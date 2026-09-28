@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { RegistrationField, RegistrationForm } from '../api/types';
+import type { RegistrationField, RegistrationForm, RegistrationSection } from '../api/types';
 import { colors, font, radius, spacing } from '../theme';
 import { MAX_LENGTHS, UPPERCASE_TYPES, formatErrorFor } from '../validation/formats';
 import { Card, Chip, Field } from './ui';
@@ -19,6 +19,36 @@ export interface DynamicFormState {
   validate: () => boolean;
   /** Answers shaped the way the API expects them. */
   payload: () => Record<string, unknown>;
+  /** How many times a repeating section is currently filled in. */
+  entryCount: (section: RegistrationSection) => number;
+  addEntry: (section: RegistrationSection) => void;
+  removeEntry: (section: RegistrationSection, index: number) => void;
+}
+
+/**
+ * Separates the parts of a stored key. A unit separator, because a field key
+ * is typed by an administrator and could contain anything printable.
+ */
+const SEP = '\u001f';
+
+/** Where a repeating section's entries are stored. */
+export function sectionKeyOf(section: RegistrationSection): string {
+  return section.key?.trim() || `section${section.id}`;
+}
+
+/**
+ * Every answer lives in one flat map, including the ones inside a repeating
+ * section — those are held under section, entry number and field, and only
+ * gathered into a list when the form is submitted. One map means the field
+ * renderer, the errors and the change handler all work unchanged whether a
+ * field is answered once or five times.
+ */
+export function storageKey(
+  section: RegistrationSection,
+  index: number | null,
+  fieldKey: string,
+): string {
+  return index === null ? fieldKey : `${sectionKeyOf(section)}${SEP}${index}${SEP}${fieldKey}`;
 }
 
 function defaultFor(field: RegistrationField): FormValue {
@@ -34,6 +64,14 @@ const asText = (value: FormValue): string => {
   return value;
 };
 
+const minOf = (section: RegistrationSection) => Math.max(0, section.minEntries ?? 1);
+const maxOf = (section: RegistrationSection) => Math.max(1, section.maxEntries ?? 10);
+
+/** What one entry is called, falling back to the section's own title. */
+export function entryNoun(section: RegistrationSection): string {
+  return section.itemLabel?.trim() || section.title;
+}
+
 /**
  * Holds the answers for a Super Admin designed form and validates them with the
  * same rules the API enforces, so the applicant is corrected before they submit.
@@ -41,13 +79,41 @@ const asText = (value: FormValue): string => {
 export function useDynamicForm(form: RegistrationForm | null): DynamicFormState {
   const [values, setValues] = useState<FormValues>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  /** How many entries each repeating section is showing, by section key. */
+  const [counts, setCounts] = useState<Record<string, number>>({});
 
-  const liveFields = useMemo(
-    () =>
-      (form?.sections ?? [])
-        .filter((section) => section.isEnabled)
-        .flatMap((section) => section.fields.filter((field) => field.isEnabled)),
+  const liveSections = useMemo(
+    () => (form?.sections ?? []).filter((section) => section.isEnabled),
     [form],
+  );
+
+  const fieldsOf = useCallback(
+    (section: RegistrationSection) => section.fields.filter((field) => field.isEnabled),
+    [],
+  );
+
+  /* A repeating section opens with the fewest entries it is allowed to have,
+     and never fewer than one, so the applicant has something to type into. */
+  useEffect(() => {
+    setCounts((current) => {
+      const next = { ...current };
+      let changed = false;
+      for (const section of liveSections) {
+        if (!section.isRepeatable) continue;
+        const key = sectionKeyOf(section);
+        if (next[key] === undefined) {
+          next[key] = Math.max(minOf(section), 1);
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [liveSections]);
+
+  const entryCount = useCallback(
+    (section: RegistrationSection) =>
+      section.isRepeatable ? (counts[sectionKeyOf(section)] ?? Math.max(minOf(section), 1)) : 1,
+    [counts],
   );
 
   const setValue = useCallback((key: string, value: FormValue) => {
@@ -60,11 +126,70 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
     });
   }, []);
 
-  /** A conditional field only counts when its trigger answer matches. */
+  const addEntry = useCallback((section: RegistrationSection) => {
+    const key = sectionKeyOf(section);
+    setCounts((current) => {
+      const shown = current[key] ?? Math.max(minOf(section), 1);
+      if (shown >= maxOf(section)) return current;
+      return { ...current, [key]: shown + 1 };
+    });
+    setErrors((current) => {
+      if (!current[key]) return current;
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  /**
+   * Removing an entry shuffles the ones after it down, so the answers move
+   * with them rather than the wrong entry appearing to have been deleted.
+   */
+  const removeEntry = useCallback(
+    (section: RegistrationSection, index: number) => {
+      const key = sectionKeyOf(section);
+      const fields = fieldsOf(section);
+
+      setCounts((current) => {
+        const shown = current[key] ?? Math.max(minOf(section), 1);
+        if (shown <= Math.max(minOf(section), 1)) return current;
+
+        setValues((answers) => {
+          const next = { ...answers };
+          for (let at = index; at < shown - 1; at++) {
+            for (const field of fields) {
+              const here = storageKey(section, at, field.key);
+              const after = storageKey(section, at + 1, field.key);
+              if (after in next) next[here] = next[after];
+              else delete next[here];
+            }
+          }
+          for (const field of fields) delete next[storageKey(section, shown - 1, field.key)];
+          return next;
+        });
+
+        return { ...current, [key]: shown - 1 };
+      });
+    },
+    [fieldsOf],
+  );
+
+  /**
+   * A conditional field only counts when its trigger answer matches. Inside a
+   * repeating section the trigger is that entry's own answer; a trigger
+   * outside the section is the same for every entry.
+   */
   const isVisible = useCallback(
-    (field: RegistrationField, source: FormValues): boolean => {
+    (
+      field: RegistrationField,
+      section: RegistrationSection,
+      index: number | null,
+      source: FormValues,
+    ): boolean => {
       if (!field.visibleWhenFieldKey) return true;
-      const trigger = asText(source[field.visibleWhenFieldKey] ?? null);
+      const scoped = storageKey(section, index, field.visibleWhenFieldKey);
+      const raw = scoped in source ? source[scoped] : source[field.visibleWhenFieldKey];
+      const trigger = asText(raw ?? null);
       const wanted = field.visibleWhenValues ?? [];
       if (wanted.length === 0) return true;
       return wanted.some((candidate) => candidate.toLowerCase() === trigger.toLowerCase());
@@ -72,70 +197,127 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
     [],
   );
 
-  const validate = useCallback((): boolean => {
-    const found: Record<string, string> = {};
-
-    for (const field of liveFields) {
-      if (!isVisible(field, values)) continue;
-
-      const raw = values[field.key] ?? defaultFor(field);
+  const checkField = useCallback(
+    (
+      field: RegistrationField,
+      key: string,
+      found: Record<string, string>,
+      source: FormValues,
+    ) => {
+      const raw = source[key] ?? defaultFor(field);
       const text = asText(raw);
       const empty = Array.isArray(raw) ? raw.length === 0 : text.trim() === '' || text === 'false';
 
       if (field.validation.required && empty) {
-        found[field.key] = `${field.label} is required.`;
-        continue;
+        found[key] = `${field.label} is required.`;
+        return;
       }
-      if (empty) continue;
+      if (empty) return;
 
       const formatError = formatErrorFor(field.type, text);
       if (formatError) {
-        found[field.key] = formatError;
-        continue;
+        found[key] = formatError;
+        return;
       }
 
       const { minLength, maxLength, min, max, pattern } = field.validation;
       if (minLength && text.length < minLength) {
-        found[field.key] = `Minimum ${minLength} characters.`;
+        found[key] = `Minimum ${minLength} characters.`;
       } else if (maxLength && text.length > maxLength) {
-        found[field.key] = `Maximum ${maxLength} characters.`;
+        found[key] = `Maximum ${maxLength} characters.`;
       } else if (field.type === 'number' && (min !== null || max !== null)) {
         const numeric = Number(text);
-        if (Number.isNaN(numeric)) found[field.key] = 'Enter a number.';
+        if (Number.isNaN(numeric)) found[key] = 'Enter a number.';
         else if (min !== null && min !== undefined && numeric < min) {
-          found[field.key] = `Minimum value is ${min}.`;
+          found[key] = `Minimum value is ${min}.`;
         } else if (max !== null && max !== undefined && numeric > max) {
-          found[field.key] = `Maximum value is ${max}.`;
+          found[key] = `Maximum value is ${max}.`;
         }
       } else if (pattern) {
         try {
           if (!new RegExp(pattern).test(text)) {
-            found[field.key] = `Enter a valid ${field.label.toLowerCase()}.`;
+            found[key] = `Enter a valid ${field.label.toLowerCase()}.`;
           }
         } catch {
           /* A bad pattern on the definition must not block the applicant. */
+        }
+      }
+    },
+    [],
+  );
+
+  const validate = useCallback((): boolean => {
+    const found: Record<string, string> = {};
+
+    for (const section of liveSections) {
+      const fields = fieldsOf(section);
+
+      if (!section.isRepeatable) {
+        for (const field of fields) {
+          if (!isVisible(field, section, null, values)) continue;
+          checkField(field, field.key, found, values);
+        }
+        continue;
+      }
+
+      const shown = entryCount(section);
+      if (shown < minOf(section)) {
+        found[sectionKeyOf(section)] =
+          minOf(section) === 1
+            ? `Add at least one ${entryNoun(section).toLowerCase()}.`
+            : `Add at least ${minOf(section)} of these.`;
+        continue;
+      }
+
+      for (let index = 0; index < shown; index++) {
+        for (const field of fields) {
+          if (!isVisible(field, section, index, values)) continue;
+          checkField(field, storageKey(section, index, field.key), found, values);
         }
       }
     }
 
     setErrors(found);
     return Object.keys(found).length === 0;
-  }, [liveFields, values, isVisible]);
+  }, [liveSections, fieldsOf, entryCount, values, isVisible, checkField]);
 
   const payload = useCallback((): Record<string, unknown> => {
-    const result: Record<string, unknown> = {};
-    for (const field of liveFields) {
-      if (!isVisible(field, values)) continue;
-      const raw = values[field.key] ?? defaultFor(field);
-      result[field.key] =
-        typeof raw === 'string' && UPPERCASE_TYPES.includes(field.type)
-          ? raw.toUpperCase()
-          : raw;
-    }
-    return result;
-  }, [liveFields, values, isVisible]);
+    const answerOf = (field: RegistrationField, key: string): FormValue => {
+      const raw = values[key] ?? defaultFor(field);
+      return typeof raw === 'string' && UPPERCASE_TYPES.includes(field.type)
+        ? raw.toUpperCase()
+        : raw;
+    };
 
-  return { values, errors, setValue, validate, payload };
+    const result: Record<string, unknown> = {};
+
+    for (const section of liveSections) {
+      const fields = fieldsOf(section);
+
+      if (!section.isRepeatable) {
+        for (const field of fields) {
+          if (!isVisible(field, section, null, values)) continue;
+          result[field.key] = answerOf(field, field.key);
+        }
+        continue;
+      }
+
+      const entries: Record<string, FormValue>[] = [];
+      for (let index = 0; index < entryCount(section); index++) {
+        const entry: Record<string, FormValue> = {};
+        for (const field of fields) {
+          if (!isVisible(field, section, index, values)) continue;
+          entry[field.key] = answerOf(field, storageKey(section, index, field.key));
+        }
+        entries.push(entry);
+      }
+      result[sectionKeyOf(section)] = entries;
+    }
+
+    return result;
+  }, [liveSections, fieldsOf, entryCount, values, isVisible]);
+
+  return { values, errors, setValue, validate, payload, entryCount, addEntry, removeEntry };
 }
 
 /* ------------------------------------------------------------- renderer */
@@ -147,14 +329,36 @@ export function DynamicFormView({
   form: RegistrationForm;
   state: DynamicFormState;
 }) {
-  const { values, errors, setValue } = state;
+  const { values, errors, setValue, entryCount, addEntry, removeEntry } = state;
 
-  const visible = (field: RegistrationField): boolean => {
+  const visible = (
+    field: RegistrationField,
+    section: RegistrationSection,
+    index: number | null,
+  ): boolean => {
     if (!field.visibleWhenFieldKey) return true;
-    const trigger = asText(values[field.visibleWhenFieldKey] ?? null);
+    const scoped = storageKey(section, index, field.visibleWhenFieldKey);
+    const raw = scoped in values ? values[scoped] : values[field.visibleWhenFieldKey];
+    const trigger = asText(raw ?? null);
     const wanted = field.visibleWhenValues ?? [];
     if (wanted.length === 0) return true;
     return wanted.some((candidate) => candidate.toLowerCase() === trigger.toLowerCase());
+  };
+
+  const renderFields = (section: RegistrationSection, index: number | null) => {
+    const fields = section.fields.filter((field) => field.isEnabled && visible(field, section, index));
+    return fields.map((field) => {
+      const key = storageKey(section, index, field.key);
+      return (
+        <FieldRenderer
+          key={key}
+          field={field}
+          value={values[key] ?? defaultFor(field)}
+          error={errors[key]}
+          onChange={(value) => setValue(key, value)}
+        />
+      );
+    });
   };
 
   return (
@@ -162,30 +366,77 @@ export function DynamicFormView({
       {form.sections
         .filter((section) => section.isEnabled)
         .map((section) => {
-          const fields = section.fields.filter((field) => field.isEnabled && visible(field));
-          if (fields.length === 0) return null;
+          const live = section.fields.filter((field) => field.isEnabled);
+          if (live.length === 0) return null;
+
+          if (!section.isRepeatable) {
+            const rendered = renderFields(section, null);
+            if (rendered.length === 0) return null;
+
+            return (
+              <Card key={section.id} style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>{section.title}</Text>
+                  <Chip>{`${rendered.length} fields`}</Chip>
+                </View>
+                {section.description ? (
+                  <Text style={styles.sectionDescription}>{section.description}</Text>
+                ) : null}
+                <View style={styles.fields}>{rendered}</View>
+              </Card>
+            );
+          }
+
+          const shown = entryCount(section);
+          const noun = entryNoun(section);
+          const floor = Math.max(minOf(section), 1);
+          const sectionError = errors[sectionKeyOf(section)];
 
           return (
             <Card key={section.id} style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>{section.title}</Text>
-                <Chip>{`${fields.length} fields`}</Chip>
+                <Chip>{`${shown} of ${maxOf(section)}`}</Chip>
               </View>
               {section.description ? (
                 <Text style={styles.sectionDescription}>{section.description}</Text>
               ) : null}
 
-              <View style={styles.fields}>
-                {fields.map((field) => (
-                  <FieldRenderer
-                    key={field.key}
-                    field={field}
-                    value={values[field.key] ?? defaultFor(field)}
-                    error={errors[field.key]}
-                    onChange={(value) => setValue(field.key, value)}
-                  />
-                ))}
-              </View>
+              {Array.from({ length: shown }, (_, index) => (
+                <View key={index} style={styles.entry}>
+                  <View style={styles.entryHeader}>
+                    <Text style={styles.entryTitle}>{`${noun} ${index + 1}`}</Text>
+                    {shown > floor ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remove ${noun.toLowerCase()} ${index + 1}`}
+                        hitSlop={8}
+                        onPress={() => removeEntry(section, index)}
+                      >
+                        <Ionicons name="trash-outline" size={18} color={colors.danger500} />
+                      </Pressable>
+                    ) : null}
+                  </View>
+                  <View style={styles.fields}>{renderFields(section, index)}</View>
+                </View>
+              ))}
+
+              {sectionError ? <Text style={styles.sectionError}>{sectionError}</Text> : null}
+
+              {shown < maxOf(section) ? (
+                <Pressable
+                  accessibilityRole="button"
+                  style={styles.addEntry}
+                  onPress={() => addEntry(section)}
+                >
+                  <Ionicons name="add-circle-outline" size={18} color={colors.brand600} />
+                  <Text style={styles.addEntryText}>{`Add ${noun.toLowerCase()}`}</Text>
+                </Pressable>
+              ) : (
+                <Text style={styles.sectionDescription}>
+                  {`You can add up to ${maxOf(section)}.`}
+                </Text>
+              )}
             </Card>
           );
         })}
@@ -406,6 +657,35 @@ const styles = StyleSheet.create({
   sectionDescription: { fontSize: font.sm, color: colors.ink500, marginTop: -6 },
   fields: { gap: spacing.lg },
   textarea: { minHeight: 96, textAlignVertical: 'top' },
+
+  entry: {
+    gap: spacing.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.page,
+  },
+  entryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  entryTitle: { flex: 1, fontSize: font.sm, fontWeight: '700', color: colors.ink700 },
+  sectionError: { fontSize: font.sm, color: colors.danger500, fontWeight: '500' },
+  addEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.brand600,
+    borderRadius: radius.md,
+  },
+  addEntryText: { fontSize: font.sm, fontWeight: '600', color: colors.brand600 },
 
   fileField: { gap: 6 },
   fileLabel: { fontSize: font.sm, fontWeight: '600', color: colors.ink700 },

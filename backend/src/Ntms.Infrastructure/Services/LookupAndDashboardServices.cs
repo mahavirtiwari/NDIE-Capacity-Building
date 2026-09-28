@@ -74,13 +74,17 @@ public class LookupService(NtmsDbContext db, ICurrentUser currentUser)
             .ToListAsync(ct);
 
     /// <summary>
-    /// The educational qualification ladder, in order. Served from the shared
-    /// catalogue so the dropdown and the server validation can never disagree.
+    /// The educational qualification ladder, lowest first. Read from the
+    /// master rather than the copy held in memory, so a rung added a moment
+    /// ago is on the form straight away. The lookup id is its position on the
+    /// ladder; <c>Code</c> is what a programme type stores.
     /// </summary>
     public Task<List<LookupItemDto>> QualificationsAsync(CancellationToken ct) =>
-        Task.FromResult(QualificationLevels.All
-            .Select(l => new LookupItemDto { Id = l.Rank, Name = l.Label, Code = l.Code })
-            .ToList());
+        db.Qualifications.AsNoTracking()
+            .Where(q => q.Status == RecordStatus.Active)
+            .OrderBy(q => q.Rank).ThenBy(q => q.Label)
+            .Select(q => new LookupItemDto { Id = q.Rank, Name = q.Label, Code = q.Code })
+            .ToListAsync(ct);
 
     public Task<List<LookupItemDto>> RolesAsync(CancellationToken ct) =>
         db.Roles.AsNoTracking()

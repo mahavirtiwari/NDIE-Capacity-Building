@@ -129,10 +129,15 @@ public class RegistrationFormService(NtmsDbContext db)
         {
             var newSection = new RegistrationSection
             {
+                Key = section.Key,
                 Title = section.Title,
                 Description = section.Description,
                 DisplayOrder = section.DisplayOrder,
                 IsEnabled = section.IsEnabled,
+                IsRepeatable = section.IsRepeatable,
+                MinEntries = section.MinEntries,
+                MaxEntries = section.MaxEntries,
+                ItemLabel = section.ItemLabel,
             };
 
             foreach (var field in section.Fields.OrderBy(f => f.DisplayOrder))
@@ -213,28 +218,149 @@ public class RegistrationFormService(NtmsDbContext db)
                 throw new AppException($"Field key '{field.Key}' is used more than once.");
         }
 
-        /* A conditional field must point at a key that actually exists. */
-        foreach (var field in sections.SelectMany(s => s.Fields)
-                     .Where(f => !string.IsNullOrWhiteSpace(f.VisibleWhenFieldKey)))
+        ValidateRepeats(sections, keys);
+
+        /* Which section each field sits in, so a condition can be checked
+           against where its trigger lives as well as whether it exists. */
+        var sectionOfField = sections
+            .SelectMany(s => s.Fields.Select(f => (Field: f.Key.Trim(), Section: s)))
+            .ToDictionary(x => x.Field, x => x.Section, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var section in sections)
         {
-            if (!keys.Contains(field.VisibleWhenFieldKey!.Trim()))
-                throw new AppException(
-                    $"Field '{field.Key}' depends on '{field.VisibleWhenFieldKey}', which does not exist.");
+            foreach (var field in section.Fields
+                         .Where(f => !string.IsNullOrWhiteSpace(f.VisibleWhenFieldKey)))
+            {
+                var trigger = field.VisibleWhenFieldKey!.Trim();
+
+                /* A conditional field must point at a key that actually exists. */
+                if (!sectionOfField.TryGetValue(trigger, out var triggerSection))
+                {
+                    throw new AppException(
+                        $"Field '{field.Key}' depends on '{trigger}', which does not exist.");
+                }
+
+                /* A repeating section is answered once per entry, so a trigger
+                   inside one has as many answers as there are entries and no
+                   single value to test from outside it. Within the same
+                   section the entry supplies the answer, which is fine. */
+                if (triggerSection.IsRepeatable && !ReferenceEquals(triggerSection, section))
+                {
+                    throw new AppException(
+                        $"Field '{field.Key}' depends on '{trigger}', which is in the repeating " +
+                        $"section '{triggerSection.Title}'. A field can only depend on a repeating " +
+                        "section from inside the same section.");
+                }
+            }
         }
+    }
+
+    /// <summary>
+    /// A repeating section is stored as an array under its own key, so that
+    /// key has to be usable: present, unique, and not already taken by a
+    /// field, whose answers sit at the top level beside it.
+    /// </summary>
+    private static void ValidateRepeats(
+        List<RegistrationSectionDto> sections, HashSet<string> fieldKeys)
+    {
+        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        /* Same order as BuildSections, so the key checked here is the key
+           that ends up stored — the suffix a clash gets depends on which
+           section is reached first. */
+        foreach (var section in sections.OrderBy(s => s.DisplayOrder))
+        {
+            if (string.IsNullOrWhiteSpace(section.Title))
+                throw new AppException("Every section needs a title.");
+
+            var key = SectionKey(section, used);
+
+            if (!section.IsRepeatable) continue;
+
+            if (section.Fields.Count == 0)
+            {
+                throw new AppException(
+                    $"'{section.Title}' repeats but has no fields. There would be nothing to add.");
+            }
+
+            if (fieldKeys.Contains(key))
+            {
+                throw new AppException(
+                    $"'{section.Title}' repeats, so its answers are stored under '{key}' — " +
+                    "which is already a field key. Rename one of them.");
+            }
+
+            if (section.MinEntries < 0 || section.MinEntries > MaxRepeatCeiling)
+                throw new AppException($"'{section.Title}': the smallest number of entries must be between 0 and {MaxRepeatCeiling}.");
+
+            if (section.MaxEntries < 1 || section.MaxEntries > MaxRepeatCeiling)
+                throw new AppException($"'{section.Title}': the largest number of entries must be between 1 and {MaxRepeatCeiling}.");
+
+            if (section.MinEntries > section.MaxEntries)
+                throw new AppException($"'{section.Title}': the smallest number of entries cannot be more than the largest.");
+        }
+    }
+
+    /// <summary>The most entries a section may ever be allowed to take.</summary>
+    private const int MaxRepeatCeiling = 50;
+
+    /// <summary>
+    /// The key a section's answers are stored under, unique within the form.
+    ///
+    /// A repeating section keeps the key it was saved with, because answers
+    /// already sit under it and a retitled section must not lose them. Any
+    /// other section is keyed from its title afresh each save: nothing is
+    /// stored under it, so it may as well read like the section it names.
+    /// </summary>
+    private static string SectionKey(RegistrationSectionDto section, HashSet<string> used)
+    {
+        var stem = section.IsRepeatable && !string.IsNullOrWhiteSpace(section.Key)
+            ? CamelKey(section.Key)
+            : CamelKey(section.Title);
+
+        var candidate = stem;
+        for (var suffix = 2; !used.Add(candidate); suffix++) candidate = $"{stem}{suffix}";
+        return candidate;
+    }
+
+    /// <summary>"Educational qualification" becomes educationalQualification.</summary>
+    private static string CamelKey(string text)
+    {
+        var words = new string([.. text.Select(c => char.IsAsciiLetterOrDigit(c) ? c : ' ')])
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (words.Length == 0) return "section";
+
+        var key = string.Concat(words.Select((word, index) => index == 0
+            ? word.ToLowerInvariant()
+            : char.ToUpperInvariant(word[0]) + word[1..].ToLowerInvariant()));
+
+        /* A key that starts with a digit is legal JSON but reads as a mistake
+           everywhere else it is shown. */
+        if (char.IsAsciiDigit(key[0])) key = "s" + key;
+        return key.Length <= 80 ? key : key[..80];
     }
 
     private static void BuildSections(RegistrationForm form, List<RegistrationSectionDto> sections)
     {
+        var usedSectionKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var sectionOrder = 0;
         foreach (var sectionDto in sections.OrderBy(s => s.DisplayOrder))
         {
             sectionOrder++;
             var section = new RegistrationSection
             {
+                Key = SectionKey(sectionDto, usedSectionKeys),
                 Title = sectionDto.Title.Trim(),
                 Description = sectionDto.Description,
                 DisplayOrder = sectionOrder,
                 IsEnabled = sectionDto.IsEnabled,
+                IsRepeatable = sectionDto.IsRepeatable,
+                MinEntries = sectionDto.IsRepeatable ? sectionDto.MinEntries : 1,
+                MaxEntries = sectionDto.IsRepeatable ? sectionDto.MaxEntries : 1,
+                ItemLabel = string.IsNullOrWhiteSpace(sectionDto.ItemLabel)
+                    ? null
+                    : sectionDto.ItemLabel.Trim(),
             };
 
             var fieldOrder = 0;

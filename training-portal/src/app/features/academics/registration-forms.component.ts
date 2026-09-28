@@ -284,6 +284,62 @@ function blankField(): RegistrationField {
                   (input)="patchSection(si, { description: inputValue($event) })"
                 />
 
+                <div class="repeat-box">
+                  <label class="check">
+                    <input
+                      type="checkbox"
+                      [checked]="!!section.isRepeatable"
+                      (change)="setRepeatable(si, checked($event))"
+                    />
+                    <span>The applicant can add more than one</span>
+                  </label>
+
+                  @if (section.isRepeatable) {
+                    <div class="repeat-box__settings">
+                      <div class="field">
+                        <label class="field-label">Each one is called</label>
+                        <input
+                          class="input"
+                          maxlength="80"
+                          [value]="section.itemLabel || ''"
+                          [placeholder]="section.title"
+                          (input)="patchSection(si, { itemLabel: inputValue($event) })"
+                        />
+                      </div>
+                      <div class="field">
+                        <label class="field-label">At least</label>
+                        <input
+                          type="number"
+                          class="input"
+                          min="0"
+                          max="50"
+                          [value]="section.minEntries ?? 1"
+                          (input)="patchSection(si, { minEntries: entryCount($event, 0) })"
+                        />
+                      </div>
+                      <div class="field">
+                        <label class="field-label">At most</label>
+                        <input
+                          type="number"
+                          class="input"
+                          min="1"
+                          max="50"
+                          [value]="section.maxEntries ?? 10"
+                          (input)="patchSection(si, { maxEntries: entryCount($event, 1) })"
+                        />
+                      </div>
+                    </div>
+                    <p class="text-muted text-xs">
+                      The applicant fills {{ entryNoun(section) }} up to
+                      {{ section.maxEntries ?? 10 }} times, with an
+                      "Add {{ entryNoun(section).toLowerCase() }}" button under the last one.
+                      @if (section.key) {
+                        Answers are kept as a list under <code>{{ section.key }}</code>.
+                      }
+                    </p>
+                  }
+                </div>
+
                 <div class="table-wrap mt-sm">
                   <table class="table table--compact">
                     <thead>
@@ -575,7 +631,7 @@ function blankField(): RegistrationField {
         size="xl"
         (closed)="previewOf.set(null)"
       >
-        <app-dynamic-form [definition]="preview" [readonly]="true" />
+        <app-dynamic-form [definition]="preview" [readonly]="true" [preview]="true" />
         <div footer>
           <button type="button" class="btn btn--secondary" (click)="previewOf.set(null)">Close</button>
         </div>
@@ -609,6 +665,23 @@ function blankField(): RegistrationField {
         color: #fff;
         font-size: var(--fs-xs);
         font-weight: 700;
+      }
+      .repeat-box {
+        margin-top: 0.5rem;
+        padding: 0.55rem 0.7rem;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-sm, 6px);
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .repeat-box__settings {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+        gap: 0.6rem;
+      }
+      @media (max-width: 640px) {
+        .repeat-box__settings { grid-template-columns: minmax(0, 1fr); }
       }
       .table { background: var(--surface); }
       .table .input,
@@ -797,6 +870,9 @@ export class RegistrationFormsComponent {
         description: '',
         displayOrder: list.length + 1,
         isEnabled: true,
+        isRepeatable: false,
+        minEntries: 1,
+        maxEntries: 1,
         fields: [blankField()],
       },
     ]);
@@ -828,6 +904,28 @@ export class RegistrationFormsComponent {
 
   protected patchSection(index: number, patch: Partial<RegistrationSection>): void {
     this.sections.update((list) => list.map((s, i) => (i === index ? { ...s, ...patch } : s)));
+  }
+
+  /** Turning repetition on gives the section the limits it has never had. */
+  protected setRepeatable(index: number, on: boolean): void {
+    const section = this.sections()[index];
+    this.patchSection(index, {
+      isRepeatable: on,
+      minEntries: on ? (section.minEntries ?? 1) : 1,
+      maxEntries: on && (section.maxEntries ?? 0) > 1 ? section.maxEntries : on ? 10 : 1,
+    });
+  }
+
+  /** What one entry is called, falling back to the section's own title. */
+  protected entryNoun(section: RegistrationSection): string {
+    return section.itemLabel?.trim() || section.title || 'entry';
+  }
+
+  /** A count the server will accept, whatever gets typed into the box. */
+  protected entryCount(event: Event, floor: number): number {
+    const typed = Number((event.target as HTMLInputElement).value);
+    if (!Number.isFinite(typed)) return floor;
+    return Math.min(50, Math.max(floor, Math.trunc(typed)));
   }
 
   protected addField(sectionIndex: number): void {

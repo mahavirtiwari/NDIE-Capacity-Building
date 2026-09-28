@@ -11,6 +11,22 @@ export interface Category extends AuditInfo {
   subCategoryCount?: number;
 }
 
+/**
+ * One rung of the educational qualification ladder a program type sets its
+ * minimum from. `rank` is the position: higher is a higher qualification, and
+ * two rungs may share a rank when they count as equivalent.
+ */
+export interface Qualification extends AuditInfo {
+  id: Id;
+  code: string;
+  label: string;
+  rank: number;
+  status: RecordStatus;
+  /** The "no minimum" rung. It can be reworded, but not removed or disabled. */
+  isSystem?: boolean;
+  programTypeCount?: number;
+}
+
 /** e.g. "Bronze", "Silver", "Gold" under ZED Certification. */
 export interface SubCategory extends AuditInfo {
   id: Id;

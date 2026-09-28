@@ -47,6 +47,50 @@ public class CategoriesController(CategoryService service) : ApiControllerBase
         Envelope(await service.SetStatusAsync(id, dto.Status, ct), $"Category {dto.Status.ToLowerInvariant()}.");
 }
 
+[Route("api/qualifications")]
+public class QualificationsController(QualificationService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.MastersView)]
+    public async Task<ActionResult<ApiEnvelope<PagedResult<QualificationDto>>>> List(
+        [FromQuery] PagedRequest request, [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.ListAsync(request, status, ct));
+
+    [HttpGet("all")]
+    [HasPermission(Permissions.MastersView)]
+    public async Task<ActionResult<ApiEnvelope<List<QualificationDto>>>> All(
+        [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.AllAsync(status, ct));
+
+    [HttpGet("{id:int}")]
+    [HasPermission(Permissions.MastersView)]
+    public async Task<ActionResult<ApiEnvelope<QualificationDto>>> Get(int id, CancellationToken ct) =>
+        Envelope(await service.GetAsync(id, ct));
+
+    [HttpPost]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<QualificationDto>>> Create(
+        [FromBody] QualificationUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.CreateAsync(dto, ct), "Qualification added.");
+
+    [HttpPut("{id:int}")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<QualificationDto>>> Update(
+        int id, [FromBody] QualificationUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.UpdateAsync(id, dto, ct), "Qualification updated.");
+
+    /// <summary>
+    /// Masters are enabled or disabled, never deleted — a qualification that
+    /// programme types were set up with has to stay readable.
+    /// </summary>
+    [HttpPatch("{id:int}/status")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<QualificationDto>>> SetStatus(
+        int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
+        Envelope(await service.SetStatusAsync(id, dto.Status, ct),
+            $"Qualification {dto.Status.ToLowerInvariant()}.");
+}
+
 [Route("api/sub-categories")]
 public class SubCategoriesController(SubCategoryService service) : ApiControllerBase
 {

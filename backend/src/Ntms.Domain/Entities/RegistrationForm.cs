@@ -21,11 +21,40 @@ public class RegistrationSection : AuditableEntity
     public int FormId { get; set; }
     public RegistrationForm? Form { get; set; }
 
+    /// <summary>
+    /// Stable key the section is stored against, and only meaningful when it
+    /// repeats: a repeating section's answers are an array of objects under
+    /// this key, where a plain section's answers sit at the top level keyed by
+    /// the field. Derived from the title when the form is saved, and left
+    /// alone afterwards so a retitled section keeps its answers.
+    /// </summary>
+    public string Key { get; set; } = string.Empty;
+
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public int DisplayOrder { get; set; }
     /// <summary>A disabled section is neither rendered nor validated.</summary>
     public bool IsEnabled { get; set; } = true;
+
+    /// <summary>
+    /// The applicant may fill this section more than once — a qualification,
+    /// an employer, a previous certification. Off by default, which is every
+    /// section that existed before this was added.
+    /// </summary>
+    public bool IsRepeatable { get; set; }
+
+    /// <summary>How many entries the applicant must fill. Repeating sections only.</summary>
+    public int MinEntries { get; set; } = 1;
+
+    /// <summary>The ceiling, so a form cannot be grown without limit.</summary>
+    public int MaxEntries { get; set; } = 10;
+
+    /// <summary>
+    /// What one entry is called, for the heading on each and the wording of
+    /// the button that adds another: "Qualification 2", "Add qualification".
+    /// Falls back to the section title.
+    /// </summary>
+    public string? ItemLabel { get; set; }
 
     public ICollection<RegistrationField> Fields { get; set; } = [];
 }

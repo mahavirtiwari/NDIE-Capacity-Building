@@ -30,6 +30,41 @@ public class CategoryUpsertDto
     public string Status { get; set; } = "Active";
 }
 
+/* ---------------------------------------------------------- qualifications */
+
+public class QualificationDto : AuditDto
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>Position on the ladder. Higher is a higher qualification.</summary>
+    public int Rank { get; set; }
+
+    public string Status { get; set; } = "Active";
+
+    /// <summary>
+    /// True for the "no minimum" rung, which every programme type starts at.
+    /// It can be reworded but not removed, so the screen hides the controls
+    /// that would.
+    /// </summary>
+    public bool IsSystem { get; set; }
+
+    /// <summary>How many programme types currently ask for this qualification.</summary>
+    public int ProgramTypeCount { get; set; }
+}
+
+/// <summary>
+/// No code: it is derived from the label when the rung is created and never
+/// changes afterwards, because it is what programme types already store.
+/// </summary>
+public class QualificationUpsertDto
+{
+    public string Label { get; set; } = string.Empty;
+    public int Rank { get; set; }
+    public string Status { get; set; } = "Active";
+}
+
 /* ------------------------------------------------------------ subcategory */
 
 public class SubCategoryDto : AuditDto

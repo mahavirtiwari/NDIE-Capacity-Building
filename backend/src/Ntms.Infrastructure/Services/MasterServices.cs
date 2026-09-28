@@ -515,10 +515,16 @@ public class ProgramTypeService(NtmsDbContext db, CertificateTemplateStore templ
 
     private async Task GuardAsync(ProgramTypeUpsertDto dto, string code, int? exceptId, CancellationToken ct)
     {
+        /* Asked of the catalogue itself rather than the copy held in memory, so
+           a qualification added moments ago is never rejected as unknown. */
+        var qualification = QualificationLevels.Normalise(dto.MinQualification);
+        var knownQualification = qualification is null
+            || await db.Qualifications.AnyAsync(q => q.Code == qualification, ct);
+
         Guard.Check()
             .CodeIfPresent(dto.Code, "Program type code")
             .Required(dto.Name, "Name")
-            .When(!QualificationLevels.IsValid(dto.MinQualification),
+            .When(!knownQualification,
                 "Select a minimum educational qualification from the list.")
             .Range(dto.DurationDays, 1, 365, "Duration (days)")
             .Range(dto.MinExperienceYears, 0, 60, "Minimum experience")
@@ -534,4 +540,209 @@ public class ProgramTypeService(NtmsDbContext db, CertificateTemplateStore templ
             p => p.Code == code && (exceptId == null || p.Id != exceptId), ct);
         if (clash) throw AppException.Conflict($"Program type code '{code}' is already in use.");
     }
+}
+
+/* ---------------------------------------------------------- qualifications */
+
+/// <summary>
+/// The educational qualification ladder a programme type sets its minimum
+/// from. A master, so a scheme that recognises a qualification the system did
+/// not ship with can add it without waiting for a release.
+///
+/// Every write reloads <see cref="QualificationLevels"/>, which is the copy the
+/// label lookups read. Nothing else has to be told.
+/// </summary>
+public class QualificationService(NtmsDbContext db)
+{
+    /// <summary>How far apart new rungs are placed, leaving room between them.</summary>
+    private const int RankStep = 10;
+
+    public async Task<PagedResult<QualificationDto>> ListAsync(
+        PagedRequest request, string? status, CancellationToken ct)
+    {
+        var usage = await UsageAsync(ct);
+
+        var query = db.Qualifications.AsNoTracking()
+            .WhereIf(!string.IsNullOrWhiteSpace(status),
+                q => q.Status == EnumMaps.ToStatus(status))
+            .WhereIf(!string.IsNullOrWhiteSpace(request.Search),
+                q => q.Code.Contains(request.Search!) || q.Label.Contains(request.Search!))
+            .ApplySort(request, db.Model.FindEntityType(typeof(Qualification))!, q => q.Rank);
+
+        return await query.ToPagedResultAsync(
+            request, q => q.ToDto(usage.GetValueOrDefault(q.Code)), ct);
+    }
+
+    public async Task<List<QualificationDto>> AllAsync(string? status, CancellationToken ct) =>
+        [.. (await db.Qualifications.AsNoTracking()
+                .WhereIf(!string.IsNullOrWhiteSpace(status), q => q.Status == EnumMaps.ToStatus(status))
+                .OrderBy(q => q.Rank).ThenBy(q => q.Label).ToListAsync(ct))
+            .Select(q => q.ToDto())];
+
+    public async Task<QualificationDto> GetAsync(int id, CancellationToken ct)
+    {
+        var entity = await db.Qualifications.AsNoTracking().FirstOrDefaultAsync(q => q.Id == id, ct)
+                     ?? throw AppException.NotFound("Qualification");
+        var usage = await UsageAsync(ct);
+        return entity.ToDto(usage.GetValueOrDefault(entity.Code));
+    }
+
+    public async Task<QualificationDto> CreateAsync(QualificationUpsertDto dto, CancellationToken ct)
+    {
+        Validate(dto, isSystem: false);
+
+        var entity = new Qualification
+        {
+            Code = await UniqueCodeAsync(dto.Label, ct),
+            Label = dto.Label.Trim(),
+            Rank = dto.Rank > 0 ? dto.Rank : await NextRankAsync(ct),
+            Status = EnumMaps.ToStatus(dto.Status),
+        };
+
+        db.Qualifications.Add(entity);
+        await db.SaveChangesAsync(ct);
+        await ReloadCatalogueAsync(ct);
+        return entity.ToDto();
+    }
+
+    public async Task<QualificationDto> UpdateAsync(
+        int id, QualificationUpsertDto dto, CancellationToken ct)
+    {
+        var entity = await db.Qualifications.FirstOrDefaultAsync(q => q.Id == id, ct)
+                     ?? throw AppException.NotFound("Qualification");
+
+        var isSystem = IsSystem(entity);
+        Validate(dto, isSystem);
+
+        /* The code is never rewritten. Programme types store it, and a rename
+           that changed it would quietly detach every one of them. */
+        entity.Label = dto.Label.Trim();
+
+        /* "No minimum" is the floor of the ladder and the value every programme
+           type starts at, so it stays at the bottom and stays available
+           whatever the form sent. Only its wording belongs to the
+           administrator. */
+        if (!isSystem)
+        {
+            entity.Rank = dto.Rank;
+            entity.Status = EnumMaps.ToStatus(dto.Status);
+        }
+
+        await db.SaveChangesAsync(ct);
+        await ReloadCatalogueAsync(ct);
+
+        var usage = await UsageAsync(ct);
+        return entity.ToDto(usage.GetValueOrDefault(entity.Code));
+    }
+
+    public async Task<QualificationDto> SetStatusAsync(int id, string status, CancellationToken ct)
+    {
+        var entity = await db.Qualifications.FirstOrDefaultAsync(q => q.Id == id, ct)
+                     ?? throw AppException.NotFound("Qualification");
+
+        if (IsSystem(entity))
+        {
+            throw new AppException(
+                "\"No minimum\" cannot be switched off. It is what a programme type with no " +
+                "educational requirement is set to.");
+        }
+
+        entity.Status = EnumMaps.ToStatus(status);
+        await db.SaveChangesAsync(ct);
+        await ReloadCatalogueAsync(ct);
+
+        var usage = await UsageAsync(ct);
+        return entity.ToDto(usage.GetValueOrDefault(entity.Code));
+    }
+
+    /// <summary>
+    /// True when the code names a rung that exists, or is blank. Asked of the
+    /// database rather than the cached copy, so a rung added a moment ago on
+    /// another request is never rejected as unknown.
+    /// </summary>
+    public async Task<bool> ExistsAsync(string? code, CancellationToken ct)
+    {
+        var normalised = QualificationLevels.Normalise(code);
+        if (normalised is null) return true;
+        return await db.Qualifications.AnyAsync(q => q.Code == normalised, ct);
+    }
+
+    /// <summary>
+    /// Reads the catalogue into <see cref="QualificationLevels"/>. Called after
+    /// every write, and once at start-up.
+    /// </summary>
+    public async Task ReloadCatalogueAsync(CancellationToken ct)
+    {
+        var levels = await db.Qualifications.AsNoTracking()
+            .OrderBy(q => q.Rank).ThenBy(q => q.Label)
+            .Select(q => new { q.Code, q.Label, q.Rank, q.Status })
+            .ToListAsync(ct);
+
+        QualificationLevels.Replace(levels.Select(q => new QualificationLevels.Level(
+            q.Code, q.Label, q.Rank, q.Status == RecordStatus.Active)));
+    }
+
+    /// <summary>How many programme types name each rung as their minimum.</summary>
+    private async Task<Dictionary<string, int>> UsageAsync(CancellationToken ct)
+    {
+        var counts = await db.ProgramTypes.AsNoTracking()
+            .Where(p => p.MinQualification != null && p.MinQualification != "")
+            .GroupBy(p => p.MinQualification!)
+            .Select(g => new { Code = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+
+        var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in counts) map[row.Code] = map.GetValueOrDefault(row.Code) + row.Count;
+        return map;
+    }
+
+    private static bool IsSystem(Qualification entity) =>
+        string.Equals(entity.Code, QualificationLevels.None, StringComparison.OrdinalIgnoreCase);
+
+    private static void Validate(QualificationUpsertDto dto, bool isSystem) =>
+        Guard.Check()
+            .Required(dto.Label, "Qualification")
+            .When(dto.Label.Trim().Length > 160, "Qualification must be 160 characters or fewer.")
+            /* Rank 0 is where "no minimum" sits; a real qualification that
+               shared it would be no bar at all. */
+            .When(!isSystem && dto.Rank is < 1 or > 10000,
+                "Position on the ladder must be between 1 and 10000.")
+            .ThrowIfInvalid();
+
+    /// <summary>One step above the highest rung, so a new one lands at the top.</summary>
+    private async Task<int> NextRankAsync(CancellationToken ct)
+    {
+        var highest = await db.Qualifications.MaxAsync(q => (int?) q.Rank, ct) ?? 0;
+        return highest + RankStep;
+    }
+
+    /// <summary>
+    /// The stored code, derived from the wording: "B.Voc (Retail)" becomes
+    /// B_VOC_RETAIL. Derived rather than typed because it is an identifier the
+    /// administrator never has to see again, and a typo in one is permanent.
+    /// </summary>
+    private async Task<string> UniqueCodeAsync(string label, CancellationToken ct)
+    {
+        var stem = DeriveCode(label);
+
+        for (var suffix = 0; ; suffix++)
+        {
+            var candidate = suffix == 0 ? stem : $"{Shorten(stem, 36)}_{suffix}";
+            if (!await db.Qualifications.AnyAsync(q => q.Code == candidate, ct)) return candidate;
+        }
+    }
+
+    private static string DeriveCode(string label)
+    {
+        var chars = label.Trim().ToUpperInvariant()
+            .Select(c => char.IsAsciiLetterOrDigit(c) ? c : '_');
+
+        var code = string.Join('_',
+            new string([.. chars]).Split('_', StringSplitOptions.RemoveEmptyEntries));
+
+        return code.Length == 0 ? "QUALIFICATION" : Shorten(code, 40);
+    }
+
+    private static string Shorten(string value, int length) =>
+        (value.Length <= length ? value : value[..length]).TrimEnd('_');
 }

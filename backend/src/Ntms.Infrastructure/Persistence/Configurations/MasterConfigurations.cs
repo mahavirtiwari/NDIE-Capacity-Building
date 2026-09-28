@@ -62,6 +62,19 @@ public class SubCategoryConfiguration : IEntityTypeConfiguration<SubCategory>
     }
 }
 
+public class QualificationConfiguration : IEntityTypeConfiguration<Qualification>
+{
+    public void Configure(EntityTypeBuilder<Qualification> b)
+    {
+        b.ToTable("Qualifications");
+        b.Property(x => x.Code).HasMaxLength(40).IsRequired();
+        b.Property(x => x.Label).HasMaxLength(160).IsRequired();
+        b.HasIndex(x => x.Code).IsUnique();
+        /* The ladder is read in rank order on every programme-type form. */
+        b.HasIndex(x => x.Rank);
+    }
+}
+
 public class ProgramTypeConfiguration : IEntityTypeConfiguration<ProgramType>
 {
     public void Configure(EntityTypeBuilder<ProgramType> b)

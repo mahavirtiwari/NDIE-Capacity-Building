@@ -62,8 +62,13 @@ public class RegistrationSectionConfiguration : IEntityTypeConfiguration<Registr
     public void Configure(EntityTypeBuilder<RegistrationSection> b)
     {
         b.ToTable("RegistrationSections");
+        b.Property(x => x.Key).HasMaxLength(80).IsRequired();
         b.Property(x => x.Title).HasMaxLength(200).IsRequired();
         b.Property(x => x.Description).HasMaxLength(500);
+        b.Property(x => x.ItemLabel).HasMaxLength(80);
+        /* Unique per form: a repeating section's key is what its answers are
+           stored under, and two of them would overwrite each other. */
+        b.HasIndex(x => new { x.FormId, x.Key }).IsUnique();
         b.HasOne(x => x.Form).WithMany(x => x.Sections).HasForeignKey(x => x.FormId)
             .OnDelete(DeleteBehavior.Cascade);
     }

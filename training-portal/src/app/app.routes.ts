@@ -73,6 +73,14 @@ export const routes: Routes = [
               ),
           },
           {
+            path: 'qualifications',
+            title: 'Qualifications · CBMS',
+            loadComponent: () =>
+              import('./features/masters/qualifications.component').then(
+                (m) => m.QualificationsComponent,
+              ),
+          },
+          {
             path: 'evaluation-skills',
             title: 'Evaluation skills · CBMS',
             loadComponent: () =>

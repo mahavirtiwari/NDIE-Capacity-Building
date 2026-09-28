@@ -96,10 +96,26 @@ public class RegistrationFieldDto
 public class RegistrationSectionDto
 {
     public int Id { get; set; }
+
+    /// <summary>
+    /// Derived from the title by the server on save. Sent back so the designer
+    /// can show what a repeating section's answers will be stored under.
+    /// </summary>
+    public string Key { get; set; } = string.Empty;
+
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public int DisplayOrder { get; set; }
     public bool IsEnabled { get; set; } = true;
+
+    /// <summary>The applicant can fill this section more than once.</summary>
+    public bool IsRepeatable { get; set; }
+    public int MinEntries { get; set; } = 1;
+    public int MaxEntries { get; set; } = 10;
+
+    /// <summary>What one entry is called. Falls back to the section title.</summary>
+    public string? ItemLabel { get; set; }
+
     public List<RegistrationFieldDto> Fields { get; set; } = [];
 }
 

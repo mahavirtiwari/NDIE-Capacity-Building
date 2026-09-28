@@ -368,6 +368,29 @@ if (seedOnly || builder.Configuration.GetValue("Database:MigrateOnStartup", app.
         builder.Configuration.GetValue("Database:SeedSampleData", app.Environment.IsDevelopment()));
 }
 
+/* The qualification ladder is a master an administrator edits, and the places
+   that only need a label for a stored code read a copy of it held in memory.
+   Load that copy now, so the first request shows wording rather than codes.
+
+   Deliberately tolerant: a database that cannot be reached, or one this
+   build's migrations have not been applied to yet, leaves the shipped ladder
+   in place instead of stopping the site from starting. */
+using (var warmUp = app.Services.CreateScope())
+{
+    try
+    {
+        await warmUp.ServiceProvider.GetRequiredService<QualificationService>()
+            .ReloadCatalogueAsync(CancellationToken.None);
+    }
+    catch (Exception ex)
+    {
+        warmUp.ServiceProvider.GetRequiredService<ILoggerFactory>()
+            .CreateLogger("Startup")
+            .LogWarning(ex, "The qualification catalogue could not be read at start-up. " +
+                            "Using the built-in ladder until it can be.");
+    }
+}
+
 if (seedOnly)
 {
     return;

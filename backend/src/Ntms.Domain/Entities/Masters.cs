@@ -214,3 +214,27 @@ public class EvaluationSkill : AuditableStatusEntity
     public int MaxMarks { get; set; }
     public int DisplayOrder { get; set; }
 }
+
+/// <summary>
+/// One rung of the educational qualification ladder, e.g. "Diploma".
+///
+/// A master rather than a fixed list in code, because the qualifications that
+/// matter differ by scheme and nobody should need a release to add one.
+///
+/// <see cref="Rank"/> is what makes "at or above the bar" answerable: a
+/// programme type stores the <see cref="Code"/> of its minimum, and an
+/// applicant clears it when their own rung is ranked no lower. Two rungs may
+/// share a rank, which is how alternatives that count as equivalent — an ITI
+/// and a diploma, say — are expressed.
+///
+/// <see cref="ProgramType.MinQualification"/> holds the code rather than a
+/// foreign key. That is deliberate: a programme type whose qualification was
+/// renamed or removed keeps the value it was set up with instead of being
+/// silently emptied, and the screens show it as-is when it no longer matches.
+/// </summary>
+public class Qualification : AuditableStatusEntity
+{
+    public string Code { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public int Rank { get; set; }
+}

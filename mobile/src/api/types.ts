@@ -142,10 +142,18 @@ export interface RegistrationField {
 
 export interface RegistrationSection {
   id: number;
+  /** What a repeating section's entries are stored under, set by the server. */
+  key?: string;
   title: string;
   description?: string;
   displayOrder: number;
   isEnabled: boolean;
+  /** The applicant can fill this section more than once. */
+  isRepeatable?: boolean;
+  minEntries?: number;
+  maxEntries?: number;
+  /** What one entry is called: "Qualification 2", "Add qualification". */
+  itemLabel?: string;
   fields: RegistrationField[];
 }
 

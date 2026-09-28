@@ -366,6 +366,11 @@ public class ApplicationService(
     /// <summary>
     /// Enforces the form definition server side: mandatory answers must be
     /// present, and a field that is switched off must not smuggle a value in.
+    ///
+    /// A section the applicant can fill more than once is stored as an array
+    /// of objects under the section's own key, so its fields are read from
+    /// each entry rather than from the top level, and are reported with the
+    /// entry they were wrong in.
     /// </summary>
     private static void ValidateResponses(
         RegistrationForm form, Dictionary<string, JsonElement> responses)
@@ -374,41 +379,117 @@ public class ApplicationService(
 
         foreach (var section in form.Sections.Where(s => s.IsEnabled))
         {
-            foreach (var field in section.Fields.Where(f => f.IsEnabled))
+            if (!section.IsRepeatable)
             {
-                /* A conditional field is only mandatory when it is actually shown. */
-                if (!string.IsNullOrWhiteSpace(field.VisibleWhenFieldKey))
-                {
-                    var trigger = responses.TryGetValue(field.VisibleWhenFieldKey, out var t)
-                        ? ValueToString(t)
-                        : string.Empty;
-                    var wanted = EnumMaps.SplitList(field.VisibleWhenValues);
-                    if (wanted.Count > 0 &&
-                        !wanted.Contains(trigger, StringComparer.OrdinalIgnoreCase))
-                    {
-                        continue;
-                    }
-                }
+                ValidateEntry(section, responses, responses, null, errors);
+                continue;
+            }
 
-                var hasValue = responses.TryGetValue(field.Key, out var value)
-                               && !string.IsNullOrWhiteSpace(ValueToString(value));
+            var entries = ReadEntries(responses, section.Key);
+            var what = EntryNoun(section);
 
-                if (field.Validation.Required && !hasValue)
-                {
-                    errors.Add($"'{field.Label}' is required.");
-                    continue;
-                }
+            if (entries.Count < section.MinEntries)
+            {
+                errors.Add(section.MinEntries == 1
+                    ? $"At least one {what} is required."
+                    : $"At least {section.MinEntries} {what} entries are required.");
+                continue;
+            }
 
-                if (!hasValue) continue;
+            if (entries.Count > section.MaxEntries)
+            {
+                errors.Add($"No more than {section.MaxEntries} {what} entries can be added.");
+                continue;
+            }
 
-                var text = ValueToString(responses[field.Key]);
-                var formatError = CheckFormat(field, text);
-                if (formatError is not null) errors.Add(formatError);
+            for (var index = 0; index < entries.Count; index++)
+            {
+                ValidateEntry(section, entries[index], responses, index + 1, errors);
             }
         }
 
         if (errors.Count > 0)
             throw new AppException(string.Join(" ", errors.Take(8)));
+    }
+
+    /// <summary>
+    /// One pass over a section's fields. <paramref name="scope"/> is where the
+    /// answers are read from — the whole response for an ordinary section, one
+    /// entry for a repeating one — and <paramref name="ordinal"/> numbers the
+    /// entry in any message, so "'Degree' is required" says which one.
+    /// </summary>
+    private static void ValidateEntry(
+        RegistrationSection section,
+        Dictionary<string, JsonElement> scope,
+        Dictionary<string, JsonElement> outer,
+        int? ordinal,
+        List<string> errors)
+    {
+        var prefix = ordinal is null ? string.Empty : $"{EntryNoun(section)} {ordinal}: ";
+
+        foreach (var field in section.Fields.Where(f => f.IsEnabled))
+        {
+            /* A conditional field is only mandatory when it is actually shown.
+               Inside an entry the trigger is that entry's own answer; a
+               trigger outside the section is the same for every entry. */
+            if (!string.IsNullOrWhiteSpace(field.VisibleWhenFieldKey))
+            {
+                var found = scope.TryGetValue(field.VisibleWhenFieldKey, out var t)
+                            || outer.TryGetValue(field.VisibleWhenFieldKey, out t);
+                var trigger = found ? ValueToString(t) : string.Empty;
+
+                var wanted = EnumMaps.SplitList(field.VisibleWhenValues);
+                if (wanted.Count > 0 &&
+                    !wanted.Contains(trigger, StringComparer.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+            }
+
+            var hasValue = scope.TryGetValue(field.Key, out var value)
+                           && !string.IsNullOrWhiteSpace(ValueToString(value));
+
+            if (field.Validation.Required && !hasValue)
+            {
+                errors.Add($"{prefix}'{field.Label}' is required.");
+                continue;
+            }
+
+            if (!hasValue) continue;
+
+            var formatError = CheckFormat(field, ValueToString(scope[field.Key]));
+            if (formatError is not null) errors.Add(prefix + formatError);
+        }
+    }
+
+    /// <summary>What one entry of a repeating section is called, in a sentence.</summary>
+    private static string EntryNoun(RegistrationSection section) =>
+        string.IsNullOrWhiteSpace(section.ItemLabel) ? section.Title : section.ItemLabel;
+
+    /// <summary>
+    /// The entries a repeating section was answered with. Anything that is not
+    /// an array of objects reads as no entries at all, which the minimum then
+    /// reports — a malformed payload must not slip past as an empty section.
+    /// </summary>
+    private static List<Dictionary<string, JsonElement>> ReadEntries(
+        Dictionary<string, JsonElement> responses, string sectionKey)
+    {
+        if (!responses.TryGetValue(sectionKey, out var raw) ||
+            raw.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        var entries = new List<Dictionary<string, JsonElement>>();
+        foreach (var element in raw.EnumerateArray())
+        {
+            if (element.ValueKind != JsonValueKind.Object) continue;
+
+            var entry = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+            foreach (var property in element.EnumerateObject()) entry[property.Name] = property.Value;
+            entries.Add(entry);
+        }
+        return entries;
     }
 
     private static string? CheckFormat(RegistrationField field, string value) => field.Type switch

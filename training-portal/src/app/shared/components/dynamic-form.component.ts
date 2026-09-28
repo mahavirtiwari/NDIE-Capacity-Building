@@ -1,6 +1,8 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import {
   AbstractControl,
+  FormArray,
   FormBuilder,
   FormControl,
   FormGroup,
@@ -8,11 +10,14 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
-import { FieldType, RegistrationField, RegistrationForm } from '../../core/models';
+import { FieldType, RegistrationField, RegistrationForm, RegistrationSection } from '../../core/models';
 import { FORMAT_MESSAGES, FORMAT_PATTERNS } from '../../core/validation/formats';
 import { IconComponent } from './icon.component';
 
 type FieldValue = string | string[] | number | boolean | null;
+
+/** One filling of a repeating section: the same fields, answered again. */
+type EntryValues = Record<string, FieldValue>;
 
 /** Field types whose format is fixed by law; reused from the shared registry. */
 const PATTERNS: Partial<Record<FieldType, RegExp>> = {
@@ -43,11 +48,17 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
  * Renders a Super Admin defined registration form. Used for the form-builder
  * preview, and in read-only mode to display an applicant's submitted answers
  * on the scrutiny screen.
+ *
+ * A section marked as repeating is held as a form array of identical groups —
+ * one per entry — under the section's own key, which is how the API stores it
+ * too. Every other section contributes its fields straight to the top level,
+ * exactly as it always has. Fields are bound by control rather than by name so
+ * the same markup can render a top-level field and a field inside an entry.
  */
 @Component({
   selector: 'app-dynamic-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, IconComponent],
+  imports: [ReactiveFormsModule, IconComponent, NgTemplateOutlet],
   template: `
     <form [formGroup]="form()" (ngSubmit)="submitted.emit(form().getRawValue())" class="stack stack-lg">
       @for (section of enabledSections(); track section.id) {
@@ -59,108 +70,68 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
                 <span class="card__subtitle">{{ section.description }}</span>
               }
             </div>
-            <span class="chip">{{ enabledFields(section).length }} fields</span>
+            @if (section.isRepeatable) {
+              <span class="chip">{{ entriesOf(section).length }} of {{ maxEntries(section) }}</span>
+            } @else {
+              <span class="chip">{{ enabledFields(section).length }} fields</span>
+            }
           </div>
-          <div class="card__body">
-            <div class="form-grid">
-              @for (field of enabledFields(section); track field.key) {
-                @if (isVisible(field)) {
-                  <div class="field" [class.field--span-2]="field.colSpan === 2">
-                    <label class="field-label" [for]="field.key">
-                      {{ field.label }}
-                      @if (field.validation.required) { <span class="req">*</span> }
-                    </label>
 
-                    @switch (field.type) {
-                      @case ('textarea') {
-                        <textarea
-                          class="textarea"
-                          [id]="field.key"
-                          [formControlName]="field.key"
-                          [placeholder]="field.placeholder || ''"
-                          [class.is-invalid]="invalid(field.key)"
-                        ></textarea>
+          <div class="card__body">
+            @if (!section.isRepeatable) {
+              <div class="form-grid">
+                @for (field of enabledFields(section); track field.key) {
+                  <ng-container
+                    *ngTemplateOutlet="fieldTpl; context: { field: field, group: form() }"
+                  />
+                }
+              </div>
+            } @else {
+              <div class="stack stack-md">
+                @for (entry of entriesOf(section); track $index) {
+                  <div class="entry">
+                    <div class="entry__head">
+                      <span class="entry__title">{{ entryNoun(section) }} {{ $index + 1 }}</span>
+                      @if (canRemove(section)) {
+                        <button
+                          type="button"
+                          class="btn btn--icon is-danger"
+                          [title]="'Remove ' + entryNoun(section).toLowerCase()"
+                          (click)="removeEntry(section, $index)"
+                        >
+                          <app-icon name="trash" [size]="15" />
+                        </button>
                       }
-                      @case ('select') {
-                        <select class="select" [id]="field.key" [formControlName]="field.key" [class.is-invalid]="invalid(field.key)">
-                          <option value="">Select</option>
-                          @for (opt of field.options; track opt.value) {
-                            <option [value]="opt.value">{{ opt.label }}</option>
-                          }
-                        </select>
-                      }
-                      @case ('multiselect') {
-                        <div class="check-grid">
-                          @for (opt of field.options; track opt.value) {
-                            <label class="check">
-                              <input
-                                type="checkbox"
-                                [checked]="isChecked(field.key, opt.value)"
-                                [disabled]="readonly()"
-                                (change)="toggleMulti(field.key, opt.value, $event)"
-                              />
-                              <span>{{ opt.label }}</span>
-                            </label>
-                          }
-                        </div>
-                      }
-                      @case ('radio') {
-                        <div class="check-grid">
-                          @for (opt of field.options; track opt.value) {
-                            <label class="check">
-                              <input type="radio" [value]="opt.value" [formControlName]="field.key" />
-                              <span>{{ opt.label }}</span>
-                            </label>
-                          }
-                        </div>
-                      }
-                      @case ('checkbox') {
-                        <label class="check">
-                          <input type="checkbox" [formControlName]="field.key" />
-                          <span class="text-sm">{{ field.helpText || 'Yes' }}</span>
-                        </label>
-                      }
-                      @case ('file') {
-                        <div class="file-box">
-                          <app-icon name="upload" [size]="16" />
-                          <span class="text-sm">
-                            {{ readonly() ? (value(field.key) || 'Not uploaded') : 'Choose a file' }}
-                          </span>
-                          @if (!readonly()) {
-                            <input type="file" [id]="field.key" (change)="onFile(field.key, $event)" />
-                          }
-                        </div>
-                      }
-                      @case ('date') {
-                        <input type="date" class="input" [id]="field.key" [formControlName]="field.key" [class.is-invalid]="invalid(field.key)" />
-                      }
-                      @case ('number') {
-                        <input type="number" class="input" [id]="field.key" [formControlName]="field.key" [placeholder]="field.placeholder || ''" [class.is-invalid]="invalid(field.key)" />
-                      }
-                      @default {
-                        <input
-                          type="text"
-                          class="input"
-                          [id]="field.key"
-                          [formControlName]="field.key"
-                          [placeholder]="field.placeholder || ''"
-                          [class.is-invalid]="invalid(field.key)"
-                          [attr.maxlength]="maxLengthFor(field)"
-                          [style.text-transform]="isUppercase(field) ? 'uppercase' : null"
+                    </div>
+                    <div class="form-grid">
+                      @for (field of enabledFields(section); track field.key) {
+                        <ng-container
+                          *ngTemplateOutlet="fieldTpl; context: { field: field, group: entry }"
                         />
                       }
-                    }
-
-                    @if (hintFor(field)) {
-                      <span class="field-hint">{{ hintFor(field) }}</span>
-                    }
-                    @if (invalid(field.key)) {
-                      <span class="field-error">{{ errorFor(field) }}</span>
-                    }
+                    </div>
                   </div>
                 }
-              }
-            </div>
+
+                @if (entriesOf(section).length === 0) {
+                  <p class="text-muted text-sm">
+                    No {{ entryNoun(section).toLowerCase() }} was added.
+                  </p>
+                }
+
+                @if (canAdd(section)) {
+                  <div>
+                    <button type="button" class="btn btn--secondary btn--sm" (click)="addEntry(section)">
+                      <app-icon name="plus" [size]="15" />
+                      Add {{ entryNoun(section).toLowerCase() }}
+                    </button>
+                    <span class="field-hint" style="margin-left: 0.5rem">
+                      Up to {{ maxEntries(section) }}.
+                    </span>
+                  </div>
+                }
+              </div>
+            }
           </div>
         </section>
       }
@@ -173,6 +144,124 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
         </div>
       }
     </form>
+
+    <!-- One field, bound to whichever group it belongs to: the form itself, or
+         one entry of a repeating section. -->
+    <ng-template #fieldTpl let-field="field" let-group="group">
+      @if (isVisible(field, group)) {
+        <div class="field" [class.field--span-2]="field.colSpan === 2">
+          <label class="field-label" [for]="idFor(field, group)">
+            {{ field.label }}
+            @if (field.validation.required) { <span class="req">*</span> }
+          </label>
+
+          @switch (field.type) {
+            @case ('textarea') {
+              <textarea
+                class="textarea"
+                [id]="idFor(field, group)"
+                [formControl]="ctrl(group, field.key)"
+                [placeholder]="field.placeholder || ''"
+                [class.is-invalid]="invalid(group, field.key)"
+              ></textarea>
+            }
+            @case ('select') {
+              <select
+                class="select"
+                [id]="idFor(field, group)"
+                [formControl]="ctrl(group, field.key)"
+                [class.is-invalid]="invalid(group, field.key)"
+              >
+                <option value="">Select</option>
+                @for (opt of field.options; track opt.value) {
+                  <option [value]="opt.value">{{ opt.label }}</option>
+                }
+              </select>
+            }
+            @case ('multiselect') {
+              <div class="check-grid">
+                @for (opt of field.options; track opt.value) {
+                  <label class="check">
+                    <input
+                      type="checkbox"
+                      [checked]="isChecked(group, field.key, opt.value)"
+                      [disabled]="readonly()"
+                      (change)="toggleMulti(group, field.key, opt.value, $event)"
+                    />
+                    <span>{{ opt.label }}</span>
+                  </label>
+                }
+              </div>
+            }
+            @case ('radio') {
+              <div class="check-grid">
+                @for (opt of field.options; track opt.value) {
+                  <label class="check">
+                    <input type="radio" [value]="opt.value" [formControl]="ctrl(group, field.key)" />
+                    <span>{{ opt.label }}</span>
+                  </label>
+                }
+              </div>
+            }
+            @case ('checkbox') {
+              <label class="check">
+                <input type="checkbox" [formControl]="ctrl(group, field.key)" />
+                <span class="text-sm">{{ field.helpText || 'Yes' }}</span>
+              </label>
+            }
+            @case ('file') {
+              <div class="file-box">
+                <app-icon name="upload" [size]="16" />
+                <span class="text-sm">
+                  {{ readonly() ? (value(group, field.key) || 'Not uploaded') : 'Choose a file' }}
+                </span>
+                @if (!readonly()) {
+                  <input type="file" [id]="idFor(field, group)" (change)="onFile(group, field.key, $event)" />
+                }
+              </div>
+            }
+            @case ('date') {
+              <input
+                type="date"
+                class="input"
+                [id]="idFor(field, group)"
+                [formControl]="ctrl(group, field.key)"
+                [class.is-invalid]="invalid(group, field.key)"
+              />
+            }
+            @case ('number') {
+              <input
+                type="number"
+                class="input"
+                [id]="idFor(field, group)"
+                [formControl]="ctrl(group, field.key)"
+                [placeholder]="field.placeholder || ''"
+                [class.is-invalid]="invalid(group, field.key)"
+              />
+            }
+            @default {
+              <input
+                type="text"
+                class="input"
+                [id]="idFor(field, group)"
+                [formControl]="ctrl(group, field.key)"
+                [placeholder]="field.placeholder || ''"
+                [class.is-invalid]="invalid(group, field.key)"
+                [attr.maxlength]="maxLengthFor(field)"
+                [style.text-transform]="isUppercase(field) ? 'uppercase' : null"
+              />
+            }
+          }
+
+          @if (hintFor(field)) {
+            <span class="field-hint">{{ hintFor(field) }}</span>
+          }
+          @if (invalid(group, field.key)) {
+            <span class="field-error">{{ errorFor(group, field) }}</span>
+          }
+        </div>
+      }
+    </ng-template>
   `,
   styles: [
     `
@@ -193,6 +282,24 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
         opacity: 0;
         cursor: pointer;
       }
+      .entry {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 0.85rem;
+        background: var(--surface-muted);
+      }
+      .entry__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.6rem;
+      }
+      .entry__title {
+        font-size: var(--fs-sm);
+        font-weight: 600;
+        color: var(--ink-700);
+      }
     `,
   ],
 })
@@ -200,9 +307,17 @@ export class DynamicFormComponent {
   private readonly fb = inject(FormBuilder);
 
   readonly definition = input.required<RegistrationForm>();
-  readonly values = input<Record<string, FieldValue>>({});
+  readonly values = input<Record<string, FieldValue | EntryValues[]>>({});
   readonly readonly = input(false);
-  readonly submitted = output<Record<string, FieldValue>>();
+
+  /**
+   * Shows the form as an applicant would meet it rather than as it was
+   * answered: a repeating section still starts with its opening entries, so a
+   * preview of a form nobody has filled in is not an empty card. Off on the
+   * scrutiny screen, where an empty section means exactly that.
+   */
+  readonly preview = input(false);
+  readonly submitted = output<Record<string, unknown>>();
 
   private readonly formSignal = signal<FormGroup>(this.fb.group({}));
   readonly form = computed(() => this.formSignal());
@@ -211,21 +326,41 @@ export class DynamicFormComponent {
     effect(() => {
       const definition = this.definition();
       const values = this.values();
-      const group: Record<string, FormControl> = {};
+      const group: Record<string, AbstractControl> = {};
+
       for (const section of definition.sections) {
         if (section.isEnabled === false) continue;
-        for (const field of section.fields) {
-          if (field.isEnabled === false) continue;
-          const initial = values[field.key] ?? defaultFor(field);
-          group[field.key] = new FormControl<FieldValue>(
-            { value: initial, disabled: this.readonly() },
-            { validators: validatorsFor(field) },
-          );
+        const fields = this.enabledFields(section);
+
+        if (!section.isRepeatable) {
+          for (const field of fields) {
+            group[field.key] = this.controlFor(field, values[field.key] as FieldValue);
+          }
+          continue;
         }
+
+        const raw = values[this.keyOf(section)];
+        const answered = Array.isArray(raw) ? (raw as EntryValues[]) : [];
+
+        /* Read-only shows exactly what was answered. While filling, the
+           smallest allowed number of entries is on screen from the start, so
+           a required section is never an empty card with a button. */
+        const shown = this.readonly() && !this.preview()
+          ? answered.length
+          : Math.max(answered.length, this.minEntries(section), 1);
+
+        group[this.keyOf(section)] = this.fb.array(
+          Array.from({ length: shown }, (_, index) =>
+            this.entryGroup(fields, answered[index] ?? {}),
+          ),
+        );
       }
+
       this.formSignal.set(this.fb.group(group));
     });
   }
+
+  /* --------------------------------------------------------- definition */
 
   /** Disabled sections and fields never render and never validate. */
   protected readonly enabledSections = computed(() =>
@@ -236,27 +371,113 @@ export class DynamicFormComponent {
     return section.fields.filter((f) => f.isEnabled !== false);
   }
 
-  protected isVisible(field: RegistrationField): boolean {
+  /** What one entry is called, falling back to the section's own title. */
+  protected entryNoun(section: RegistrationSection): string {
+    return section.itemLabel?.trim() || section.title;
+  }
+
+  protected minEntries(section: RegistrationSection): number {
+    return Math.max(0, section.minEntries ?? 1);
+  }
+
+  protected maxEntries(section: RegistrationSection): number {
+    return Math.max(1, section.maxEntries ?? 10);
+  }
+
+  /**
+   * The key a repeating section's entries live under. Falls back to the id so
+   * a form saved before section keys existed still renders.
+   */
+  private keyOf(section: RegistrationSection): string {
+    return section.key?.trim() || `section${section.id}`;
+  }
+
+  /* -------------------------------------------------------------- entries */
+
+  protected entriesOf(section: RegistrationSection): FormGroup[] {
+    const array = this.form().get(this.keyOf(section));
+    return array instanceof FormArray ? (array.controls as FormGroup[]) : [];
+  }
+
+  protected canAdd(section: RegistrationSection): boolean {
+    return !this.readonly() && this.entriesOf(section).length < this.maxEntries(section);
+  }
+
+  protected canRemove(section: RegistrationSection): boolean {
+    return (
+      !this.readonly() &&
+      this.entriesOf(section).length > Math.max(this.minEntries(section), 1)
+    );
+  }
+
+  protected addEntry(section: RegistrationSection): void {
+    const array = this.form().get(this.keyOf(section));
+    if (!(array instanceof FormArray) || !this.canAdd(section)) return;
+    array.push(this.entryGroup(this.enabledFields(section), {}));
+  }
+
+  protected removeEntry(section: RegistrationSection, index: number): void {
+    const array = this.form().get(this.keyOf(section));
+    if (!(array instanceof FormArray) || !this.canRemove(section)) return;
+    array.removeAt(index);
+  }
+
+  private entryGroup(fields: RegistrationField[], values: EntryValues): FormGroup {
+    const group: Record<string, FormControl> = {};
+    for (const field of fields) group[field.key] = this.controlFor(field, values[field.key]);
+    return this.fb.group(group);
+  }
+
+  private controlFor(field: RegistrationField, value: FieldValue | undefined): FormControl {
+    return new FormControl<FieldValue>(
+      { value: value ?? defaultFor(field), disabled: this.readonly() },
+      { validators: validatorsFor(field) },
+    );
+  }
+
+  /* --------------------------------------------------------------- fields */
+
+  /** The control a field is bound to within the group it was rendered in. */
+  protected ctrl(group: FormGroup, key: string): FormControl {
+    return group.get(key) as FormControl;
+  }
+
+  /**
+   * Unique per entry, so clicking a label focuses the field in the entry it
+   * was clicked in rather than the first one on the page.
+   */
+  protected idFor(field: RegistrationField, group: FormGroup): string {
+    const parent = group.parent;
+    if (parent instanceof FormArray) {
+      return `${field.key}-${parent.controls.indexOf(group)}`;
+    }
+    return field.key;
+  }
+
+  /**
+   * A conditional field reads its trigger from the group it lives in, so each
+   * entry answers for itself, and from the form when the trigger is a field
+   * outside the section.
+   */
+  protected isVisible(field: RegistrationField, group: FormGroup): boolean {
     if (!field.visibleWhenFieldKey) return true;
-    const raw = this.form().get(field.visibleWhenFieldKey)?.value;
+    const source = group.get(field.visibleWhenFieldKey)
+      ?? this.form().get(field.visibleWhenFieldKey);
+    const raw = source?.value;
     const current = typeof raw === 'boolean' ? String(raw) : String(raw ?? '');
     return (field.visibleWhenValues ?? []).includes(current);
   }
 
-  protected control(key: string): AbstractControl | null {
-    return this.form().get(key);
-  }
-
-  protected value(key: string): string {
-    const raw = this.control(key)?.value;
+  protected value(group: FormGroup, key: string): string {
+    const raw = group.get(key)?.value;
     if (raw === null || raw === undefined || raw === '') return '';
     if (Array.isArray(raw)) return raw.join(', ');
     if (typeof raw === 'boolean') return raw ? 'Yes' : 'No';
     return String(raw);
   }
 
-  protected invalid(key: string): boolean {
-    const control = this.control(key);
+  protected invalid(group: FormGroup, key: string): boolean {
+    const control = group.get(key);
     return !!control && control.invalid && (control.dirty || control.touched);
   }
 
@@ -278,8 +499,8 @@ export class DynamicFormComponent {
     return field.helpText || FORMAT_HINTS[field.type] || '';
   }
 
-  protected errorFor(field: RegistrationField): string {
-    const errors = this.control(field.key)?.errors ?? {};
+  protected errorFor(group: FormGroup, field: RegistrationField): string {
+    const errors = group.get(field.key)?.errors ?? {};
     if (errors['required']) return `${field.label} is required.`;
     if (errors['pattern']) {
       return FORMAT_HINTS[field.type] ?? `Enter a valid ${field.label.toLowerCase()}.`;
@@ -291,13 +512,13 @@ export class DynamicFormComponent {
     return 'Invalid value.';
   }
 
-  protected isChecked(key: string, option: string): boolean {
-    const raw = this.control(key)?.value;
+  protected isChecked(group: FormGroup, key: string, option: string): boolean {
+    const raw = group.get(key)?.value;
     return Array.isArray(raw) && raw.includes(option);
   }
 
-  protected toggleMulti(key: string, option: string, event: Event): void {
-    const control = this.control(key);
+  protected toggleMulti(group: FormGroup, key: string, option: string, event: Event): void {
+    const control = group.get(key);
     if (!control) return;
     const checked = (event.target as HTMLInputElement).checked;
     const current = Array.isArray(control.value) ? [...(control.value as string[])] : [];
@@ -306,10 +527,11 @@ export class DynamicFormComponent {
     control.markAsDirty();
   }
 
-  protected onFile(key: string, event: Event): void {
+  protected onFile(group: FormGroup, key: string, event: Event): void {
     const file = (event.target as HTMLInputElement).files?.[0];
-    this.control(key)?.setValue(file ? file.name : null);
-    this.control(key)?.markAsDirty();
+    const control = group.get(key);
+    control?.setValue(file ? file.name : null);
+    control?.markAsDirty();
   }
 }
 

@@ -8,6 +8,7 @@ import {
   ImplementingAgency,
   LookupItem,
   ProgramType,
+  Qualification,
   SubCategory,
 } from '../models';
 import { ApiService } from './api.service';
@@ -16,6 +17,11 @@ import { CrudService } from './crud.service';
 @Injectable({ providedIn: 'root' })
 export class CategoryService extends CrudService<Category> {
   protected readonly resource = 'categories';
+}
+
+@Injectable({ providedIn: 'root' })
+export class QualificationService extends CrudService<Qualification> {
+  protected readonly resource = 'qualifications';
 }
 
 @Injectable({ providedIn: 'root' })
