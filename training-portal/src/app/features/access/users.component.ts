@@ -282,24 +282,26 @@ const TIER_DEPTH: Record<string, number> = {
                 </span>
               }
             </div>
-            <div class="field">
-              <label class="field-label" for="uAgency">Implementing agency</label>
-              <select id="uAgency" class="select" formControlName="agencyId">
-                <option [ngValue]="null">Not mapped</option>
-                @for (agency of agencies(); track agency.id) {
-                  <option [ngValue]="agency.id">{{ agency.name }}</option>
-                }
-              </select>
-            </div>
-            <div class="field">
-              <label class="field-label" for="uManager">Reports to</label>
-              <select id="uManager" class="select" formControlName="reportsToUserId">
-                <option [ngValue]="null">Not mapped</option>
-                @for (manager of managers(); track manager.id) {
-                  <option [ngValue]="manager.id">{{ manager.name }}</option>
-                }
-              </select>
-            </div>
+            @if (inDeliveryChain()) {
+              <div class="field">
+                <label class="field-label" for="uAgency">Implementing agency</label>
+                <select id="uAgency" class="select" formControlName="agencyId">
+                  <option [ngValue]="null">Not mapped</option>
+                  @for (agency of agencies(); track agency.id) {
+                    <option [ngValue]="agency.id">{{ agency.name }}</option>
+                  }
+                </select>
+              </div>
+              <div class="field">
+                <label class="field-label" for="uManager">Reports to</label>
+                <select id="uManager" class="select" formControlName="reportsToUserId">
+                  <option [ngValue]="null">Not mapped</option>
+                  @for (manager of managers(); track manager.id) {
+                    <option [ngValue]="manager.id">{{ manager.name }}</option>
+                  }
+                </select>
+              </div>
+            }
             <div class="field">
               <label class="field-label" for="uState">State</label>
               <select id="uState" class="select" formControlName="stateCode" (change)="onStateChange()">
@@ -348,15 +350,17 @@ const TIER_DEPTH: Record<string, number> = {
             @if (axes().subCategory) {
               <app-scope-picker
                 label="Sub-categories"
-                [options]="subCategories()"
+                [options]="subCategoryOptions()"
                 [(selected)]="subCategoryIds"
+                emptyMessage="Select at least one category first."
               />
             }
             @if (axes().programType) {
               <app-scope-picker
                 label="Program types"
-                [options]="programTypes()"
+                [options]="programTypeOptions()"
                 [(selected)]="programTypeIds"
+                emptyMessage="Select at least one sub-category first."
               />
             }
             @if (axes().state) {
@@ -438,8 +442,10 @@ export class UsersComponent {
   protected readonly states = toSignal(this.lookups.states(), { initialValue: [] as LookupItem[] });
   protected readonly districts = signal<LookupItem[]>([]);
   protected readonly categories = toSignal(this.lookups.categories(), { initialValue: [] as LookupItem[] });
-  protected readonly subCategories = toSignal(this.lookups.subCategories(null), { initialValue: [] as LookupItem[] });
-  protected readonly programTypes = toSignal(this.lookups.programTypes(null), { initialValue: [] as LookupItem[] });
+  /* The whole masters; the pickers narrow each to what the axis above it
+     allows, the way districts have always narrowed to the chosen states. */
+  protected readonly allSubCategories = toSignal(this.lookups.subCategories(null), { initialValue: [] as LookupItem[] });
+  protected readonly allProgramTypes = toSignal(this.lookups.programTypes(null), { initialValue: [] as LookupItem[] });
   /* The whole district master; the picker narrows it to the chosen states. */
   protected readonly allDistricts = toSignal(this.lookups.districts(null), {
     initialValue: [] as LookupItem[],
@@ -515,6 +521,21 @@ export class UsersComponent {
   });
 
   /**
+   * Whether the account belongs to an implementing agency and answers to
+   * somebody above it.
+   *
+   * Both are questions about a place in the delivery chain, and the tiers
+   * above it have no place in one: a Super Admin, an Admin and the Ministry
+   * are not mapped to an agency and do not report to a manager. Offering the
+   * fields anyway invites somebody to fill them in, and "Not mapped" beside a
+   * Ministry account reads as an omission rather than as the answer.
+   */
+  protected readonly inDeliveryChain = computed(() => {
+    const tier = this.chosenBaseRole();
+    return tier !== null && tier !== 'SuperAdmin' && tier !== 'Admin' && tier !== 'Ministry';
+  });
+
+  /**
    * Which axes the chosen tier is allocated on. Mirrors RoleHierarchy on the
    * server; the server is still the authority, this only decides what to show.
    */
@@ -541,6 +562,18 @@ export class UsersComponent {
         'use Select all to grant everything you hold.'
       : 'Nothing to allocate for this role.',
   );
+
+  /** Sub-categories offered are limited to the categories chosen above them. */
+  protected readonly subCategoryOptions = computed(() => {
+    const chosen = this.categoryIds();
+    return this.allSubCategories().filter((s) => chosen.includes(Number(s.parentId)));
+  });
+
+  /** Program types offered are limited to the sub-categories chosen above them. */
+  protected readonly programTypeOptions = computed(() => {
+    const chosen = this.subCategoryIds();
+    return this.allProgramTypes().filter((p) => chosen.includes(Number(p.parentId)));
+  });
 
   /** Districts offered are limited to the states chosen above them. */
   protected readonly districtOptions = computed(() => {
@@ -578,6 +611,51 @@ export class UsersComponent {
   }
 
   constructor() {
+    /* Narrowing the options is not enough on its own. A sub-category ticked
+       under a category that is then unticked stays in the selection, off
+       screen, and is saved with the rest — the account ends up holding reach
+       its categories do not grant, and nothing on the form ever said so.
+       Each axis is therefore pruned to what the axis above it still allows.
+
+       Guarded on the master being loaded: an empty list means the lookup has
+       not arrived, and pruning against it would wipe the allocation of the
+       user whose form was just opened. */
+    effect(() => {
+      const categories = this.categoryIds();
+      const all = this.allSubCategories();
+      if (all.length === 0) return;
+
+      this.subCategoryIds.update((chosen) => {
+        const kept = chosen.filter((id) =>
+          all.some((s) => s.id === id && categories.includes(Number(s.parentId))));
+        return kept.length === chosen.length ? chosen : kept;
+      });
+    });
+
+    effect(() => {
+      const subCategories = this.subCategoryIds();
+      const all = this.allProgramTypes();
+      if (all.length === 0) return;
+
+      this.programTypeIds.update((chosen) => {
+        const kept = chosen.filter((id) =>
+          all.some((p) => p.id === id && subCategories.includes(Number(p.parentId))));
+        return kept.length === chosen.length ? chosen : kept;
+      });
+    });
+
+    effect(() => {
+      const states = this.stateCodes();
+      const all = this.allDistricts();
+      if (all.length === 0) return;
+
+      this.districtCodes.update((chosen) => {
+        const kept = chosen.filter((id) =>
+          all.some((d) => d.id === id && states.includes(Number(d.parentId))));
+        return kept.length === chosen.length ? chosen : kept;
+      });
+    });
+
     effect(() => {
       /* Re-scope the query whenever the route switches between the two views.
          The view is the only dependency: setFilter reads the current filters
@@ -646,6 +724,13 @@ export class UsersComponent {
     if (!axes.programType) this.programTypeIds.set([]);
     if (!axes.state) this.stateCodes.set([]);
     if (!axes.district) this.districtCodes.set([]);
+
+    /* Same reason the axes are cleared: a value left behind by the previous
+       role is still on the form and would be saved with it. */
+    if (!this.inDeliveryChain()) {
+      this.form.controls.agencyId.setValue(null);
+      this.form.controls.reportsToUserId.setValue(null);
+    }
   }
 
   protected closeForm(): void {
