@@ -41,6 +41,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Reports',
     items: [
       { label: 'View reports', route: '/reports', icon: 'file', permissions: ['reports.view'] },
+      { label: 'Trainers', route: '/trainers', icon: 'user-check', permissions: ['programs.view'] },
     ],
   },
   {

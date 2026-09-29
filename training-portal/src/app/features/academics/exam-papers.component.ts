@@ -89,6 +89,8 @@ const COLUMNS: ColumnDef[] = [
       </div>
 
       <app-data-table
+        exportName="Exam papers"
+        [exportRows]="exportRows"
         [columns]="columns"
         [rows]="list.rows()"
         [total]="list.total()"
@@ -293,6 +295,12 @@ export class ExamPapersComponent {
   private readonly lookups = inject(LookupService);
 
   protected readonly columns = COLUMNS;
+
+  /* Held rather than written inline: an arrow in the template is a new
+
+     function on every change detection pass. */
+
+  protected readonly exportRows = () => this.list.fetchAll();
   protected readonly types = QUESTION_TYPES;
   protected readonly levels = DIFFICULTY_LEVELS;
   /* The form picks a programme type directly; category and sub-category are

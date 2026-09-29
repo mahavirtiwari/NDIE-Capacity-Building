@@ -125,6 +125,8 @@ const COLUMNS: ColumnDef[] = [
       </div>
 
       <app-data-table
+        exportName="Programmes"
+        [exportRows]="exportRows"
         [columns]="columns"
         [rows]="rows()"
         [total]="list.total()"
@@ -368,6 +370,12 @@ export class ProgramsComponent {
   private readonly fb = inject(FormBuilder);
 
   protected readonly columns = COLUMNS;
+
+  /* Held rather than written inline: an arrow in the template is a new
+
+     function on every change detection pass. */
+
+  protected readonly exportRows = () => this.list.fetchAll();
   protected readonly modes = PROGRAM_MODES;
   protected readonly statuses = PROGRAM_STATUSES;
   protected readonly statusLabels = PROGRAM_STATUS_LABELS;

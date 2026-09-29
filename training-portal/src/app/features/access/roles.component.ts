@@ -106,6 +106,8 @@ const labelFor = (base: string): string => ROLE_LABELS[base as AppRole] ?? base;
       </div>
 
       <app-data-table
+        exportName="Roles"
+        [exportRows]="exportRows"
         [columns]="columns"
         [rows]="rows()"
         [total]="list.total()"
@@ -265,6 +267,12 @@ export class RolesComponent {
   private readonly fb = inject(FormBuilder);
 
   protected readonly columns = COLUMNS;
+
+  /* Held rather than written inline: an arrow in the template is a new
+
+     function on every change detection pass. */
+
+  protected readonly exportRows = () => this.list.fetchAll();
   protected readonly baseRoles = BASE_ROLES;
   protected readonly label = labelFor;
 

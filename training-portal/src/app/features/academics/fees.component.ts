@@ -93,6 +93,8 @@ const COLUMNS: ColumnDef[] = [
       </div>
 
       <app-data-table
+        exportName="Fee structures"
+        [exportRows]="exportRows"
         [columns]="columns"
         [rows]="list.rows()"
         [total]="list.total()"
@@ -339,6 +341,12 @@ export class FeesComponent {
   private readonly lookups = inject(LookupService);
 
   protected readonly columns = COLUMNS;
+
+  /* Held rather than written inline: an arrow in the template is a new
+
+     function on every change detection pass. */
+
+  protected readonly exportRows = () => this.list.fetchAll();
   protected readonly kinds = FEE_COMPONENT_KINDS;
   protected readonly tdsRates = TDS_RATES;
   /* The form picks a programme type directly; category and sub-category are

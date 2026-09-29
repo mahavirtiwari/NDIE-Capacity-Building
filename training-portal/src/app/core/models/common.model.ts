@@ -281,3 +281,34 @@ export interface ProgrammeReport {
   monitoring: ReportMonitoring[];
   totals: ReportTotals;
 }
+
+/**
+ * A trainer as the faculty register shows them. One row per delivery: a
+ * trainer who took three workshops appears three times, because each row is
+ * that programme's own record of who turned up.
+ */
+export interface Faculty {
+  id: Id;
+  fullName: string;
+  mobile: string;
+  email?: string | null;
+  designation?: string | null;
+  organisation?: string | null;
+
+  programmeId: Id;
+  programmeCode?: string | null;
+  programmeName?: string | null;
+  programTypeName?: string | null;
+  agencyName?: string | null;
+  stateName?: string | null;
+  startDate: string;
+  endDate: string;
+}
+
+export interface FacultyUpsert {
+  fullName: string;
+  mobile: string;
+  email?: string | null;
+  designation?: string | null;
+  organisation?: string | null;
+}

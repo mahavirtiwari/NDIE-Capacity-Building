@@ -120,6 +120,8 @@ const COLUMNS: ColumnDef[] = [
       </div>
 
       <app-data-table
+        exportName="Applications"
+        [exportRows]="exportRows"
         [columns]="columns"
         [rows]="list.rows()"
         [total]="list.total()"
@@ -217,6 +219,12 @@ export class ApplicationsComponent {
   private readonly lookups = inject(LookupService);
 
   protected readonly columns = COLUMNS;
+
+  /* Held rather than written inline: an arrow in the template is a new
+
+     function on every change detection pass. */
+
+  protected readonly exportRows = () => this.list.fetchAll();
   protected readonly statuses = APPLICATION_STATUSES;
   protected readonly statusLabels = APPLICATION_STATUS_LABELS;
 

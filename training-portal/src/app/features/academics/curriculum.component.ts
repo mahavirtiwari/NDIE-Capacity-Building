@@ -122,6 +122,8 @@ const COLUMNS: ColumnDef[] = [
       </div>
 
       <app-data-table
+        exportName="Curriculum"
+        [exportRows]="exportRows"
         [columns]="columns"
         [rows]="rows()"
         [total]="list.total()"
@@ -267,6 +269,12 @@ export class CurriculumComponent {
   private readonly lookups = inject(LookupService);
 
   protected readonly columns = COLUMNS;
+
+  /* Held rather than written inline: an arrow in the template is a new
+
+     function on every change detection pass. */
+
+  protected readonly exportRows = () => this.list.fetchAll();
   /* The Programme types master is the single source for this dropdown. */
   protected readonly programTypes = toSignal(this.lookups.programTypes(null), {
     initialValue: [] as LookupItem[],

@@ -208,3 +208,21 @@ public class ProgrammeSubmissionDto
     public int PhotoCount { get; set; }
     public string? Remarks { get; set; }
 }
+
+/// <summary>
+/// A trainer as the faculty register shows them: who they are, and which
+/// programme they delivered. One row per delivery, because that is how the
+/// record is kept — somebody who took three workshops appears three times,
+/// and each row is the programme's own record of who turned up.
+/// </summary>
+public class FacultyDto : TrainerDto
+{
+    public int ProgrammeId { get; set; }
+    public string? ProgrammeCode { get; set; }
+    public string? ProgrammeName { get; set; }
+    public string? ProgramTypeName { get; set; }
+    public string? AgencyName { get; set; }
+    public string? StateName { get; set; }
+    public DateOnly StartDate { get; set; }
+    public DateOnly EndDate { get; set; }
+}

@@ -161,6 +161,8 @@ const TIER_DEPTH: Record<string, number> = {
       </div>
 
       <app-data-table
+        exportName="Portal users"
+        [exportRows]="exportRows"
         [columns]="columns"
         [rows]="list.rows()"
         [total]="list.total()"
@@ -205,7 +207,12 @@ const TIER_DEPTH: Record<string, number> = {
         <ng-template appCell="actions" let-row>
           <div class="btn-row btn-row--end">
             @if (canResetPassword($any(row))) {
-              <button type="button" class="btn btn--icon" title="Reset password" (click)="resetPassword($any(row))">
+              <button
+                type="button"
+                class="btn btn--icon"
+                title="Resend sign-in details"
+                (click)="resetPassword($any(row))"
+              >
                 <app-icon name="lock" [size]="15" />
               </button>
             }
@@ -435,6 +442,12 @@ export class UsersComponent {
   readonly scope = input<UserScope>('all');
 
   protected readonly columns = COLUMNS;
+
+  /* Held rather than written inline: an arrow in the template is a new
+
+     function on every change detection pass. */
+
+  protected readonly exportRows = () => this.list.fetchAll();
   protected readonly isCoordinatorView = computed(() => this.scope() === 'coordinators');
 
   protected readonly roles = toSignal(this.roleService.all(), { initialValue: [] as AdminRole[] });
@@ -786,15 +799,32 @@ export class UsersComponent {
     });
   }
 
+  /**
+   * Sends the account's sign-in details to its own e-mail address.
+   *
+   * It cannot send the password they already have. Passwords are kept as a
+   * hash and never in readable form, so nobody — not this screen, not the
+   * database, not an administrator — can read one back. What it can do is
+   * issue a working one and deliver it, which is what somebody who has lost
+   * their details actually needs.
+   *
+   * The dialog says so plainly, because the difference matters: the password
+   * they were using stops working the moment this is done.
+   */
   protected async resetPassword(row: PortalUser): Promise<void> {
     const confirmed = await this.confirm.ask({
-      title: 'Reset password?',
-      message: `A new temporary password will be generated for ${row.fullName} (${row.userCode}).`,
-      confirmLabel: 'Reset password',
+      title: 'Resend sign-in details?',
+      message:
+        `${row.fullName} (${row.userCode}) will be e-mailed a fresh password at the address ` +
+        'on their account. Their current password stops working — passwords are stored as a ' +
+        'hash, so the one they have cannot be read back and sent again.',
+      confirmLabel: 'Send details',
     });
     if (!confirmed) return;
+
     this.service.resetPassword(row.id).subscribe((result) => {
       this.generated.set({ userCode: row.userCode, password: result.temporaryPassword });
+      this.toast.success('Sign-in details sent', row.email);
     });
   }
 

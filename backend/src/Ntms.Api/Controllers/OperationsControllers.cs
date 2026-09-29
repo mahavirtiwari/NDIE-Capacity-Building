@@ -109,7 +109,7 @@ public class UsersController(UserService service) : ApiControllerBase
     [HasPermission(Permissions.UsersManage)]
     public async Task<ActionResult<ApiEnvelope<GeneratedCredentialsDto>>> ResetPassword(
         int id, CancellationToken ct) =>
-        Envelope(await service.ResetPasswordAsync(id, ct), "Temporary password issued.");
+        Envelope(await service.ResetPasswordAsync(id, ct), "Sign-in details sent to the account's e-mail address.");
 }
 
 [Route("api/applicants")]

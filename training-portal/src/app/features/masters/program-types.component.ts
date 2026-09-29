@@ -131,6 +131,8 @@ const COLUMNS: ColumnDef[] = [
       </div>
 
       <app-data-table
+        exportName="Program types"
+        [exportRows]="exportRows"
         [columns]="columns"
         [rows]="list.rows()"
         [total]="list.total()"
@@ -444,6 +446,12 @@ export class ProgramTypesComponent {
   private readonly fb = inject(FormBuilder);
 
   protected readonly columns = COLUMNS;
+
+  /* Held rather than written inline: an arrow in the template is a new
+
+     function on every change detection pass. */
+
+  protected readonly exportRows = () => this.list.fetchAll();
   protected readonly modes = DELIVERY_MODES;
   /* Ordered lowest to highest, straight from the server's catalogue, so the
      dropdown and the validation behind it cannot drift apart. */

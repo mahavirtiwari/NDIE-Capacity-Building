@@ -152,6 +152,8 @@ function blankField(): RegistrationField {
       </div>
 
       <app-data-table
+        exportName="Registration forms"
+        [exportRows]="exportRows"
         [columns]="columns"
         [rows]="list.rows()"
         [total]="list.total()"
@@ -700,6 +702,12 @@ export class RegistrationFormsComponent {
   private readonly fb = inject(FormBuilder);
 
   protected readonly columns = COLUMNS;
+
+  /* Held rather than written inline: an arrow in the template is a new
+
+     function on every change detection pass. */
+
+  protected readonly exportRows = () => this.list.fetchAll();
   protected readonly fieldTypes = FIELD_TYPES;
   protected readonly fieldCount = registrationFieldCount;
   protected readonly activeCount = activeFieldCount;

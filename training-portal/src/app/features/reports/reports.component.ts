@@ -8,6 +8,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { firstValueFrom } from 'rxjs';
 import { Id, ProgrammeReport, ReportProgramme } from '../../core/models';
 import { LookupService } from '../../core/services/masters.service';
 import { ReportService } from '../../core/services/report.service';
@@ -22,7 +23,14 @@ import { IconComponent } from '../../shared/components/icon.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { ListState, searchTerm } from '../../shared/list-state';
 import { environment } from '../../../environments/environment';
+import { downloadWorkbook, stampedName } from '../../shared/excel';
 import { buildProgrammeReport } from './programme-report.document';
+import {
+  ALL_SECTIONS,
+  ReportSection,
+  SECTION_LABELS,
+  programmeReportSheets,
+} from './programme-report.workbook';
 
 const COLUMNS: ColumnDef[] = [
   { key: 'code', header: 'Programme ID', sortable: true, width: '150px', variant: 'primary' },
@@ -130,6 +138,8 @@ const COLUMNS: ColumnDef[] = [
       </div>
 
       <app-data-table
+        exportName="Programme register"
+        [exportRows]="exportRows"
         [columns]="columns"
         [rows]="list.rows()"
         [total]="list.total()"
@@ -181,6 +191,57 @@ const COLUMNS: ColumnDef[] = [
       </app-data-table>
     </section>
 
+    <section class="card mt-md">
+      <div class="card__header">
+        <div class="stack stack-xs">
+          <span class="card__title">Download as Excel</span>
+          <span class="card__subtitle">
+            One workbook across every programme the filters above match. Choose what goes in it.
+          </span>
+        </div>
+      </div>
+      <div class="card__body stack stack-md">
+        <div class="check-grid">
+          @for (section of allSections; track section) {
+            <label class="check">
+              <input
+                type="checkbox"
+                [checked]="chosen().includes(section)"
+                (change)="toggleSection(section, $event)"
+              />
+              <span>{{ label(section) }}</span>
+            </label>
+          }
+        </div>
+
+        <div class="row row-sm row-wrap">
+          <button
+            type="button"
+            class="btn btn--primary"
+            [disabled]="building() || chosen().length === 0 || list.total() === 0"
+            (click)="downloadCombined()"
+          >
+            @if (building()) { <span class="spinner"></span> }
+            <app-icon name="download" [size]="15" />
+            Build workbook ({{ workbookCount() }} programme{{ workbookCount() === 1 ? '' : 's' }})
+          </button>
+
+          <span class="field-hint">
+            @if (list.total() > programmeCap) {
+              {{ list.total() }} match the filters; the first {{ programmeCap }} are included.
+              Narrow the filters for the rest — a workbook of every programme ever run is a
+              download nobody waits for.
+            } @else if (list.total() === 0) {
+              Nothing matches the filters above.
+            } @else {
+              Every sheet carries the programme it came from, so the rows stay attributable
+              once they are sorted.
+            }
+          </span>
+        </div>
+      </div>
+    </section>
+
     @if (viewing()) {
       <section class="card mt-md">
         <div class="card__header">
@@ -189,8 +250,11 @@ const COLUMNS: ColumnDef[] = [
             <span class="card__subtitle">{{ viewing()!.programme.programmeName }}</span>
           </div>
           <div class="btn-row">
+            <button type="button" class="btn btn--secondary btn--sm" (click)="downloadExcel()">
+              <app-icon name="download" [size]="15" /> Excel
+            </button>
             <button type="button" class="btn btn--secondary btn--sm" (click)="downloadHtml()">
-              <app-icon name="download" [size]="15" /> Download HTML
+              <app-icon name="download" [size]="15" /> HTML
             </button>
             <button type="button" class="btn btn--primary btn--sm" (click)="print()">
               <app-icon name="printer" [size]="15" /> Print / Save as PDF
@@ -225,6 +289,12 @@ export class ReportsComponent {
   private readonly frame = viewChild<ElementRef<HTMLIFrameElement>>('frame');
 
   protected readonly columns = COLUMNS;
+
+  /* Held rather than written inline: an arrow in the template is a new
+
+     function on every change detection pass. */
+
+  protected readonly exportRows = () => this.list.fetchAll();
   protected readonly list = new ListState<ReportProgramme>(
     (request) => this.service.programmes(request),
     { sortBy: 'startDate', sortDir: 'desc' },
@@ -335,6 +405,90 @@ export class ReportsComponent {
 
     frame.contentWindow.focus();
     frame.contentWindow.print();
+  }
+
+  /* ----------------------------------------------------------- workbooks */
+
+  protected readonly allSections = ALL_SECTIONS;
+  protected readonly chosen = signal<ReportSection[]>([...ALL_SECTIONS]);
+  protected readonly building = signal(false);
+
+  /**
+   * How many programmes a combined workbook will pull.
+   *
+   * Each one is a request for its full dossier, so this is a cap on the
+   * server as much as on the file: "every programme ever run" would be
+   * hundreds of round trips behind a button nobody would wait out.
+   */
+  protected readonly programmeCap = 25;
+
+  protected workbookCount(): number {
+    return Math.min(this.list.total(), this.programmeCap);
+  }
+
+  protected label(section: ReportSection): string {
+    return SECTION_LABELS[section];
+  }
+
+  protected toggleSection(section: ReportSection, event: Event): void {
+    const on = (event.target as HTMLInputElement).checked;
+    this.chosen.update((current) =>
+      on ? [...current, section] : current.filter((s) => s !== section),
+    );
+  }
+
+  /** The open report, every section, as one workbook. */
+  protected async downloadExcel(): Promise<void> {
+    const report = this.viewing();
+    if (!report) return;
+
+    await downloadWorkbook(
+      stampedName(`${report.programme.programmeCode.replace(/[^A-Za-z0-9]+/g, '-')}-report`),
+      programmeReportSheets(report),
+    );
+    this.toast.success('Workbook downloaded', report.programme.programmeCode);
+  }
+
+  /**
+   * Every filtered programme in one workbook, a sheet per section.
+   *
+   * The dossiers are fetched one at a time rather than all at once: twenty-five
+   * parallel requests for the heaviest query in the system is a way to make
+   * the portal unusable for everybody else while one person exports.
+   */
+  protected async downloadCombined(): Promise<void> {
+    const sections = this.chosen();
+    if (this.building() || sections.length === 0) return;
+
+    this.building.set(true);
+    try {
+      const { rows } = await this.list.fetchAll(this.programmeCap);
+      const wanted = rows.slice(0, this.programmeCap);
+
+      const sheets = [];
+      for (const programme of wanted) {
+        const report = await firstValueFrom(this.service.programme(programme.id));
+        sheets.push(...programmeReportSheets(report, {
+          prefix: programme.programmeCode.replace(/[^A-Za-z0-9]+/g, '-'),
+          sections,
+        }));
+      }
+
+      if (sheets.length === 0) {
+        this.toast.error('Nothing to export for these filters.');
+        return;
+      }
+
+      await downloadWorkbook(stampedName('programme-reports'), sheets);
+      this.toast.success(
+        `${wanted.length} programme(s) exported`,
+        `${sheets.length} sheet(s)`,
+      );
+    } catch {
+      this.toast.error('The workbook could not be built.');
+    } finally {
+      this.building.set(false);
+    }
   }
 
   /** The same document, saved as a file. Nothing round-trips to the server. */

@@ -98,6 +98,8 @@ const COLUMNS: ColumnDef[] = [
       </div>
 
       <app-data-table
+        exportName="Sub-categories"
+        [exportRows]="exportRows"
         [columns]="columns"
         [rows]="list.rows()"
         [total]="list.total()"
@@ -192,6 +194,12 @@ export class SubCategoriesComponent {
   private readonly fb = inject(FormBuilder);
 
   protected readonly columns = COLUMNS;
+
+  /* Held rather than written inline: an arrow in the template is a new
+
+     function on every change detection pass. */
+
+  protected readonly exportRows = () => this.list.fetchAll();
   protected readonly categories = toSignal(this.lookups.categories(), { initialValue: [] as LookupItem[] });
   protected readonly list = new ListState<SubCategory>((request) => this.service.list(request), {
     sortBy: 'categoryName',

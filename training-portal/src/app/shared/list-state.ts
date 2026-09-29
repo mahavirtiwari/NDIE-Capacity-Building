@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { BehaviorSubject, Observable, debounceTime, switchMap } from 'rxjs';
+import { BehaviorSubject, Observable, debounceTime, firstValueFrom, switchMap } from 'rxjs';
 import { PagedRequest, PagedResult } from '../core/models';
 
 /**
@@ -64,6 +64,37 @@ export class ListState<T> {
 
   reload(): void {
     this.trigger.next();
+  }
+
+  /**
+   * Every row the current filters match, not just the page on screen.
+   *
+   * An export of "what I am looking at" is the wrong thing almost every time:
+   * somebody filters to a state, exports, and gets the first ten of four
+   * hundred with nothing saying so. This walks the pages instead.
+   *
+   * Capped, because an unbounded fetch against a mistyped filter is a way to
+   * take the server down from a button. The cap is reported so the caller can
+   * say the export was cut rather than quietly hand over a short file.
+   */
+  async fetchAll(limit = 5000): Promise<{ rows: T[]; truncated: boolean }> {
+    const size = 200;
+    const base = this.request();
+    const rows: T[] = [];
+
+    for (let page = 1; rows.length < limit; page++) {
+      const result = await firstValueFrom(
+        this.loader({ ...base, page, pageSize: size }),
+      );
+
+      rows.push(...result.items);
+
+      if (result.items.length < size || rows.length >= result.total) {
+        return { rows, truncated: false };
+      }
+    }
+
+    return { rows: rows.slice(0, limit), truncated: true };
   }
 
   goToPage(page: number): void {

@@ -52,6 +52,14 @@ export const routes: Routes = [
           import('./features/reports/reports.component').then((m) => m.ReportsComponent),
       },
 
+      {
+        path: 'trainers',
+        title: 'Trainers · CBMS',
+        canActivate: [permissionGuard('programs.view')],
+        loadComponent: () =>
+          import('./features/reports/trainers.component').then((m) => m.TrainersComponent),
+      },
+
       /* ---------------- Programme setup (Super Admin) ---------------- */
       {
         path: 'masters',

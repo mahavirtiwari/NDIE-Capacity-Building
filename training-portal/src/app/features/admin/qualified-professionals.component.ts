@@ -130,6 +130,8 @@ const STANDINGS: Record<CertificateStanding, { label: string; tone: string }> = 
       </div>
 
       <app-data-table
+        exportName="Qualified professionals"
+        [exportRows]="exportRows"
         [columns]="columns"
         [rows]="list.rows()"
         [total]="list.total()"
@@ -226,6 +228,12 @@ export class QualifiedProfessionalsComponent {
   private readonly lookups = inject(LookupService);
 
   protected readonly columns = COLUMNS;
+
+  /* Held rather than written inline: an arrow in the template is a new
+
+     function on every change detection pass. */
+
+  protected readonly exportRows = () => this.list.fetchAll();
   protected readonly list = new ListState<QualifiedProfessional>(
     (request) => this.service.list(request),
     { sortBy: 'qualifiedOn', sortDir: 'desc' },
