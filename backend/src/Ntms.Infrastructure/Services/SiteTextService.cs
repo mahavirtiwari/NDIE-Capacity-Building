@@ -140,6 +140,70 @@ public class SiteTextService(NtmsDbContext db)
             "The viva has no skills set up yet, so it cannot be marked. They are added in the portal, under the program type.",
             null, true),
 
+        /* ------------------------------------ sign in, the applicant's app ---
+           The first screen anybody outside the department ever sees, so every
+           word on it is here: the line under the logo, what the two fields are
+           called, what they show before anything is typed, and the card that
+           sends a first-time visitor to registration. */
+        new("app.signin.tagline", "Sign in (applicant app)", "Line under the logo",
+            "Training and certification for MSME professionals.",
+            "The name and the organisation above it come from Branding."),
+        new("app.signin.title", "Sign in (applicant app)", "Heading", "Welcome"),
+        new("app.signin.subtitle", "Sign in (applicant app)", "Subheading",
+            "Sign in to your applicant account"),
+        new("app.signin.idLabel", "Sign in (applicant app)", "ID field label", "Applicant ID"),
+        new("app.signin.idPlaceholder", "Sign in (applicant app)", "ID field placeholder",
+            "APP240001"),
+        new("app.signin.idHint", "Sign in (applicant app)", "ID field hint",
+            "The ID emailed to you when your account was created — not your email address.",
+            null, true),
+        new("app.signin.passwordLabel", "Sign in (applicant app)", "Password field label",
+            "Password"),
+        new("app.signin.passwordPlaceholder", "Sign in (applicant app)",
+            "Password field placeholder", "Enter your password"),
+        new("app.signin.forgot", "Sign in (applicant app)", "Forgot password link",
+            "Forgot password?"),
+        new("app.signin.action", "Sign in (applicant app)", "Button", "Sign in"),
+        new("app.signin.registerTitle", "Sign in (applicant app)", "Register card heading",
+            "New user"),
+        new("app.signin.registerBody", "Sign in (applicant app)", "Register card text",
+            "If this is your first time here, create an applicant account to begin.",
+            null, true),
+        new("app.signin.registerCta", "Sign in (applicant app)", "Register card button",
+            "Register now"),
+        new("app.signin.footNote", "Sign in (applicant app)", "Foot note",
+            "Your details are used only to administer training programmes. Sign-in activity is logged.",
+            null, true),
+
+        /* ---------------------------------- forgot password, applicant app */
+        new("app.forgot.title", "Forgot password (applicant app)", "Heading", "Reset password"),
+        new("app.forgot.subtitle", "Forgot password (applicant app)", "Subheading",
+            "Recover access to your applicant account"),
+        new("app.forgot.label", "Forgot password (applicant app)", "Field label",
+            "Applicant ID or email"),
+        new("app.forgot.placeholder", "Forgot password (applicant app)", "Field placeholder",
+            "APP240001 or you@example.com"),
+        new("app.forgot.hint", "Forgot password (applicant app)", "Field hint",
+            "Either one is accepted."),
+        new("app.forgot.byId", "Forgot password (applicant app)", "What happens, by ID",
+            "The code goes to the email held on that account.",
+            null, true),
+        new("app.forgot.byEmail", "Forgot password (applicant app)", "What happens, by email",
+            "The code goes to that address, as long as it belongs to one account.",
+            null, true),
+        new("app.forgot.action", "Forgot password (applicant app)", "Button", "Continue"),
+
+        new("app.reset.title", "Reset password (applicant app)", "Heading", "Check your email"),
+        new("app.reset.subtitle", "Reset password (applicant app)", "Subheading",
+            "Enter the code we sent, then choose a new password"),
+        new("app.reset.note", "Reset password (applicant app)", "Validity note",
+            "The code is valid for {minutes} minutes and can be used once. Check your spam folder if it has not arrived.",
+            "{minutes} is filled in with how long the code lasts.", true),
+        new("app.reset.action", "Reset password (applicant app)", "Button", "Set new password"),
+        new("app.reset.done", "Reset password (applicant app)", "Confirmation",
+            "Your password has been changed. Sign in with the new one.",
+            null, true),
+
         /* --------------------------------------------------- the screens ---
            Every page's heading and the line under it, one group per screen.
            These are the first words on a screen and the ones a department is

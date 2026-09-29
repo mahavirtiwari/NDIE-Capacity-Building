@@ -50,6 +50,10 @@ public interface INotificationService
 
     /// <summary>Tells the holder their details or allocation were changed.</summary>
     Task SendAccountUpdatedAsync(PortalUser user, CancellationToken ct = default);
+
+    /// <summary>A one-time code for an applicant recovering their password.</summary>
+    Task SendApplicantResetCodeAsync(
+        Applicant applicant, string code, int validityMinutes, CancellationToken ct = default);
 }
 
 public class NotificationService(
@@ -347,5 +351,17 @@ public class NotificationService(
             ["name"] = user.FullName,
             ["userCode"] = user.UserCode,
             ["on"] = IndianTime.Format(DateTime.UtcNow),
+        }, ct);
+
+    public Task SendApplicantResetCodeAsync(
+        Applicant applicant, string code, int validityMinutes, CancellationToken ct = default) =>
+        SendAsync(EmailTemplateDefaults.PasswordReset, applicant.Email, new()
+        {
+            ["name"] = applicant.FullName,
+            /* The reset template speaks of a user code; for an applicant that
+               is their applicant ID, which is the same thing by another name. */
+            ["userCode"] = applicant.ApplicantCode,
+            ["code"] = code,
+            ["validityMinutes"] = validityMinutes.ToString(),
         }, ct);
 }

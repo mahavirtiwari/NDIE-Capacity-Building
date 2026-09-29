@@ -16,6 +16,31 @@ public class ApplicantAuthController(ApplicantAuthService service) : ApiControll
     public async Task<ActionResult<ApiEnvelope<ApplicantLoginResponseDto>>> Login(
         [FromBody] ApplicantLoginRequestDto request, CancellationToken ct) =>
         Envelope(await service.LoginAsync(request, ct));
+
+    /// <summary>
+    /// Asks for a reset code by applicant ID or by e-mail.
+    ///
+    /// Anonymous, and deliberately uninformative: the reply is the same
+    /// whether or not the account exists, so this cannot be used to discover
+    /// which applicant IDs are real.
+    /// </summary>
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiEnvelope<ApplicantForgotPasswordResultDto>>> ForgotPassword(
+        [FromBody] ApplicantForgotPasswordDto dto, CancellationToken ct)
+    {
+        var result = await service.ForgotPasswordAsync(dto, ct);
+        return Envelope(result, result.Message);
+    }
+
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiEnvelope<bool>>> ResetPassword(
+        [FromBody] ApplicantResetPasswordDto dto, CancellationToken ct)
+    {
+        await service.ResetPasswordAsync(dto, ct);
+        return Envelope(true, "Password reset. Sign in with your new password.");
+    }
 }
 
 /// <summary>

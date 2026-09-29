@@ -88,3 +88,42 @@ public class ApplicantEnrolmentDto
     public string Result { get; set; } = "Pending";
     public string? CertificateNo { get; set; }
 }
+
+/* ------------------------------------------------------- password recovery */
+
+/// <summary>
+/// Either identifier is accepted, because somebody who has lost their
+/// password has usually lost the e-mail carrying their applicant ID too.
+/// </summary>
+public class ApplicantForgotPasswordDto
+{
+    public string Identifier { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// What the app shows after asking. Deliberately the same shape whether or
+/// not the account exists: the masked address is filled only when it does,
+/// and the wording does not change either way.
+/// </summary>
+public class ApplicantForgotPasswordResultDto
+{
+    public string Message { get; set; } = string.Empty;
+    public int ValidityMinutes { get; set; }
+
+    /// <summary>
+    /// The address the code went to, masked — as far as the confirmation
+    /// screen may go. Enough for the holder to recognise their own mailbox,
+    /// not enough for anybody else to learn it.
+    /// </summary>
+    public string? MaskedEmail { get; set; }
+
+    /// <summary>Seconds before another code can be asked for.</summary>
+    public int ResendAfterSeconds { get; set; }
+}
+
+public class ApplicantResetPasswordDto
+{
+    public string Identifier { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string NewPassword { get; set; } = string.Empty;
+}

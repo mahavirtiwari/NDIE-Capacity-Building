@@ -257,4 +257,185 @@ public class ApplicantAuthService(
             }),
         ];
     }
+
+    /* ----------------------------------------------- password recovery */
+
+    private const int ResetValidityMinutes = 15;
+    /* Eight characters: the column holds ten, and widening it would be a
+       migration for nothing. */
+    private const string ResetChannel = "AppReset";
+    private static readonly TimeSpan ResetCooldown = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// Either the applicant ID or the e-mail on the account.
+    ///
+    /// Both, because somebody who has lost their password has usually lost
+    /// the message carrying their applicant ID with it, and an ID-only
+    /// recovery leaves them with nothing to try.
+    ///
+    /// An e-mail shared by two accounts resolves to neither: a household may
+    /// register more than one applicant on one mailbox, and guessing which of
+    /// them to reset would lock the other out.
+    /// </summary>
+    private async Task<Applicant?> ResolveForResetAsync(string? identifier, CancellationToken ct)
+    {
+        var typed = (identifier ?? string.Empty).Trim();
+        if (typed.Length == 0) return null;
+
+        var asCode = typed.ToUpperInvariant();
+        var byCode = await db.Applicants.FirstOrDefaultAsync(a => a.ApplicantCode == asCode, ct);
+        if (byCode is not null) return byCode;
+
+        if (!typed.Contains('@')) return null;
+
+        var lowered = typed.ToLowerInvariant();
+        var matches = await db.Applicants
+            .Where(a => a.Email == lowered && !a.IsBlocked)
+            .Take(2).ToListAsync(ct);
+
+        return matches.Count == 1 ? matches[0] : null;
+    }
+
+    /// <summary>
+    /// Mails a one-time code to the address on file.
+    ///
+    /// The reply says the same thing whether or not the account exists, so
+    /// this cannot be used to find out which applicant IDs are real. The
+    /// masked address is the one concession, and only where there was an
+    /// account to mask — somebody recovering their own login needs to see
+    /// which of their mailboxes to open.
+    /// </summary>
+    public async Task<ApplicantForgotPasswordResultDto> ForgotPasswordAsync(
+        ApplicantForgotPasswordDto dto, CancellationToken ct)
+    {
+        var vague = new ApplicantForgotPasswordResultDto
+        {
+            Message = "If that account exists, a reset code has been sent to the email on file.",
+            ValidityMinutes = ResetValidityMinutes,
+            ResendAfterSeconds = (int) ResetCooldown.TotalSeconds,
+        };
+
+        var applicant = await ResolveForResetAsync(dto.Identifier, ct);
+
+        /* A blocked account is treated as absent, for the same reason. */
+        if (applicant is null || applicant.IsBlocked
+            || string.IsNullOrWhiteSpace(applicant.Email))
+        {
+            logger.LogInformation("Applicant password reset requested for an unknown account");
+            return vague;
+        }
+
+        /* Filed under the applicant code, never under whatever was typed, so
+           the second step finds it either way. */
+        var code = applicant.ApplicantCode;
+        var now = DateTime.UtcNow;
+
+        var last = await db.OtpChallenges
+            .Where(o => o.Destination == code && o.Channel == ResetChannel)
+            .OrderByDescending(o => o.CreatedOn)
+            .FirstOrDefaultAsync(ct);
+
+        /* Silent on cooldown: "too soon" would confirm the ID is real. The
+           masked address still comes back, because the holder is most likely
+           the person tapping resend. */
+        if (last is not null && now - last.CreatedOn < ResetCooldown)
+        {
+            vague.MaskedEmail = Mask(applicant.Email);
+            vague.ResendAfterSeconds =
+                (int) (ResetCooldown - (now - last.CreatedOn)).TotalSeconds;
+            return vague;
+        }
+
+        var live = await db.OtpChallenges
+            .Where(o => o.Destination == code && o.Channel == ResetChannel && !o.IsUsed)
+            .ToListAsync(ct);
+        foreach (var stale in live) stale.IsUsed = true;
+
+        var secret = System.Security.Cryptography.RandomNumberGenerator
+            .GetInt32(100000, 1000000).ToString();
+
+        db.OtpChallenges.Add(new OtpChallenge
+        {
+            Channel = ResetChannel,
+            Destination = code,
+            CodeHash = passwords.Hash(secret),
+            ExpiresOn = now.AddMinutes(ResetValidityMinutes),
+        });
+        await db.SaveChangesAsync(ct);
+
+        await notifications.SendApplicantResetCodeAsync(
+            applicant, secret, ResetValidityMinutes, ct);
+
+        logger.LogInformation("Applicant password reset code sent for {ApplicantCode}", code);
+
+        vague.MaskedEmail = Mask(applicant.Email);
+        return vague;
+    }
+
+    /// <summary>Consumes the code, sets the new password and kills every session.</summary>
+    public async Task ResetPasswordAsync(ApplicantResetPasswordDto dto, CancellationToken ct)
+    {
+        if ((dto.NewPassword ?? string.Empty).Length < 8)
+            throw new AppException("The new password must be at least 8 characters.");
+
+        /* Resolved the same way as the request, so somebody who asked by
+           e-mail can finish by e-mail. */
+        var applicant = await ResolveForResetAsync(dto.Identifier, ct);
+        var code = applicant?.ApplicantCode ?? string.Empty;
+
+        var challenge = await db.OtpChallenges
+            .Where(o => o.Destination == code && o.Channel == ResetChannel && !o.IsUsed)
+            .OrderByDescending(o => o.CreatedOn)
+            .FirstOrDefaultAsync(ct)
+            ?? throw new AppException("Request a reset code first.");
+
+        if (challenge.ExpiresOn < DateTime.UtcNow)
+        {
+            challenge.IsUsed = true;
+            await db.SaveChangesAsync(ct);
+            throw new AppException("That code has expired. Ask for a new one.");
+        }
+
+        if (challenge.Attempts >= 5)
+        {
+            challenge.IsUsed = true;
+            await db.SaveChangesAsync(ct);
+            throw new AppException("Too many incorrect attempts. Ask for a new code.");
+        }
+
+        if (!passwords.Verify(challenge.CodeHash, dto.Code ?? string.Empty))
+        {
+            challenge.Attempts++;
+            await db.SaveChangesAsync(ct);
+            throw new AppException("That code is not correct.");
+        }
+
+        challenge.IsUsed = true;
+        applicant!.PasswordHash = passwords.Hash(dto.NewPassword!);
+        await db.SaveChangesAsync(ct);
+
+        logger.LogInformation("Applicant password reset completed for {ApplicantCode}", code);
+    }
+
+    /// <summary>
+    /// a••••@e••••••.org — enough for the holder to recognise their own
+    /// mailbox, not enough for anybody else to learn it.
+    /// </summary>
+    private static string Mask(string email)
+    {
+        var at = email.IndexOf('@');
+        if (at <= 0) return "•••";
+
+        var user = email[..at];
+        var host = email[(at + 1)..];
+        var dot = host.LastIndexOf('.');
+
+        var maskedUser = user[..1] + new string('•', Math.Max(1, user.Length - 1));
+        var maskedHost = dot > 0
+            ? host[..1] + new string('•', Math.Max(1, dot - 1)) + host[dot..]
+            : host[..1] + new string('•', Math.Max(1, host.Length - 1));
+
+        return $"{maskedUser}@{maskedHost}";
+    }
+
 }

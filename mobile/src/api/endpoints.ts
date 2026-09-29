@@ -68,7 +68,30 @@ export const auth = {
 
   login: (applicantCode: string, password: string) =>
     api.post<ApplicantLoginResponse>('auth/applicant/login', { applicantCode, password }, true),
+
+  /**
+   * Asks for a reset code. The reply is the same shape whether or not the
+   * account exists, so the screen after this one cannot be read as proof that
+   * an applicant ID is real.
+   */
+  forgotPassword: (identifier: string) =>
+    api.post<ForgotPasswordResult>('auth/applicant/forgot-password', { identifier }, true),
+
+  resetPassword: (identifier: string, code: string, newPassword: string) =>
+    api.post<boolean>(
+      'auth/applicant/reset-password',
+      { identifier, code, newPassword },
+      true,
+    ),
 };
+
+export interface ForgotPasswordResult {
+  message: string;
+  validityMinutes: number;
+  /** Masked, e.g. a****@e******.org. Absent when there was no account. */
+  maskedEmail?: string | null;
+  resendAfterSeconds: number;
+}
 
 /* ------------------------------------------------------- signed-in scope */
 
