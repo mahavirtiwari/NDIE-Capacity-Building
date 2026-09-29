@@ -141,12 +141,12 @@ function Set-SiteRunning {
     param([bool] $Running)
     if (-not (Test-Path "IIS:\Sites\$SiteName")) { return }
     if ($Running) {
-        Start-WebAppPool -Name $PoolName -ErrorAction SilentlyContinue
-        Start-Website -Name $SiteName -ErrorAction SilentlyContinue
+        Set-PoolState -PoolName $PoolName -State 'Started'
+        Set-WebsiteState -SiteName $SiteName -State 'Started'
     }
     else {
-        Stop-Website -Name $SiteName -ErrorAction SilentlyContinue
-        Stop-WebAppPool -Name $PoolName -ErrorAction SilentlyContinue
+        Set-WebsiteState -SiteName $SiteName -State 'Stopped'
+        Set-PoolState -PoolName $PoolName -State 'Stopped'
         # The worker process holds the DLLs for a moment after the pool stops,
         # and a publish into a folder it still has open fails halfway.
         Start-Sleep -Seconds 3

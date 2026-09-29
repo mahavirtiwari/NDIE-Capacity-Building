@@ -322,3 +322,53 @@ function Invoke-Native {
     # Leave $LASTEXITCODE alone: -IgnoreExitCode callers read it.
     return $output
 }
+
+# --- IIS, told what state to be in rather than what to do -------------------
+#
+# Stop-WebAppPool on a pool that is already stopped, and Start-WebAppPool on
+# one that is already started, raise a terminating InvalidOperationException
+# from the WebAdministration provider. -ErrorAction SilentlyContinue does not
+# silence a terminating error, so a release that had already stopped the pool
+# - because the release before it failed part-way through - then died on its
+# own tidy-up, with the site left down.
+#
+# Asking for a state rather than an action makes the call idempotent, which is
+# what a script that has to be safe to re-run needs.
+
+function Set-PoolState {
+    param(
+        [Parameter(Mandatory)] [string] $PoolName,
+        [Parameter(Mandatory)] [ValidateSet('Started', 'Stopped')] [string] $State
+    )
+
+    try { $current = (Get-WebAppPoolState -Name $PoolName -ErrorAction Stop).Value }
+    catch { return }   # No such pool. Nothing to put anywhere.
+
+    if ($current -eq $State) { return }
+
+    try {
+        if ($State -eq 'Started') { Start-WebAppPool -Name $PoolName -ErrorAction Stop }
+        else { Stop-WebAppPool -Name $PoolName -ErrorAction Stop }
+    }
+    catch {
+        # Raced with IIS, or it moved there by itself. The state is what
+        # matters, and the caller checks that; the cmdlet's opinion does not.
+    }
+}
+
+function Set-WebsiteState {
+    param(
+        [Parameter(Mandatory)] [string] $SiteName,
+        [Parameter(Mandatory)] [ValidateSet('Started', 'Stopped')] [string] $State
+    )
+
+    $site = Get-Website -Name $SiteName -ErrorAction SilentlyContinue
+    if (-not $site) { return }
+    if ($site.State -eq $State) { return }
+
+    try {
+        if ($State -eq 'Started') { Start-Website -Name $SiteName -ErrorAction Stop }
+        else { Stop-Website -Name $SiteName -ErrorAction Stop }
+    }
+    catch { }
+}

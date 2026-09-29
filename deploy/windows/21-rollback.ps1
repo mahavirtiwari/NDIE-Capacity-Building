@@ -80,8 +80,8 @@ if (-not $Force) {
 # the site serving old code against a schema it does not know.
 
 if (Test-Path "IIS:\Sites\$SiteName") {
-    Stop-Website -Name $SiteName -ErrorAction SilentlyContinue
-    Stop-WebAppPool -Name $PoolName -ErrorAction SilentlyContinue
+    Set-WebsiteState -SiteName $SiteName -State 'Stopped'
+    Set-PoolState -PoolName $PoolName -State 'Stopped'
     Start-Sleep -Seconds 3
     Write-Host "`n  [ok]  site stopped" -ForegroundColor Green
 }
@@ -113,8 +113,8 @@ Copy-Item $previous $SitePath -Recurse -Force
 Write-Host "  [ok]  previous build in place" -ForegroundColor Green
 
 if (Test-Path "IIS:\Sites\$SiteName") {
-    Start-WebAppPool -Name $PoolName -ErrorAction SilentlyContinue
-    Start-Website -Name $SiteName
+    Set-PoolState -PoolName $PoolName -State 'Started'
+    Set-WebsiteState -SiteName $SiteName -State 'Started'
     Write-Host "  [ok]  site started" -ForegroundColor Green
 }
 

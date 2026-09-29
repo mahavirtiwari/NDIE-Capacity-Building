@@ -115,7 +115,7 @@ $poolWasRunning = $false
 if (Test-Path "IIS:\AppPools\$poolName") {
     $poolWasRunning = (Get-WebAppPoolState -Name $poolName).Value -eq 'Started'
     if ($poolWasRunning) {
-        Stop-WebAppPool -Name $poolName
+        Set-PoolState -PoolName $poolName -State 'Stopped'
         # The worker process keeps a lock on the DLLs for a moment after the
         # pool is told to stop.
         Start-Sleep -Seconds 3
@@ -150,7 +150,7 @@ try {
 }
 finally {
     if ($poolWasRunning) {
-        Start-WebAppPool -Name $poolName
+        Set-PoolState -PoolName $poolName -State 'Started'
         Write-Host "  [ok]  Started $poolName" -ForegroundColor Green
     }
     Remove-Item -Path $stagingPath -Recurse -Force -ErrorAction SilentlyContinue

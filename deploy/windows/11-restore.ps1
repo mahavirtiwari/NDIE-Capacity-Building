@@ -113,8 +113,8 @@ Write-Host "  [ok]  $safety" -ForegroundColor Green
 # --- restore ----------------------------------------------------------------
 
 if ($hasIis -and (Test-Path "IIS:\Sites\$SiteName")) {
-    Stop-Website -Name $SiteName -ErrorAction SilentlyContinue
-    Stop-WebAppPool -Name $PoolName -ErrorAction SilentlyContinue
+    Set-WebsiteState -SiteName $SiteName -State 'Stopped'
+    Set-PoolState -PoolName $PoolName -State 'Stopped'
     Write-Host "  [ok]  site stopped" -ForegroundColor Green
 }
 
@@ -148,8 +148,8 @@ if ($RestoreFiles) {
 }
 
 if ($hasIis -and (Test-Path "IIS:\Sites\$SiteName")) {
-    Start-WebAppPool -Name $PoolName -ErrorAction SilentlyContinue
-    Start-Website -Name $SiteName
+    Set-PoolState -PoolName $PoolName -State 'Started'
+    Set-WebsiteState -SiteName $SiteName -State 'Started'
     Write-Host "  [ok]  site started" -ForegroundColor Green
 }
 
