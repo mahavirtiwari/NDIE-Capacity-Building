@@ -11,7 +11,13 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { AdminRole, LookupItem, PortalUser, RecordStatus } from '../../core/models';
+import {
+  AdminRole,
+  LookupItem,
+  PortalUser,
+  RecordStatus,
+  UserHistory,
+} from '../../core/models';
 import { AuthService } from '../../core/services/auth.service';
 import { LookupService } from '../../core/services/masters.service';
 import { RoleService, UserService } from '../../core/services/people.service';
@@ -225,6 +231,14 @@ const TIER_DEPTH: Record<string, number> = {
             }
             <!-- Enable and disable stay available to every tier above, which is
                  the oversight senior tiers keep without editing. -->
+            <button
+              type="button"
+              class="btn btn--icon"
+              title="Status history"
+              (click)="openHistory($any(row))"
+            >
+              <app-icon name="clock" [size]="15" />
+            </button>
             <app-status-toggle [status]="$any(row).status" (toggled)="setStatus($any(row), $event)" />
           </div>
         </ng-template>
@@ -291,26 +305,11 @@ const TIER_DEPTH: Record<string, number> = {
                 </span>
               }
             </div>
-            @if (inDeliveryChain()) {
-              <div class="field">
-                <label class="field-label" for="uAgency">Implementing agency</label>
-                <select id="uAgency" class="select" formControlName="agencyId">
-                  <option [ngValue]="null">Not mapped</option>
-                  @for (agency of agencies(); track agency.id) {
-                    <option [ngValue]="agency.id">{{ agency.name }}</option>
-                  }
-                </select>
-              </div>
-              <div class="field">
-                <label class="field-label" for="uManager">Reports to</label>
-                <select id="uManager" class="select" formControlName="reportsToUserId">
-                  <option [ngValue]="null">Not mapped</option>
-                  @for (manager of managers(); track manager.id) {
-                    <option [ngValue]="manager.id">{{ manager.name }}</option>
-                  }
-                </select>
-              </div>
-            }
+            <!-- Implementing agency and Reports to are not asked for.
+                 An account answers to whoever created it, and an agency's
+                 account belongs to that agency — both known from the caller,
+                 so a picker could only record a different answer from the
+                 truth. -->
             <div class="field">
               <label class="field-label" for="uState">State</label>
               <select id="uState" class="select" formControlName="stateCode" (change)="onStateChange()">
@@ -404,27 +403,135 @@ const TIER_DEPTH: Record<string, number> = {
       </app-modal>
     }
 
-    @if (generated(); as credentials) {
-      <app-modal title="Credentials generated" size="sm" (closed)="generated.set(null)">
+    @if (generated(); as created) {
+      <!-- The password is not shown. It is e-mailed to the account's own
+           address, which is where it has to arrive anyway — putting it on
+           screen only invites it being passed along some other way, and
+           leaves it in a screenshot. -->
+      <app-modal title="Account created" size="sm" (closed)="generated.set(null)">
         <div class="stack stack-sm">
-          <p class="text-sm">Share these with the user over an out-of-band channel.</p>
-          <div class="dl">
-            <div>
-              <div class="dl__term">User ID</div>
-              <div class="dl__value"><code>{{ credentials.userCode }}</code></div>
-            </div>
-            <div>
-              <div class="dl__term">Temporary password</div>
-              <div class="dl__value"><code>{{ credentials.password }}</code></div>
-            </div>
-          </div>
-          <div class="alert alert--warning">
-            <app-icon name="alert" [size]="16" />
-            <span>The user must change this password at first sign-in.</span>
+          <p class="text-sm">
+            <strong>{{ created.userCode }}</strong> has been created. The sign-in details have
+            been e-mailed to {{ created.email }}.
+          </p>
+          <div class="alert alert--info">
+            <app-icon name="info" [size]="16" />
+            <span>They will be asked to change the password at first sign-in.</span>
           </div>
         </div>
         <div footer>
           <button type="button" class="btn btn--primary" (click)="generated.set(null)">Done</button>
+        </div>
+      </app-modal>
+    }
+
+    @if (statusPrompt(); as prompt) {
+      <!-- Enabling and disabling both ask. A history with reasons on only the
+           disables answers half the questions later put to it. -->
+      <app-modal
+        [title]="prompt.status === 'Active' ? 'Enable this account?' : 'Disable this account?'"
+        size="sm"
+        (closed)="statusPrompt.set(null)"
+      >
+        <div class="stack stack-sm">
+          <p class="text-sm">
+            {{ prompt.row.fullName }} ({{ prompt.row.userCode }})
+            @if (prompt.status === 'Active') {
+              will be able to sign in again.
+            } @else {
+              will be signed out and blocked from signing in. The account and its history are kept.
+            }
+          </p>
+          <div class="field">
+            <label class="field-label" for="statusReason">
+              Reason <span class="req">*</span>
+            </label>
+            <textarea
+              id="statusReason"
+              class="textarea"
+              maxlength="500"
+              [value]="statusReason()"
+              (input)="statusReason.set(textValue($event))"
+              [placeholder]="
+                prompt.status === 'Active'
+                  ? 'e.g. Returned from deputation'
+                  : 'e.g. Left the agency on 30 September'
+              "
+            ></textarea>
+            <span class="field-hint">
+              Recorded against the account with your name and the date, and e-mailed to them.
+            </span>
+          </div>
+        </div>
+        <div footer>
+          <button type="button" class="btn btn--secondary" (click)="statusPrompt.set(null)">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="btn"
+            [class.btn--primary]="prompt.status === 'Active'"
+            [class.btn--danger]="prompt.status !== 'Active'"
+            [disabled]="statusReason().trim().length === 0 || savingStatus()"
+            (click)="confirmStatus()"
+          >
+            @if (savingStatus()) { <span class="spinner"></span> }
+            {{ prompt.status === 'Active' ? 'Enable' : 'Disable' }}
+          </button>
+        </div>
+      </app-modal>
+    }
+
+    @if (history(); as record) {
+      <app-modal [title]="record.fullName" (closed)="history.set(null)">
+        <div class="stack stack-md">
+          <div class="dl">
+            <div>
+              <div class="dl__term">Login</div>
+              <div class="dl__value"><code>{{ record.userCode }}</code></div>
+            </div>
+            <div>
+              <div class="dl__term">Role</div>
+              <div class="dl__value">{{ record.roleName }}</div>
+            </div>
+            <div>
+              <div class="dl__term">Status</div>
+              <div class="dl__value">{{ record.status }}</div>
+            </div>
+            <div>
+              <div class="dl__term">Last signed in</div>
+              <div class="dl__value">
+                {{ record.lastLoginOn ? (record.lastLoginOn | date: 'dd MMM yyyy, HH:mm') : 'Never' }}
+              </div>
+            </div>
+          </div>
+
+          @if (record.events.length === 0) {
+            <p class="text-muted text-sm">
+              This account has not been switched on or off since it was created.
+            </p>
+          } @else {
+            <div class="table-wrap">
+              <table class="table table--compact">
+                <thead>
+                  <tr><th>When</th><th>Change</th><th>Reason</th><th>By</th></tr>
+                </thead>
+                <tbody>
+                  @for (event of record.events; track event.id) {
+                    <tr>
+                      <td class="tabular">{{ event.on | date: 'dd MMM yyyy, HH:mm' }}</td>
+                      <td>{{ event.fromStatus }} &rarr; {{ event.toStatus }}</td>
+                      <td>{{ event.reason }}</td>
+                      <td>{{ event.byUserName }}<br /><span class="text-xs text-muted">{{ event.byUserCode }}</span></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+        <div footer>
+          <button type="button" class="btn btn--secondary" (click)="history.set(null)">Close</button>
         </div>
       </app-modal>
     }
@@ -521,7 +628,7 @@ export class UsersComponent {
   protected readonly formOpen = signal(false);
   protected readonly saving = signal(false);
   protected readonly editing = signal<PortalUser | null>(null);
-  protected readonly generated = signal<{ userCode: string; password: string } | null>(null);
+  protected readonly generated = signal<{ userCode: string; email: string } | null>(null);
   /* One signal per axis, bound straight into the pickers. */
   protected readonly categoryIds = signal<number[]>([]);
   protected readonly subCategoryIds = signal<number[]>([]);
@@ -790,11 +897,12 @@ export class UsersComponent {
         this.saving.set(false);
         this.closeForm();
         this.list.reload();
-        /* Both values come from the server — the password is generated there
-           and shown once, so it must not be invented here. */
+        /* The generated user ID, and where the password went. The password
+           itself is not held here at all — the server e-mails it and this
+           screen never needs a copy. */
         this.generated.set({
           userCode: credentials.userCode,
-          password: credentials.temporaryPassword,
+          email: payload.email ?? '',
         });
       },
       error: () => this.saving.set(false),
@@ -824,27 +932,51 @@ export class UsersComponent {
     });
     if (!confirmed) return;
 
-    this.service.resetPassword(row.id).subscribe((result) => {
-      this.generated.set({ userCode: row.userCode, password: result.temporaryPassword });
-      this.toast.success('Sign-in details sent', row.email);
+    this.service.resetPassword(row.id).subscribe(() => {
+      this.toast.success(
+        'Sign-in details sent',
+        `${row.fullName} has been e-mailed a fresh password at ${row.email}.`,
+      );
     });
   }
 
-  protected async setStatus(row: PortalUser, status: RecordStatus): Promise<void> {
-    const verb = status === 'Active' ? 'Enable' : 'Disable';
-    const confirmed = await this.confirm.ask({
-      title: `${verb} user?`,
-      message:
-        status === 'Active'
-          ? `${row.fullName} can sign in again.`
-          : `${row.fullName} will be blocked from signing in. The account and its history are retained.`,
-      confirmLabel: verb,
-      tone: status === 'Active' ? 'primary' : 'danger',
+  /* A plain confirm will not do here: the change has to be explained, and the
+     explanation is stored. */
+  protected readonly statusPrompt = signal<{ row: PortalUser; status: RecordStatus } | null>(null);
+  protected readonly statusReason = signal('');
+  protected readonly savingStatus = signal(false);
+  protected readonly history = signal<UserHistory | null>(null);
+
+  protected textValue(event: Event): string {
+    return (event.target as HTMLTextAreaElement).value;
+  }
+
+  protected setStatus(row: PortalUser, status: RecordStatus): void {
+    this.statusReason.set('');
+    this.statusPrompt.set({ row, status });
+  }
+
+  protected confirmStatus(): void {
+    const prompt = this.statusPrompt();
+    const reason = this.statusReason().trim();
+    if (!prompt || reason.length === 0 || this.savingStatus()) return;
+
+    this.savingStatus.set(true);
+    this.service.setStatus(prompt.row.id, prompt.status, reason).subscribe({
+      next: () => {
+        this.savingStatus.set(false);
+        this.statusPrompt.set(null);
+        this.toast.success(
+          `User ${prompt.status === 'Active' ? 'enabled' : 'disabled'}`,
+          `${prompt.row.fullName} has been told by e-mail.`,
+        );
+        this.list.reload();
+      },
+      error: () => this.savingStatus.set(false),
     });
-    if (!confirmed) return;
-    this.service.setStatus(row.id, status).subscribe(() => {
-      this.toast.success(`User ${status === 'Active' ? 'enabled' : 'disabled'}`, row.fullName);
-      this.list.reload();
-    });
+  }
+
+  protected openHistory(row: PortalUser): void {
+    this.service.history(row.id).subscribe((record) => this.history.set(record));
   }
 }

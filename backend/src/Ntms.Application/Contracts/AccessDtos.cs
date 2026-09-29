@@ -174,3 +174,33 @@ public class GeneratedCredentialsDto
     public string UserCode { get; set; } = string.Empty;
     public string TemporaryPassword { get; set; } = string.Empty;
 }
+
+/// <summary>One switch of an account on or off, and the grounds for it.</summary>
+public class UserStatusEventDto
+{
+    public int Id { get; set; }
+    public string FromStatus { get; set; } = string.Empty;
+    public string ToStatus { get; set; } = string.Empty;
+    public string Reason { get; set; } = string.Empty;
+    public string ByUserName { get; set; } = string.Empty;
+    public string ByUserCode { get; set; } = string.Empty;
+    public DateTime On { get; set; }
+}
+
+/// <summary>
+/// An account's status history, with the account named on it so the popup
+/// showing it does not have to be told twice who it is about.
+/// </summary>
+public class UserHistoryDto
+{
+    public int UserId { get; set; }
+    /// <summary>The login the account signs in with.</summary>
+    public string UserCode { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public string RoleName { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public DateTime? LastLoginOn { get; set; }
+
+    public List<UserStatusEventDto> Events { get; set; } = [];
+}

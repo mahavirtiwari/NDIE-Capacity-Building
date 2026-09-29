@@ -103,7 +103,17 @@ public class UsersController(UserService service) : ApiControllerBase
     [HasPermission(Permissions.UsersStatus)]
     public async Task<ActionResult<ApiEnvelope<PortalUserDto>>> SetStatus(
         int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
-        Envelope(await service.SetStatusAsync(id, dto.Status, ct));
+        Envelope(await service.SetStatusAsync(id, dto.Status, dto.Reason, ct));
+
+    /// <summary>
+    /// Why this account was switched on or off, every time it happened, with
+    /// the login it belongs to. Read by whoever may already see the account.
+    /// </summary>
+    [HttpGet("{id:int}/history")]
+    [HasPermission(Permissions.UsersView)]
+    public async Task<ActionResult<ApiEnvelope<UserHistoryDto>>> History(
+        int id, CancellationToken ct) =>
+        Envelope(await service.HistoryAsync(id, ct));
 
     [HttpPost("{id:int}/reset-password")]
     [HasPermission(Permissions.UsersManage)]
@@ -399,7 +409,7 @@ public class DashboardController(DashboardService service) : ApiControllerBase
 public class QualifiedProfessionalsController(QualifiedProfessionalService service) : ApiControllerBase
 {
     [HttpGet]
-    [HasPermission(Permissions.ProgramsView)]
+    [HasPermission(Permissions.ProfessionalsView)]
     public async Task<ActionResult<ApiEnvelope<PagedResult<QualifiedProfessionalDto>>>> List(
         [FromQuery] PagedRequest request,
         [FromQuery] int? categoryId,

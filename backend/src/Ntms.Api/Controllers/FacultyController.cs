@@ -18,7 +18,7 @@ namespace Ntms.Api.Controllers;
 public class FacultyController(FacultyService service) : ApiControllerBase
 {
     [HttpGet]
-    [HasPermission(Permissions.ProgramsView)]
+    [HasPermission(Permissions.TrainersView)]
     public async Task<ActionResult<ApiEnvelope<PagedResult<FacultyDto>>>> List(
         [FromQuery] PagedRequest request,
         [FromQuery] int? categoryId,
@@ -32,13 +32,13 @@ public class FacultyController(FacultyService service) : ApiControllerBase
             request, categoryId, subCategoryId, programTypeId, agencyId, stateCode, programmeId, ct));
 
     [HttpPost("programmes/{programmeId:int}")]
-    [HasPermission(Permissions.ProgramsManage)]
+    [HasPermission(Permissions.TrainersManage)]
     public async Task<ActionResult<ApiEnvelope<FacultyDto>>> Add(
         int programmeId, [FromBody] TrainerUpsertDto dto, CancellationToken ct) =>
         Envelope(await service.AddAsync(programmeId, dto, ct), "Trainer added.");
 
     [HttpPut("{trainerId:int}")]
-    [HasPermission(Permissions.ProgramsManage)]
+    [HasPermission(Permissions.TrainersManage)]
     public async Task<ActionResult<ApiEnvelope<FacultyDto>>> Update(
         int trainerId, [FromBody] TrainerUpsertDto dto, CancellationToken ct) =>
         Envelope(await service.UpdateAsync(trainerId, dto, ct), "Trainer updated.");

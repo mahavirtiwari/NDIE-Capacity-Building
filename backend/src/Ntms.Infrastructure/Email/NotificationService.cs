@@ -39,6 +39,17 @@ public interface INotificationService
         Programme programme, string email, string name, CancellationToken ct = default);
     Task SendAgencyEmpanelledAsync(
         ImplementingAgency agency, string scope, CancellationToken ct = default);
+
+    /// <summary>
+    /// Tells the holder their access was switched on or off, and on what
+    /// grounds. Sent for both directions: somebody locked out deserves to know
+    /// why, and somebody let back in needs to know they can work again.
+    /// </summary>
+    Task SendAccountStatusChangedAsync(
+        PortalUser user, string reason, string by, CancellationToken ct = default);
+
+    /// <summary>Tells the holder their details or allocation were changed.</summary>
+    Task SendAccountUpdatedAsync(PortalUser user, CancellationToken ct = default);
 }
 
 public class NotificationService(
@@ -315,4 +326,26 @@ public class NotificationService(
             </div>
             """;
     }
+
+    public Task SendAccountStatusChangedAsync(
+        PortalUser user, string reason, string by, CancellationToken ct = default) =>
+        SendAsync(EmailTemplateDefaults.AccountStatusChanged, user.Email, new()
+        {
+            ["name"] = user.FullName,
+            ["userCode"] = user.UserCode,
+            ["state"] = user.Status == Domain.Common.RecordStatus.Active ? "enabled" : "disabled",
+            ["reason"] = reason,
+            /* Named, because "an administrator" answers nothing to somebody
+               asking why they were locked out. */
+            ["by"] = string.IsNullOrWhiteSpace(by) ? "an administrator" : by,
+            ["on"] = IndianTime.Format(DateTime.UtcNow),
+        }, ct);
+
+    public Task SendAccountUpdatedAsync(PortalUser user, CancellationToken ct = default) =>
+        SendAsync(EmailTemplateDefaults.AccountUpdated, user.Email, new()
+        {
+            ["name"] = user.FullName,
+            ["userCode"] = user.UserCode,
+            ["on"] = IndianTime.Format(DateTime.UtcNow),
+        }, ct);
 }

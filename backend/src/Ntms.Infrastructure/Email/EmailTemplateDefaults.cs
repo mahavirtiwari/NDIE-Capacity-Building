@@ -42,6 +42,8 @@ public static class EmailTemplateDefaults
     public const string ScrutinyOutcome = "scrutiny-outcome";
     public const string ProgrammeSchedule = "programme-schedule";
     public const string AgencyEmpanelled = "agency-empanelled";
+    public const string AccountStatusChanged = "account-status-changed";
+    public const string AccountUpdated = "account-updated";
 
     /// <summary>
     /// Messages that carry a credential or a one-time code. The editor keeps
@@ -321,6 +323,44 @@ public static class EmailTemplateDefaults
                 <p>{{remarks}}</p>
                 """,
             PlainTextBody = "Application {{applicationNo}}: {{outcome}}. {{remarks}}",
+        },
+        new()
+        {
+            Key = AccountStatusChanged,
+            Name = "Account enabled or disabled",
+            Description =
+                "Tells the account holder that their access was switched on or off, and why.",
+            Placeholders = "name,userCode,state,reason,by,on",
+            Subject = "Your {{userCode}} account has been {{state}}",
+            HtmlBody = """
+                <p>Dear {{name}},</p>
+                <p>Your account <strong>{{userCode}}</strong> has been
+                   <strong>{{state}}</strong>.</p>
+                <table style="margin:18px 0;border-collapse:collapse;">
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Reason</td><td>{{reason}}</td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">By</td><td>{{by}}</td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">On</td><td>{{on}}</td></tr>
+                </table>
+                <p>If this is not what you expected, reply to this message.</p>
+                """,
+            PlainTextBody =
+                "Your account {{userCode}} has been {{state}} on {{on}} by {{by}}. Reason: {{reason}}",
+        },
+        new()
+        {
+            Key = AccountUpdated,
+            Name = "Account details changed",
+            Description = "Tells the account holder that their details or allocation were changed.",
+            Placeholders = "name,userCode,on",
+            Subject = "Your {{userCode}} account details were updated",
+            HtmlBody = """
+                <p>Dear {{name}},</p>
+                <p>The details on your account <strong>{{userCode}}</strong> were updated on
+                   {{on}}. Your sign-in details have not changed.</p>
+                <p>If you did not expect this, reply to this message.</p>
+                """,
+            PlainTextBody =
+                "Your account {{userCode}} was updated on {{on}}. Your sign-in details are unchanged.",
         },
         new()
         {

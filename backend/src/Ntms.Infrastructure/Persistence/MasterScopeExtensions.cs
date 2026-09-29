@@ -160,14 +160,35 @@ public static class MasterScopeExtensions
             return query;
         }
 
-        var beneath = Enum.GetValues<Domain.Common.BaseRole>()
-            .Where(role => Application.Common.RoleHierarchy.Outranks(tier, role))
-            .ToList();
         var self = user.UserId ?? 0;
 
-        query = query.Where(u => beneath.Contains(u.BaseRole) || u.Id == self);
+        /* The accounts beneath this one in the delegation chain, not every
+           account of a junior tier.
 
-        /* An agency login sees only its own people, whatever its tier allows. */
+           Being senior to a tier is not the same as being answerable for a
+           particular account of it: two Admins each create their own Operation
+           Managers, and neither has business reading the other's. The chain is
+           recorded on the account when it is created — whoever created it is
+           who it reports to — so "mine" is the subtree rooted at me.
+
+           Written out four deep rather than recursively because the chain is
+           four deep: Admin, Operation Manager, Implementing Agency,
+           Coordinator. A fixed set of left joins stays in SQL, where a
+           recursive walk would mean loading the table and doing it here. If a
+           tier is ever added, add a line.
+
+           An account with no creator recorded — everything that predates the
+           chain being kept — is not in anybody's subtree and is visible to the
+           Super Admin and the Ministry alone, who see everything. That is the
+           safe direction for an account nobody can be shown to own. */
+        query = query.Where(u =>
+            u.Id == self
+            || u.ReportsToUserId == self
+            || u.ReportsToUser!.ReportsToUserId == self
+            || u.ReportsToUser!.ReportsToUser!.ReportsToUserId == self
+            || u.ReportsToUser!.ReportsToUser!.ReportsToUser!.ReportsToUserId == self);
+
+        /* An agency login sees only its own people, whatever the chain says. */
         if (tier == Domain.Common.BaseRole.AgencyAdmin)
         {
             query = user.AgencyId is { } agencyId

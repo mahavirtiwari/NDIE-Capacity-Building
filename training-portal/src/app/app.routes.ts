@@ -55,7 +55,7 @@ export const routes: Routes = [
       {
         path: 'trainers',
         title: 'Trainers · CBMS',
-        canActivate: [permissionGuard('programs.view')],
+        canActivate: [permissionGuard('trainers.view')],
         loadComponent: () =>
           import('./features/reports/trainers.component').then((m) => m.TrainersComponent),
       },
@@ -238,7 +238,7 @@ export const routes: Routes = [
           {
             path: 'qualified-professionals',
             title: 'Qualified professionals · CBMS',
-            canActivate: [permissionGuard('programs.view')],
+            canActivate: [permissionGuard('professionals.view')],
             loadComponent: () =>
               import('./features/admin/qualified-professionals.component').then(
                 (m) => m.QualifiedProfessionalsComponent,

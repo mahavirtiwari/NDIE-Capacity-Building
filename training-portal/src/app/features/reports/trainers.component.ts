@@ -46,7 +46,7 @@ const COLUMNS: ColumnDef[] = [
       icon="user-check"
       [breadcrumbs]="[{ label: 'Reports' }, { label: copy.text('page.trainers.title') }]"
     >
-      <button *appCan="'programs.manage'" type="button" class="btn btn--primary" (click)="openForm()">
+      <button *appCan="'trainers.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> Add trainer
       </button>
     </app-page-header>

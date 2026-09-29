@@ -307,6 +307,14 @@ public class UserService(
         BindToCallersAgency(entity);
         ApplyScope(entity, scope);
 
+        /* Whoever creates an account is who it answers to. Taken from the
+           caller rather than from a picker on the form: the chain is one tier
+           down at a time, so the creator is the only correct answer, and a
+           picker only offers a way to record a wrong one. It is also what the
+           list is filtered by, so an account with no creator recorded would
+           be invisible to everybody who could act on it. */
+        entity.ReportsToUserId = currentUser.UserId;
+
         db.Users.Add(entity);
         await db.SaveChangesAsync(ct);
 
@@ -351,6 +359,8 @@ public class UserService(
         ApplyScope(entity, scope);
 
         await db.SaveChangesAsync(ct);
+        await notifications.SendAccountUpdatedAsync(entity, ct);
+
         return await GetAsync(id, ct);
     }
 
@@ -358,14 +368,107 @@ public class UserService(
     /// Enable or disable. Available to every tier above the account, which is
     /// the reach senior tiers keep where they cannot create.
     /// </summary>
-    public async Task<PortalUserDto> SetStatusAsync(int id, string status, CancellationToken ct)
+    public async Task<PortalUserDto> SetStatusAsync(
+        int id, string status, string? reason, CancellationToken ct)
     {
         var entity = await db.Users.FirstOrDefaultAsync(u => u.Id == id, ct)
                      ?? throw AppException.NotFound("User");
         delegation.EnsureOutranks(entity.BaseRole, "enable or disable");
-        entity.Status = EnumMaps.ToStatus(status);
+
+        var next = EnumMaps.ToStatus(status);
+        var trimmed = reason?.Trim();
+
+        /* Required, and required of both directions. Turning an account back on
+           is as much a decision as turning it off, and a history with reasons
+           on only half its rows answers half the questions asked of it. */
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            throw new AppException(
+                next == RecordStatus.Active
+                    ? "Give a reason for enabling this account."
+                    : "Give a reason for disabling this account.");
+        }
+
+        if (trimmed.Length > 500)
+            throw new AppException("The reason must be 500 characters or fewer.");
+
+        if (entity.Status == next)
+        {
+            throw new AppException(
+                $"{entity.FullName} is already {(next == RecordStatus.Active ? "enabled" : "disabled")}.");
+        }
+
+        db.UserStatusEvents.Add(new UserStatusEvent
+        {
+            UserId = entity.Id,
+            FromStatus = entity.Status,
+            ToStatus = next,
+            Reason = trimmed,
+            ByUserId = currentUser.UserId,
+            ByUserName = currentUser.DisplayName ?? "System",
+            ByUserCode = currentUser.UserCode ?? string.Empty,
+            On = DateTime.UtcNow,
+        });
+
+        entity.Status = next;
+
+        /* Every session dies with the account. Leaving them alive would mean a
+           disabled account carries on working until its token expires — the
+           same hole the permissions had. */
+        if (next != RecordStatus.Active)
+        {
+            var tokens = await db.RefreshTokens
+                .Where(t => t.UserId == id && t.RevokedOn == null).ToListAsync(ct);
+            foreach (var token in tokens) token.RevokedOn = DateTime.UtcNow;
+        }
+
         await db.SaveChangesAsync(ct);
+        await notifications.SendAccountStatusChangedAsync(
+            entity, trimmed, currentUser.DisplayName ?? "an administrator", ct);
+
         return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// The account's status history, and the login it belongs to.
+    ///
+    /// Read through the same visibility rule as the list: an account you
+    /// cannot see is an account whose history you cannot read.
+    /// </summary>
+    public async Task<UserHistoryDto> HistoryAsync(int id, CancellationToken ct)
+    {
+        var user = await db.Users.AsNoTracking()
+            .VisibleTo(currentUser)
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Id == id, ct)
+            ?? throw AppException.NotFound("User");
+
+        var events = await db.UserStatusEvents.AsNoTracking()
+            .Where(e => e.UserId == id)
+            .OrderByDescending(e => e.On)
+            .Select(e => new UserStatusEventDto
+            {
+                Id = e.Id,
+                FromStatus = e.FromStatus.ToApi(),
+                ToStatus = e.ToStatus.ToApi(),
+                Reason = e.Reason,
+                ByUserName = e.ByUserName,
+                ByUserCode = e.ByUserCode,
+                On = e.On,
+            })
+            .ToListAsync(ct);
+
+        return new UserHistoryDto
+        {
+            UserId = user.Id,
+            UserCode = user.UserCode,
+            FullName = user.FullName,
+            Email = user.Email,
+            RoleName = user.Role?.Name ?? string.Empty,
+            Status = user.Status.ToApi(),
+            LastLoginOn = user.LastLoginOn,
+            Events = events,
+        };
     }
 
     public async Task<GeneratedCredentialsDto> ResetPasswordAsync(int id, CancellationToken ct)

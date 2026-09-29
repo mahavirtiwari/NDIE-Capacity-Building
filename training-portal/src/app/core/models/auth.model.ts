@@ -1,4 +1,4 @@
-import { Id } from './common.model';
+import { Id, RecordStatus } from './common.model';
 
 /**
  * Application roles. `Applicant` authenticates from the React Native app but is
@@ -40,6 +40,8 @@ export type Permission =
   | 'programs.view' | 'programs.manage'
   | 'coordinators.view' | 'coordinators.manage'
   | 'reports.view'
+  | 'professionals.view'
+  | 'trainers.view' | 'trainers.manage'
   | 'settings.manage';
 
 export interface PermissionGroup {
@@ -94,7 +96,15 @@ export const PERMISSION_CATALOGUE: PermissionGroup[] = [
       { key: 'programs.manage', label: 'Manage programs & attendance' },
       { key: 'coordinators.view', label: 'View coordinators' },
       { key: 'coordinators.manage', label: 'Manage coordinators' },
+    ],
+  },
+  {
+    group: 'Reports & registers',
+    permissions: [
       { key: 'reports.view', label: 'View reports' },
+      { key: 'professionals.view', label: 'View qualified professionals' },
+      { key: 'trainers.view', label: 'View trainers' },
+      { key: 'trainers.manage', label: 'Add & edit trainers' },
     ],
   },
   {
@@ -147,4 +157,30 @@ export interface LoginResponse {
 export interface ForgotPasswordResult {
   message: string;
   validityMinutes: number;
+}
+
+/** One switch of an account on or off, and the grounds for it. */
+export interface UserStatusEvent {
+  id: Id;
+  fromStatus: RecordStatus;
+  toStatus: RecordStatus;
+  reason: string;
+  byUserName: string;
+  byUserCode: string;
+  on: string;
+}
+
+/**
+ * An account's status history, carrying the login it belongs to so the popup
+ * showing it does not have to be told separately who it is about.
+ */
+export interface UserHistory {
+  userId: Id;
+  userCode: string;
+  fullName: string;
+  email?: string | null;
+  roleName: string;
+  status: RecordStatus;
+  lastLoginOn?: string | null;
+  events: UserStatusEvent[];
 }

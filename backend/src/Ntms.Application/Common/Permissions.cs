@@ -48,6 +48,13 @@ public static class Permissions
 
     public const string ReportsView = "reports.view";
 
+    /// <summary>The register of everybody the scheme has qualified.</summary>
+    public const string ProfessionalsView = "professionals.view";
+
+    /// <summary>The faculty register: who delivered which programme.</summary>
+    public const string TrainersView = "trainers.view";
+    public const string TrainersManage = "trainers.manage";
+
     /// <summary>Portal identity: organisation name and logo.</summary>
     public const string SettingsManage = "settings.manage";
 
@@ -65,6 +72,9 @@ public static class Permissions
         ProgramsView, ProgramsManage,
         CoordinatorsView, CoordinatorsManage,
         ReportsView,
+        ProfessionalsView,
+        TrainersView,
+        TrainersManage,
         SettingsManage,
     ];
 
@@ -79,8 +89,12 @@ public static class Permissions
         ("Operations",
         [
             AgenciesView, AgenciesManage, ApplicationsView, ApplicationsScrutinise,
-            ProgramsView, ProgramsManage, CoordinatorsView, CoordinatorsManage, ReportsView,
+            ProgramsView, ProgramsManage, CoordinatorsView, CoordinatorsManage,
         ]),
+        /* Its own group rather than buried in Operations: these are the
+           read-only registers somebody is given without being given the
+           running of the programmes behind them. */
+        ("Reports & registers", [ReportsView, ProfessionalsView, TrainersView, TrainersManage]),
         ("Portal settings", [SettingsManage]),
     ];
 }

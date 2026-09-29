@@ -71,6 +71,12 @@ public class LookupItemDto
 public class StatusChangeDto
 {
     public string Status { get; set; } = "Active";
+
+    /// <summary>
+    /// Why. Required where the change is recorded against an account; the
+    /// masters that use this contract ignore it.
+    /// </summary>
+    public string? Reason { get; set; }
 }
 
 /// <summary>Thrown by services for conditions the API maps to 4xx.</summary>

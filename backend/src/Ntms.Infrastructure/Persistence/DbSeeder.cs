@@ -350,15 +350,24 @@ public class DbSeeder(
             /* RolesView is read-only. A tier that creates the one below it has
                to be able to list roles to fill the dropdown; managing them
                stays with the Super Admin. */
+            /* The registers were added after these roles were configured, and
+               a permission that exists but is on no role is a screen nobody
+               can reach. Granted to whoever already had the equivalent reach:
+               reading reports and running programmes. */
             ("ADMIN",
-                [Permissions.CoordinatorsView, Permissions.UsersStatus, Permissions.RolesView],
+                [Permissions.CoordinatorsView, Permissions.UsersStatus, Permissions.RolesView,
+                 Permissions.ProfessionalsView, Permissions.TrainersView],
                 [Permissions.AgenciesManage]),
             ("OPS_MANAGER",
                 [Permissions.AgenciesView, Permissions.AgenciesManage,
-                 Permissions.UsersView, Permissions.UsersStatus], []),
+                 Permissions.UsersView, Permissions.UsersStatus,
+                 Permissions.ProfessionalsView, Permissions.TrainersView,
+                 Permissions.TrainersManage], []),
             ("AGENCY_ADMIN", [Permissions.UsersStatus, Permissions.RolesView], []),
             /* Oversight only: the Ministry must never gain a write key. */
-            ("MINISTRY", [], [Permissions.UsersStatus, Permissions.UsersManage]),
+            ("MINISTRY",
+                [Permissions.ProfessionalsView, Permissions.TrainersView],
+                [Permissions.UsersStatus, Permissions.UsersManage, Permissions.TrainersManage]),
         };
 
         foreach (var (code, grant, revoke) in corrections)
