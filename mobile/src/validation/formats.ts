@@ -45,6 +45,20 @@ export function matchesFormat(name: FormatName, value: string | null | undefined
   return FORMAT_PATTERNS[name].test(value.trim());
 }
 
+/**
+ * The system generated login: a short prefix and a run of digits, as the
+ * code generator issues them (APP240001) and as the seeded accounts carry
+ * them (SMP00001).
+ *
+ * Deliberately a shape rather than an exact length. It is here to catch a
+ * typo or a name typed into the wrong box, not to decide whether an account
+ * exists - only the server knows that, and it declines to say.
+ */
+export const APPLICANT_CODE_PATTERN = /^[A-Z]{2,4}[0-9]{4,8}$/;
+
+export const isApplicantCode = (value?: string | null) =>
+  APPLICANT_CODE_PATTERN.test((value ?? '').trim().toUpperCase());
+
 export const isEmail = (value?: string | null) => matchesFormat('email', value);
 export const isMobile = (value?: string | null) => matchesFormat('mobile', value);
 export const isPan = (value?: string | null) => matchesFormat('pan', value?.toUpperCase());

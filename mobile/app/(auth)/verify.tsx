@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../src/api/client';
 import { auth } from '../../src/api/endpoints';
 import { Banner, Button, Card, Field, Subtitle, Title } from '../../src/components/ui';
+import { useSiteText } from '../../src/content/SiteTextContext';
 import { colors, font, spacing } from '../../src/theme';
 
 /* Matches the server-side resend cooldown in OtpService. */
@@ -15,6 +16,7 @@ const RESEND_SECONDS = 60;
  */
 export default function Verify() {
   const router = useRouter();
+  const text = useSiteText();
   const { email, applicantCode, reason } = useLocalSearchParams<{
     email?: string;
     applicantCode?: string;
@@ -113,14 +115,14 @@ export default function Verify() {
 
       <Card style={styles.card}>
         <Field
-          label="Verification code"
+          label={text('app.otp.label', 'Verification code')}
           required
           value={code}
-          onChangeText={(text) => setCode(text.replace(/[^0-9]/g, ''))}
-          placeholder="123456"
+          onChangeText={(typed) => setCode(typed.replace(/[^0-9]/g, ''))}
+          placeholder={text('app.otp.placeholder', 'Enter OTP')}
           keyboardType="number-pad"
           maxLength={6}
-          style={styles.codeInput}
+          style={[styles.codeInput, code.length === 0 && styles.codeInputEmpty]}
           onSubmitEditing={verify}
         />
 
@@ -152,6 +154,10 @@ const styles = StyleSheet.create({
   header: { gap: 2 },
   card: { gap: spacing.lg },
   codeInput: { fontSize: font.xl, letterSpacing: 8, textAlign: 'center' },
+  /* The wide spacing is for six digits. Left on an empty box it stretches
+     the placeholder into something unreadable, so it starts as ordinary
+     text and opens up once there is a code in it. */
+  codeInputEmpty: { fontSize: font.base, letterSpacing: 0 },
   resend: { alignItems: 'center', paddingVertical: spacing.xs },
   resendText: { fontSize: font.sm, fontWeight: '600', color: colors.brand700 },
   resendDisabled: { color: colors.ink400 },

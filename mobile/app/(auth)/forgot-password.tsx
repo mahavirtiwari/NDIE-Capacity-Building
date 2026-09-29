@@ -7,6 +7,7 @@ import { auth } from '../../src/api/endpoints';
 import { Banner, Button, Card, Field, Subtitle, Title } from '../../src/components/ui';
 import { useSiteText } from '../../src/content/SiteTextContext';
 import { colors, font, radius, spacing } from '../../src/theme';
+import { isApplicantCode, isEmail } from '../../src/validation/formats';
 
 /**
  * Asking for a reset code.
@@ -109,13 +110,23 @@ export default function ForgotPassword() {
   );
 }
 
-/** Caught while typing rather than at the end, so nothing is submitted twice. */
+/**
+ * Caught while typing rather than at the end.
+ *
+ * Both shapes are checked properly: an entry that is neither a well formed
+ * e-mail nor anything resembling an applicant ID is a typo, and sending it
+ * on would end at a screen asking for a code that was never sent.
+ */
 function validate(typed: string): string | null {
   if (typed.length === 0) return 'Enter your applicant ID or the email on your account.';
+
   if (typed.includes('@')) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(typed) ? null : 'That email does not look right.';
+    return isEmail(typed) ? null : 'That email address does not look right.';
   }
-  return typed.length >= 4 ? null : 'That applicant ID looks too short.';
+
+  return isApplicantCode(typed)
+    ? null
+    : 'That is not an applicant ID. It looks like APP240001 — or use the email on your account.';
 }
 
 function Row({

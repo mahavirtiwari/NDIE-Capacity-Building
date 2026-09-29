@@ -17,6 +17,7 @@ import { BrandLogo, useBranding } from '../../src/branding/BrandingContext';
 import { Banner, Button, Field } from '../../src/components/ui';
 import { useSiteText } from '../../src/content/SiteTextContext';
 import { colors, font, radius, spacing } from '../../src/theme';
+import { isApplicantCode } from '../../src/validation/formats';
 
 export default function SignIn() {
   const router = useRouter();
@@ -33,9 +34,15 @@ export default function SignIn() {
 
   /* Shown under the field as soon as it has been left, rather than only once
      the button has been pressed and the server has said no. */
-  const idError = applicantCode.trim().includes('@')
-    ? 'Sign in with your applicant ID, not your email address.'
-    : null;
+  const typedId = applicantCode.trim();
+  const idError =
+    typedId.length === 0
+      ? null
+      : typedId.includes('@')
+        ? 'Sign in with your applicant ID, not your email address.'
+        : isApplicantCode(typedId)
+          ? null
+          : 'That is not an applicant ID. It looks like APP240001.';
 
   const submit = async () => {
     setTouched(true);

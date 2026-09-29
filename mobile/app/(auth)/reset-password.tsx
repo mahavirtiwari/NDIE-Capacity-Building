@@ -115,14 +115,14 @@ export default function ResetPassword() {
 
       <Card style={styles.card}>
         <Field
-          label="Verification code"
+          label={text('app.otp.label', 'Verification code')}
           required
           value={code}
           onChangeText={(next) => setCode(next.replace(/[^0-9]/g, ''))}
-          placeholder="123456"
+          placeholder={text('app.otp.placeholder', 'Enter OTP')}
           keyboardType="number-pad"
           maxLength={6}
-          style={styles.codeInput}
+          style={[styles.codeInput, code.length === 0 && styles.codeInputEmpty]}
           error={touched ? codeError : null}
         />
 
@@ -208,6 +208,10 @@ const styles = StyleSheet.create({
 
   card: { gap: spacing.lg },
   codeInput: { fontSize: font.xl, letterSpacing: 8, textAlign: 'center' },
+  /* The wide spacing is for six digits. Left on an empty box it stretches
+     the placeholder into something unreadable, so it starts as ordinary
+     text and opens up once there is a code in it. */
+  codeInputEmpty: { fontSize: font.base, letterSpacing: 0 },
 
   resend: { alignItems: 'center', paddingVertical: spacing.xs },
   resendText: { fontSize: font.sm, fontWeight: '600', color: colors.brand700 },

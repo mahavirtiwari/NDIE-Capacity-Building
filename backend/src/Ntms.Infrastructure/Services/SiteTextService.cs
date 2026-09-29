@@ -175,6 +175,15 @@ public class SiteTextService(NtmsDbContext db)
             "Your details are used only to administer training programmes. Sign-in activity is logged.",
             null, true),
 
+        /* ------------------------------ the one-time code, applicant app ---
+           Shared by the two screens that ask for one: verifying an e-mail at
+           sign-up, and finishing a password reset. */
+        new("app.otp.label", "One-time code (applicant app)", "Field label",
+            "Verification code"),
+        new("app.otp.placeholder", "One-time code (applicant app)", "Field placeholder",
+            "Enter OTP",
+            "Shown in the empty box. A specimen like “123456” reads as a code already filled in."),
+
         /* ---------------------------------- forgot password, applicant app */
         new("app.forgot.title", "Forgot password (applicant app)", "Heading", "Reset password"),
         new("app.forgot.subtitle", "Forgot password (applicant app)", "Subheading",
