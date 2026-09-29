@@ -57,14 +57,26 @@ Write-Host "  [ok]  API published" -ForegroundColor Green
 if (-not $SkipPortal) {
     Push-Location $portalPath
     try {
-        # npm writes node_modules\.package-lock.json only once the install has
-        # finished. The folder alone is not evidence of anything: an install
-        # that died halfway leaves one behind, and skipping the retry because
-        # it exists means building against half a dependency tree.
+        # npm writes node_modules\.package-lock.json when an install finishes,
+        # so its presence means "an install completed" and its timestamp means
+        # "against this lock file". Testing only for the file was not enough: a
+        # release that pulls a new dependency leaves the marker in place, and
+        # the build then runs against what was installed last time - which is
+        # how 'Cannot find module xlsx' happens on a machine whose
+        # package.json has asked for it since the pull.
         $installed = Join-Path $portalPath 'node_modules\.package-lock.json'
+        $lockFile = Join-Path $portalPath 'package-lock.json'
 
-        if (-not (Test-Path $installed)) {
-            Write-Host "  Installing portal dependencies (first run only)..." -ForegroundColor Gray
+        $needsInstall = -not (Test-Path $installed)
+        if (-not $needsInstall -and (Test-Path $lockFile)) {
+            $needsInstall = (Get-Item $lockFile).LastWriteTimeUtc -gt (Get-Item $installed).LastWriteTimeUtc
+            if ($needsInstall) {
+                Write-Host "  package-lock.json is newer than what is installed." -ForegroundColor Yellow
+            }
+        }
+
+        if ($needsInstall) {
+            Write-Host "  Installing portal dependencies..." -ForegroundColor Gray
             # ci, not install: it honours the lock file exactly, which is what a
             # release build should do. It also wants node_modules gone, and an
             # abandoned one from a previous attempt would otherwise stay.
