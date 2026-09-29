@@ -26,6 +26,7 @@ public class NtmsDbContext(DbContextOptions<NtmsDbContext> options, ICurrentUser
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<SubCategory> SubCategories => Set<SubCategory>();
     public DbSet<Qualification> Qualifications => Set<Qualification>();
+    public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
     public DbSet<ProgramType> ProgramTypes => Set<ProgramType>();
     public DbSet<ImplementingAgency> Agencies => Set<ImplementingAgency>();
     public DbSet<AgencyCategory> AgencyCategories => Set<AgencyCategory>();

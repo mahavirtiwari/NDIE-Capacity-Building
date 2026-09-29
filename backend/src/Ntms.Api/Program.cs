@@ -266,6 +266,11 @@ app.UseAuthentication();
 /* After authentication, so the principal exists; before authorization, so the
    scope filters have the allocation by the time any handler composes a query. */
 app.UseMiddleware<UserScopeMiddleware>();
+
+/* After authentication, so the Super Admin exemption can be read off the
+   token, and before authorization, so a closed site answers "we are shut"
+   rather than "you may not". */
+app.UseMiddleware<MaintenanceMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();

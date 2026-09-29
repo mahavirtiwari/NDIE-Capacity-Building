@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Ntms.Api.Security;
 using Ntms.Application.Common;
@@ -245,10 +246,48 @@ public class MaterialsController(TrainingMaterialService service) : ApiControlle
 [Route("api/signup-form")]
 public class SignupFormController(SignupFormService service) : ApiControllerBase
 {
+    /// <summary>The default set, which every sub-category without its own uses.</summary>
     [HttpGet]
     [HasPermission(Permissions.MastersView)]
     public async Task<ActionResult<ApiEnvelope<List<SignupFieldDto>>>> List(CancellationToken ct) =>
         Envelope(await service.ListAsync(false, ct));
+
+    /// <summary>
+    /// The form one sub-category uses, with whether it is its own or the
+    /// default it falls back to.
+    /// </summary>
+    [HttpGet("sub-category/{subCategoryId:int}")]
+    [HasPermission(Permissions.MastersView)]
+    public async Task<ActionResult<ApiEnvelope<SignupFormDto>>> ForSubCategory(
+        int subCategoryId, CancellationToken ct) =>
+        Envelope(await service.FormAsync(subCategoryId, false, ct));
+
+    /// <summary>
+    /// What the applicant app renders. Anonymous on purpose: this is drawn
+    /// before anybody has an account to authenticate with, and switched-off
+    /// fields are left out because nothing should be asked that is not asked.
+    /// </summary>
+    [HttpGet("public")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiEnvelope<SignupFormDto>>> Public(
+        [FromQuery] int? subCategoryId, CancellationToken ct) =>
+        Envelope(await service.FormAsync(subCategoryId, activeOnly: true, ct));
+
+    /// <summary>Gives a sub-category its own form, copied from the default.</summary>
+    [HttpPost("sub-category/{subCategoryId:int}")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<SignupFormDto>>> Adopt(
+        int subCategoryId, CancellationToken ct) =>
+        Envelope(await service.AdoptAsync(subCategoryId, ct),
+            "This sub-category now has its own sign-up form.");
+
+    /// <summary>Drops a sub-category's own form, putting it back on the default.</summary>
+    [HttpDelete("sub-category/{subCategoryId:int}")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<SignupFormDto>>> Reset(
+        int subCategoryId, CancellationToken ct) =>
+        Envelope(await service.ResetAsync(subCategoryId, ct),
+            "This sub-category is back on the default form.");
 
     [HttpPost]
     [HasPermission(Permissions.MastersManage)]
@@ -279,6 +318,6 @@ public class SignupFormController(SignupFormService service) : ApiControllerBase
     [HttpPut("order")]
     [HasPermission(Permissions.MastersManage)]
     public async Task<ActionResult<ApiEnvelope<List<SignupFieldDto>>>> Reorder(
-        [FromBody] ReorderDto dto, CancellationToken ct) =>
-        Envelope(await service.ReorderAsync(dto.Ids, ct), "Order saved.");
+        [FromQuery] int? subCategoryId, [FromBody] ReorderDto dto, CancellationToken ct) =>
+        Envelope(await service.ReorderAsync(subCategoryId, dto.Ids, ct), "Order saved.");
 }

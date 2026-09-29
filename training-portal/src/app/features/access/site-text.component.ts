@@ -42,8 +42,40 @@ import { PageHeaderComponent } from '../../shared/components/page-header.compone
       </div>
     }
 
+    <section class="card mb-md">
+      <div class="card__body card__body--tight">
+        <div class="filter-bar">
+          <div class="field field--search">
+            <div class="input-group">
+              <span class="input-icon"><app-icon name="search" [size]="15" /></span>
+              <input
+                class="input"
+                placeholder="Search the wording, the label or the key"
+                [value]="search()"
+                (input)="setSearch($event)"
+              />
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="stChanged">Show</label>
+            <select id="stChanged" class="select" (change)="setOnlyChanged($event)">
+              <option value="">Everything</option>
+              <option value="1">Only what has been reworded</option>
+            </select>
+          </div>
+          @if (search() || onlyChanged()) {
+            <button type="button" class="btn btn--ghost" (click)="clearFilters()">
+              <app-icon name="refresh" [size]="15" /> Reset
+            </button>
+          }
+        </div>
+      </div>
+    </section>
+
     @if (loading()) {
       <p class="text-muted">Loading the wording...</p>
+    } @else if (matches() === 0) {
+      <p class="text-muted">Nothing matches that.</p>
     }
 
     @for (group of groups(); track group.name) {
@@ -99,6 +131,32 @@ import { PageHeaderComponent } from '../../shared/components/page-header.compone
         </div>
       </section>
     }
+
+    @if (pageCount() > 1) {
+      <div class="row row-between row-wrap mb-md">
+        <span class="text-sm text-muted">
+          Sections {{ firstShown() }}–{{ lastShown() }} of {{ filtered().length }}
+          @if (dirtyCount() > 0) {
+            · {{ dirtyCount() }} unsaved {{ dirtyCount() === 1 ? 'change' : 'changes' }}
+            carried across pages
+          }
+        </span>
+        <div class="btn-row">
+          <button type="button" class="btn btn--sm" [disabled]="page() === 1" (click)="goTo(page() - 1)">
+            Prev
+          </button>
+          <span class="text-sm">Page {{ page() }} of {{ pageCount() }}</span>
+          <button
+            type="button"
+            class="btn btn--sm"
+            [disabled]="page() === pageCount()"
+            (click)="goTo(page() + 1)"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    }
   `,
   styles: [
     `
@@ -127,8 +185,18 @@ export class SiteTextComponent {
 
   protected readonly overridden = computed(() => this.items().filter((i) => i.isOverridden).length);
 
+  protected readonly search = signal('');
+  protected readonly onlyChanged = signal(false);
+  protected readonly page = signal(1);
+
+  /** How many sections fit on a page. A section is a handful of strings. */
+  private static readonly GroupsPerPage = 6;
+
+  /** Edits waiting to be saved. Kept whole, so paging never loses one. */
+  protected readonly dirtyCount = computed(() => Object.keys(this.draft()).length);
+
   /** Grouped in registry order, which is the order the screens read in. */
-  protected readonly groups = computed(() => {
+  private readonly allGroups = computed(() => {
     const out: { name: string; items: SiteText[] }[] = [];
     for (const item of this.items()) {
       const last = out[out.length - 1];
@@ -137,6 +205,71 @@ export class SiteTextComponent {
     }
     return out;
   });
+
+  /** The sections left once the search and the filter have had their say. */
+  protected readonly filtered = computed(() => {
+    const term = this.search().trim().toLowerCase();
+    const changedOnly = this.onlyChanged();
+    if (!term && !changedOnly) return this.allGroups();
+
+    return this.allGroups()
+      .map((group) => ({
+        name: group.name,
+        items: group.items.filter(
+          (item) =>
+            (!changedOnly || item.isOverridden) &&
+            (!term ||
+              item.label.toLowerCase().includes(term) ||
+              item.key.toLowerCase().includes(term) ||
+              (item.value ?? '').toLowerCase().includes(term)),
+        ),
+      }))
+      .filter((group) => group.items.length > 0);
+  });
+
+  protected readonly matches = computed(() =>
+    this.filtered().reduce((n, group) => n + group.items.length, 0),
+  );
+
+  protected readonly pageCount = computed(() =>
+    Math.max(1, Math.ceil(this.filtered().length / SiteTextComponent.GroupsPerPage)),
+  );
+
+  /** One page of sections. Every string stays editable; only the view is cut. */
+  protected readonly groups = computed(() => {
+    const from = (this.page() - 1) * SiteTextComponent.GroupsPerPage;
+    return this.filtered().slice(from, from + SiteTextComponent.GroupsPerPage);
+  });
+
+  protected readonly firstShown = computed(() =>
+    this.filtered().length === 0 ? 0 : (this.page() - 1) * SiteTextComponent.GroupsPerPage + 1,
+  );
+
+  protected readonly lastShown = computed(() =>
+    Math.min(this.page() * SiteTextComponent.GroupsPerPage, this.filtered().length),
+  );
+
+  protected goTo(page: number): void {
+    this.page.set(Math.min(Math.max(1, page), this.pageCount()));
+  }
+
+  protected setSearch(event: Event): void {
+    this.search.set((event.target as HTMLInputElement).value);
+    /* Back to the first page, or a narrow search lands on a page that the
+       narrowed list no longer has. */
+    this.page.set(1);
+  }
+
+  protected setOnlyChanged(event: Event): void {
+    this.onlyChanged.set((event.target as HTMLSelectElement).value === '1');
+    this.page.set(1);
+  }
+
+  protected clearFilters(): void {
+    this.search.set('');
+    this.onlyChanged.set(false);
+    this.page.set(1);
+  }
 
   constructor() {
     this.load();

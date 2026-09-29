@@ -411,3 +411,61 @@ public class StateCoverageResultDto
     /// <summary>States with at least one programme.</summary>
     public int StatesCovered { get; set; }
 }
+
+/* ------------------------------------------------- qualified professionals */
+
+/// <summary>
+/// One person who has qualified, on one programme.
+///
+/// A row per qualification rather than per person: somebody who has passed an
+/// assessor programme and a master trainer programme is qualified twice, and
+/// collapsing that would hide one of them.
+/// </summary>
+public class QualifiedProfessionalDto
+{
+    public int ParticipantId { get; set; }
+    public int ApplicantId { get; set; }
+
+    /// <summary>The system generated applicant ID, never the email address.</summary>
+    public string ApplicantCode { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public string? Mobile { get; set; }
+
+    public int CategoryId { get; set; }
+    public string? CategoryName { get; set; }
+    public int SubCategoryId { get; set; }
+    public string? SubCategoryName { get; set; }
+    public int ProgramTypeId { get; set; }
+    public string? ProgramTypeName { get; set; }
+
+    public int ProgrammeId { get; set; }
+    public string? ProgrammeCode { get; set; }
+    public string? ProgrammeName { get; set; }
+
+    public int? StateCode { get; set; }
+    public string? StateName { get; set; }
+    public int? DistrictCode { get; set; }
+    public string? DistrictName { get; set; }
+
+    public decimal? ExamScore { get; set; }
+    public decimal AttendancePercent { get; set; }
+    /// <summary>When the marks added up to a pass.</summary>
+    public DateTime? QualifiedOn { get; set; }
+
+    /* The certificate, where one has been issued. */
+    public string? CertificateNumber { get; set; }
+    public DateOnly? IssuedOn { get; set; }
+    public DateOnly? ValidTill { get; set; }
+    public DateTime? RevokedOn { get; set; }
+
+    /// <summary>
+    /// Where this qualification stands today: Valid, Expiring, Expired,
+    /// Revoked, or NotIssued. Computed rather than stored, because Expiring
+    /// and Expired are answers about today rather than facts about the record.
+    /// </summary>
+    public string Standing { get; set; } = "NotIssued";
+
+    /// <summary>Days until expiry. Negative once it has passed, null for no expiry.</summary>
+    public int? DaysToExpiry { get; set; }
+}

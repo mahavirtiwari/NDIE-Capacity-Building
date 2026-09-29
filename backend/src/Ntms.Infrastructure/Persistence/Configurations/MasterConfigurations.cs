@@ -233,6 +233,23 @@ public class BrandingConfiguration : IEntityTypeConfiguration<BrandingSetting>
     }
 }
 
+public class SystemSettingConfiguration : IEntityTypeConfiguration<SystemSetting>
+{
+    public void Configure(EntityTypeBuilder<SystemSetting> b)
+    {
+        b.ToTable("SystemSettings");
+        /* One row, always id 1. */
+        b.Property(x => x.Id).ValueGeneratedNever();
+        b.Property(x => x.MaintenanceMessage).HasMaxLength(500);
+        b.Property(x => x.PaymentGateway).HasMaxLength(40);
+        b.Property(x => x.MerchantId).HasMaxLength(200);
+        b.Property(x => x.AccessCode).HasMaxLength(400);
+        b.Property(x => x.WorkingKey).HasMaxLength(400);
+        b.Property(x => x.ReturnUrl).HasMaxLength(500);
+        b.Property(x => x.CancelUrl).HasMaxLength(500);
+    }
+}
+
 public class EmailSettingConfiguration : IEntityTypeConfiguration<EmailSetting>
 {
     public void Configure(EntityTypeBuilder<EmailSetting> b)

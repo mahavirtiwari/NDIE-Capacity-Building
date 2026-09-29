@@ -1,0 +1,282 @@
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { CertificateStanding, Id, QualifiedProfessional } from '../../core/models';
+import { LookupService } from '../../core/services/masters.service';
+import { QualifiedProfessionalService } from '../../core/services/system.service';
+import { SiteTextService } from '../../core/services/site-text.service';
+import {
+  CellTemplateDirective,
+  ColumnDef,
+  DataTableComponent,
+} from '../../shared/components/data-table.component';
+import { IconComponent } from '../../shared/components/icon.component';
+import { PageHeaderComponent } from '../../shared/components/page-header.component';
+import { ListState, searchTerm } from '../../shared/list-state';
+
+const COLUMNS: ColumnDef[] = [
+  { key: 'name', header: 'Professional', sortable: true, variant: 'primary' },
+  { key: 'programType', header: 'Qualified as', sortable: true },
+  { key: 'state', header: 'State', sortable: true, width: '150px' },
+  { key: 'certificate', header: 'Certificate', width: '190px' },
+  { key: 'validTill', header: 'Valid till', sortable: true, width: '150px' },
+  { key: 'standing', header: 'Standing', width: '130px' },
+];
+
+/** What each standing is called and how it is coloured. */
+const STANDINGS: Record<CertificateStanding, { label: string; tone: string }> = {
+  Valid: { label: 'Valid', tone: 'ok' },
+  Expiring: { label: 'Expiring', tone: 'warn' },
+  Expired: { label: 'Expired', tone: 'bad' },
+  Revoked: { label: 'Revoked', tone: 'bad' },
+  NotIssued: { label: 'Not issued', tone: 'muted' },
+};
+
+@Component({
+  selector: 'app-qualified-professionals',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [
+    PageHeaderComponent,
+    DataTableComponent,
+    CellTemplateDirective,
+    IconComponent,
+  ],
+  template: `
+    <app-page-header
+      [title]="copy.text('page.qualifiedProfessionals.title')"
+      [subtitle]="copy.text('page.qualifiedProfessionals.subtitle')"
+      icon="graduation"
+      [breadcrumbs]="[
+        { label: 'Administration' },
+        { label: copy.text('page.qualifiedProfessionals.title') },
+      ]"
+    />
+
+    <section class="card">
+      <div class="card__body card__body--tight">
+        <p class="text-muted text-sm">
+          One row per qualification: somebody who has passed two programmes appears twice,
+          because they hold two. A qualification is recorded when the marks are in, and the
+          certificate follows — so a professional can be qualified and not yet certified.
+        </p>
+
+        <div class="filter-bar">
+          <div class="field field--search">
+            <div class="input-group">
+              <span class="input-icon"><app-icon name="search" [size]="15" /></span>
+              <input
+                class="input"
+                placeholder="Search by name, applicant ID, mobile or certificate number"
+                (input)="list.setSearch(term($event))"
+              />
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="qpCategory">Category</label>
+            <select
+              id="qpCategory"
+              class="select"
+              (change)="onCategory(numberOrNull($event))"
+            >
+              <option value="">All categories</option>
+              @for (option of categories(); track option.id) {
+                <option [value]="option.id">{{ option.name }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="qpType">Program type</label>
+            <select
+              id="qpType"
+              class="select"
+              (change)="list.setFilter('programTypeId', value($event))"
+            >
+              <option value="">All program types</option>
+              @for (option of programTypes(); track option.id) {
+                <option [value]="option.id">{{ option.name }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="qpState">State</label>
+            <select id="qpState" class="select" (change)="list.setFilter('stateCode', value($event))">
+              <option value="">All states</option>
+              @for (option of states(); track option.id) {
+                <option [value]="option.id">{{ option.name }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="qpStanding">Standing</label>
+            <select id="qpStanding" class="select" (change)="list.setFilter('standing', value($event))">
+              <option value="">All</option>
+              <option value="Valid">Valid</option>
+              <option value="Expiring">Expiring within 90 days</option>
+              <option value="Expired">Expired</option>
+              <option value="Revoked">Revoked</option>
+              <option value="NotIssued">Certificate not issued</option>
+            </select>
+          </div>
+
+          @if (list.hasFilters) {
+            <button type="button" class="btn btn--ghost" (click)="list.clearFilters()">
+              <app-icon name="refresh" [size]="15" /> Reset
+            </button>
+          }
+        </div>
+      </div>
+
+      <app-data-table
+        [columns]="columns"
+        [rows]="list.rows()"
+        [total]="list.total()"
+        [page]="list.page()"
+        [pageSize]="list.pageSize()"
+        [loading]="list.loading()"
+        [sortBy]="list.sortBy()"
+        [sortDir]="list.sortDir()"
+        emptyTitle="No qualified professionals yet"
+        emptyMessage="Somebody appears here once their result is recorded as a pass."
+        emptyIcon="graduation"
+        (pageChange)="list.goToPage($event)"
+        (pageSizeChange)="list.setPageSize($event)"
+        (sortChange)="list.setSort($event)"
+      >
+        <ng-template appCell="name" let-row>
+          <div class="stack stack-xs">
+            <strong>{{ $any(row).fullName }}</strong>
+            <span class="text-xs text-muted">
+              {{ $any(row).applicantCode }}
+              @if ($any(row).mobile) { · {{ $any(row).mobile }} }
+            </span>
+          </div>
+        </ng-template>
+
+        <ng-template appCell="programType" let-row>
+          <div class="stack stack-xs">
+            <span>{{ $any(row).programTypeName }}</span>
+            <span class="text-xs text-muted">{{ $any(row).programmeCode }}</span>
+          </div>
+        </ng-template>
+
+        <ng-template appCell="state" let-row>
+          <div class="stack stack-xs">
+            <span>{{ $any(row).stateName || '—' }}</span>
+            @if ($any(row).districtName) {
+              <span class="text-xs text-muted">{{ $any(row).districtName }}</span>
+            }
+          </div>
+        </ng-template>
+
+        <ng-template appCell="certificate" let-row>
+          @if ($any(row).certificateNumber) {
+            <div class="stack stack-xs">
+              <span class="tabular">{{ $any(row).certificateNumber }}</span>
+              <span class="text-xs text-muted">Issued {{ $any(row).issuedOn }}</span>
+            </div>
+          } @else {
+            <span class="text-muted">—</span>
+          }
+        </ng-template>
+
+        <ng-template appCell="validTill" let-row>
+          @if ($any(row).validTill) {
+            <div class="stack stack-xs">
+              <span class="tabular">{{ $any(row).validTill }}</span>
+              <span class="text-xs text-muted">{{ expiry($any(row)) }}</span>
+            </div>
+          } @else if ($any(row).certificateNumber) {
+            <span class="text-muted">No expiry</span>
+          } @else {
+            <span class="text-muted">—</span>
+          }
+        </ng-template>
+
+        <ng-template appCell="standing" let-row>
+          <span class="standing" [attr.data-tone]="tone($any(row).standing)">
+            {{ standing($any(row).standing) }}
+          </span>
+        </ng-template>
+      </app-data-table>
+    </section>
+  `,
+  styles: [
+    `
+      .standing {
+        display: inline-block;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        font-size: var(--fs-xs);
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .standing[data-tone='ok'] { background: var(--success-50, #e8f5ec); color: var(--success-700); }
+      .standing[data-tone='warn'] { background: #fdf3e2; color: #8a5a00; }
+      .standing[data-tone='bad'] { background: #fdeceb; color: var(--danger-700); }
+      .standing[data-tone='muted'] { background: var(--surface-muted); color: var(--ink-500); }
+    `,
+  ],
+})
+export class QualifiedProfessionalsComponent {
+  protected readonly copy = inject(SiteTextService);
+  private readonly service = inject(QualifiedProfessionalService);
+  private readonly lookups = inject(LookupService);
+
+  protected readonly columns = COLUMNS;
+  protected readonly list = new ListState<QualifiedProfessional>(
+    (request) => this.service.list(request),
+    { sortBy: 'qualifiedOn', sortDir: 'desc' },
+  );
+
+  protected readonly categories = toSignal(this.lookups.categories(), { initialValue: [] });
+  protected readonly states = toSignal(this.lookups.states(), { initialValue: [] });
+
+  /** Narrowed to the chosen category, so the two filters cannot contradict. */
+  protected readonly programTypes = signal<{ id: Id; name: string }[]>([]);
+
+  constructor() {
+    this.loadProgramTypes(null);
+  }
+
+  protected term = searchTerm;
+  protected value = (event: Event) => (event.target as HTMLSelectElement).value;
+
+  protected numberOrNull(event: Event): number | null {
+    const raw = (event.target as HTMLSelectElement).value;
+    return raw ? Number(raw) : null;
+  }
+
+  protected onCategory(categoryId: number | null): void {
+    this.list.setFilter('categoryId', categoryId ? String(categoryId) : '');
+    /* A program type from another category would filter everything away, so
+       the narrower list is reloaded and the stale choice dropped. */
+    this.list.setFilter('programTypeId', '');
+    this.loadProgramTypes(categoryId);
+  }
+
+  private loadProgramTypes(categoryId: number | null): void {
+    this.lookups.programTypes(null, categoryId).subscribe((items) => {
+      this.programTypes.set(items.map((item) => ({ id: item.id, name: item.name })));
+    });
+  }
+
+  protected standing(value: CertificateStanding): string {
+    return STANDINGS[value]?.label ?? value;
+  }
+
+  protected tone(value: CertificateStanding): string {
+    return STANDINGS[value]?.tone ?? 'muted';
+  }
+
+  /** Reads the countdown back in words, so a date alone is not the only cue. */
+  protected expiry(row: QualifiedProfessional): string {
+    const days = row.daysToExpiry;
+    if (days === null || days === undefined) return '';
+    if (days < 0) return `${Math.abs(days)} days ago`;
+    if (days === 0) return 'Today';
+    return `in ${days} days`;
+  }
+}

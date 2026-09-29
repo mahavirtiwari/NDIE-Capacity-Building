@@ -389,3 +389,25 @@ public class DashboardController(DashboardService service) : ApiControllerBase
         [FromQuery] DashboardFilterDto filter, CancellationToken ct) =>
         Envelope(await service.StateCoverageAsync(filter, ct));
 }
+
+/// <summary>
+/// Everybody the scheme has qualified. Read only — a qualification is recorded
+/// on the marksheet and evidenced by a certificate, and neither is changed
+/// from here.
+/// </summary>
+[Route("api/qualified-professionals")]
+public class QualifiedProfessionalsController(QualifiedProfessionalService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.ProgramsView)]
+    public async Task<ActionResult<ApiEnvelope<PagedResult<QualifiedProfessionalDto>>>> List(
+        [FromQuery] PagedRequest request,
+        [FromQuery] int? categoryId,
+        [FromQuery] int? subCategoryId,
+        [FromQuery] int? programTypeId,
+        [FromQuery] int? stateCode,
+        [FromQuery] string? standing,
+        CancellationToken ct) =>
+        Envelope(await service.ListAsync(
+            request, categoryId, subCategoryId, programTypeId, stateCode, standing, ct));
+}

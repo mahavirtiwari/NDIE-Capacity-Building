@@ -102,9 +102,14 @@ export class LookupService {
     );
   }
 
-  programTypes(subCategoryId?: Id | null): Observable<LookupItem[]> {
-    return this.cached(`program-types:${subCategoryId ?? 'all'}`, () =>
-      this.api.get<LookupItem[]>('lookups/program-types', { subCategoryId }),
+  /**
+   * Narrowed by sub-category, by category, or neither. The API has always
+   * accepted both; only the sub-category was reachable from here.
+   */
+  programTypes(subCategoryId?: Id | null, categoryId?: Id | null): Observable<LookupItem[]> {
+    return this.cached(
+      `program-types:${subCategoryId ?? 'all'}:${categoryId ?? 'all'}`,
+      () => this.api.get<LookupItem[]>('lookups/program-types', { subCategoryId, categoryId }),
     );
   }
 

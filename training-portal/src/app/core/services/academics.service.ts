@@ -9,6 +9,7 @@ import {
   RegistrationForm,
   SignupField,
   SignupFieldUpsert,
+  SignupForm,
   TrainingMaterial,
 } from '../models';
 import { ApiService } from './api.service';
@@ -59,6 +60,21 @@ export class SignupFormService {
     return this.api.get<SignupField[]>(this.resource);
   }
 
+  /** The form a sub-category uses, and whether it is its own or the default. */
+  forSubCategory(subCategoryId: Id): Observable<SignupForm> {
+    return this.api.get<SignupForm>(`${this.resource}/sub-category/${subCategoryId}`);
+  }
+
+  /** Gives a sub-category its own form, copied from the default. */
+  adopt(subCategoryId: Id): Observable<SignupForm> {
+    return this.api.post<SignupForm>(`${this.resource}/sub-category/${subCategoryId}`, {});
+  }
+
+  /** Drops a sub-category's own form, putting it back on the default. */
+  reset(subCategoryId: Id): Observable<SignupForm> {
+    return this.api.delete<SignupForm>(`${this.resource}/sub-category/${subCategoryId}`);
+  }
+
   create(body: SignupFieldUpsert): Observable<SignupField> {
     return this.api.post<SignupField>(this.resource, body);
   }
@@ -75,7 +91,8 @@ export class SignupFormService {
     return this.api.delete<boolean>(`${this.resource}/${id}`);
   }
 
-  reorder(ids: Id[]): Observable<SignupField[]> {
-    return this.api.put<SignupField[]>(`${this.resource}/order`, { ids });
+  reorder(ids: Id[], subCategoryId?: Id | null): Observable<SignupField[]> {
+    const suffix = subCategoryId ? `?subCategoryId=${subCategoryId}` : '';
+    return this.api.put<SignupField[]>(`${this.resource}/order${suffix}`, { ids });
   }
 }

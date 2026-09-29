@@ -90,3 +90,88 @@ export interface StateCoverageResult {
   totalProgrammes: number;
   statesCovered: number;
 }
+
+/**
+ * One person the scheme has qualified, on one programme. A person qualified on
+ * two programmes is two rows, because they hold two qualifications.
+ */
+export interface QualifiedProfessional {
+  participantId: Id;
+  applicantId: Id;
+  applicantCode: string;
+  fullName: string;
+  email?: string | null;
+  mobile?: string | null;
+
+  categoryId: Id;
+  categoryName?: string | null;
+  subCategoryId: Id;
+  subCategoryName?: string | null;
+  programTypeId: Id;
+  programTypeName?: string | null;
+
+  programmeId: Id;
+  programmeCode?: string | null;
+  programmeName?: string | null;
+
+  stateCode?: number | null;
+  stateName?: string | null;
+  districtCode?: number | null;
+  districtName?: string | null;
+
+  examScore?: number | null;
+  attendancePercent: number;
+  qualifiedOn?: string | null;
+
+  certificateNumber?: string | null;
+  issuedOn?: string | null;
+  validTill?: string | null;
+  revokedOn?: string | null;
+
+  /** Valid, Expiring, Expired, Revoked or NotIssued — as of today. */
+  standing: CertificateStanding;
+  daysToExpiry?: number | null;
+}
+
+export type CertificateStanding =
+  | 'Valid'
+  | 'Expiring'
+  | 'Expired'
+  | 'Revoked'
+  | 'NotIssued';
+
+/** How the deployment itself is set. The gateway key is never sent back. */
+export interface SystemSettings {
+  maintenanceMode: boolean;
+  maintenanceMessage?: string | null;
+  maintenanceUntil?: string | null;
+
+  paymentEnabled: boolean;
+  paymentGateway?: string | null;
+  paymentTestMode: boolean;
+  merchantId?: string | null;
+  accessCode?: string | null;
+  /** True when a working key is stored. The value itself is never readable. */
+  hasWorkingKey: boolean;
+  returnUrl?: string | null;
+  cancelUrl?: string | null;
+  /** False until the gateway has everything it needs to be switched on. */
+  paymentConfigured: boolean;
+
+  updatedOn: string;
+}
+
+export interface SystemSettingsUpdate {
+  maintenanceMode: boolean;
+  maintenanceMessage?: string | null;
+  maintenanceUntil?: string | null;
+  paymentEnabled: boolean;
+  paymentGateway?: string | null;
+  paymentTestMode: boolean;
+  merchantId?: string | null;
+  accessCode?: string | null;
+  /** Omitted to keep the stored key; empty string clears it. */
+  workingKey?: string | null;
+  returnUrl?: string | null;
+  cancelUrl?: string | null;
+}

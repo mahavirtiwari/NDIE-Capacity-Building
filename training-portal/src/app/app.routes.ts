@@ -178,6 +178,15 @@ export const routes: Routes = [
               import('./features/access/branding.component').then((m) => m.BrandingComponent),
           },
           {
+            path: 'system-settings',
+            title: 'System settings · CBMS',
+            canActivate: [permissionGuard('settings.manage')],
+            loadComponent: () =>
+              import('./features/access/system-settings.component').then(
+                (m) => m.SystemSettingsComponent,
+              ),
+          },
+          {
             path: 'site-text',
             title: 'Site text · CBMS',
             canActivate: [permissionGuard('settings.manage')],
@@ -209,6 +218,15 @@ export const routes: Routes = [
             title: 'Applicants · CBMS',
             canActivate: [permissionGuard('applications.view')],
             loadComponent: () => import('./features/admin/applicants.component').then((m) => m.ApplicantsComponent),
+          },
+          {
+            path: 'qualified-professionals',
+            title: 'Qualified professionals · CBMS',
+            canActivate: [permissionGuard('programs.view')],
+            loadComponent: () =>
+              import('./features/admin/qualified-professionals.component').then(
+                (m) => m.QualifiedProfessionalsComponent,
+              ),
           },
           {
             path: 'applications',

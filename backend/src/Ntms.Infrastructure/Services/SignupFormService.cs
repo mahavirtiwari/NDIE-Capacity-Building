@@ -40,9 +40,43 @@ public class SignupFormService(NtmsDbContext db)
         ["subCategoryId"] = true,
     };
 
-    public async Task<List<SignupFieldDto>> ListAsync(bool activeOnly, CancellationToken ct)
+    /// <summary>
+    /// The form a sub-category actually uses: its own where it has one, and
+    /// the default set otherwise.
+    ///
+    /// Falling back rather than returning nothing is what lets a scheme add
+    /// sub-categories without configuring a form for each. A sub-category owns
+    /// a form the moment it has one field of its own, so the two sets are
+    /// never mixed — an administrator editing a sub-category's form is editing
+    /// all of what applicants will see, not part of it.
+    /// </summary>
+    public async Task<SignupFormDto> FormAsync(
+        int? subCategoryId, bool activeOnly, CancellationToken ct)
     {
-        var query = db.SignupFields.Include(f => f.Options).AsQueryable();
+        var owned = subCategoryId is not null
+                    && await db.SignupFields.AnyAsync(f => f.SubCategoryId == subCategoryId, ct);
+
+        var from = owned ? subCategoryId : null;
+        var fields = await FieldsAsync(from, activeOnly, ct);
+
+        return new SignupFormDto
+        {
+            SubCategoryId = subCategoryId,
+            SubCategoryName = subCategoryId is null
+                ? null
+                : await db.SubCategories.AsNoTracking()
+                    .Where(c => c.Id == subCategoryId).Select(c => c.Name).FirstOrDefaultAsync(ct),
+            IsOwnForm = owned,
+            Fields = fields,
+        };
+    }
+
+    private async Task<List<SignupFieldDto>> FieldsAsync(
+        int? subCategoryId, bool activeOnly, CancellationToken ct)
+    {
+        var query = db.SignupFields.Include(f => f.Options)
+            .Where(f => f.SubCategoryId == subCategoryId);
+
         if (activeOnly) query = query.Where(f => f.Status == RecordStatus.Active);
 
         var fields = await query
@@ -51,6 +85,80 @@ public class SignupFormService(NtmsDbContext db)
             .ToListAsync(ct);
 
         return [.. fields.Select(Map)];
+    }
+
+    public Task<List<SignupFieldDto>> ListAsync(bool activeOnly, CancellationToken ct) =>
+        FieldsAsync(null, activeOnly, ct);
+
+    /// <summary>
+    /// Gives a sub-category a form of its own, copied from the default.
+    ///
+    /// Copied rather than started empty: every built-in field has to be on it,
+    /// and an administrator who had to add them back by hand would sooner or
+    /// later publish a form with no e-mail box on it.
+    /// </summary>
+    public async Task<SignupFormDto> AdoptAsync(int subCategoryId, CancellationToken ct)
+    {
+        var subCategory = await db.SubCategories.FirstOrDefaultAsync(c => c.Id == subCategoryId, ct)
+            ?? throw AppException.NotFound("Sub-category");
+
+        if (await db.SignupFields.AnyAsync(f => f.SubCategoryId == subCategoryId, ct))
+        {
+            throw AppException.Conflict($"'{subCategory.Name}' already has its own sign-up form.");
+        }
+
+        var defaults = await db.SignupFields.Include(f => f.Options).AsNoTracking()
+            .Where(f => f.SubCategoryId == null)
+            .OrderBy(f => f.DisplayOrder).ThenBy(f => f.Id)
+            .ToListAsync(ct);
+
+        foreach (var source in defaults)
+        {
+            var copy = new SignupField
+            {
+                SubCategoryId = subCategoryId,
+                Key = source.Key,
+                Label = source.Label,
+                Placeholder = source.Placeholder,
+                HelpText = source.HelpText,
+                Type = source.Type,
+                Required = source.Required,
+                DisplayOrder = source.DisplayOrder,
+                IsBuiltIn = source.IsBuiltIn,
+                IsLocked = source.IsLocked,
+                Status = source.Status,
+            };
+
+            foreach (var option in source.Options.OrderBy(o => o.DisplayOrder))
+            {
+                copy.Options.Add(new SignupFieldOption
+                {
+                    Value = option.Value,
+                    Label = option.Label,
+                    DisplayOrder = option.DisplayOrder,
+                });
+            }
+
+            db.SignupFields.Add(copy);
+        }
+
+        await db.SaveChangesAsync(ct);
+        return await FormAsync(subCategoryId, false, ct);
+    }
+
+    /// <summary>
+    /// Drops a sub-category's own form, putting it back on the default. The
+    /// answers people gave are untouched — they are keyed by field key, not by
+    /// the field row.
+    /// </summary>
+    public async Task<SignupFormDto> ResetAsync(int subCategoryId, CancellationToken ct)
+    {
+        var fields = await db.SignupFields
+            .Where(f => f.SubCategoryId == subCategoryId).ToListAsync(ct);
+
+        db.SignupFields.RemoveRange(fields);
+        await db.SaveChangesAsync(ct);
+        return await FormAsync(subCategoryId, false, ct);
     }
 
     public async Task<SignupFieldDto> CreateAsync(SignupFieldUpsertDto dto, CancellationToken ct)
@@ -64,15 +172,27 @@ public class SignupFormService(NtmsDbContext db)
                 $"'{key}' is a built-in field. It is already on the form and can be edited there.");
         }
 
-        if (await db.SignupFields.AnyAsync(f => f.Key == key, ct))
+        /* Within this form only. The same question on two sub-categories is
+           two forms asking it, not a clash. */
+        if (await db.SignupFields.AnyAsync(
+                f => f.SubCategoryId == dto.SubCategoryId && f.Key == key, ct))
         {
-            throw AppException.Conflict($"A field with the key '{key}' already exists.");
+            throw AppException.Conflict($"A field with the key '{key}' already exists on this form.");
         }
 
-        var last = await db.SignupFields.MaxAsync(f => (int?)f.DisplayOrder, ct) ?? 0;
+        if (dto.SubCategoryId is { } owner
+            && !await db.SubCategories.AnyAsync(c => c.Id == owner, ct))
+        {
+            throw AppException.NotFound("Sub-category");
+        }
+
+        var last = await db.SignupFields
+            .Where(f => f.SubCategoryId == dto.SubCategoryId)
+            .MaxAsync(f => (int?)f.DisplayOrder, ct) ?? 0;
 
         var entity = new SignupField
         {
+            SubCategoryId = dto.SubCategoryId,
             Key = key,
             IsBuiltIn = false,
             IsLocked = false,
@@ -143,9 +263,13 @@ public class SignupFormService(NtmsDbContext db)
     }
 
     /// <summary>Reorders in one call, so a drag never leaves a half-applied order.</summary>
-    public async Task<List<SignupFieldDto>> ReorderAsync(List<int> orderedIds, CancellationToken ct)
+    public async Task<List<SignupFieldDto>> ReorderAsync(
+        int? subCategoryId, List<int> orderedIds, CancellationToken ct)
     {
-        var fields = await db.SignupFields.Include(f => f.Options).ToListAsync(ct);
+        /* One form at a time. Renumbering every form from one list would give
+           the same display order to fields on different sub-categories. */
+        var fields = await db.SignupFields.Include(f => f.Options)
+            .Where(f => f.SubCategoryId == subCategoryId).ToListAsync(ct);
         var position = 0;
 
         foreach (var id in orderedIds)
@@ -163,7 +287,7 @@ public class SignupFormService(NtmsDbContext db)
         }
 
         await db.SaveChangesAsync(ct);
-        return await ListAsync(false, ct);
+        return await FieldsAsync(subCategoryId, false, ct);
     }
 
     /* ------------------------------------------------------------- helpers */
@@ -226,6 +350,7 @@ public class SignupFormService(NtmsDbContext db)
     private static SignupFieldDto Map(SignupField f) => new()
     {
         Id = f.Id,
+        SubCategoryId = f.SubCategoryId,
         Key = f.Key,
         Label = f.Label,
         Placeholder = f.Placeholder,

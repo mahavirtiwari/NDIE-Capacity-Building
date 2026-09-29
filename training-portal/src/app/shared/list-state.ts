@@ -24,10 +24,13 @@ export class ListState<T> {
 
   constructor(
     private readonly loader: (request: PagedRequest) => Observable<PagedResult<T>>,
-    options: { pageSize?: number; sortBy?: string } = {},
+    options: { pageSize?: number; sortBy?: string; sortDir?: 'asc' | 'desc' } = {},
   ) {
     if (options.pageSize) this.pageSize.set(options.pageSize);
     if (options.sortBy) this.sortBy.set(options.sortBy);
+    /* A register that only grows reads newest first; a master reads A to Z.
+       Neither is right for both, so the screen says which it wants. */
+    if (options.sortDir) this.sortDir.set(options.sortDir);
 
     this.trigger
       .pipe(

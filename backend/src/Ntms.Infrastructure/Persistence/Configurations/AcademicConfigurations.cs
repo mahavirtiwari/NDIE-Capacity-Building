@@ -276,10 +276,21 @@ public class SignupFieldConfiguration : IEntityTypeConfiguration<SignupField>
         b.Property(x => x.Placeholder).HasMaxLength(200);
         b.Property(x => x.HelpText).HasMaxLength(500);
 
-        /* One field per key. The sign-up code looks fields up by key, so two
-           rows claiming the same one would make which is honoured a matter of
-           row order. */
-        b.HasIndex(x => x.Key).IsUnique();
+        /* One field per key within a form. The sign-up code looks fields up by
+           key, so two rows claiming the same one would make which is honoured
+           a matter of row order — but the same key on two different
+           sub-categories is two different forms asking the same question,
+           which is the point.
+
+           HasFilter(null) undoes the filter EF adds for a nullable column. Left
+           in place it reads "unique where SubCategoryId is not null", which
+           exempts the default set from the very rule this index exists for.
+           SQL Server compares nulls as equal here, so the default set is held
+           to it like any other. */
+        b.HasIndex(x => new { x.SubCategoryId, x.Key }).IsUnique().HasFilter(null);
+
+        b.HasOne(x => x.SubCategory).WithMany().HasForeignKey(x => x.SubCategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 
