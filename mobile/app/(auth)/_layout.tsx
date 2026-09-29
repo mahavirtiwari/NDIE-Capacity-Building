@@ -7,7 +7,7 @@ export default function AuthLayout() {
       screenOptions={{
         /* The same crimson as the primary button, so the bar at the top and
            the action at the bottom read as one product rather than two. */
-        headerStyle: { backgroundColor: colors.brand600 },
+        headerStyle: { backgroundColor: colors.brand700 },
         headerTintColor: colors.white,
         headerTitleStyle: { color: colors.white, fontWeight: '700' },
         contentStyle: { backgroundColor: colors.page },

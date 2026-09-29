@@ -21,12 +21,12 @@ export default function RootLayout() {
             <OfflineNotice />
             <Stack
             screenOptions={{
-              /* Light bar, brand in the text and the icons, as the portal
-                 does it. A dark header on a light app reads as a different
-                 product on the same phone. */
-              headerStyle: { backgroundColor: colors.blush },
-              headerTintColor: colors.brand700,
-              headerTitleStyle: { fontWeight: '600', color: colors.ink900 },
+              /* The crimson of the primary button, carried across every bar
+                 in the app so the top of a screen and the action at the
+                 bottom of it belong to the same thing. */
+              headerStyle: { backgroundColor: colors.brand700 },
+              headerTintColor: colors.white,
+              headerTitleStyle: { fontWeight: '700', color: colors.white },
               contentStyle: { backgroundColor: colors.page },
             }}
           >
@@ -38,6 +38,7 @@ export default function RootLayout() {
               options={{ title: 'Apply', presentation: 'card' }}
             />
             <Stack.Screen name="application/[id]" options={{ title: 'Application' }} />
+            <Stack.Screen name="payments" options={{ title: 'Payments' }} />
             <Stack.Screen name="exam/[participantId]" options={{ title: 'Examination' }} />
             {/* No back arrow: a paper is left through the submit button or the
                 warning behind the hardware key, not by drifting out of it. */}
