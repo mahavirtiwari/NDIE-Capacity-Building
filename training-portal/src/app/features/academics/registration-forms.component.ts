@@ -21,6 +21,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
 import { DynamicFormComponent } from '../../shared/components/dynamic-form.component';
+import { CanDirective } from '../../shared/directives/can.directive';
 import { IconComponent } from '../../shared/components/icon.component';
 import { ProgramTypeLinkageComponent } from '../../shared/components/program-type-linkage.component';
 import { ModalComponent } from '../../shared/components/modal.component';
@@ -60,6 +61,7 @@ function blankField(): RegistrationField {
   selector: 'app-registration-forms',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CanDirective,
     ReactiveFormsModule,
     PageHeaderComponent,
     DataTableComponent,
@@ -78,7 +80,7 @@ function blankField(): RegistrationField {
       icon="form"
       [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.registrationForms.title') }]"
     >
-      <button type="button" class="btn btn--primary" (click)="openBuilder()">
+      <button *appCan="'masters.manage'" type="button" class="btn btn--primary" (click)="openBuilder()">
         <app-icon name="plus" [size]="15" /> New form
       </button>
     </app-page-header>

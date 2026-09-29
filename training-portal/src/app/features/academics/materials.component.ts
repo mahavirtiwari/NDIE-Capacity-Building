@@ -1,3 +1,4 @@
+import { CanDirective } from '../../shared/directives/can.directive';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
@@ -45,6 +46,7 @@ const KIND_ICONS: Record<string, IconName> = {
   selector: 'app-materials',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CanDirective,
     ReactiveFormsModule,
     PageHeaderComponent,
     DataTableComponent,
@@ -64,7 +66,7 @@ const KIND_ICONS: Record<string, IconName> = {
       icon="video"
       [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.materials.title') }]"
     >
-      <button type="button" class="btn btn--primary" (click)="openForm()">
+      <button *appCan="'materials.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="upload" [size]="15" /> Publish material
       </button>
     </app-page-header>

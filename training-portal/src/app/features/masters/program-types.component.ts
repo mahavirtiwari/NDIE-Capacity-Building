@@ -23,6 +23,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { CascadeSelectComponent } from '../../shared/components/cascade-select.component';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
+import { CanDirective } from '../../shared/directives/can.directive';
 import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
@@ -52,6 +53,7 @@ const COLUMNS: ColumnDef[] = [
   selector: 'app-program-types',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CanDirective,
     ReactiveFormsModule,
     UppercaseDirective,
     RouterLink,
@@ -71,7 +73,7 @@ const COLUMNS: ColumnDef[] = [
       icon="layers"
       [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.programTypes.title') }]"
     >
-      <button type="button" class="btn btn--primary" (click)="openForm()">
+      <button *appCan="'masters.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New program type
       </button>
     </app-page-header>

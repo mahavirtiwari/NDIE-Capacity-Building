@@ -15,6 +15,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { ProgramTypeLinkageComponent } from '../../shared/components/program-type-linkage.component';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
+import { CanDirective } from '../../shared/directives/can.directive';
 import { IconComponent } from '../../shared/components/icon.component';
 import { LookupService } from '../../core/services/masters.service';
 import { MasterFilterComponent } from '../../shared/components/master-filter.component';
@@ -39,6 +40,7 @@ const COLUMNS: ColumnDef[] = [
   selector: 'app-exam-papers',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CanDirective,
     ReactiveFormsModule,
     PageHeaderComponent,
     DataTableComponent,
@@ -57,7 +59,7 @@ const COLUMNS: ColumnDef[] = [
       icon="clipboard"
       [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.examPapers.title') }]"
     >
-      <button type="button" class="btn btn--primary" (click)="openForm()">
+      <button *appCan="'exams.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New exam paper
       </button>
     </app-page-header>

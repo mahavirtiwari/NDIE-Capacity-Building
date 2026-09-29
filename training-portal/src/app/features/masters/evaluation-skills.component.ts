@@ -11,6 +11,7 @@ import {
   ColumnDef,
   DataTableComponent,
 } from '../../shared/components/data-table.component';
+import { CanDirective } from '../../shared/directives/can.directive';
 import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
@@ -39,6 +40,7 @@ const COLUMNS: ColumnDef[] = [
   selector: 'app-evaluation-skills',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CanDirective,
     ReactiveFormsModule,
     RouterLink,
     PageHeaderComponent,
@@ -56,7 +58,7 @@ const COLUMNS: ColumnDef[] = [
       icon="clipboard"
       [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('skills.title') }]"
     >
-      <button type="button" class="btn btn--primary" [disabled]="!selected()" (click)="openForm()">
+      <button *appCan="'masters.manage'" type="button" class="btn btn--primary" [disabled]="!selected()" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New skill
       </button>
     </app-page-header>

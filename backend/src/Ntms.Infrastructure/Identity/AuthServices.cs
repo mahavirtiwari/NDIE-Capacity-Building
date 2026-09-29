@@ -17,6 +17,13 @@ public interface ICurrentUser
     bool HasPermission(string permission);
 
     /// <summary>
+    /// Everything this account may do. Needed where the question is not "may
+    /// I do this" but "may I hand this on" — nobody grants what they do not
+    /// hold.
+    /// </summary>
+    IReadOnlyCollection<string> Permissions { get; }
+
+    /// <summary>
     /// The slice of the estate this account was allocated, one list per axis.
     /// On a scoped account an empty list means "nothing on that axis" — an
     /// unfinished allocation grants no access rather than all of it.

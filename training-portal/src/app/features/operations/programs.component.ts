@@ -21,6 +21,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { ProgramService } from '../../core/services/workflow.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
+import { CanDirective } from '../../shared/directives/can.directive';
 import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
@@ -45,6 +46,7 @@ const COLUMNS: ColumnDef[] = [
   selector: 'app-programs',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CanDirective,
     ReactiveFormsModule,
     RouterLink,
     DatePipe,
@@ -354,7 +356,7 @@ const COLUMNS: ColumnDef[] = [
         </div>
         <div footer>
           <button type="button" class="btn btn--secondary" (click)="examFor.set(null)">Cancel</button>
-          <button type="button" class="btn btn--primary" (click)="saveExam()">Save exam time</button>
+          <button *appCan="'programs.manage'" type="button" class="btn btn--primary" (click)="saveExam()">Save exam time</button>
         </div>
       </app-modal>
     }

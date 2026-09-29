@@ -8,6 +8,7 @@ import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
+import { CanDirective } from '../../shared/directives/can.directive';
 import { IconComponent } from '../../shared/components/icon.component';
 import { MasterFilterComponent } from '../../shared/components/master-filter.component';
 import { ModalComponent } from '../../shared/components/modal.component';
@@ -39,6 +40,7 @@ const COLUMNS: ColumnDef[] = [
   selector: 'app-agencies',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CanDirective,
     ReactiveFormsModule,
     UppercaseDirective,
     DatePipe,
@@ -59,7 +61,7 @@ const COLUMNS: ColumnDef[] = [
       icon="building"
       [breadcrumbs]="[{ label: 'Administration' }, { label: copy.text('page.agencies.title') }]"
     >
-      <button type="button" class="btn btn--primary" (click)="openForm()">
+      <button *appCan="'agencies.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New agency
       </button>
     </app-page-header>

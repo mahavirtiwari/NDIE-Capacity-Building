@@ -10,6 +10,7 @@ import {
   ColumnDef,
   DataTableComponent,
 } from '../../shared/components/data-table.component';
+import { CanDirective } from '../../shared/directives/can.directive';
 import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
@@ -30,6 +31,7 @@ const COLUMNS: ColumnDef[] = [
   selector: 'app-qualifications',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CanDirective,
     ReactiveFormsModule,
     PageHeaderComponent,
     DataTableComponent,
@@ -49,7 +51,7 @@ const COLUMNS: ColumnDef[] = [
         { label: copy.text('page.qualifications.title') },
       ]"
     >
-      <button type="button" class="btn btn--primary" (click)="openForm()">
+      <button *appCan="'masters.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New qualification
       </button>
     </app-page-header>

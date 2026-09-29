@@ -14,6 +14,7 @@ import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
+import { CanDirective } from '../../shared/directives/can.directive';
 import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
@@ -58,6 +59,7 @@ const labelFor = (base: string): string => ROLE_LABELS[base as AppRole] ?? base;
   selector: 'app-roles',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CanDirective,
     ReactiveFormsModule,
     PageHeaderComponent,
     DataTableComponent,
@@ -74,7 +76,7 @@ const labelFor = (base: string): string => ROLE_LABELS[base as AppRole] ?? base;
       icon="shield"
       [breadcrumbs]="[{ label: 'Administration' }, { label: copy.text('page.roles.title') }]"
     >
-      <button type="button" class="btn btn--primary" (click)="openForm()">
+      <button *appCan="'roles.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New role
       </button>
     </app-page-header>

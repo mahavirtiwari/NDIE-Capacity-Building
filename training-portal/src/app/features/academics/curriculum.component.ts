@@ -15,6 +15,7 @@ import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
+import { CanDirective } from '../../shared/directives/can.directive';
 import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
@@ -32,6 +33,7 @@ const COLUMNS: ColumnDef[] = [
   selector: 'app-curriculum',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CanDirective,
     ReactiveFormsModule,
     RouterLink,
     PageHeaderComponent,
@@ -47,7 +49,7 @@ const COLUMNS: ColumnDef[] = [
       icon="book"
       [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.curriculum.title') }]"
     >
-      <button type="button" class="btn btn--primary" (click)="openForm()">
+      <button *appCan="'curriculum.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New curriculum
       </button>
     </app-page-header>

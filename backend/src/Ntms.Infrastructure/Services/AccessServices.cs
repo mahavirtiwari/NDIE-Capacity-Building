@@ -12,7 +12,7 @@ namespace Ntms.Infrastructure.Services;
 
 /* -------------------------------------------------------------------- roles */
 
-public class RoleService(NtmsDbContext db)
+public class RoleService(NtmsDbContext db, ICurrentUser currentUser)
 {
     private IQueryable<AdminRole> Base => db.Roles.AsNoTracking().Include(r => r.Permissions);
 
@@ -62,6 +62,11 @@ public class RoleService(NtmsDbContext db)
     {
         var code = Formats.Normalise(dto.Code)!.Replace('-', '_');
         Validate(dto);
+
+        var tier = EnumMaps.ParseEnum(dto.BaseRole, BaseRole.Admin);
+        EnsureMayShape(tier);
+        EnsureMayGrant(dto.Permissions);
+
         if (await db.Roles.AnyAsync(r => r.Code == code, ct))
             throw AppException.Conflict($"Role code '{code}' is already in use.");
 
@@ -87,6 +92,13 @@ public class RoleService(NtmsDbContext db)
         var entity = await db.Roles.Include(r => r.Permissions).FirstOrDefaultAsync(r => r.Id == id, ct)
                      ?? throw AppException.NotFound("Role");
         Validate(dto);
+
+        /* The role as it stands, and the role it would become: both have to be
+           beneath the caller. Checking only the target would let somebody
+           promote a role they may edit into one they may not. */
+        EnsureMayShape(entity.BaseRole);
+        if (!entity.IsSystemRole) EnsureMayShape(EnumMaps.ParseEnum(dto.BaseRole, entity.BaseRole));
+        EnsureMayGrant(dto.Permissions, entity.Permissions.Select(p => p.Permission));
 
         /* A system role keeps its identity; only its permission set may move. */
         if (!entity.IsSystemRole)
@@ -115,12 +127,82 @@ public class RoleService(NtmsDbContext db)
     {
         var entity = await db.Roles.FirstOrDefaultAsync(r => r.Id == id, ct)
                      ?? throw AppException.NotFound("Role");
+        EnsureMayShape(entity.BaseRole);
+
         if (entity.IsSystemRole)
             throw new AppException("System roles cannot be disabled.");
 
         entity.Status = EnumMaps.ToStatus(status);
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// A role may only be shaped by somebody above it.
+    ///
+    /// Without this, anybody holding roles.manage could edit the Super Admin
+    /// role, or promote a role they already control to a tier above their own.
+    /// The permission to administer roles is not the permission to administer
+    /// every role.
+    /// </summary>
+    private void EnsureMayShape(BaseRole target)
+    {
+        var actor = currentUser.Tier;
+
+        if (actor is null)
+            throw AppException.Forbidden("Sign in again before changing roles.");
+
+        if (actor == BaseRole.SuperAdmin) return;
+
+        if (!RoleHierarchy.Outranks(actor.Value, target))
+        {
+            throw AppException.Forbidden(
+                $"{Article(actor.Value, capital: true)} cannot change " +
+                $"{Article(target)} role. A role can only be changed from above it.");
+        }
+    }
+
+    /// <summary>
+    /// "An Admin", "a Super Admin" — the article the name actually takes, and
+    /// only the article is lower cased. The role's own name is a proper noun
+    /// on the screens that show it, so it keeps its capitals here too.
+    /// </summary>
+    private static string Article(BaseRole role, bool capital = false)
+    {
+        var name = RoleHierarchy.DisplayName(role);
+        var article = "AEIOU".Contains(char.ToUpperInvariant(name[0])) ? "an" : "a";
+        return (capital ? char.ToUpperInvariant(article[0]) + article[1..] : article) + " " + name;
+    }
+
+    /// <summary>
+    /// Nobody hands on what they do not hold.
+    ///
+    /// The other half of the same hole: a role you may edit is a role you
+    /// could otherwise load with every permission in the system and then
+    /// assign to yourself. What you may grant is bounded by what you have.
+    /// </summary>
+    private void EnsureMayGrant(
+        IEnumerable<string> permissions, IEnumerable<string>? alreadyOnTheRole = null)
+    {
+        if (currentUser.Tier == BaseRole.SuperAdmin) return;
+
+        var held = currentUser.Permissions.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        /* Only what is being added. Saving a role replaces its whole permission
+           set, so without this an Operation Manager role holding one permission
+           the Admin lacks could never be edited by that Admin at all — not even
+           to change its description. Keeping what is already there is not a
+           grant; adding to it is. */
+        foreach (var existing in alreadyOnTheRole ?? []) held.Add(existing);
+
+        var beyond = permissions.Distinct().Where(p => !held.Contains(p)).ToList();
+
+        if (beyond.Count > 0)
+        {
+            throw AppException.Forbidden(
+                "You can only grant permissions you hold yourself. Not yours to give: " +
+                string.Join(", ", beyond.Order()) + ".");
+        }
     }
 
     private static void Validate(AdminRoleUpsertDto dto)

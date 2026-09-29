@@ -19,6 +19,9 @@ public class UserScopeMiddleware(RequestDelegate next)
     /// <summary>Where the loaded scope is left for <c>CurrentUser</c> to find.</summary>
     public const string ItemKey = "ntms.user-scope";
 
+    /// <summary>Where the loaded permissions are left, for the same readers.</summary>
+    public const string PermissionsKey = "ntms.user-permissions";
+
     public async Task InvokeAsync(HttpContext context, UserScopeProvider scopes)
     {
         var principal = context.User;
@@ -32,6 +35,22 @@ public class UserScopeMiddleware(RequestDelegate next)
         if (scoped && hasId)
         {
             context.Items[ItemKey] = await scopes.LoadAsync(userId, context.RequestAborted);
+        }
+
+        /* Every portal account, scoped or not, because a permission is not a
+           scope: an Admin and the Ministry are unscoped and still answer to
+           what their role grants.
+
+           Not the Super Admin, who is allowed everything by definition and
+           would only be paying for a query whose answer never changes the
+           outcome — and not an applicant, whose token carries no user id and
+           who has no role to read permissions from. */
+        var superAdmin = principal?.IsInRole(nameof(Domain.Common.BaseRole.SuperAdmin)) == true;
+
+        if (hasId && !superAdmin)
+        {
+            context.Items[PermissionsKey] =
+                await scopes.LoadPermissionsAsync(userId, context.RequestAborted);
         }
 
         await next(context);

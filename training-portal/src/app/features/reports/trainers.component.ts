@@ -11,6 +11,7 @@ import {
   ColumnDef,
   DataTableComponent,
 } from '../../shared/components/data-table.component';
+import { CanDirective } from '../../shared/directives/can.directive';
 import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
@@ -30,6 +31,7 @@ const COLUMNS: ColumnDef[] = [
   selector: 'app-trainers',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CanDirective,
     ReactiveFormsModule,
     PageHeaderComponent,
     DataTableComponent,
@@ -44,7 +46,7 @@ const COLUMNS: ColumnDef[] = [
       icon="user-check"
       [breadcrumbs]="[{ label: 'Reports' }, { label: copy.text('page.trainers.title') }]"
     >
-      <button type="button" class="btn btn--primary" (click)="openForm()">
+      <button *appCan="'programs.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> Add trainer
       </button>
     </app-page-header>

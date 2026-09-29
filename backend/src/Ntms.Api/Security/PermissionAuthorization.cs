@@ -42,20 +42,49 @@ public class PermissionPolicyProvider(IOptions<AuthorizationOptions> options)
     }
 }
 
-public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
+public class PermissionHandler(IHttpContextAccessor accessor)
+    : AuthorizationHandler<PermissionRequirement>
 {
     protected override Task HandleRequirementAsync(
         AuthorizationHandlerContext context,
         PermissionRequirement requirement)
     {
-        /* Super Admin is allowed everything by definition; everyone else needs
-           the explicit permission claim minted at sign-in. */
-        var isSuperAdmin = context.User.IsInRole(BaseRole.SuperAdmin.ToString());
-        var hasClaim = context.User.HasClaim(JwtTokenService.PermissionClaim, requirement.Permission);
+        /* Super Admin is allowed everything by definition. */
+        if (context.User.IsInRole(BaseRole.SuperAdmin.ToString()))
+        {
+            context.Succeed(requirement);
+            return Task.CompletedTask;
+        }
 
-        if (isSuperAdmin || hasClaim) context.Succeed(requirement);
+        if (PermissionSet.Current(accessor) is { } granted)
+        {
+            /* The role as it stands now, loaded this request. A permission
+               taken away stops working on the next call rather than whenever
+               the holder's token happens to expire. */
+            if (granted.Contains(requirement.Permission)) context.Succeed(requirement);
+            return Task.CompletedTask;
+        }
+
+        /* Nothing loaded: a context the middleware does not run in. The claims
+           minted at sign-in are the fallback, which is what the whole system
+           ran on before. */
+        if (context.User.HasClaim(JwtTokenService.PermissionClaim, requirement.Permission))
+        {
+            context.Succeed(requirement);
+        }
+
         return Task.CompletedTask;
     }
+}
+
+/// <summary>Reads the permissions the middleware loaded for this request.</summary>
+internal static class PermissionSet
+{
+    public static IReadOnlyCollection<string>? Current(IHttpContextAccessor accessor) =>
+        accessor.HttpContext?.Items
+            .TryGetValue(Middleware.UserScopeMiddleware.PermissionsKey, out var value) == true
+            ? value as IReadOnlyCollection<string>
+            : null;
 }
 
 /// <summary>Reads the signed-in principal out of the current request.</summary>
@@ -86,9 +115,29 @@ public class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser, ICurrent
 
     public bool IsAuthenticated => Principal?.Identity?.IsAuthenticated ?? false;
 
-    public bool HasPermission(string permission) =>
+    /// <summary>
+    /// What this account may do, as its role grants it now.
+    ///
+    /// The loaded set wins over the token's claims for the same reason the
+    /// loaded allocation does: the claims are what was true at sign-in, and a
+    /// permission that has since been withdrawn must not still work.
+    /// </summary>
+    public bool HasPermission(string permission)
+    {
+        if (Principal?.IsInRole(Ntms.Domain.Common.BaseRole.SuperAdmin.ToString()) == true)
+            return true;
+
+        return PermissionSet.Current(accessor) is { } granted
+            ? granted.Contains(permission)
+            : Principal?.HasClaim(JwtTokenService.PermissionClaim, permission) == true;
+    }
+
+    /// <summary>Everything this account may do, for the callers that need the set.</summary>
+    public IReadOnlyCollection<string> Permissions =>
         Principal?.IsInRole(Ntms.Domain.Common.BaseRole.SuperAdmin.ToString()) == true
-        || Principal?.HasClaim(JwtTokenService.PermissionClaim, permission) == true;
+            ? Ntms.Application.Common.Permissions.All
+            : PermissionSet.Current(accessor)
+              ?? [.. (Principal?.FindAll(JwtTokenService.PermissionClaim) ?? []).Select(c => c.Value)];
 
     /* Loaded onto the request by UserScopeMiddleware, which runs for every
        scoped account. Null means the middleware had nothing to load for this

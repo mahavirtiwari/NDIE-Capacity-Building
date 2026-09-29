@@ -15,6 +15,7 @@ import { LookupService } from '../../core/services/masters.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
+import { CanDirective } from '../../shared/directives/can.directive';
 import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
@@ -31,6 +32,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
   selector: 'app-signup-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CanDirective,
     ReactiveFormsModule,
     IconComponent,
     ModalComponent,
@@ -44,7 +46,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
       [subtitle]="copy.text('page.signupForm.subtitle')"
       [breadcrumbs]="[{ label: 'Administration' }, { label: copy.text('page.signupForm.title') }]"
     >
-      <button type="button" class="btn btn--primary" (click)="openForm()">
+      <button *appCan="'masters.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" />
         New field
       </button>

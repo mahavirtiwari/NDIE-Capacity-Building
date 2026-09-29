@@ -16,6 +16,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { ProgramTypeLinkageComponent } from '../../shared/components/program-type-linkage.component';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
+import { CanDirective } from '../../shared/directives/can.directive';
 import { IconComponent } from '../../shared/components/icon.component';
 import { LookupService } from '../../core/services/masters.service';
 import { MasterFilterComponent } from '../../shared/components/master-filter.component';
@@ -42,6 +43,7 @@ const COLUMNS: ColumnDef[] = [
   selector: 'app-fees',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CanDirective,
     ReactiveFormsModule,
     PageHeaderComponent,
     DataTableComponent,
@@ -61,7 +63,7 @@ const COLUMNS: ColumnDef[] = [
       icon="rupee"
       [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.fees.title') }]"
     >
-      <button type="button" class="btn btn--primary" (click)="openForm()">
+      <button *appCan="'fees.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New fee structure
       </button>
     </app-page-header>

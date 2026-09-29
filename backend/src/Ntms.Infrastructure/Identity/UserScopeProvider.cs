@@ -33,6 +33,33 @@ public sealed record UserScope(
 public class UserScopeProvider(NtmsDbContext db)
 {
     /// <summary>
+    /// What the account may do, as its role grants it now.
+    ///
+    /// Read per request for the same reason the allocation is, and for one
+    /// more: a permission taken away has to stop working. On the token it did
+    /// not — the claims were minted at sign-in, so somebody whose role had
+    /// been cut back to read-only kept every write they had held until their
+    /// token happened to expire, which could be a working day later. They
+    /// could see the change on the roles screen and still act against it.
+    ///
+    /// Not cached. A cache here is a window in which a revoked permission
+    /// still works, and the whole point of the change is that there is no such
+    /// window. It is one indexed read against a table of a few dozen rows.
+    /// </summary>
+    public async Task<IReadOnlyCollection<string>> LoadPermissionsAsync(
+        int userId, CancellationToken ct)
+    {
+        var granted = await db.Users.AsNoTracking()
+            .Where(u => u.Id == userId && u.Status == Domain.Common.RecordStatus.Active)
+            .SelectMany(u => u.Role!.Permissions.Select(p => p.Permission))
+            .ToListAsync(ct);
+
+        /* A disabled or deleted account grants nothing, rather than falling
+           back to whatever its token still claims. */
+        return granted.ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// The five lists in one round trip.
     ///
     /// Split rather than joined: allocations multiply against each other, and
