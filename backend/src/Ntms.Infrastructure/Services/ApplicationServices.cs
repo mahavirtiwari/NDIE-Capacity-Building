@@ -72,8 +72,30 @@ public class ApplicantService(
             .When(string.IsNullOrWhiteSpace(dto.SocialCategory), "Select a social category.")
             .ThrowIfInvalid();
 
-        if (await db.Applicants.AnyAsync(a => a.Pan == pan!, ct))
-            throw AppException.Conflict("An applicant with this PAN is already registered.");
+        /* One registration per person per category, the person being their PAN.
+           A category is entered once, under one sub-category — somebody
+           already registered for Bronze cannot also register for Silver. The
+           same PAN under a different category is a separate registration and
+           is allowed, which is why this is not a check on PAN alone.
+
+           The database enforces the same rule on (Pan, CategoryId); this is
+           here to say it in words rather than as an index violation. */
+        var already = await db.Applicants.AsNoTracking()
+            .Where(a => a.Pan == pan! && a.CategoryId == dto.CategoryId)
+            .Select(a => new { Category = a.Category!.Name, SubCategory = a.SubCategory!.Name })
+            .FirstOrDefaultAsync(ct);
+
+        if (already is not null)
+        {
+            /* The sub-category is named because it is what makes the refusal
+               actionable. The applicant ID they already hold is not: this
+               endpoint is anonymous, and that ID is what they sign in with. */
+            throw AppException.Conflict(
+                $"This PAN is already registered under {already.Category}, for " +
+                $"{already.SubCategory}. A category can only be entered once, so the same PAN " +
+                "can be registered under a different category but not under another " +
+                $"sub-category of {already.Category}.");
+        }
 
         var entity = new Applicant
         {

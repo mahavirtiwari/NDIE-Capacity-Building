@@ -152,7 +152,16 @@ public class ApplicantConfiguration : IEntityTypeConfiguration<Applicant>
         /* Same rule as portal users: the generated code is the identity. */
         b.HasIndex(x => x.ApplicantCode).IsUnique();
         b.HasIndex(x => x.Email);
-        b.HasIndex(x => x.Pan).IsUnique();
+
+        /* One registration per person per category, where the person is their
+           PAN. Not unique on PAN alone: the same person may train under more
+           than one category, and each of those is a registration of its own
+           with its own applicant ID. What they may not do is hold two within
+           one category — a category is entered once, under one sub-category.
+
+           The service says so in words; this is what makes it true even if two
+           sign-ups arrive at the same moment. */
+        b.HasIndex(x => new { x.Pan, x.CategoryId }).IsUnique();
 
         b.HasOne(x => x.Category).WithMany().HasForeignKey(x => x.CategoryId)
             .OnDelete(DeleteBehavior.Restrict);
