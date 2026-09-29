@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { Alert, FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ApiError } from '../../src/api/client';
 import { me } from '../../src/api/endpoints';
 import type { TrainingMaterial } from '../../src/api/types';
 import { useResource } from '../../src/api/useResource';
@@ -29,16 +30,35 @@ export default function Materials() {
     if (!material.url) {
       Alert.alert(
         material.title,
-        'This item is attached as a file. Download it from the web portal, or ask your coordinator to share it.',
+        'Nothing has been attached to this item yet. Ask your coordinator.',
       );
       return;
     }
-    const supported = await Linking.canOpenURL(material.url);
+
+    /* Two kinds of address. A published link is somewhere else on the web
+       and is followed as typed; anything uploaded is fetched through a
+       one-shot ticket, because the viewer that opens it cannot carry this
+       applicant's token. */
+    let target = material.url;
+
+    if (!material.url.includes('://')) {
+      try {
+        target = (await me.materialTicket(material.id)).url;
+      } catch (caught) {
+        Alert.alert(
+          'Cannot open',
+          caught instanceof ApiError ? caught.message : 'That file could not be opened.',
+        );
+        return;
+      }
+    }
+
+    const supported = await Linking.canOpenURL(target);
     if (!supported) {
-      Alert.alert('Cannot open', 'No app on this device can open that link.');
+      Alert.alert('Cannot open', 'No app on this device can open that.');
       return;
     }
-    await Linking.openURL(material.url);
+    await Linking.openURL(target);
   };
 
   if (materials.loading) return <Loading label="Loading material…" />;

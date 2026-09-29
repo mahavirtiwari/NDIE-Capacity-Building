@@ -6,6 +6,7 @@ using Ntms.Domain.Common;
 using Ntms.Domain.Entities;
 using Ntms.Infrastructure.Mapping;
 using Ntms.Infrastructure.Persistence;
+using Ntms.Infrastructure.Storage;
 
 namespace Ntms.Infrastructure.Services;
 
@@ -429,7 +430,11 @@ public class ExamPaperService(NtmsDbContext db)
 
 /* ----------------------------------------------------------- training material */
 
-public class TrainingMaterialService(NtmsDbContext db, ICurrentUserRoles roles)
+public class TrainingMaterialService(
+    NtmsDbContext db,
+    ICurrentUserRoles roles,
+    TrainingMaterialStore store,
+    SystemSettingService settings)
 {
     private IQueryable<TrainingMaterial> Base => db.TrainingMaterials.AsNoTracking()
         .Include(m => m.Category)
@@ -473,6 +478,114 @@ public class TrainingMaterialService(NtmsDbContext db, ICurrentUserRoles roles)
     public async Task<TrainingMaterialDto> GetAsync(int id, CancellationToken ct) =>
         (await Base.FirstOrDefaultAsync(m => m.Id == id, ct)
          ?? throw AppException.NotFound("Training material")).ToDto();
+
+    /* ------------------------------------------------------ the file ---- */
+
+    /// <summary>
+    /// Stores an uploaded file and hands back what the material row should
+    /// record about it. The row itself is saved separately, by the form the
+    /// upload came from — an upload that is never published is an orphaned
+    /// file, which a sweep can find, where a half-written row could not be.
+    /// </summary>
+    public async Task<MaterialFileDto> UploadAsync(
+        Stream content, string? contentType, string? fileName, long length,
+        int programTypeId, CancellationToken ct)
+    {
+        if (programTypeId <= 0)
+            throw new AppException("Choose the program type before uploading the file.");
+
+        var stored = await store.SaveAsync(
+            content, contentType, fileName, length, programTypeId,
+            await settings.MaxUploadBytesAsync(ct), ct);
+
+        return new MaterialFileDto
+        {
+            Url = stored.RelativePath,
+            FileName = stored.FileName,
+            FileSizeKb = Math.Max(1, stored.SizeBytes / 1024),
+            MimeType = stored.ContentType,
+            CanPreview = TrainingMaterialStore.CanPreview(stored.ContentType),
+        };
+    }
+
+    /// <summary>
+    /// Opens a published file for whoever is asking, if their role may have
+    /// it.
+    ///
+    /// The visibility on the row is the whole point of the feature, so it is
+    /// enforced here rather than left to the list that found the row: a
+    /// direct request for a file by id must obey the same rule as the list
+    /// that would have shown it.
+    /// </summary>
+    public async Task<(Stream Content, string ContentType, string FileName, bool Inline)>
+        OpenAsync(int id, bool wantsDownload, CancellationToken ct)
+    {
+        await CheckAsync(id, wantsDownload, ct);
+        return await ReadAsync(id, wantsDownload, ct);
+    }
+
+    /// <summary>
+    /// Whether the caller may have this file, without opening it. Used to
+    /// issue a download ticket: the check happens while there is still a
+    /// signed-in caller to check.
+    /// </summary>
+    public async Task CheckAsync(int id, bool wantsDownload, CancellationToken ct)
+    {
+        var material = await db.TrainingMaterials.AsNoTracking()
+            .FirstOrDefaultAsync(m => m.Id == id, ct)
+            ?? throw AppException.NotFound("Training material");
+
+        var role = roles.BaseRole ?? "Applicant";
+
+        /* Whoever may manage material may open any of it - that is what
+           publishing it involves. Everybody else gets what their role was
+           given, and only while it is active. */
+        var mayManage = roles.HasPermission(Permissions.MaterialsManage);
+        if (!mayManage)
+        {
+            if (material.Status != RecordStatus.Active
+                || !EnumMaps.SplitList(material.VisibleToRoles)
+                    .Contains(role, StringComparer.OrdinalIgnoreCase))
+            {
+                throw AppException.Forbidden("This material is not available to your role.");
+            }
+
+            if (wantsDownload && !material.DownloadAllowed)
+                throw AppException.Forbidden("This material can be viewed but not downloaded.");
+        }
+
+        if (string.IsNullOrWhiteSpace(material.Url))
+            throw AppException.NotFound("File");
+
+        /* A Link has no file of its own; the caller follows the URL. */
+        if (material.Url.Contains("://", StringComparison.Ordinal))
+            throw new AppException("This material is a link. Open it directly.");
+    }
+
+    /// <summary>
+    /// Streams the file. The permission was settled by <see cref="CheckAsync"/>
+    /// or by the ticket that stood in for it, so nothing is decided here.
+    /// </summary>
+    public async Task<(Stream Content, string ContentType, string FileName, bool Inline)>
+        ReadAsync(int id, bool wantsDownload, CancellationToken ct)
+    {
+        var material = await db.TrainingMaterials.AsNoTracking()
+            .FirstOrDefaultAsync(m => m.Id == id, ct)
+            ?? throw AppException.NotFound("Training material");
+
+        if (string.IsNullOrWhiteSpace(material.Url))
+            throw AppException.NotFound("File");
+
+        var contentType = string.IsNullOrWhiteSpace(material.MimeType)
+            ? "application/octet-stream"
+            : material.MimeType;
+
+        return (
+            store.Open(material.Url),
+            contentType,
+            string.IsNullOrWhiteSpace(material.FileName) ? $"material-{id}" : material.FileName,
+            !wantsDownload && TrainingMaterialStore.CanPreview(contentType));
+    }
 
     public async Task<TrainingMaterialDto> CreateAsync(
         TrainingMaterialUpsertDto dto, CancellationToken ct)
@@ -553,4 +666,11 @@ public class TrainingMaterialService(NtmsDbContext db, ICurrentUserRoles roles)
 public interface ICurrentUserRoles
 {
     string? BaseRole { get; }
+
+    /// <summary>
+    /// Whether the caller holds one permission. Needed alongside the role
+    /// because material is visible by role but manageable by permission, and
+    /// somebody who publishes it must be able to open what they published.
+    /// </summary>
+    bool HasPermission(string permission);
 }

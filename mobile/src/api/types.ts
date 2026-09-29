@@ -200,6 +200,11 @@ export interface SignupForm {
   fields: SignupField[];
 }
 
+export interface MaterialTicket {
+  url: string;
+  expiresInSeconds: number;
+}
+
 /* -------------------------------------------------------------- payments */
 
 export interface PaymentLine {

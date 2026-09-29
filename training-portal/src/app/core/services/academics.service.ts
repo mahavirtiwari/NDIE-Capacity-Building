@@ -1,3 +1,4 @@
+import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
@@ -40,9 +41,41 @@ export class ExamPaperService extends CrudService<ExamPaper> {
   protected readonly resource = 'exam-papers';
 }
 
+/** What an upload becomes, ready for the publish form to record. */
+export interface MaterialFile {
+  url: string;
+  fileName: string;
+  fileSizeKb: number;
+  mimeType: string;
+  canPreview: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class TrainingMaterialService extends CrudService<TrainingMaterial> {
   protected readonly resource = 'materials';
+  private readonly http = inject(HttpClient);
+
+  /** Sends the file itself, before the row that will point at it is saved. */
+  upload(file: File, programTypeId: Id): Observable<MaterialFile> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('programTypeId', String(programTypeId));
+    return this.api.upload<MaterialFile>(`${this.resource}/upload`, form);
+  }
+
+  /**
+   * The published file, as a blob.
+   *
+   * Fetched rather than pointed at: the endpoint needs the bearer token, and
+   * an <iframe src> would not carry one. The caller makes an object URL of
+   * what comes back and revokes it when the preview closes.
+   */
+  file(id: Id, download = false): Observable<Blob> {
+    return this.http.get(this.api.fileUrl(`${this.resource}/${id}/file`), {
+      params: download ? { download: true } : undefined,
+      responseType: 'blob',
+    });
+  }
 }
 
 /**

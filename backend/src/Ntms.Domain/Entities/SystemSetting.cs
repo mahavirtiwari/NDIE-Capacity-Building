@@ -60,4 +60,55 @@ public class SystemSetting : AuditableEntity
     /// <summary>Where the gateway returns the payer to. Blank uses the site's own URL.</summary>
     public string? ReturnUrl { get; set; }
     public string? CancelUrl { get; set; }
+
+    /* -------------------------------------------------------- uploads */
+
+    /// <summary>
+    /// The largest file anybody may publish, in megabytes.
+    ///
+    /// Here rather than in a config file because the answer changes with the
+    /// disk the deployment sits on and with what a department is trying to
+    /// put up, and neither is worth a release.
+    /// </summary>
+    public int MaxUploadMb { get; set; } = 64;
+
+    /* ----------------------------------------------- PAN verification */
+
+    /// <summary>
+    /// Off until a provider is contracted. Turning it on before one is
+    /// reachable would fail every registration, so it is a decision somebody
+    /// makes deliberately rather than a default.
+    /// </summary>
+    public bool PanVerificationEnabled { get; set; }
+
+    /// <summary>Who the service belongs to, for the screen to name.</summary>
+    public string? PanProvider { get; set; }
+
+    /// <summary>The endpoint a PAN is posted to.</summary>
+    public string? PanEndpoint { get; set; }
+
+    /// <summary>
+    /// The provider's key. Write only, like the SMTP password and the
+    /// gateway's working key: the API accepts it and never sends it back.
+    /// </summary>
+    public string? PanApiKey { get; set; }
+
+    public string PanApiKeyHeader { get; set; } = "X-API-KEY";
+
+    /// <summary>
+    /// Where the answer sits in the provider's JSON, as dotted paths, so a
+    /// change of provider is a settings change rather than a deployment.
+    /// </summary>
+    public string PanValidPath { get; set; } = "valid";
+    public string PanNamePath { get; set; } = "name";
+
+    public int PanTimeoutSeconds { get; set; } = 10;
+
+    /// <summary>
+    /// What to do when the provider cannot be reached. False lets the
+    /// registration through and leaves the PAN unverified, so an outage at a
+    /// third party does not close the scheme to new applicants. True refuses,
+    /// for when a verified PAN is a hard requirement.
+    /// </summary>
+    public bool PanRefuseWhenUnavailable { get; set; }
 }

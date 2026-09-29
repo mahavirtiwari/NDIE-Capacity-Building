@@ -4,6 +4,7 @@ using Ntms.Api.Security;
 using Ntms.Application.Common;
 using Ntms.Application.Contracts;
 using Ntms.Infrastructure.Services;
+using Ntms.Infrastructure.Storage;
 
 namespace Ntms.Api.Controllers;
 
@@ -196,7 +197,9 @@ public class ExamPapersController(ExamPaperService service) : ApiControllerBase
 }
 
 [Route("api/materials")]
-public class MaterialsController(TrainingMaterialService service) : ApiControllerBase
+public class MaterialsController(
+    TrainingMaterialService service,
+    MaterialTickets tickets) : ApiControllerBase
 {
     [HttpGet]
     [HasPermission(Permissions.MaterialsView)]
@@ -234,6 +237,93 @@ public class MaterialsController(TrainingMaterialService service) : ApiControlle
     public async Task<ActionResult<ApiEnvelope<TrainingMaterialDto>>> SetStatus(
         int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
         Envelope(await service.SetStatusAsync(id, dto.Status, ct));
+
+    /// <summary>
+    /// Takes the file itself. Answers with what the publish form should
+    /// record about it, so the row is written by the form as usual.
+    /// </summary>
+    [HttpPost("upload")]
+    [HasPermission(Permissions.MaterialsManage)]
+    [RequestSizeLimit(512L * 1024 * 1024)]
+    public async Task<ActionResult<ApiEnvelope<MaterialFileDto>>> Upload(
+        IFormFile file, [FromForm] int programTypeId, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0) throw new AppException("Choose a file to upload.");
+
+        await using var content = file.OpenReadStream();
+        return Envelope(
+            await service.UploadAsync(
+                content, file.ContentType, file.FileName, file.Length, programTypeId, ct),
+            "File uploaded.");
+    }
+
+    /// <summary>
+    /// The published file, for viewing or for download.
+    ///
+    /// Not behind MaterialsView: this is what an applicant or a coordinator
+    /// opens, and the row's own role list decides. The service enforces it.
+    /// </summary>
+    [HttpGet("{id:int}/file")]
+    public async Task<IActionResult> File(
+        int id, [FromQuery] bool download, CancellationToken ct)
+    {
+        var (content, contentType, fileName, inline) = await service.OpenAsync(id, download, ct);
+
+        /* Inline for anything a browser renders, so the preview shows in
+           place; an attachment otherwise, and always when asked for. */
+        Response.Headers.ContentDisposition =
+            $"{(inline ? "inline" : "attachment")}; filename=\"{Uri.EscapeDataString(fileName)}\"";
+
+        /* Ranges, so a video can be scrubbed rather than downloaded whole. */
+        return new FileStreamResult(content, contentType) { EnableRangeProcessing = true };
+    }
+
+    /// <summary>
+    /// A one-shot address for this file, for handing to something that cannot
+    /// send a token — the phone's browser or its PDF viewer.
+    ///
+    /// The permission is settled here, while there is still a signed-in
+    /// caller to settle it against.
+    /// </summary>
+    [HttpPost("{id:int}/ticket")]
+    public async Task<ActionResult<ApiEnvelope<MaterialTicketDto>>> Ticket(
+        int id, [FromQuery] bool download, CancellationToken ct)
+    {
+        await service.CheckAsync(id, download, ct);
+
+        var holder = CurrentUser.UserId?.ToString()
+                     ?? CurrentUser.ApplicantId?.ToString()
+                     ?? "unknown";
+
+        var (value, seconds) = tickets.Issue(id, holder, download);
+
+        return Envelope(new MaterialTicketDto
+        {
+            Url = $"{Request.Scheme}://{Request.Host}/api/materials/file/{value}",
+            ExpiresInSeconds = seconds,
+        });
+    }
+
+    /// <summary>
+    /// Serves a file against a ticket. Anonymous because the caller is a
+    /// viewer with no session; the ticket is what was checked, it names one
+    /// file, and it is spent on use.
+    /// </summary>
+    [HttpGet("file/{ticket}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ByTicket(string ticket, CancellationToken ct)
+    {
+        var redeemed = tickets.Redeem(ticket)
+            ?? throw new AppException("That link has expired. Open the material again.", 410);
+
+        var (content, contentType, fileName, inline) =
+            await service.ReadAsync(redeemed.MaterialId, redeemed.Download, ct);
+
+        Response.Headers.ContentDisposition =
+            $"{(inline ? "inline" : "attachment")}; filename=\"{Uri.EscapeDataString(fileName)}\"";
+
+        return new FileStreamResult(content, contentType) { EnableRangeProcessing = true };
+    }
 }
 
 /// <summary>

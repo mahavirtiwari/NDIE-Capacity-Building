@@ -247,6 +247,12 @@ public class SystemSettingConfiguration : IEntityTypeConfiguration<SystemSetting
         b.Property(x => x.WorkingKey).HasMaxLength(400);
         b.Property(x => x.ReturnUrl).HasMaxLength(500);
         b.Property(x => x.CancelUrl).HasMaxLength(500);
+        b.Property(x => x.PanProvider).HasMaxLength(80);
+        b.Property(x => x.PanEndpoint).HasMaxLength(500);
+        b.Property(x => x.PanApiKey).HasMaxLength(400);
+        b.Property(x => x.PanApiKeyHeader).HasMaxLength(80);
+        b.Property(x => x.PanValidPath).HasMaxLength(120);
+        b.Property(x => x.PanNamePath).HasMaxLength(120);
     }
 }
 

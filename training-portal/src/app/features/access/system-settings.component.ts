@@ -179,6 +179,156 @@ import { PageHeaderComponent } from '../../shared/components/page-header.compone
         </div>
       </section>
 
+      <!-- ------------------------------------------------- uploads -->
+      <section class="card">
+        <div class="card__header">
+          <div class="stack stack-xs">
+            <span class="card__title">Uploads</span>
+            <span class="card__subtitle">
+              How large a file may be published as training material.
+            </span>
+          </div>
+        </div>
+        <div class="card__body">
+          <div class="form-grid">
+            <div class="field">
+              <label class="field-label" for="maxUploadMb">Largest file (MB)</label>
+              <input
+                id="maxUploadMb"
+                class="input"
+                type="number"
+                min="1"
+                max="512"
+                formControlName="maxUploadMb"
+              />
+              <span class="field-hint">
+                Between 1 and 512. A video much larger than this belongs on a hosting service,
+                published here as a link.
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------ PAN verification -->
+      <section class="card">
+        <div class="card__header">
+          <div class="stack stack-xs">
+            <span class="card__title">PAN verification</span>
+            <span class="card__subtitle">
+              The service an applicant's PAN is checked against at registration.
+            </span>
+          </div>
+        </div>
+        <div class="card__body">
+          <div class="form-grid">
+            <div class="field">
+              <label class="field-label" for="panProvider">Provider</label>
+              <input
+                id="panProvider"
+                class="input"
+                formControlName="panProvider"
+                placeholder="Who the service belongs to"
+              />
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="panEndpoint">Endpoint</label>
+              <input
+                id="panEndpoint"
+                class="input"
+                formControlName="panEndpoint"
+                placeholder="https://…"
+              />
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="panApiKey">API key</label>
+              @if (current()?.hasPanApiKey && !replacingPanKey()) {
+                <div class="row row-sm">
+                  <span class="badge badge--success">Stored</span>
+                  <button type="button" class="btn btn--sm btn--secondary" (click)="replacePanKey()">
+                    Replace
+                  </button>
+                  <button type="button" class="btn btn--sm btn--subtle-danger" (click)="clearPanKey()">
+                    Remove
+                  </button>
+                </div>
+                <span class="field-hint">
+                  Held but never sent back, so this screen cannot disclose it.
+                </span>
+              } @else {
+                <input
+                  id="panApiKey"
+                  class="input"
+                  type="password"
+                  autocomplete="new-password"
+                  formControlName="panApiKey"
+                  placeholder="Paste the key from the provider"
+                />
+              }
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="panApiKeyHeader">Key header</label>
+              <input id="panApiKeyHeader" class="input" formControlName="panApiKeyHeader" />
+              <span class="field-hint">The header the key is sent in.</span>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="panValidPath">Answer field</label>
+              <input id="panValidPath" class="input" formControlName="panValidPath" />
+              <span class="field-hint">
+                Where "is it valid" sits in the reply, as a dotted path — so a change of
+                provider is a setting rather than a release.
+              </span>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="panNamePath">Name field</label>
+              <input id="panNamePath" class="input" formControlName="panNamePath" />
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="panTimeoutSeconds">Timeout (seconds)</label>
+              <input
+                id="panTimeoutSeconds"
+                class="input"
+                type="number"
+                min="3"
+                max="60"
+                formControlName="panTimeoutSeconds"
+              />
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="panRefuse">When the service is down</label>
+              <select id="panRefuse" class="select" formControlName="panRefuseWhenUnavailable">
+                <option [ngValue]="false">Let the registration through, PAN unverified</option>
+                <option [ngValue]="true">Refuse the registration</option>
+              </select>
+              <span class="field-hint">
+                An outage at a third party should not close the scheme to new applicants
+                unless a verified PAN is a hard requirement.
+              </span>
+            </div>
+
+            <div class="field field--span-2">
+              <label class="check">
+                <input type="checkbox" formControlName="panVerificationEnabled" />
+                <span>Check every PAN against this service</span>
+              </label>
+              @if (!current()?.panConfigured) {
+                <span class="field-hint">
+                  The endpoint and the key have to be in place first — switched on without
+                  them, every registration fails a check that never ran.
+                </span>
+              }
+            </div>
+          </div>
+        </div>
+      </section>
+
       <div class="btn-row btn-row--end">
         <button type="submit" class="btn btn--primary" [disabled]="saving()">
           @if (saving()) { <span class="spinner"></span> }
@@ -198,6 +348,7 @@ export class SystemSettingsComponent {
   protected readonly current = signal<SystemSettings | null>(null);
   protected readonly saving = signal(false);
   protected readonly replacingKey = signal(false);
+  protected readonly replacingPanKey = signal(false);
 
   protected readonly gateways = toSignal(this.service.gateways(), { initialValue: [] });
 
@@ -213,6 +364,16 @@ export class SystemSettingsComponent {
     workingKey: [''],
     returnUrl: [''],
     cancelUrl: [''],
+    maxUploadMb: [64],
+    panVerificationEnabled: [false],
+    panProvider: [''],
+    panEndpoint: [''],
+    panApiKey: [''],
+    panApiKeyHeader: ['X-API-KEY'],
+    panValidPath: ['valid'],
+    panNamePath: ['name'],
+    panTimeoutSeconds: [10],
+    panRefuseWhenUnavailable: [false],
   });
 
   constructor() {
@@ -223,6 +384,7 @@ export class SystemSettingsComponent {
     this.service.get().subscribe((settings) => {
       this.current.set(settings);
       this.replacingKey.set(false);
+      this.replacingPanKey.set(false);
       this.form.reset({
         maintenanceMode: settings.maintenanceMode,
         maintenanceMessage: settings.maintenanceMessage ?? '',
@@ -238,6 +400,16 @@ export class SystemSettingsComponent {
         workingKey: '',
         returnUrl: settings.returnUrl ?? '',
         cancelUrl: settings.cancelUrl ?? '',
+        maxUploadMb: settings.maxUploadMb,
+        panVerificationEnabled: settings.panVerificationEnabled,
+        panProvider: settings.panProvider ?? '',
+        panEndpoint: settings.panEndpoint ?? '',
+        panApiKey: '',
+        panApiKeyHeader: settings.panApiKeyHeader,
+        panValidPath: settings.panValidPath,
+        panNamePath: settings.panNamePath,
+        panTimeoutSeconds: settings.panTimeoutSeconds,
+        panRefuseWhenUnavailable: settings.panRefuseWhenUnavailable,
       });
     });
   }
@@ -265,7 +437,28 @@ export class SystemSettingsComponent {
     this.save(true);
   }
 
-  protected async save(clearingKey = false): Promise<void> {
+  protected replacePanKey(): void {
+    this.replacingPanKey.set(true);
+    this.form.controls.panApiKey.setValue('');
+  }
+
+  protected async clearPanKey(): Promise<void> {
+    const confirmed = await this.confirm.ask({
+      title: 'Remove the PAN API key?',
+      message:
+        'The service cannot be called without it, so PAN verification will be switched off until a new key is saved.',
+      confirmLabel: 'Remove',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    this.replacingPanKey.set(true);
+    this.form.controls.panApiKey.setValue('');
+    this.form.controls.panVerificationEnabled.setValue(false);
+    this.save(false, true);
+  }
+
+  protected async save(clearingKey = false, clearingPanKey = false): Promise<void> {
     const raw = this.form.getRawValue();
 
     if (raw.maintenanceMode && !this.current()?.maintenanceMode) {
@@ -296,6 +489,16 @@ export class SystemSettingsComponent {
         workingKey: clearingKey ? '' : raw.workingKey || undefined,
         returnUrl: raw.returnUrl || null,
         cancelUrl: raw.cancelUrl || null,
+        maxUploadMb: Number(raw.maxUploadMb),
+        panVerificationEnabled: raw.panVerificationEnabled,
+        panProvider: raw.panProvider || null,
+        panEndpoint: raw.panEndpoint || null,
+        panApiKey: clearingPanKey ? '' : raw.panApiKey || undefined,
+        panApiKeyHeader: raw.panApiKeyHeader || null,
+        panValidPath: raw.panValidPath || null,
+        panNamePath: raw.panNamePath || null,
+        panTimeoutSeconds: Number(raw.panTimeoutSeconds),
+        panRefuseWhenUnavailable: String(raw.panRefuseWhenUnavailable) === 'true',
       })
       .subscribe({
         next: (settings) => {

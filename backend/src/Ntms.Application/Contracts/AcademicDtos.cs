@@ -391,3 +391,29 @@ public class SignupFormDto
 
     public List<SignupFieldDto> Fields { get; set; } = [];
 }
+
+/// <summary>
+/// What an upload becomes: enough for the publish form to fill itself in,
+/// and nothing about where on disk it really sits beyond the relative path
+/// the row stores.
+/// </summary>
+public class MaterialFileDto
+{
+    public string Url { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
+    public long FileSizeKb { get; set; }
+    public string MimeType { get; set; } = string.Empty;
+
+    /// <summary>True when a browser will show it rather than download it.</summary>
+    public bool CanPreview { get; set; }
+}
+
+/// <summary>
+/// A short-lived address for one file, for handing to a viewer that cannot
+/// carry a token.
+/// </summary>
+public class MaterialTicketDto
+{
+    public string Url { get; set; } = string.Empty;
+    public int ExpiresInSeconds { get; set; }
+}

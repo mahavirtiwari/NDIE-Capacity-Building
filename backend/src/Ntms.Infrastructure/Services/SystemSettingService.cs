@@ -59,6 +59,12 @@ public class SystemSettingService(NtmsDbContext db)
                 "The maintenance message must be 500 characters or fewer.")
             .When(!IsAbsoluteUrl(dto.ReturnUrl), "The return URL must be a full http or https address.")
             .When(!IsAbsoluteUrl(dto.CancelUrl), "The cancel URL must be a full http or https address.")
+            .When(dto.MaxUploadMb is < 1 or > 512,
+                "The upload limit must be between 1 MB and 512 MB.")
+            .When(!IsAbsoluteUrl(dto.PanEndpoint),
+                "The PAN endpoint must be a full http or https address.")
+            .When(dto.PanTimeoutSeconds is < 3 or > 60,
+                "The PAN timeout must be between 3 and 60 seconds.")
             .ThrowIfInvalid();
 
         var row = await LoadAsync(ct);
@@ -89,6 +95,28 @@ public class SystemSettingService(NtmsDbContext db)
                 (missing.Count == 1 ? "is missing." : "are missing."));
         }
 
+        row.MaxUploadMb = dto.MaxUploadMb;
+
+        row.PanProvider = Blank(dto.PanProvider);
+        row.PanEndpoint = Blank(dto.PanEndpoint);
+        row.PanApiKeyHeader = Blank(dto.PanApiKeyHeader) ?? "X-API-KEY";
+        row.PanValidPath = Blank(dto.PanValidPath) ?? "valid";
+        row.PanNamePath = Blank(dto.PanNamePath) ?? "name";
+        row.PanTimeoutSeconds = dto.PanTimeoutSeconds;
+        row.PanRefuseWhenUnavailable = dto.PanRefuseWhenUnavailable;
+
+        if (dto.PanApiKey is not null) row.PanApiKey = Blank(dto.PanApiKey);
+
+        /* Same rule as the gateway: switched on with nowhere to ask means
+           every registration fails a check that never ran. */
+        row.PanVerificationEnabled = dto.PanVerificationEnabled;
+        if (row.PanVerificationEnabled && PanMissing(row) is { Count: > 0 } lacking)
+        {
+            throw new AppException(
+                $"PAN verification cannot be switched on yet — {string.Join(", ", lacking)} " +
+                (lacking.Count == 1 ? "is missing." : "are missing."));
+        }
+
         await db.SaveChangesAsync(ct);
         return Map(row);
     }
@@ -101,6 +129,15 @@ public class SystemSettingService(NtmsDbContext db)
         if (string.IsNullOrWhiteSpace(row.MerchantId)) missing.Add("the merchant ID");
         if (string.IsNullOrWhiteSpace(row.AccessCode)) missing.Add("the access code");
         if (string.IsNullOrWhiteSpace(row.WorkingKey)) missing.Add("the working key");
+        return missing;
+    }
+
+    /// <summary>What the PAN service still needs before it can be used.</summary>
+    private static List<string> PanMissing(SystemSetting row)
+    {
+        var missing = new List<string>();
+        if (string.IsNullOrWhiteSpace(row.PanEndpoint)) missing.Add("the endpoint");
+        if (string.IsNullOrWhiteSpace(row.PanApiKey)) missing.Add("the API key");
         return missing;
     }
 
@@ -120,8 +157,42 @@ public class SystemSettingService(NtmsDbContext db)
         CancelUrl = row.CancelUrl,
         PaymentConfigured = Missing(row).Count == 0,
 
+        MaxUploadMb = row.MaxUploadMb,
+
+        PanVerificationEnabled = row.PanVerificationEnabled,
+        PanProvider = row.PanProvider,
+        PanEndpoint = row.PanEndpoint,
+        HasPanApiKey = !string.IsNullOrWhiteSpace(row.PanApiKey),
+        PanApiKeyHeader = row.PanApiKeyHeader,
+        PanValidPath = row.PanValidPath,
+        PanNamePath = row.PanNamePath,
+        PanTimeoutSeconds = row.PanTimeoutSeconds,
+        PanRefuseWhenUnavailable = row.PanRefuseWhenUnavailable,
+        PanConfigured = PanMissing(row).Count == 0,
+
         UpdatedOn = row.ModifiedOn ?? row.CreatedOn,
     };
+
+    /// <summary>
+    /// The upload ceiling, in bytes, for whatever is about to be written.
+    ///
+    /// Read per call rather than cached: it changes rarely, but when somebody
+    /// raises it they expect the next upload to go through, not the one after
+    /// a recycle.
+    /// </summary>
+    public async Task<long> MaxUploadBytesAsync(CancellationToken ct)
+    {
+        var megabytes = await db.SystemSettings.AsNoTracking()
+            .Where(s => s.Id == 1).Select(s => (int?) s.MaxUploadMb).FirstOrDefaultAsync(ct);
+        return (long) (megabytes ?? 64) * 1024 * 1024;
+    }
+
+    /// <summary>
+    /// The stored PAN configuration, or null where none is set up. Returned
+    /// whole, key included, because the only caller is the verifier itself.
+    /// </summary>
+    public async Task<SystemSetting?> PanSettingsAsync(CancellationToken ct) =>
+        await db.SystemSettings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
 
     private static string Message(SystemSetting row) =>
         string.IsNullOrWhiteSpace(row.MaintenanceMessage)

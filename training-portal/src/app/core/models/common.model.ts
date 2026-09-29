@@ -158,6 +158,21 @@ export interface SystemSettings {
   /** False until the gateway has everything it needs to be switched on. */
   paymentConfigured: boolean;
 
+  /** The largest file anybody may publish, in megabytes. */
+  maxUploadMb: number;
+
+  panVerificationEnabled: boolean;
+  panProvider?: string | null;
+  panEndpoint?: string | null;
+  /** True when a key is stored; the value never leaves the server. */
+  hasPanApiKey: boolean;
+  panApiKeyHeader: string;
+  panValidPath: string;
+  panNamePath: string;
+  panTimeoutSeconds: number;
+  panRefuseWhenUnavailable: boolean;
+  panConfigured: boolean;
+
   updatedOn: string;
 }
 
@@ -172,6 +187,19 @@ export interface SystemSettingsUpdate {
   accessCode?: string | null;
   /** Omitted to keep the stored key; empty string clears it. */
   workingKey?: string | null;
+
+  maxUploadMb: number;
+
+  panVerificationEnabled: boolean;
+  panProvider?: string | null;
+  panEndpoint?: string | null;
+  /** Left out to keep the stored key; empty string clears it. */
+  panApiKey?: string | null;
+  panApiKeyHeader?: string | null;
+  panValidPath?: string | null;
+  panNamePath?: string | null;
+  panTimeoutSeconds: number;
+  panRefuseWhenUnavailable: boolean;
   returnUrl?: string | null;
   cancelUrl?: string | null;
 }

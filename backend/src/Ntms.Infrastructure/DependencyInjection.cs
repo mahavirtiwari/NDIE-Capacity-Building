@@ -104,6 +104,8 @@ public static class DependencyInjection
            only the configured root path and creates folders on demand. */
         services.AddSingleton<MonitoringPhotoStore>();
         services.AddSingleton<CertificateTemplateStore>();
+        services.AddSingleton<TrainingMaterialStore>();
+        services.AddSingleton<MaterialTickets>();
         services.AddScoped<CertificateService>();
 
         /* Reads an account's allocation per request, now that it no longer

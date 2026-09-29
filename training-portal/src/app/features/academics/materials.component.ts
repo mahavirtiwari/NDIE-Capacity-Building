@@ -1,5 +1,6 @@
 import { CanDirective } from '../../shared/directives/can.directive';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
   AppRole,
@@ -164,6 +165,14 @@ const KIND_ICONS: Record<string, IconName> = {
         </ng-template>
         <ng-template appCell="actions" let-row>
           <div class="btn-row btn-row--end">
+            <button
+              type="button"
+              class="btn btn--icon"
+              title="Preview"
+              (click)="preview($any(row))"
+            >
+              <app-icon name="eye" [size]="15" />
+            </button>
             <button type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
               <app-icon name="edit" [size]="15" />
             </button>
@@ -172,6 +181,67 @@ const KIND_ICONS: Record<string, IconName> = {
         </ng-template>
       </app-data-table>
     </section>
+
+    @if (viewing(); as item) {
+      <!-- What was published, shown as published. A PDF or a video renders in
+           place; anything a browser will not render is offered as a download,
+           because pretending to preview a .docx helps nobody. -->
+      <app-modal [title]="item.title" size="lg" (closed)="closePreview()">
+        <div class="stack stack-md">
+          @if (previewError()) {
+            <div class="empty-note">{{ previewError() }}</div>
+          } @else if (loadingPreview()) {
+            <div class="empty-note"><span class="spinner"></span> Opening…</div>
+          } @else if (embedUrl(); as src) {
+            @if (item.kind === 'Link') {
+              <iframe class="preview-frame" [src]="src" allowfullscreen title="Preview"></iframe>
+            } @else if (isVideo(item)) {
+              <video class="preview-frame" [src]="src" controls></video>
+            } @else if (isImage(item)) {
+              <img class="preview-image" [src]="src" [alt]="item.title" />
+            } @else {
+              <iframe class="preview-frame" [src]="src" title="Preview"></iframe>
+            }
+          } @else {
+            <div class="empty-note">
+              This file cannot be shown in the browser. Download it to open it.
+            </div>
+          }
+
+          <div class="dl">
+            <div>
+              <div class="dl__term">Type</div>
+              <div class="dl__value">{{ item.kind }}</div>
+            </div>
+            <div>
+              <div class="dl__term">Program type</div>
+              <div class="dl__value">{{ item.programTypeName }}</div>
+            </div>
+            <div>
+              <div class="dl__term">Language</div>
+              <div class="dl__value">{{ item.language }}</div>
+            </div>
+            <div>
+              <div class="dl__term">Version</div>
+              <div class="dl__value">{{ item.version }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div footer>
+          @if (item.kind === 'Link') {
+            <a class="btn btn--secondary" [href]="item.url" target="_blank" rel="noopener">
+              Open in a new tab
+            </a>
+          } @else {
+            <button type="button" class="btn btn--secondary" (click)="download(item)">
+              <app-icon name="download" [size]="15" /> Download
+            </button>
+          }
+          <button type="button" class="btn btn--primary" (click)="closePreview()">Close</button>
+        </div>
+      </app-modal>
+    }
 
     @if (formOpen()) {
       <app-modal
@@ -219,7 +289,13 @@ const KIND_ICONS: Record<string, IconName> = {
                 <label class="field-label" for="matFile">File</label>
                 <div class="file-box">
                   <app-icon name="upload" [size]="16" />
-                  <span class="text-sm">{{ form.value.fileName || 'Choose a file to upload' }}</span>
+                  <span class="text-sm">
+                    @if (uploading()) {
+                      <span class="spinner"></span> Uploading…
+                    } @else {
+                      {{ form.value.fileName || 'Choose a file to upload' }}
+                    }
+                  </span>
                   <input id="matFile" type="file" (change)="onFile($event)" />
                 </div>
                 <span class="field-hint">PDF, PPTX or MP4. Large videos are streamed, not downloaded.</span>
@@ -298,6 +374,28 @@ const KIND_ICONS: Record<string, IconName> = {
       .kind-icon.is-document { background: var(--brand-600); color: #fff; }
       .kind-icon.is-presentation { background: var(--warning-700); color: #fff; }
       .kind-icon.is-link { background: var(--info-700); color: #fff; }
+      .preview-frame {
+        width: 100%;
+        height: 60vh;
+        min-height: 320px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--ink-50, #faf8f7);
+      }
+      .preview-image {
+        width: 100%;
+        max-height: 60vh;
+        object-fit: contain;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+      }
+      .empty-note {
+        padding: 2rem 1rem;
+        text-align: center;
+        color: var(--ink-500);
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+      }
       .file-box {
         position: relative;
         display: flex;
@@ -338,7 +436,18 @@ export class MaterialsComponent {
 
   protected readonly formOpen = signal(false);
   protected readonly saving = signal(false);
+  protected readonly uploading = signal(false);
   protected readonly editing = signal<TrainingMaterial | null>(null);
+
+  /* The preview. The blob URL is held so it can be revoked: an object URL
+     that is never released keeps the whole file in memory for as long as the
+     tab is open, and a course pack is not small. */
+  private readonly sanitizer = inject(DomSanitizer);
+  protected readonly viewing = signal<TrainingMaterial | null>(null);
+  protected readonly embedUrl = signal<SafeResourceUrl | null>(null);
+  protected readonly loadingPreview = signal(false);
+  protected readonly previewError = signal<string | null>(null);
+  private objectUrl: string | null = null;
 
   protected readonly form = this.fb.group({
     categoryId: [null as number | null, Validators.required],
@@ -350,6 +459,9 @@ export class MaterialsComponent {
     language: ['English'],
     fileName: [''],
     fileSizeKb: [0],
+    /* Recorded with the row, because it is what decides whether the file can
+       be shown in place or only offered as a download. */
+    mimeType: [''],
     url: [''],
     durationMinutes: [0],
     version: ['v1.0'],
@@ -382,10 +494,113 @@ export class MaterialsComponent {
     });
   }
 
+  /**
+   * Sends the file and records where it landed.
+   *
+   * It used to note the name and the size and throw the bytes away, which is
+   * why nothing could ever be previewed or downloaded: there was no file, only
+   * a row describing one.
+   */
   protected onFile(event: Event): void {
-    const file = (event.target as HTMLInputElement).files?.[0];
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
     if (!file) return;
-    this.form.patchValue({ fileName: file.name, fileSizeKb: Math.round(file.size / 1024) });
+
+    const programTypeId = this.form.value.programTypeId;
+    if (!programTypeId) {
+      this.toast.error('Choose the program type first', 'The file is stored against it.');
+      input.value = '';
+      return;
+    }
+
+    this.uploading.set(true);
+    this.service.upload(file, programTypeId).subscribe({
+      next: (stored) => {
+        this.uploading.set(false);
+        this.form.patchValue({
+          fileName: stored.fileName,
+          fileSizeKb: stored.fileSizeKb,
+          mimeType: stored.mimeType,
+          url: stored.url,
+        });
+        this.toast.success('File uploaded', stored.fileName);
+      },
+      error: () => {
+        this.uploading.set(false);
+        input.value = '';
+      },
+    });
+  }
+
+  /* --------------------------------------------------------- preview --- */
+
+  protected preview(row: TrainingMaterial): void {
+    this.release();
+    this.viewing.set(row);
+    this.previewError.set(null);
+
+    /* A link is somebody else's page. YouTube is turned into its embed so it
+       plays here; anything else is offered as a new tab rather than framed,
+       because most sites refuse to be. */
+    if (row.kind === 'Link') {
+      const embed = youTubeEmbed(row.url ?? '');
+      this.embedUrl.set(
+        embed ? this.sanitizer.bypassSecurityTrustResourceUrl(embed) : null,
+      );
+      if (!embed) {
+        this.previewError.set('This link opens on another site. Use the button below.');
+      }
+      return;
+    }
+
+    if (!row.url) {
+      this.previewError.set('No file was uploaded against this material.');
+      return;
+    }
+
+    this.loadingPreview.set(true);
+    this.service.file(row.id).subscribe({
+      next: (blob) => {
+        this.loadingPreview.set(false);
+        this.objectUrl = URL.createObjectURL(blob);
+        this.embedUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.objectUrl));
+      },
+      error: () => {
+        this.loadingPreview.set(false);
+        this.previewError.set('That file could not be opened.');
+      },
+    });
+  }
+
+  protected download(row: TrainingMaterial): void {
+    this.service.file(row.id, true).subscribe((blob) => {
+      const href = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = href;
+      anchor.download = row.fileName || row.title;
+      anchor.click();
+      URL.revokeObjectURL(href);
+    });
+  }
+
+  protected closePreview(): void {
+    this.release();
+    this.viewing.set(null);
+    this.previewError.set(null);
+  }
+
+  protected isVideo(row: TrainingMaterial): boolean {
+    return (row.mimeType ?? '').startsWith('video/');
+  }
+
+  protected isImage(row: TrainingMaterial): boolean {
+    return (row.mimeType ?? '').startsWith('image/');
+  }
+
+  private release(): void {
+    if (this.objectUrl) URL.revokeObjectURL(this.objectUrl);
+    this.objectUrl = null;
+    this.embedUrl.set(null);
   }
 
   protected openForm(row?: TrainingMaterial): void {
@@ -400,6 +615,7 @@ export class MaterialsComponent {
       language: row?.language ?? 'English',
       fileName: row?.fileName ?? '',
       fileSizeKb: row?.fileSizeKb ?? 0,
+      mimeType: row?.mimeType ?? '',
       url: row?.url ?? '',
       durationMinutes: row?.durationMinutes ?? 0,
       version: row?.version ?? 'v1.0',
@@ -454,4 +670,34 @@ export class MaterialsComponent {
       this.list.reload();
     });
   }
+}
+
+/**
+ * The embed address for a YouTube link, or null for anything else.
+ *
+ * Both shapes the share button produces - youtu.be/ID and watch?v=ID - plus
+ * the embed form itself, so a link pasted from the address bar plays in place
+ * rather than sending an administrator to another tab to check their own
+ * upload.
+ */
+function youTubeEmbed(url: string): string | null {
+  const trimmed = (url ?? '').trim();
+  if (!trimmed) return null;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return null;
+  }
+
+  const host = parsed.hostname.replace(/^www\./, '');
+  const id =
+    host === 'youtu.be'
+      ? parsed.pathname.slice(1)
+      : host.endsWith('youtube.com')
+        ? (parsed.searchParams.get('v') ?? parsed.pathname.split('/').pop() ?? '')
+        : '';
+
+  return /^[A-Za-z0-9_-]{6,}$/.test(id) ? `https://www.youtube.com/embed/${id}` : null;
 }

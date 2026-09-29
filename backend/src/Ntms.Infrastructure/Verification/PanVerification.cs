@@ -1,9 +1,12 @@
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
+using Ntms.Infrastructure.Persistence;
 
 namespace Ntms.Infrastructure.Verification;
 
@@ -116,11 +119,51 @@ public static class PanFormat
 public class PanVerifier(
     IHttpClientFactory factory,
     IOptions<PanVerificationOptions> options,
+    NtmsDbContext db,
     ILogger<PanVerifier> logger) : IPanVerifier
 {
-    private readonly PanVerificationOptions _options = options.Value;
+    private readonly PanVerificationOptions _fallback = options.Value;
 
-    public bool IsConfigured => _options.Enabled && !string.IsNullOrWhiteSpace(_options.Endpoint);
+    /// <summary>
+    /// What the deployment is actually set up with.
+    ///
+    /// System Settings first, appsettings behind it. The portal is where a
+    /// department contracts a provider and puts its key in, and that must not
+    /// need a deployment; the file stays as the way to configure an
+    /// environment that has no database to read yet.
+    /// </summary>
+    private async Task<PanVerificationOptions> SettingsAsync(CancellationToken ct)
+    {
+        var row = await db.SystemSettings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
+        if (row is null || !row.PanVerificationEnabled) return _fallback;
+
+        return new PanVerificationOptions
+        {
+            Enabled = true,
+            Endpoint = row.PanEndpoint,
+            ApiKey = row.PanApiKey,
+            ApiKeyHeader = string.IsNullOrWhiteSpace(row.PanApiKeyHeader)
+                ? _fallback.ApiKeyHeader
+                : row.PanApiKeyHeader,
+            ValidPath = string.IsNullOrWhiteSpace(row.PanValidPath) ? _fallback.ValidPath : row.PanValidPath,
+            NamePath = string.IsNullOrWhiteSpace(row.PanNamePath) ? _fallback.NamePath : row.PanNamePath,
+            TimeoutSeconds = row.PanTimeoutSeconds,
+            RefuseWhenUnavailable = row.PanRefuseWhenUnavailable,
+        };
+    }
+
+    /// <summary>
+    /// Whether a provider is set up at all. Reads the database, so it is the
+    /// one property here that is not free — callers ask it once.
+    /// </summary>
+    public bool IsConfigured
+    {
+        get
+        {
+            var settings = SettingsAsync(CancellationToken.None).GetAwaiter().GetResult();
+            return settings.Enabled && !string.IsNullOrWhiteSpace(settings.Endpoint);
+        }
+    }
 
     public async Task<PanVerificationResult> VerifyAsync(
         string pan, string? nameToMatch, CancellationToken ct = default)
@@ -130,22 +173,25 @@ public class PanVerifier(
             return PanVerificationResult.Invalid("PAN must be 10 characters, e.g. ABCDE1234F.");
         }
 
+        var settings = await SettingsAsync(ct);
+
         /* No provider: the format is all anyone has claimed to check, and the
            applicant stays Pending. Saying "verified" here would be a lie the
            rest of the system would then rely on. */
-        if (!IsConfigured) return PanVerificationResult.Unavailable("PAN verification is not switched on.");
+        if (!settings.Enabled || string.IsNullOrWhiteSpace(settings.Endpoint))
+            return PanVerificationResult.Unavailable("PAN verification is not switched on.");
 
         var normalised = PanFormat.Normalise(pan);
 
         try
         {
             var client = factory.CreateClient(nameof(PanVerifier));
-            client.Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds);
+            client.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds);
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, _options.Endpoint);
-            if (!string.IsNullOrWhiteSpace(_options.ApiKey))
+            using var request = new HttpRequestMessage(HttpMethod.Post, settings.Endpoint);
+            if (!string.IsNullOrWhiteSpace(settings.ApiKey))
             {
-                request.Headers.TryAddWithoutValidation(_options.ApiKeyHeader, _options.ApiKey);
+                request.Headers.TryAddWithoutValidation(settings.ApiKeyHeader, settings.ApiKey);
             }
             request.Content = JsonContent.Create(new { pan = normalised, name = nameToMatch });
 
@@ -162,15 +208,15 @@ public class PanVerifier(
 
             using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
 
-            var valid = ReadBoolean(document.RootElement, _options.ValidPath);
+            var valid = ReadBoolean(document.RootElement, settings.ValidPath);
             if (valid is null)
             {
-                logger.LogWarning("PAN provider answered without {Path}.", _options.ValidPath);
+                logger.LogWarning("PAN provider answered without {Path}.", settings.ValidPath);
                 return PanVerificationResult.Unavailable("The PAN service gave an answer we could not read.");
             }
 
             return valid.Value
-                ? PanVerificationResult.Valid(ReadString(document.RootElement, _options.NamePath))
+                ? PanVerificationResult.Valid(ReadString(document.RootElement, settings.NamePath))
                 : PanVerificationResult.Invalid("This PAN could not be verified.");
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)

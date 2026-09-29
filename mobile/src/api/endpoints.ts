@@ -13,6 +13,7 @@ import type {
   FeeStructure,
   Gender,
   LookupItem,
+  MaterialTicket,
   PaymentInitiation,
   PaymentSummary,
   PaymentTransaction,
@@ -159,6 +160,16 @@ export const me = {
 
   materials: (programTypeId?: number) =>
     api.get<TrainingMaterial[]>('me/materials', { programTypeId }),
+
+  /**
+   * A short-lived address for one uploaded file.
+   *
+   * The phone's browser and its PDF viewer cannot send a bearer token, so the
+   * permission is settled here and what is handed over is a ticket good for
+   * that one file, once, for a couple of minutes.
+   */
+  materialTicket: (id: number, download = false) =>
+    api.post<MaterialTicket>(`materials/${id}/ticket?download=${download}`),
 };
 
 /* --------------------------------------------------------------- the paper */
