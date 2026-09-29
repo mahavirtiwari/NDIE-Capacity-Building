@@ -4,8 +4,24 @@
     {
       "name": "training-portal",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "training-portal", "run", "start"],
+      "runtimeArgs": [
+        "--prefix",
+        "training-portal",
+        "run",
+        "start"
+      ],
       "port": 4200
+    },
+    {
+      "name": "applicant-app",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "mobile",
+        "run",
+        "web"
+      ],
+      "port": 8081
     }
   ]
 }

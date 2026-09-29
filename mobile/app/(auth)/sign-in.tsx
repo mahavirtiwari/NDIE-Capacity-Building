@@ -162,7 +162,7 @@ export default function SignIn() {
               </Text>
               <Button
                 label={text('app.signin.registerCta', 'Register now')}
-                variant="secondary"
+                variant="outline"
                 icon="arrow-forward-outline"
                 onPress={() => router.push('/(auth)/sign-up')}
               />

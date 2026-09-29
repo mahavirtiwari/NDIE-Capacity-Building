@@ -37,7 +37,12 @@ export function Card({ children, style }: { children: ReactNode; style?: ViewSty
 interface ButtonProps {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  /**
+   * `outline` is the brand's own colour without the weight of a filled
+   * button: for a second way forward that should be visible but must not
+   * compete with the one the screen is really for.
+   */
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline';
   disabled?: boolean;
   loading?: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
@@ -57,6 +62,7 @@ export function Button({
   const palette = {
     primary: { bg: colors.brand600, fg: colors.white, border: colors.brand600 },
     secondary: { bg: colors.white, fg: colors.ink700, border: colors.borderStrong },
+    outline: { bg: colors.brand50, fg: colors.brand700, border: colors.brand600 },
     ghost: { bg: 'transparent', fg: colors.brand700, border: 'transparent' },
     danger: { bg: colors.danger500, fg: colors.white, border: colors.danger500 },
   }[variant];
