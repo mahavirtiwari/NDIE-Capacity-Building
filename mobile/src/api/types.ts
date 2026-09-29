@@ -200,6 +200,77 @@ export interface SignupForm {
   fields: SignupField[];
 }
 
+/* -------------------------------------------------------------- payments */
+
+export interface PaymentLine {
+  label: string;
+  amount: number;
+  isDeduction: boolean;
+  isTotal: boolean;
+}
+
+/**
+ * What is payable on one application. Answers even when it cannot be paid:
+ * `blocked` says why, and a screen that only knew the button was missing
+ * could not tell the applicant anything useful.
+ */
+export interface PaymentSummary {
+  applicationId: number;
+  applicationNo: string;
+  programTypeName?: string;
+  currency: string;
+  lines: PaymentLine[];
+  feeGross: number;
+  tdsPercent: number;
+  tdsAmount: number;
+  payable: number;
+  paymentStatus: string;
+  canPay: boolean;
+  blocked?: string | null;
+  gateway?: string | null;
+  testMode: boolean;
+  /** True when the split came from the fee in force, not from the application. */
+  fromCurrentFee: boolean;
+}
+
+export interface PaymentInitiation {
+  orderId: string;
+  amount: number;
+  currency: string;
+  /** Opened in the phone's own browser, never inside the app. */
+  redirectUrl: string;
+  testMode: boolean;
+}
+
+export type PaymentAttemptStatus =
+  | 'Initiated'
+  | 'Processing'
+  | 'Paid'
+  | 'Failed'
+  | 'Cancelled'
+  | 'Abandoned';
+
+export interface PaymentTransaction {
+  id: number;
+  orderId: string;
+  applicationId: number;
+  applicationNo: string;
+  programTypeName?: string;
+  feeGross: number;
+  tdsAmount: number;
+  amount: number;
+  currency: string;
+  status: PaymentAttemptStatus;
+  gateway: string;
+  testMode: boolean;
+  method?: string | null;
+  trackingId?: string | null;
+  bankReference?: string | null;
+  failureReason?: string | null;
+  initiatedOn: string;
+  completedOn?: string | null;
+}
+
 /* ------------------------------------------------------------------- fee */
 
 export interface FeeComponent {

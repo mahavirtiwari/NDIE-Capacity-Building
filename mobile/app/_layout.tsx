@@ -39,6 +39,14 @@ export default function RootLayout() {
             />
             <Stack.Screen name="application/[id]" options={{ title: 'Application' }} />
             <Stack.Screen name="payments" options={{ title: 'Payments' }} />
+            <Stack.Screen name="payment/[applicationId]" options={{ title: 'Pay fee' }} />
+            {/* No back arrow: behind it is the summary that opens a second
+                attempt, and a payer looking at a result should not be one tap
+                from paying again. */}
+            <Stack.Screen
+              name="payment/status/[orderId]"
+              options={{ title: 'Payment', headerBackVisible: false, gestureEnabled: false }}
+            />
             <Stack.Screen name="exam/[participantId]" options={{ title: 'Examination' }} />
             {/* No back arrow: a paper is left through the submit button or the
                 warning behind the hardware key, not by drifting out of it. */}

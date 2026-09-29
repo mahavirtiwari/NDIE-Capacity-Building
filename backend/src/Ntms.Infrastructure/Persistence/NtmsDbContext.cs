@@ -49,6 +49,7 @@ public class NtmsDbContext(DbContextOptions<NtmsDbContext> options, ICurrentUser
     public DbSet<SignupField> SignupFields => Set<SignupField>();
     public DbSet<SignupFieldOption> SignupFieldOptions => Set<SignupFieldOption>();
     public DbSet<ApplicantAnswer> ApplicantAnswers => Set<ApplicantAnswer>();
+    public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
 
     /* Overrides only: the shipped wording lives in code. */
     public DbSet<SiteText> SiteTexts => Set<SiteText>();

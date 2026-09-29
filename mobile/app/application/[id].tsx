@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { me } from '../../src/api/endpoints';
@@ -7,6 +7,7 @@ import type { Application, RegistrationForm } from '../../src/api/types';
 import { useResource } from '../../src/api/useResource';
 import {
   Banner,
+  Button,
   Card,
   Chip,
   DetailRow,
@@ -20,6 +21,7 @@ import { colors, font, radius, spacing } from '../../src/theme';
 
 /** One submitted application: the answers given, the fee, and the audit trail. */
 export default function ApplicationDetail() {
+  const router = useRouter();
   const params = useLocalSearchParams<{ id: string }>();
   const id = Number(params.id);
 
@@ -102,6 +104,18 @@ export default function ApplicationDetail() {
             <DetailRow label="Score" value={String(application.score)} />
           ) : null}
         </View>
+
+        {/* The fee is shown here, so this is where somebody looking at an
+            unpaid one will reach for a way to settle it. */}
+        {application.feeAmount > 0 &&
+        (application.paymentStatus === 'Pending' || application.paymentStatus === 'Failed') ? (
+          <Button
+            label={application.paymentStatus === 'Failed' ? 'Try the payment again' : 'Pay the fee'}
+            icon="card-outline"
+            onPress={() => router.push(`/payment/${application.id}`)}
+            style={styles.payButton}
+          />
+        ) : null}
       </Card>
 
       <Card style={styles.card}>
@@ -180,6 +194,7 @@ const display = (value: unknown): string => {
 };
 
 const styles = StyleSheet.create({
+  payButton: { marginTop: spacing.lg },
   content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
 
   card: { gap: spacing.sm },

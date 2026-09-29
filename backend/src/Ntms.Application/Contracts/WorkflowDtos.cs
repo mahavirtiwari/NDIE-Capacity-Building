@@ -133,6 +133,13 @@ public class ApplicationDto : AuditDto
     public JsonElement Responses { get; set; }
     public List<ApplicationDocumentDto> Documents { get; set; } = [];
     public List<ScrutinyEventDto> History { get; set; } = [];
+
+    /// <summary>
+    /// Every attempt to pay the fee, newest first. Filled on the detail read
+    /// only: a page of applications does not show them, and the reference a
+    /// bank asks for is only ever wanted one application at a time.
+    /// </summary>
+    public List<PaymentTransactionDto> Payments { get; set; } = [];
 }
 
 /// <summary>Submitted by the mobile app against the program type's form.</summary>

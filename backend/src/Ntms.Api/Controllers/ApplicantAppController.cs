@@ -56,7 +56,8 @@ public class ApplicantAppController(
     FeeService fees,
     TrainingMaterialService materials,
     ProgrammeCatalogueService catalogue,
-    ExamSittingService exams) : ApiControllerBase
+    ExamSittingService exams,
+    PaymentService payments) : ApiControllerBase
 {
     private int ApplicantId =>
         CurrentUser.ApplicantId
@@ -121,6 +122,46 @@ public class ApplicantAppController(
         dto.ApplicantId = ApplicantId;
         return Envelope(await applications.SubmitAsync(dto, ct), "Application submitted.");
     }
+
+    /* --------------------------------------------------------- payments */
+
+    /// <summary>
+    /// What is payable on one application, broken down, and whether it can be
+    /// paid right now. Answers either way: a screen has to be able to say why
+    /// the button is not there.
+    /// </summary>
+    [HttpGet("applications/{id:int}/payment")]
+    public async Task<ActionResult<ApiEnvelope<PaymentSummaryDto>>> PaymentSummary(
+        int id, CancellationToken ct) =>
+        Envelope(await payments.SummaryAsync(ApplicantId, id, ct));
+
+    /// <summary>
+    /// Opens an attempt and hands back the address to open in the browser.
+    /// The app sends the payer out to it rather than hosting the gateway
+    /// inside itself, so they get a real address bar to check.
+    /// </summary>
+    [HttpPost("applications/{id:int}/payment")]
+    public async Task<ActionResult<ApiEnvelope<PaymentInitiationDto>>> StartPayment(
+        int id, CancellationToken ct) =>
+        Envelope(
+            await payments.InitiateAsync(
+                ApplicantId, id, $"{Request.Scheme}://{Request.Host}", ct),
+            "Opening the payment page.");
+
+    /// <summary>Every attempt this applicant has made, newest first.</summary>
+    [HttpGet("payments")]
+    public async Task<ActionResult<ApiEnvelope<List<PaymentTransactionDto>>>> Payments(
+        CancellationToken ct) =>
+        Envelope(await payments.HistoryAsync(ApplicantId, ct));
+
+    /// <summary>
+    /// Where one attempt got to. Polled by the app when it comes back to the
+    /// foreground, because the gateway answers to the browser and not to it.
+    /// </summary>
+    [HttpGet("payments/{orderId}")]
+    public async Task<ActionResult<ApiEnvelope<PaymentTransactionDto>>> Payment(
+        string orderId, CancellationToken ct) =>
+        Envelope(await payments.StatusAsync(ApplicantId, orderId, ct));
 
     /// <summary>Batches the applicant is enrolled in, with attendance and result.</summary>
     [HttpGet("enrolments")]

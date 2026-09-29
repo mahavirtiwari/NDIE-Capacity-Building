@@ -420,3 +420,37 @@ public class CertificateConfiguration : IEntityTypeConfiguration<Certificate>
             .OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+/// <summary>
+/// One attempt to pay a fee. Nothing here is a secret of the payer's - the
+/// card never touches this system - so the only care needed is that the
+/// order id stays unique and the application can be reached from it.
+/// </summary>
+public class PaymentTransactionConfiguration : IEntityTypeConfiguration<PaymentTransaction>
+{
+    public void Configure(EntityTypeBuilder<PaymentTransaction> b)
+    {
+        b.ToTable("PaymentTransactions");
+
+        b.Property(x => x.OrderId).HasMaxLength(40).IsRequired();
+        b.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+        b.Property(x => x.Gateway).HasMaxLength(40).IsRequired();
+        b.Property(x => x.Method).HasMaxLength(80);
+        b.Property(x => x.TrackingId).HasMaxLength(80);
+        b.Property(x => x.BankReference).HasMaxLength(80);
+        b.Property(x => x.FailureReason).HasMaxLength(500);
+
+        /* The order id is what the gateway answers with, so it has to find
+           exactly one attempt. A retry gets a new one. */
+        b.HasIndex(x => x.OrderId).IsUnique();
+        b.HasIndex(x => new { x.ApplicantId, x.InitiatedOn });
+
+        b.HasOne(x => x.Application).WithMany(a => a.Payments)
+            .HasForeignKey(x => x.ApplicationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        b.HasOne(x => x.Applicant).WithMany()
+            .HasForeignKey(x => x.ApplicantId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}

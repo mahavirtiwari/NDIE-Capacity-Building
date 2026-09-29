@@ -328,7 +328,7 @@ public class ApplicationService(
     }
 
     public async Task<ApplicationDto> GetAsync(int id, CancellationToken ct) =>
-        (await Base.FirstOrDefaultAsync(a => a.Id == id, ct)
+        (await Base.Include(a => a.Payments).FirstOrDefaultAsync(a => a.Id == id, ct)
          ?? throw AppException.NotFound("Application")).ToDto();
 
     /// <summary>
@@ -392,6 +392,11 @@ public class ApplicationService(
             SubmittedOn = now,
             PaymentStatus = programType.IsFeeApplicable ? PaymentStatus.Pending : PaymentStatus.NotApplicable,
             FeeAmount = fee?.Totals.Gross ?? 0m,
+            /* Kept with the application, not looked up when they come to pay:
+               TDS is deducted on the value of the service and not on the tax,
+               and the published fee may be superseded in between. */
+            FeeTaxable = fee?.Totals.Taxable,
+            FeeGst = fee?.Totals.Gst,
             TdsPercent = dto.TdsPercent,
             Tan = Formats.Normalise(dto.Tan),
             DeductorName = dto.DeductorName,

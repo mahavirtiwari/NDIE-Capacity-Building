@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Ntms.Infrastructure.Email;
 using Ntms.Infrastructure.Identity;
+using Ntms.Infrastructure.Payments;
 using Ntms.Infrastructure.Persistence;
 using Ntms.Infrastructure.Services;
 using Ntms.Infrastructure.Verification;
@@ -91,6 +92,13 @@ public static class DependencyInjection
         services.AddScoped<EmailAdminService>();
         services.AddScoped<LookupService>();
         services.AddScoped<DashboardService>();
+
+        /* Payments. The gateways are stateless and registered as the one
+           interface, so the registry can refuse by name any of the others the
+           settings screen offers but nobody has integrated. */
+        services.AddSingleton<IPaymentGateway, CCAvenueGateway>();
+        services.AddSingleton<PaymentGateways>();
+        services.AddScoped<PaymentService>();
 
         /* Coordinator field monitoring. The photo store is a singleton: it holds
            only the configured root path and creates folders on demand. */

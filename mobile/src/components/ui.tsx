@@ -262,6 +262,20 @@ export const shortDate = (value?: string | null): string => {
     : date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
+/** The date and the time of day, for a receipt where the minute matters. */
+export const shortDateTime = (value?: string | null): string => {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
 const styles = StyleSheet.create({
   title: { fontSize: font.xl, fontWeight: '700', color: colors.ink900 },
   subtitle: { fontSize: font.sm, color: colors.ink500, marginTop: 2 },

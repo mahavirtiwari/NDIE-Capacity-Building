@@ -13,6 +13,9 @@ import type {
   FeeStructure,
   Gender,
   LookupItem,
+  PaymentInitiation,
+  PaymentSummary,
+  PaymentTransaction,
   RegistrationForm,
   SignupForm,
   SocialCategory,
@@ -140,6 +143,19 @@ export const me = {
   }) => api.post<Application>('me/applications', payload),
 
   enrolments: () => api.get<Enrolment[]>('me/enrolments'),
+
+  /* ------------------------------------------------------------ payments */
+
+  /** Live, not cached: this is the figure somebody is about to be charged. */
+  paymentSummary: (applicationId: number) =>
+    api.getLive<PaymentSummary>(`me/applications/${applicationId}/payment`),
+
+  startPayment: (applicationId: number) =>
+    api.post<PaymentInitiation>(`me/applications/${applicationId}/payment`),
+
+  payments: () => api.get<PaymentTransaction[]>('me/payments'),
+
+  payment: (orderId: string) => api.getLive<PaymentTransaction>(`me/payments/${orderId}`),
 
   materials: (programTypeId?: number) =>
     api.get<TrainingMaterial[]>('me/materials', { programTypeId }),

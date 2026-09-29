@@ -140,6 +140,32 @@ public enum PaymentStatus
     Refunded = 5,
 }
 
+/// <summary>
+/// Where one attempt to pay got to. Wider than <see cref="PaymentStatus"/>,
+/// which answers for the application as a whole: an attempt can be in flight,
+/// and the application is still simply unpaid while it is.
+/// </summary>
+public enum PaymentAttemptStatus
+{
+    /// <summary>Created here; the payer has not reached the gateway yet.</summary>
+    Initiated = 1,
+
+    /// <summary>At the gateway. Nothing is known until it answers.</summary>
+    Processing = 2,
+
+    Paid = 3,
+    Failed = 4,
+
+    /// <summary>The payer backed out at the gateway.</summary>
+    Cancelled = 5,
+
+    /// <summary>
+    /// Started and never concluded. An attempt nobody finished must not sit
+    /// as "in flight" forever, or a retry looks like a double payment.
+    /// </summary>
+    Abandoned = 6,
+}
+
 public enum ScrutinyAction
 {
     Submitted = 1,

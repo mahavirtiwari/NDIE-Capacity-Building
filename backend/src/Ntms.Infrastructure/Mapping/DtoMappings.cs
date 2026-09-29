@@ -560,6 +560,31 @@ public static class DtoMappings
             PaymentStatus = e.PaymentStatus.ToApi(),
             FeeAmount = e.FeeAmount,
             TdsPercent = e.TdsPercent,
+            Payments = [.. e.Payments
+                .Where(p => p.Status != PaymentAttemptStatus.Initiated
+                            && p.Status != PaymentAttemptStatus.Abandoned)
+                .OrderByDescending(p => p.InitiatedOn)
+                .Select(p => new PaymentTransactionDto
+                {
+                    Id = p.Id,
+                    OrderId = p.OrderId,
+                    ApplicationId = p.ApplicationId,
+                    ApplicationNo = e.ApplicationNo,
+                    ProgramTypeName = e.ProgramType?.Name,
+                    FeeGross = p.FeeGross,
+                    TdsAmount = p.TdsAmount,
+                    Amount = p.Amount,
+                    Currency = p.Currency,
+                    Status = p.Status.ToString(),
+                    Gateway = p.Gateway,
+                    TestMode = p.TestMode,
+                    Method = p.Method,
+                    TrackingId = p.TrackingId,
+                    BankReference = p.BankReference,
+                    FailureReason = p.FailureReason,
+                    InitiatedOn = p.InitiatedOn,
+                    CompletedOn = p.CompletedOn,
+                })],
             Tan = e.Tan,
             DeductorName = e.DeductorName,
             Score = e.Score,

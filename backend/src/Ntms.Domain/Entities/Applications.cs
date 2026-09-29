@@ -29,6 +29,16 @@ public class TrainingApplication : AuditableEntity
 
     public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.NotApplicable;
     public decimal FeeAmount { get; set; }
+
+    /* The gross above split as it stood when the application was made. TDS is
+       deducted on the taxable value and not on the tax, so what the payer
+       remits cannot be worked out from the gross alone — and the fee
+       structure may well have been superseded by the time they pay.
+
+       Null on applications made before this was recorded; the fee structure
+       in force is read instead, and the payment says so. */
+    public decimal? FeeTaxable { get; set; }
+    public decimal? FeeGst { get; set; }
     /// <summary>TDS rate the applicant opted for; 0 when none.</summary>
     public decimal TdsPercent { get; set; }
     /// <summary>The applicant's own TAN, mandatory when TDS is claimed.</summary>
@@ -49,6 +59,9 @@ public class TrainingApplication : AuditableEntity
 
     public ICollection<ApplicationDocument> Documents { get; set; } = [];
     public ICollection<ScrutinyEvent> History { get; set; } = [];
+
+    /// <summary>Every attempt to pay the fee, successful or not.</summary>
+    public ICollection<PaymentTransaction> Payments { get; set; } = [];
 }
 
 public class ApplicationDocument : AuditableEntity

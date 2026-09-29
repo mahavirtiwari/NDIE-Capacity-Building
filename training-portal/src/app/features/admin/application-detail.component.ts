@@ -227,6 +227,34 @@ type Tab = 'responses' | 'documents' | 'history';
                   <div class="dl__value"><app-status-badge [value]="record.paymentStatus" /></div>
                 </div>
               </div>
+
+              <!-- The one-word status above says where it got to; this says how,
+                   and carries the reference a bank or the payer will quote. -->
+              @if (record.payments?.length) {
+                <div class="stack stack-sm" style="margin-top: 1rem">
+                  <h4 class="section-title">Payment attempts</h4>
+                  @for (attempt of record.payments; track attempt.orderId) {
+                    <div class="attempt">
+                      <div class="attempt__head">
+                        <app-status-badge [value]="attempt.status" />
+                        <span class="tabular">{{ attempt.amount | inr }}</span>
+                      </div>
+                      <div class="attempt__meta">
+                        {{ attempt.completedOn ?? attempt.initiatedOn | date: 'dd MMM yyyy, HH:mm' }}
+                        · {{ attempt.gateway }}@if (attempt.testMode) { <span> (test)</span> }
+                        @if (attempt.method) { <span> · {{ attempt.method }}</span> }
+                      </div>
+                      <div class="attempt__meta">
+                        Ref <code>{{ attempt.trackingId ?? attempt.orderId }}</code>
+                        @if (attempt.bankReference) { <span> · Bank {{ attempt.bankReference }}</span> }
+                      </div>
+                      @if (attempt.failureReason) {
+                        <div class="attempt__why">{{ attempt.failureReason }}</div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
             </div>
           </section>
         </aside>
@@ -300,6 +328,22 @@ type Tab = 'responses' | 'documents' | 'history';
       @media (max-width: 1200px) {
         .detail-grid { grid-template-columns: minmax(0, 1fr); }
       }
+      .attempt {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md, 8px);
+        padding: 0.6rem 0.75rem;
+        display: grid;
+        gap: 0.2rem;
+      }
+      .attempt__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        font-weight: 600;
+      }
+      .attempt__meta { font-size: 0.78rem; color: var(--ink-500); }
+      .attempt__why { font-size: 0.78rem; color: var(--danger-700); }
       .doc {
         display: flex;
         align-items: center;

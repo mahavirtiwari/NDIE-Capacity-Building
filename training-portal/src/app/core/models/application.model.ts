@@ -52,6 +52,29 @@ export interface ScrutinyEvent {
 }
 
 /** One applicant submission against one program type. */
+
+/** One attempt to pay an application's fee, successful or not. */
+export interface PaymentAttempt {
+  id: Id;
+  orderId: string;
+  applicationId: Id;
+  applicationNo: string;
+  programTypeName?: string;
+  feeGross: number;
+  tdsAmount: number;
+  amount: number;
+  currency: string;
+  status: 'Initiated' | 'Processing' | 'Paid' | 'Failed' | 'Cancelled' | 'Abandoned';
+  gateway: string;
+  testMode: boolean;
+  method?: string | null;
+  trackingId?: string | null;
+  bankReference?: string | null;
+  failureReason?: string | null;
+  initiatedOn: string;
+  completedOn?: string | null;
+}
+
 export interface Application extends AuditInfo {
   id: Id;
   applicationNo: string;
@@ -79,6 +102,9 @@ export interface Application extends AuditInfo {
   responses: Record<string, string | string[] | number | boolean | null>;
   documents: ApplicationDocument[];
   history: ScrutinyEvent[];
+
+  /** Every attempt to pay the fee, newest first. Only on the detail read. */
+  payments?: PaymentAttempt[];
 }
 
 export interface ScrutinyDecision {
