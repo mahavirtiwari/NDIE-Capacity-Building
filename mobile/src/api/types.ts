@@ -98,6 +98,8 @@ export interface ApplicantProgram {
   feePayable: number;
   tdsOptions: number[];
   acceptingApplications: boolean;
+  /** False when applying needs no form — the app submits straight away. */
+  requiresRegistrationForm?: boolean;
   existingApplicationStatus?: string | null;
 }
 

@@ -197,7 +197,11 @@ public class ApplicantAuthService(
                     IsExamMandatory = pt.IsExamMandatory,
                     FeePayable = pt.IsFeeApplicable ? Math.Round(taxable + nonTaxable + gst, 2) : 0m,
                     TdsOptions = EnumMaps.SplitInts(fee?.TdsOptions),
-                    AcceptingApplications = forms.Contains(pt.Id),
+                    /* A track that asks for no registration form is open the
+                       moment it exists: there is no form to wait on. */
+                    AcceptingApplications =
+                        !pt.RequiresRegistrationForm || forms.Contains(pt.Id),
+                    RequiresRegistrationForm = pt.RequiresRegistrationForm,
                     ExistingApplicationStatus = existing?.Status.ToApi(),
                 };
             }),

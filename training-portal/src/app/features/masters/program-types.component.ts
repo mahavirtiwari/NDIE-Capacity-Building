@@ -161,6 +161,17 @@ const COLUMNS: ColumnDef[] = [
               {{ examChip($any(row)) }}
             </span>
             <span class="chip" [class.is-off]="!$any(row).isFeeApplicable">Fee</span>
+            <span
+              class="chip"
+              [class.is-off]="!$any(row).requiresRegistrationForm"
+              [title]="
+                $any(row).requiresRegistrationForm
+                  ? 'Applications are scrutinised'
+                  : 'Approved on submission — no registration form'
+              "
+            >
+              Scrutiny
+            </span>
             <span class="chip">{{ $any(row).certificateValidityMonths }} m validity</span>
           </div>
         </ng-template>
@@ -271,7 +282,24 @@ const COLUMNS: ColumnDef[] = [
                   <input type="checkbox" formControlName="isFeeApplicable" />
                   <span>Fee is applicable</span>
                 </label>
+                <label class="check">
+                  <input type="checkbox" formControlName="requiresSignupForm" />
+                  <span>Sign-up form required</span>
+                </label>
+                <label class="check">
+                  <input type="checkbox" formControlName="requiresRegistrationForm" />
+                  <span>Registration form required</span>
+                </label>
               </div>
+              <span class="field-hint">
+                @if (form.controls.requiresRegistrationForm.value) {
+                  Applications for this track are read on the scrutiny queue before anybody is
+                  enrolled.
+                } @else {
+                  No registration form, so nothing to scrutinise: an application to this track is
+                  approved as it is submitted. The history says so on every one.
+                }
+              </span>
             </div>
 
             <!-- ------------------------------------------------ evaluation --
@@ -652,6 +680,8 @@ export class ProgramTypesComponent {
     certificateValidityMonths: [36],
     certificationPolicy: ['QualificationOnly' as ProgramType['certificationPolicy']],
     isFeeApplicable: [true],
+    requiresSignupForm: [true],
+    requiresRegistrationForm: [true],
     evaluation: this.fb.nonNullable.group({
       kind: ['Written' as ExaminationKind],
       totalMarks: [100],
@@ -739,6 +769,8 @@ export class ProgramTypesComponent {
       certificateValidityMonths: row?.certificateValidityMonths ?? 36,
       certificationPolicy: row?.certificationPolicy ?? 'QualificationOnly',
       isFeeApplicable: row?.isFeeApplicable ?? true,
+      requiresSignupForm: row?.requiresSignupForm ?? true,
+      requiresRegistrationForm: row?.requiresRegistrationForm ?? true,
       evaluation: {
         kind: row?.evaluation?.kind ?? 'Written',
         totalMarks: row?.evaluation?.totalMarks ?? 100,

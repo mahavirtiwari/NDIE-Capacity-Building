@@ -226,14 +226,22 @@ public class ApplicationService(
         if (programType.Status != RecordStatus.Active)
             throw new AppException("This program type is not open for applications.");
 
-        var form = await db.RegistrationForms
-            .Include(f => f.Sections).ThenInclude(s => s.Fields)
-            .Where(f => f.ProgramTypeId == dto.ProgramTypeId && f.Status == RecordStatus.Active)
-            .OrderByDescending(f => f.Id)
-            .FirstOrDefaultAsync(ct)
-            ?? throw new AppException("No registration form is published for this program type.");
+        /* A track that does not ask for a registration form has no form to
+           publish, nothing to validate, and nothing to scrutinise. */
+        RegistrationForm? form = null;
 
-        ValidateResponses(form, dto.Responses);
+        if (programType.RequiresRegistrationForm)
+        {
+            form = await db.RegistrationForms
+                .Include(f => f.Sections).ThenInclude(s => s.Fields)
+                .Where(f => f.ProgramTypeId == dto.ProgramTypeId && f.Status == RecordStatus.Active)
+                .OrderByDescending(f => f.Id)
+                .FirstOrDefaultAsync(ct)
+                ?? throw new AppException("No registration form is published for this program type.");
+
+            ValidateResponses(form, dto.Responses);
+        }
+
         ValidateTds(dto);
 
         var duplicate = await db.Applications.AnyAsync(
@@ -253,8 +261,13 @@ public class ApplicationService(
             CategoryId = programType.CategoryId,
             SubCategoryId = programType.SubCategoryId,
             ProgramTypeId = programType.Id,
-            RegistrationFormId = form.Id,
-            Status = ApplicationStatus.Submitted,
+            RegistrationFormId = form?.Id,
+
+            /* Scrutiny is the reading of what was declared on the registration
+               form. Where the track asks for no form, there is nothing to
+               read, so the application is approved as it arrives rather than
+               joining a queue nobody can act on. */
+            Status = form is null ? ApplicationStatus.Approved : ApplicationStatus.Submitted,
             SubmittedOn = now,
             PaymentStatus = programType.IsFeeApplicable ? PaymentStatus.Pending : PaymentStatus.NotApplicable,
             FeeAmount = fee?.Totals.Gross ?? 0m,
@@ -274,6 +287,24 @@ public class ApplicationService(
             On = now,
             Remarks = "Application submitted from the mobile app.",
         });
+
+        /* Recorded as its own event rather than left implicit. Somebody
+           reading the history a year later needs to see why this application
+           was never scrutinised, and "the track asked for no form" is the
+           answer — not an omission by whoever was on the queue. */
+        if (form is null)
+        {
+            entity.History.Add(new ScrutinyEvent
+            {
+                Action = ScrutinyAction.Approved,
+                ByUserName = "System",
+                ByRole = BaseRole.Applicant.ToString(),
+                On = now,
+                Remarks =
+                    $"Approved without scrutiny: {programType.Name} does not require a "
+                    + "registration form.",
+            });
+        }
 
         db.Applications.Add(entity);
         await db.SaveChangesAsync(ct);

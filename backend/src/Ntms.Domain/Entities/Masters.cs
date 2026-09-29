@@ -65,6 +65,24 @@ public class ProgramType : AuditableStatusEntity
     public bool IsFeeApplicable { get; set; } = true;
 
     /// <summary>
+    /// Whether an applicant must answer the sign-up form before they can
+    /// apply for this track.
+    /// </summary>
+    public bool RequiresSignupForm { get; set; } = true;
+
+    /// <summary>
+    /// Whether applying means filling in this track's registration form.
+    ///
+    /// It also decides whether the application is scrutinised. The two go
+    /// together: scrutiny is the reading of what was declared on that form,
+    /// so a track that asks for nothing has nothing to scrutinise and an
+    /// application to it is approved as it is submitted. Splitting them into
+    /// two settings would allow "no form, but scrutinise it", which is a
+    /// queue of blank applications nobody can act on.
+    /// </summary>
+    public bool RequiresRegistrationForm { get; set; } = true;
+
+    /// <summary>
     /// What this programme awards. Defaults to the behaviour the system had
     /// before the setting existed: certify whoever qualifies, and give nothing
     /// to anyone else.

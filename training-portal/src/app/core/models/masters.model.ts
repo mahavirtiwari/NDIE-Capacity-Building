@@ -64,6 +64,13 @@ export interface ProgramType extends AuditInfo {
   certificateValidityMonths: number;
   isExamMandatory: boolean;
   isFeeApplicable: boolean;
+  /** The applicant answers the sign-up form before applying to this track. */
+  requiresSignupForm?: boolean;
+  /**
+   * Applying means filling in this track's registration form — and so the
+   * application is scrutinised. Off, and it is approved on submission.
+   */
+  requiresRegistrationForm?: boolean;
   /** What the programme awards at the end of it. */
   certificationPolicy: CertificationPolicy;
   certificationPolicyLabel?: string;

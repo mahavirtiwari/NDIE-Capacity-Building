@@ -91,6 +91,8 @@ public static class DtoMappings
             CertificateValidityMonths = e.CertificateValidityMonths,
             IsExamMandatory = e.IsExamMandatory,
             IsFeeApplicable = e.IsFeeApplicable,
+            RequiresSignupForm = e.RequiresSignupForm,
+            RequiresRegistrationForm = e.RequiresRegistrationForm,
             CertificationPolicy = e.CertificationPolicy.ToString(),
             CertificationPolicyLabel = CertificationPolicies.Label(e.CertificationPolicy),
             CertificateKinds =

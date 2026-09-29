@@ -39,6 +39,10 @@ export default function Apply() {
   const programTypeId = Number(params.programTypeId);
 
   const programs = useResource<ApplicantProgram[]>(() => me.programs(), []);
+  /* Fetched regardless, because whether the track wants one is only known
+     once the programme list arrives, and a second round of hooks keyed on
+     that would change the hook order between renders. An error is tolerated
+     below where the track needs no form. */
   const form = useResource<RegistrationForm>(() => me.form(programTypeId), [programTypeId]);
   const fee = useResource<FeeStructure | null>(() => me.fee(programTypeId), [programTypeId]);
 
@@ -75,7 +79,12 @@ export default function Apply() {
 
   if (form.loading || programs.loading) return <Loading label="Loading the form…" />;
 
-  if (form.error || !form.data) {
+  /* Some tracks ask nothing: no registration form, and no scrutiny either.
+     Applying to one is a declaration and a tap, so a missing form is the
+     expected state rather than a fault. */
+  const needsForm = program?.requiresRegistrationForm !== false;
+
+  if (needsForm && (form.error || !form.data)) {
     return (
       <EmptyState
         icon="alert-circle-outline"
@@ -86,7 +95,7 @@ export default function Apply() {
   }
 
   const submit = async () => {
-    if (!state.validate()) {
+    if (needsForm && !state.validate()) {
       setError('Please correct the highlighted fields.');
       return;
     }
@@ -100,7 +109,7 @@ export default function Apply() {
     try {
       const application = await me.submit({
         programTypeId,
-        responses: state.payload(),
+        responses: needsForm ? state.payload() : {},
         tdsPercent,
         tan: tdsPercent > 0 ? tan.trim().toUpperCase() : null,
         deductorName: tdsPercent > 0 ? deductor.trim() || null : null,
@@ -136,7 +145,7 @@ export default function Apply() {
               <Chip>{`${program.durationDays} days`}</Chip>
               <Chip>{program.deliveryMode}</Chip>
               {program.isExamMandatory ? <Chip>Exam</Chip> : null}
-              <Chip>{`Form v${form.data.version}`}</Chip>
+              {form.data ? <Chip>{`Form v${form.data.version}`}</Chip> : null}
             </View>
           </Card>
         ) : null}
@@ -147,7 +156,17 @@ export default function Apply() {
           </Banner>
         ) : null}
 
-        <DynamicFormView form={form.data} state={state} />
+        {needsForm && form.data ? (
+          <DynamicFormView form={form.data} state={state} />
+        ) : (
+          <Card style={styles.card}>
+            <Text style={styles.sectionTitle}>Application</Text>
+            <Text style={styles.muted}>
+              This programme asks for no registration form. Confirm the fee below and submit —
+              your application is accepted straight away, with no scrutiny to wait for.
+            </Text>
+          </Card>
+        )}
 
         <Card style={styles.card}>
           <Text style={styles.sectionTitle}>Fee and tax</Text>

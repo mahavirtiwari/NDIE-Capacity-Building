@@ -48,8 +48,17 @@ public class ApplicantProgramDto
     public bool IsExamMandatory { get; set; }
     public decimal FeePayable { get; set; }
     public List<int> TdsOptions { get; set; } = [];
-    /// <summary>False when no registration form is published yet.</summary>
+    /// <summary>
+    /// False when the track cannot be applied to yet: it wants a registration
+    /// form and none is published.
+    /// </summary>
     public bool AcceptingApplications { get; set; }
+
+    /// <summary>
+    /// Whether applying means filling in a form. False and the app submits
+    /// straight away — there is nothing to ask.
+    /// </summary>
+    public bool RequiresRegistrationForm { get; set; } = true;
     /// <summary>Set when this applicant has already applied for the track.</summary>
     public string? ExistingApplicationStatus { get; set; }
 }

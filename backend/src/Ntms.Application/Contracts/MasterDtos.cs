@@ -112,6 +112,15 @@ public class ProgramTypeDto : AuditDto
     public bool IsExamMandatory { get; set; }
     public bool IsFeeApplicable { get; set; }
 
+    /// <summary>The applicant answers the sign-up form before applying.</summary>
+    public bool RequiresSignupForm { get; set; } = true;
+
+    /// <summary>
+    /// Applying means filling in this track's registration form — and so the
+    /// application is scrutinised. Off, and it is approved on submission.
+    /// </summary>
+    public bool RequiresRegistrationForm { get; set; } = true;
+
     /// <summary>None, ParticipationOnly, QualificationOnly or QualificationAndParticipation.</summary>
     public string CertificationPolicy { get; set; } = "QualificationOnly";
     /// <summary>Reader-facing wording for that policy.</summary>
@@ -197,6 +206,15 @@ public class ProgramTypeUpsertDto
     public int CertificateValidityMonths { get; set; } = 36;
     public bool IsExamMandatory { get; set; } = true;
     public bool IsFeeApplicable { get; set; } = true;
+
+    /// <summary>The applicant answers the sign-up form before applying.</summary>
+    public bool RequiresSignupForm { get; set; } = true;
+
+    /// <summary>
+    /// Applying means filling in this track's registration form — and so the
+    /// application is scrutinised. Off, and it is approved on submission.
+    /// </summary>
+    public bool RequiresRegistrationForm { get; set; } = true;
     public string CertificationPolicy { get; set; } = "QualificationOnly";
 
     /// <summary>
