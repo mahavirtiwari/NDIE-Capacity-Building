@@ -175,3 +175,109 @@ export interface SystemSettingsUpdate {
   returnUrl?: string | null;
   cancelUrl?: string | null;
 }
+
+/* ---------------------------------------------------------------- reports */
+
+/** One programme in the report register. */
+export interface ReportProgramme {
+  id: Id;
+  programmeCode: string;
+  programmeName: string;
+  agencyName?: string | null;
+  programTypeId: Id;
+  programTypeName?: string | null;
+  categoryName?: string | null;
+  subCategoryName?: string | null;
+  mode: string;
+  venue: string;
+  stateName?: string | null;
+  districtName?: string | null;
+  startDate: string;
+  endDate: string;
+  participantCount: number;
+  status: string;
+}
+
+export interface ReportVenue {
+  name: string;
+  address: string;
+  landmark?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  geoTaggedOn?: string | null;
+}
+
+export interface ReportTrainer {
+  fullName: string;
+  designation?: string | null;
+  organisation?: string | null;
+  mobile: string;
+  email?: string | null;
+}
+
+export interface ReportParticipant {
+  serialNo: number;
+  applicantCode: string;
+  fullName: string;
+  gender?: string | null;
+  mobile?: string | null;
+  email?: string | null;
+  attendancePercent: number;
+  writtenMarks?: number | null;
+  vivaMarks?: number | null;
+  examScore?: number | null;
+  result: string;
+  certificateNumber?: string | null;
+  feedbackRating?: number | null;
+}
+
+export interface ReportSession {
+  serialNo: number;
+  sessionCode?: string | null;
+  title: string;
+  sessionDate: string;
+  startTime: string;
+  endTime: string;
+  facultyName?: string | null;
+  presentCount: number;
+  markedCount: number;
+}
+
+export interface ReportMonitoring {
+  serialNo: number;
+  conductedOn: string;
+  trainerName?: string | null;
+  topic?: string | null;
+  subTopic?: string | null;
+  comments?: string | null;
+  photoCount: number;
+}
+
+export interface ReportTotals {
+  enrolled: number;
+  passed: number;
+  failed: number;
+  pending: number;
+  certified: number;
+  averageAttendance: number;
+  averageFeedback?: number | null;
+  sessionsHeld: number;
+  monitoringSessions: number;
+}
+
+/** Everything one programme is answerable for, assembled per request. */
+export interface ProgrammeReport {
+  organisationName: string;
+  generatedOn: string;
+  generatedBy: string;
+  programme: ReportProgramme;
+  venue?: ReportVenue | null;
+  coordinatorName?: string | null;
+  coordinatorEmail?: string | null;
+  coordinatorMobile?: string | null;
+  trainers: ReportTrainer[];
+  participants: ReportParticipant[];
+  sessions: ReportSession[];
+  monitoring: ReportMonitoring[];
+  totals: ReportTotals;
+}

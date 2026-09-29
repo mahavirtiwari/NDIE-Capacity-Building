@@ -62,6 +62,7 @@ public static class DependencyInjection
         services.AddScoped<SubCategoryService>();
         services.AddScoped<QualificationService>();
         services.AddScoped<QualifiedProfessionalService>();
+        services.AddScoped<ReportService>();
         services.AddScoped<SystemSettingService>();
         services.AddScoped<ProgramTypeService>();
         services.AddScoped<EvaluationSkillService>();

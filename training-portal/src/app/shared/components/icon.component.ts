@@ -13,7 +13,8 @@ export type IconName =
   | 'menu' | 'bell' | 'logout' | 'settings' | 'download' | 'upload' | 'filter'
   | 'refresh' | 'clock' | 'inbox' | 'award' | 'alert' | 'info' | 'lock' | 'mail'
   | 'phone' | 'save' | 'copy' | 'grip' | 'external' | 'arrow-up' | 'arrow-down'
-  | 'more' | 'play' | 'link' | 'help' | 'sliders' | 'graduation' | 'flag' | 'send';
+  | 'more' | 'play' | 'link' | 'help' | 'sliders' | 'graduation' | 'flag' | 'send'
+  | 'printer';
 
 const PATHS: Record<IconName, string> = {
   dashboard: '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
@@ -50,6 +51,7 @@ const PATHS: Record<IconName, string> = {
   logout: '<path d="M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4"/><path d="m16 16 4-4-4-4M20 12H9"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 14.5a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1v.3a2 2 0 1 1-4 0v-.2a1.6 1.6 0 0 0-2.8-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H3.3a2 2 0 1 1 0-4h.2a1.6 1.6 0 0 0 1.1-2.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 2.7-1.1V3a2 2 0 1 1 4 0v.2a1.6 1.6 0 0 0 2.8 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7h.3a2 2 0 1 1 0 4h-.2a1.6 1.6 0 0 0-1.5 1.1Z"/>',
   download: '<path d="M12 3v12M7.5 11 12 15.5 16.5 11M4 20h16"/>',
+  printer: '<path d="M7 9V3.5h10V9M7 18H5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2"/><rect x="7" y="14.5" width="10" height="6" rx="1"/>',
   upload: '<path d="M12 16V4M7.5 8.5 12 4l4.5 4.5M4 20h16"/>',
   filter: '<path d="M3 5h18l-7 8v6l-4 2v-8L3 5Z"/>',
   refresh: '<path d="M20 11a8 8 0 1 0-1.3 5.4"/><path d="M20 5v6h-6"/>',

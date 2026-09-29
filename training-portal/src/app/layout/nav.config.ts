@@ -38,6 +38,12 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    label: 'Reports',
+    items: [
+      { label: 'View reports', route: '/reports', icon: 'file', permissions: ['reports.view'] },
+    ],
+  },
+  {
     label: 'Programme setup',
     items: [
       { label: 'Categories', route: '/masters/categories', icon: 'folder', permissions: ['masters.view'] },

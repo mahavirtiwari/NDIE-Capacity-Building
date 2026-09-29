@@ -44,6 +44,14 @@ export const routes: Routes = [
           import('./features/dashboard/dashboard.component').then((m) => m.DashboardComponent),
       },
 
+      {
+        path: 'reports',
+        title: 'View reports · CBMS',
+        canActivate: [permissionGuard('reports.view')],
+        loadComponent: () =>
+          import('./features/reports/reports.component').then((m) => m.ReportsComponent),
+      },
+
       /* ---------------- Programme setup (Super Admin) ---------------- */
       {
         path: 'masters',
