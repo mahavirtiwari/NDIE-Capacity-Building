@@ -168,6 +168,38 @@ export interface RegistrationForm {
   sections: RegistrationSection[];
 }
 
+/* --------------------------------------------------------- sign-up form */
+
+/**
+ * One box on the form somebody fills in to create an account.
+ *
+ * A built-in field lands in a column on the applicant record and the app has
+ * a control of its own for it; anything else is a question somebody added in
+ * the portal, and its answer travels in the `answers` bag.
+ */
+export interface SignupField {
+  id: number;
+  key: string;
+  label: string;
+  placeholder?: string | null;
+  helpText?: string | null;
+  type: FieldType;
+  required: boolean;
+  displayOrder: number;
+  isBuiltIn: boolean;
+  isLocked: boolean;
+  status: string;
+  options: FieldOption[];
+}
+
+export interface SignupForm {
+  subCategoryId?: number | null;
+  subCategoryName?: string | null;
+  /** False when these are the shared defaults rather than this track's own. */
+  isOwnForm: boolean;
+  fields: SignupField[];
+}
+
 /* ------------------------------------------------------------------- fee */
 
 export interface FeeComponent {

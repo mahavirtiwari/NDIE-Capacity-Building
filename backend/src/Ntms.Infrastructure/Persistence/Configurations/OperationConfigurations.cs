@@ -178,7 +178,7 @@ public class ApplicantConfiguration : IEntityTypeConfiguration<Applicant>
 
            The service says so in words; this is what makes it true even if two
            sign-ups arrive at the same moment. */
-        b.HasIndex(x => new { x.Pan, x.CategoryId }).IsUnique();
+        b.HasIndex(x => new { x.Pan, x.CategoryId }).IsUnique().HasFilter("[Pan] <> ''");
 
         b.HasOne(x => x.Category).WithMany().HasForeignKey(x => x.CategoryId)
             .OnDelete(DeleteBehavior.Restrict);

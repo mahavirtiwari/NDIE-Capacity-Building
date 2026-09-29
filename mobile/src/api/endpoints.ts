@@ -14,6 +14,7 @@ import type {
   Gender,
   LookupItem,
   RegistrationForm,
+  SignupForm,
   SocialCategory,
   TrainingMaterial,
 } from './types';
@@ -44,10 +45,14 @@ export interface SignUpPayload {
   email: string;
   mobile: string;
   pan: string;
-  gender: Gender;
-  socialCategory: SocialCategory;
+  /** Null where the form does not ask; the scheme reports on both. */
+  gender: Gender | null;
+  socialCategory: SocialCategory | null;
   categoryId: number;
   subCategoryId: number;
+
+  /** Answers to whatever else this sub-category's form asks, keyed by field. */
+  answers: Record<string, string>;
 }
 
 export const batches = {
@@ -56,6 +61,13 @@ export const batches = {
 };
 
 export const auth = {
+  /**
+   * The form this sub-category asks, with the switched-off questions already
+   * left out. Anonymous, because it is drawn before anybody has an account.
+   */
+  signupForm: (subCategoryId?: number | null) =>
+    api.get<SignupForm>('signup-form/public', { subCategoryId }, true),
+
   signUp: (payload: SignUpPayload) =>
     api.post<Applicant>('applicants/sign-up', payload, true),
 

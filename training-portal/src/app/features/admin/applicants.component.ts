@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Applicant, LookupItem } from '../../core/models';
 import { LookupService } from '../../core/services/masters.service';
@@ -9,6 +9,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
 import { IconComponent } from '../../shared/components/icon.component';
+import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
 import { ListState, searchTerm } from '../../shared/list-state';
@@ -23,7 +24,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'location', header: 'Location', width: '170px' },
   { key: 'verification', header: 'Verification', width: '190px' },
   { key: 'registeredOn', header: 'Registered', width: '130px' },
-  { key: 'actions', header: '', width: '110px', align: 'right' },
+  { key: 'actions', header: '', width: '150px', align: 'right' },
 ];
 
 @Component({
@@ -36,6 +37,7 @@ const COLUMNS: ColumnDef[] = [
     CellTemplateDirective,
     StatusBadgeComponent,
     IconComponent,
+    ModalComponent,
   ],
   template: `
     <app-page-header
@@ -149,6 +151,13 @@ const COLUMNS: ColumnDef[] = [
           <div class="btn-row btn-row--end">
             <button
               type="button"
+              class="btn btn--sm btn--secondary"
+              (click)="openDetail($any(row))"
+            >
+              Details
+            </button>
+            <button
+              type="button"
               class="btn btn--sm"
               [class.btn--subtle-danger]="!$any(row).isBlocked"
               [class.btn--secondary]="$any(row).isBlocked"
@@ -160,6 +169,88 @@ const COLUMNS: ColumnDef[] = [
         </ng-template>
       </app-data-table>
     </section>
+
+    @if (detail(); as row) {
+      <!-- The sign-up form is per sub-category, so what an applicant was asked
+           beyond the standard particulars is not the same for everybody. The
+           list cannot hold a column per question; this is where they are read. -->
+      <app-modal [title]="row.fullName" (closed)="detail.set(null)">
+        <div class="stack stack-md">
+          <div class="dl">
+            <div>
+              <div class="dl__term">Applicant ID</div>
+              <div class="dl__value"><code>{{ row.applicantCode }}</code></div>
+            </div>
+            <div>
+              <div class="dl__term">PAN</div>
+              <div class="dl__value">{{ row.pan || '—' }}</div>
+            </div>
+            <div>
+              <div class="dl__term">Email</div>
+              <div class="dl__value">{{ row.email }}</div>
+            </div>
+            <div>
+              <div class="dl__term">Mobile</div>
+              <div class="dl__value">{{ row.mobile }}</div>
+            </div>
+            <div>
+              <div class="dl__term">Category</div>
+              <div class="dl__value">{{ row.categoryName }}</div>
+            </div>
+            <div>
+              <div class="dl__term">Sub-category</div>
+              <div class="dl__value">{{ row.subCategoryName }}</div>
+            </div>
+            <div>
+              <div class="dl__term">Gender</div>
+              <div class="dl__value">{{ row.gender || 'Not stated' }}</div>
+            </div>
+            <div>
+              <div class="dl__term">Social category</div>
+              <div class="dl__value">{{ row.socialCategory || 'Not stated' }}</div>
+            </div>
+            <div>
+              <div class="dl__term">Registered</div>
+              <div class="dl__value">{{ row.registeredOn | date: 'dd MMM yyyy' }}</div>
+            </div>
+            <div>
+              <div class="dl__term">Last signed in</div>
+              <div class="dl__value">
+                {{ row.lastLoginOn ? (row.lastLoginOn | date: 'dd MMM yyyy, HH:mm') : 'Never' }}
+              </div>
+            </div>
+          </div>
+
+          <div class="stack stack-sm">
+            <h4 class="section-title">Sign-up form answers</h4>
+            @if (!row.answers?.length) {
+              <p class="text-muted text-sm">
+                This sub-category's sign-up form asked nothing beyond the particulars above.
+              </p>
+            } @else {
+              <div class="table-wrap">
+                <table class="table table--compact">
+                  <thead>
+                    <tr><th>Question</th><th>Answer</th></tr>
+                  </thead>
+                  <tbody>
+                    @for (answer of row.answers; track answer.key) {
+                      <tr>
+                        <td>{{ answer.label }}</td>
+                        <td>{{ answer.value || '—' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </div>
+        <div footer>
+          <button type="button" class="btn btn--secondary" (click)="detail.set(null)">Close</button>
+        </div>
+      </app-modal>
+    }
   `,
   styles: [`.chip.is-off { opacity: 0.45; text-decoration: line-through; }`],
 })
@@ -171,6 +262,14 @@ export class ApplicantsComponent {
   private readonly confirm = inject(ConfirmService);
 
   protected readonly columns = COLUMNS;
+  protected readonly detail = signal<Applicant | null>(null);
+
+  /* Read fresh rather than taken from the row: the list does not carry the
+     sign-up answers, because most of the time nobody is looking at them. */
+  protected openDetail(row: Applicant): void {
+    this.detail.set(row);
+    this.service.getById(row.id).subscribe((full) => this.detail.set(full));
+  }
 
   /* Held rather than written inline: an arrow in the template is a new
 

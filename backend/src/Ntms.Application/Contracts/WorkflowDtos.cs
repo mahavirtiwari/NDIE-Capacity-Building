@@ -31,6 +31,19 @@ public class ApplicantDto : AuditDto
     public DateTime RegisteredOn { get; set; }
     public DateTime? LastLoginOn { get; set; }
     public bool IsBlocked { get; set; }
+
+    /// <summary>
+    /// What was answered to the custom questions on the sign-up form, worded
+    /// as they were asked. Empty where the form asked nothing extra.
+    /// </summary>
+    public List<ApplicantAnswerDto> Answers { get; set; } = [];
+}
+
+public class ApplicantAnswerDto
+{
+    public string Key { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public string? Value { get; set; }
 }
 
 public class BlockApplicantDto
@@ -49,6 +62,13 @@ public class ApplicantSignUpDto
     public string? SocialCategory { get; set; }
     public int CategoryId { get; set; }
     public int SubCategoryId { get; set; }
+
+    /// <summary>
+    /// Answers to whatever else this sub-category's sign-up form asks, keyed
+    /// by field key. The built-in questions keep their own properties above,
+    /// because they land in columns rather than in answer rows.
+    /// </summary>
+    public Dictionary<string, string?> Answers { get; set; } = [];
 }
 
 public class VerifyOtpDto

@@ -34,4 +34,16 @@ export interface Applicant extends AuditInfo {
   registeredOn: string;
   lastLoginOn?: string | null;
   isBlocked: boolean;
+
+  /**
+   * Answers to the custom questions on the sign-up form, worded as they were
+   * asked. Empty where that sub-category's form asked nothing extra.
+   */
+  answers?: ApplicantAnswer[];
+}
+
+export interface ApplicantAnswer {
+  key: string;
+  label: string;
+  value?: string | null;
 }

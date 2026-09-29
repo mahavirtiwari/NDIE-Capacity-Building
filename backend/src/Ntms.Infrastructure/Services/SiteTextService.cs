@@ -204,6 +204,21 @@ public class SiteTextService(NtmsDbContext db)
             "Your password has been changed. Sign in with the new one.",
             null, true),
 
+        /* ------------------------------ registration complete, applicant app */
+        new("app.registered.title", "Registration complete (applicant app)", "Heading",
+            "Registration successful"),
+        new("app.registered.subtitle", "Registration complete (applicant app)", "Subheading",
+            "Your account is ready. Sign in with the applicant ID below.",
+            null, true),
+        new("app.registered.sentTo", "Registration complete (applicant app)",
+            "Where the password went", "Sent to {email}",
+            "{email} is filled in with the address on the account."),
+        new("app.registered.note", "Registration complete (applicant app)", "Note",
+            "Keep the applicant ID safe — it is how you sign in, and it does not change if you later edit your email address.",
+            null, true),
+        new("app.registered.action", "Registration complete (applicant app)", "Button",
+            "Sign in to dashboard"),
+
         /* --------------------------------------------------- the screens ---
            Every page's heading and the line under it, one group per screen.
            These are the first words on a screen and the ones a department is

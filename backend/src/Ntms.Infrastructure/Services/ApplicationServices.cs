@@ -18,7 +18,8 @@ public class ApplicantService(
     ICodeGenerator codes,
     ICurrentUser currentUser,
     INotificationService notifications,
-    OtpService otp)
+    OtpService otp,
+    SignupFormService signupForms)
 {
     /* Scoped at the source, so no read path can forget it. */
     private IQueryable<Applicant> Base => db.Applicants.AsNoTracking()
@@ -47,8 +48,11 @@ public class ApplicantService(
         return await query.ToPagedResultAsync(request, a => a.ToDto(), ct);
     }
 
+    /* The answers ride along here and not on the list: a page of applicants
+       does not show them, and joining a row per question onto every list read
+       would cost the many to serve the one. */
     public async Task<ApplicantDto> GetAsync(int id, CancellationToken ct) =>
-        (await Base.FirstOrDefaultAsync(a => a.Id == id, ct)
+        (await Base.Include(a => a.Answers).FirstOrDefaultAsync(a => a.Id == id, ct)
          ?? throw AppException.NotFound("Applicant")).ToDto();
 
     /// <summary>
@@ -57,20 +61,51 @@ public class ApplicantService(
     /// </summary>
     public async Task<ApplicantDto> SignUpAsync(ApplicantSignUpDto dto, CancellationToken ct)
     {
-        var pan = Formats.Normalise(dto.Pan);
         Guard.Check()
-            .Required(dto.FullName, "Full name")
-            .Email(dto.Email)
-            .Mobile(dto.Mobile)
-            .Pan(pan, required: true)
             .When(dto.CategoryId <= 0, "Select a category.")
             .When(dto.SubCategoryId <= 0, "Select a sub-category.")
-            /* Asked at sign-up because the scheme has to report reach by gender
-               and social category, and a figure assembled later from whoever
-               happened to answer would not describe the intake. */
-            .When(string.IsNullOrWhiteSpace(dto.Gender), "Select a gender.")
-            .When(string.IsNullOrWhiteSpace(dto.SocialCategory), "Select a social category.")
             .ThrowIfInvalid();
+
+        /* The pair has to exist and belong together. Without this a mismatched
+           sub-category reaches the database and comes back as a foreign key
+           violation, which says nothing to the person who picked it. */
+        var pairIsReal = await db.SubCategories.AsNoTracking().AnyAsync(
+            c => c.Id == dto.SubCategoryId && c.CategoryId == dto.CategoryId, ct);
+        if (!pairIsReal)
+            throw new AppException("That sub-category does not belong to the chosen category.");
+
+        /* The form this sub-category actually shows, so that what is demanded
+           here is exactly what was asked there. A question switched off in the
+           portal is not asked by the app and is not insisted on here either;
+           one somebody added is asked, and its answer is kept. */
+        var form = await signupForms.FormAsync(dto.SubCategoryId, activeOnly: true, ct);
+        var asked = form.Fields
+            .ToDictionary(f => f.Key, f => f, StringComparer.OrdinalIgnoreCase);
+
+        bool Asks(string key) => asked.ContainsKey(key);
+        bool Demands(string key) => asked.TryGetValue(key, out var f) && f.Required;
+
+        var pan = Asks("pan") ? Formats.Normalise(dto.Pan) : null;
+
+        var guard = Guard.Check()
+            .Required(dto.FullName, "Full name")
+            .Email(dto.Email)
+            .Mobile(dto.Mobile);
+
+        if (Asks("pan")) guard = guard.Pan(pan, required: Demands("pan"));
+
+        /* Gender and social category are asked at sign-up because the scheme
+           reports reach by them, and a figure assembled later from whoever
+           happened to answer would not describe the intake. Whether they are
+           compulsory is the department's call, on the form. */
+        guard = guard
+            .When(Demands("gender") && string.IsNullOrWhiteSpace(dto.Gender),
+                "Select a gender.")
+            .When(Demands("socialCategory") && string.IsNullOrWhiteSpace(dto.SocialCategory),
+                "Select a social category.");
+
+        var answers = ValidateSignupAnswers(form, dto.Answers, guard);
+        guard.ThrowIfInvalid();
 
         /* One registration per person per category, the person being their PAN.
            A category is entered once, under one sub-category — somebody
@@ -80,10 +115,12 @@ public class ApplicantService(
 
            The database enforces the same rule on (Pan, CategoryId); this is
            here to say it in words rather than as an index violation. */
-        var already = await db.Applicants.AsNoTracking()
-            .Where(a => a.Pan == pan! && a.CategoryId == dto.CategoryId)
-            .Select(a => new { Category = a.Category!.Name, SubCategory = a.SubCategory!.Name })
-            .FirstOrDefaultAsync(ct);
+        var already = string.IsNullOrEmpty(pan)
+            ? null
+            : await db.Applicants.AsNoTracking()
+                .Where(a => a.Pan == pan && a.CategoryId == dto.CategoryId)
+                .Select(a => new { Category = a.Category!.Name, SubCategory = a.SubCategory!.Name })
+                .FirstOrDefaultAsync(ct);
 
         if (already is not null)
         {
@@ -105,13 +142,18 @@ public class ApplicantService(
                whatever collation the database runs under. */
             Email = dto.Email.Trim().ToLowerInvariant(),
             Mobile = dto.Mobile.Trim(),
-            Pan = pan!,
+            /* Empty where the form does not ask for one. The unique index that
+               holds the one-registration-per-category rule skips those rows,
+               since a rule keyed on PAN cannot be applied without one. */
+            Pan = pan ?? string.Empty,
             Gender = EnumMaps.ParseDeclared<Gender>(dto.Gender),
             SocialCategory = EnumMaps.ParseDeclared<SocialCategory>(dto.SocialCategory),
             CategoryId = dto.CategoryId,
             SubCategoryId = dto.SubCategoryId,
             RegisteredOn = DateTime.UtcNow,
         };
+
+        foreach (var answer in answers) entity.Answers.Add(answer);
 
         db.Applicants.Add(entity);
         await db.SaveChangesAsync(ct);
@@ -135,6 +177,85 @@ public class ApplicantService(
         await notifications.SendApplicantWelcomeAsync(entity, ct);
 
         return await GetAsync(entity.Id, ct);
+    }
+
+    /// <summary>
+    /// Checks the answers to the custom questions and turns them into rows.
+    ///
+    /// Only what the form asks is read: a key that is not on it is dropped
+    /// rather than stored, so a stale app cannot write answers to questions
+    /// this sub-category no longer has.
+    /// </summary>
+    private static List<ApplicantAnswer> ValidateSignupAnswers(
+        SignupFormDto form, Dictionary<string, string?> supplied, Guard.Collector guard)
+    {
+        var rows = new List<ApplicantAnswer>();
+        var given = new Dictionary<string, string?>(supplied, StringComparer.OrdinalIgnoreCase);
+
+        /* A document is not collected at sign-up: there is no account to hang
+           an upload off yet, and the registration form is where the scheme
+           asks for papers. One on this form is ignored rather than blocking. */
+        foreach (var field in form.Fields.Where(f => !f.IsBuiltIn && f.Type != "file"))
+        {
+            given.TryGetValue(field.Key, out var raw);
+            var value = (raw ?? string.Empty).Trim();
+
+            if (value.Length == 0)
+            {
+                guard.When(field.Required, $"'{field.Label}' is required.");
+                continue;
+            }
+
+            var complaint = CheckSignupFormat(field, value) ?? CheckSignupChoice(field, value);
+            if (complaint is not null)
+            {
+                guard.When(true, complaint);
+                continue;
+            }
+
+            rows.Add(new ApplicantAnswer
+            {
+                Key = field.Key,
+                Label = field.Label,
+                Value = value.Length > 2000 ? value[..2000] : value,
+            });
+        }
+
+        return rows;
+    }
+
+    private static string? CheckSignupFormat(SignupFieldDto field, string value) => field.Type switch
+    {
+        "email" when !Formats.IsEmail(value) => $"'{field.Label}' is not a valid email.",
+        "mobile" when !Formats.IsMobile(value) => $"'{field.Label}' is not a valid mobile number.",
+        "pan" when !Formats.IsPan(value.ToUpperInvariant()) => $"'{field.Label}' is not a valid PAN.",
+        "tan" when !Formats.IsTan(value.ToUpperInvariant()) => $"'{field.Label}' is not a valid TAN.",
+        "gstin" when !Formats.IsGstin(value.ToUpperInvariant()) => $"'{field.Label}' is not a valid GSTIN.",
+        "ifsc" when !Formats.IsIfsc(value.ToUpperInvariant()) => $"'{field.Label}' is not a valid IFSC.",
+        "aadhaar" when !Formats.IsAadhaar(value) => $"'{field.Label}' is not a valid Aadhaar number.",
+        "pincode" when !Formats.IsPincode(value) => $"'{field.Label}' is not a valid pincode.",
+        "number" when !decimal.TryParse(value, out _) => $"'{field.Label}' has to be a number.",
+        "date" when !DateTime.TryParse(value, out _) => $"'{field.Label}' is not a valid date.",
+        _ => null,
+    };
+
+    /// <summary>
+    /// A chosen answer has to be one of the choices. A multi-select arrives as
+    /// a comma-separated list, the way the app sends it.
+    /// </summary>
+    private static string? CheckSignupChoice(SignupFieldDto field, string value)
+    {
+        if (field.Options.Count == 0) return null;
+        if (field.Type is not ("select" or "radio" or "multiselect")) return null;
+
+        var allowed = field.Options.Select(o => o.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var chosen = field.Type == "multiselect"
+            ? value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            : [value];
+
+        return chosen.All(allowed.Contains)
+            ? null
+            : $"'{field.Label}' was answered with something that is not one of the choices.";
     }
 
     public async Task<ApplicantDto> SetBlockedAsync(int id, bool isBlocked, CancellationToken ct)

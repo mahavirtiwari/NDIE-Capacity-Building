@@ -27,7 +27,6 @@ export default function SignIn() {
 
   const [applicantCode, setApplicantCode] = useState(params.applicantCode ?? '');
   const [password, setPassword] = useState('');
-  const [reveal, setReveal] = useState(false);
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,31 +109,18 @@ export default function SignIn() {
                 )}
               />
 
-              <View>
-                <Field
-                  label={text('app.signin.passwordLabel', 'Password')}
-                  required
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder={text('app.signin.passwordPlaceholder', 'Enter your password')}
-                  secureTextEntry={!reveal}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  onSubmitEditing={submit}
-                  returnKeyType="go"
-                />
-                <Pressable
-                  onPress={() => setReveal((current) => !current)}
-                  style={styles.reveal}
-                  accessibilityLabel={reveal ? 'Hide password' : 'Show password'}
-                >
-                  <Ionicons
-                    name={reveal ? 'eye-off-outline' : 'eye-outline'}
-                    size={18}
-                    color={colors.ink500}
-                  />
-                </Pressable>
-              </View>
+              <Field
+                label={text('app.signin.passwordLabel', 'Password')}
+                required
+                secure
+                value={password}
+                onChangeText={setPassword}
+                placeholder={text('app.signin.passwordPlaceholder', 'Enter your password')}
+                autoCapitalize="none"
+                autoCorrect={false}
+                onSubmitEditing={submit}
+                returnKeyType="go"
+              />
 
               <Link href="/(auth)/forgot-password" asChild>
                 <Pressable accessibilityRole="button" style={styles.forgot}>
@@ -221,7 +207,6 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: font.sm, color: colors.ink500, marginTop: 4 },
   notice: { marginTop: spacing.lg },
   form: { gap: spacing.lg, marginTop: spacing.xl },
-  reveal: { position: 'absolute', right: spacing.md, top: 34 },
 
   forgot: { alignSelf: 'flex-end', paddingVertical: spacing.xs },
   forgotText: { fontSize: font.sm, fontWeight: '600', color: colors.brand700 },

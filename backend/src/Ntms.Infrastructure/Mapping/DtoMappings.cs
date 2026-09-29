@@ -521,6 +521,14 @@ public static class DtoMappings
             RegisteredOn = e.RegisteredOn,
             LastLoginOn = e.LastLoginOn,
             IsBlocked = e.IsBlocked,
+            Answers = [.. e.Answers
+                .OrderBy(a => a.Id)
+                .Select(a => new ApplicantAnswerDto
+                {
+                    Key = a.Key,
+                    Label = a.Label,
+                    Value = a.Value,
+                })],
         };
         FillAudit(dto, e);
         return dto;

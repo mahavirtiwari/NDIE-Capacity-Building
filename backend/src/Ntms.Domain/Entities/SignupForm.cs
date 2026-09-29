@@ -87,5 +87,15 @@ public class ApplicantAnswer : AuditableEntity
 
     /// <summary>Matches <see cref="SignupField.Key"/> as it was at the time.</summary>
     public string Key { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The question as it was worded when it was answered.
+    ///
+    /// Copied rather than looked up, because a field can be relabelled or
+    /// removed afterwards and an answer whose question has gone is no longer
+    /// evidence of anything.
+    /// </summary>
+    public string Label { get; set; } = string.Empty;
+
     public string? Value { get; set; }
 }

@@ -43,6 +43,9 @@ public class Applicant : AuditableEntity
     public bool IsBlocked { get; set; }
 
     public ICollection<TrainingApplication> Applications { get; set; } = [];
+
+    /// <summary>Answers to the custom questions on the sign-up form.</summary>
+    public ICollection<ApplicantAnswer> Answers { get; set; } = [];
 }
 
 /// <summary>

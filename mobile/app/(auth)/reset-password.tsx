@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -34,7 +33,6 @@ export default function ResetPassword() {
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [reveal, setReveal] = useState(false);
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
@@ -128,22 +126,26 @@ export default function ResetPassword() {
           error={touched ? codeError : null}
         />
 
-        <PasswordField
+        <Field
           label="New password"
+          required
+          secure
           value={password}
           onChangeText={setPassword}
-          reveal={reveal}
-          onToggle={() => setReveal((current) => !current)}
+          autoCapitalize="none"
+          autoCorrect={false}
           error={touched ? passwordError : null}
           hint="At least 8 characters."
         />
 
-        <PasswordField
+        <Field
           label="Confirm new password"
+          required
+          secure
           value={confirm}
           onChangeText={setConfirm}
-          reveal={reveal}
-          onToggle={() => setReveal((current) => !current)}
+          autoCapitalize="none"
+          autoCorrect={false}
           error={touched || confirm.length > 0 ? confirmError : null}
           onSubmitEditing={submit}
         />
@@ -191,59 +193,6 @@ export default function ResetPassword() {
   );
 }
 
-/**
- * A password box with the eye on it. Typing a password you cannot see, twice,
- * on a phone keyboard is how people end up locked out of the account they just
- * recovered.
- */
-function PasswordField({
-  label,
-  value,
-  onChangeText,
-  reveal,
-  onToggle,
-  error,
-  hint,
-  onSubmitEditing,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (next: string) => void;
-  reveal: boolean;
-  onToggle: () => void;
-  error?: string | null;
-  hint?: string;
-  onSubmitEditing?: () => void;
-}) {
-  return (
-    <View>
-      <Field
-        label={label}
-        required
-        value={value}
-        onChangeText={onChangeText}
-        secureTextEntry={!reveal}
-        autoCapitalize="none"
-        autoCorrect={false}
-        error={error}
-        hint={hint}
-        onSubmitEditing={onSubmitEditing}
-      />
-      <Pressable
-        onPress={onToggle}
-        style={styles.reveal}
-        accessibilityLabel={reveal ? 'Hide password' : 'Show password'}
-      >
-        <Ionicons
-          name={reveal ? 'eye-off-outline' : 'eye-outline'}
-          size={18}
-          color={colors.ink500}
-        />
-      </Pressable>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.lg },
   header: { gap: 2 },
@@ -259,7 +208,6 @@ const styles = StyleSheet.create({
 
   card: { gap: spacing.lg },
   codeInput: { fontSize: font.xl, letterSpacing: 8, textAlign: 'center' },
-  reveal: { position: 'absolute', right: spacing.md, top: 34 },
 
   resend: { alignItems: 'center', paddingVertical: spacing.xs },
   resendText: { fontSize: font.sm, fontWeight: '600', color: colors.brand700 },

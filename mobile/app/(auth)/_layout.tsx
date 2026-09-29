@@ -18,6 +18,12 @@ export default function AuthLayout() {
       <Stack.Screen name="verify" options={{ title: 'Verify email' }} />
       <Stack.Screen name="forgot-password" options={{ title: 'Reset password' }} />
       <Stack.Screen name="reset-password" options={{ title: 'Reset password' }} />
+      {/* No way back: the account exists by now, and returning to the code
+          screen would only offer a code that has already been spent. */}
+      <Stack.Screen
+        name="registered"
+        options={{ title: 'Registration complete', headerBackVisible: false, gestureEnabled: false }}
+      />
     </Stack>
   );
 }

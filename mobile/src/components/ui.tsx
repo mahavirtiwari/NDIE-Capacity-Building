@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { forwardRef, type ReactNode } from 'react';
+import { forwardRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -95,24 +95,62 @@ interface FieldProps extends TextInputProps {
   required?: boolean;
   error?: string | null;
   hint?: string | null;
+
+  /**
+   * A password box, with the eye that shows what was typed.
+   *
+   * Every password on a phone is typed on a keyboard that hides its own
+   * output, often twice, and a mistyped one that cannot be checked is how
+   * somebody ends up locked out of the account they were setting up. Owned by
+   * the field rather than bolted on at each call site, so no password box is
+   * ever shipped without it.
+   */
+  secure?: boolean;
 }
 
 export const Field = forwardRef<TextInput, FieldProps>(function Field(
-  { label, required, error, hint, style, ...rest },
+  { label, required, error, hint, secure, style, ...rest },
   ref,
 ) {
+  const [reveal, setReveal] = useState(false);
+
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>
         {label}
         {required ? <Text style={styles.required}> *</Text> : null}
       </Text>
-      <TextInput
-        ref={ref}
-        placeholderTextColor={colors.ink400}
-        style={[styles.input, !!error && styles.inputInvalid, style]}
-        {...rest}
-      />
+
+      <View>
+        <TextInput
+          ref={ref}
+          placeholderTextColor={colors.ink500}
+          secureTextEntry={secure ? !reveal : rest.secureTextEntry}
+          style={[
+            styles.input,
+            !!error && styles.inputInvalid,
+            !!secure && styles.inputWithEye,
+            style,
+          ]}
+          {...rest}
+        />
+        {secure ? (
+          <Pressable
+            onPress={() => setReveal((current) => !current)}
+            hitSlop={8}
+            style={styles.eye}
+            accessibilityRole="button"
+            accessibilityLabel={reveal ? 'Hide password' : 'Show password'}
+          >
+            <Ionicons
+              name={reveal ? 'eye-off-outline' : 'eye-outline'}
+              size={18}
+              color={colors.ink500}
+            />
+          </Pressable>
+        ) : null}
+      </View>
+
       {error ? (
         <Text style={styles.error}>{error}</Text>
       ) : hint ? (
@@ -264,8 +302,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   inputInvalid: { borderColor: colors.danger500 },
+  inputWithEye: { paddingRight: 42 },
+  eye: { position: 'absolute', right: spacing.md, top: 0, bottom: 0, justifyContent: 'center' },
+  /* One step darker than the old ink400: a placeholder and a hint are read,
+     not decoration, and at 11px the lighter grey was hard to make out. */
   error: { fontSize: font.xs, color: colors.danger700, fontWeight: '500' },
-  hint: { fontSize: font.xs, color: colors.ink500 },
+  hint: { fontSize: font.sm, color: colors.ink600, lineHeight: 17 },
 
   pill: {
     flexDirection: 'row',

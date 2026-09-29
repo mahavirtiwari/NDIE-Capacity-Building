@@ -312,9 +312,10 @@ public class ApplicantAnswerConfiguration : IEntityTypeConfiguration<ApplicantAn
     {
         b.ToTable("ApplicantAnswers");
         b.Property(x => x.Key).HasMaxLength(80).IsRequired();
+        b.Property(x => x.Label).HasMaxLength(200).IsRequired();
         b.Property(x => x.Value).HasMaxLength(2000);
 
-        b.HasOne(x => x.Applicant).WithMany().HasForeignKey(x => x.ApplicantId)
+        b.HasOne(x => x.Applicant).WithMany(a => a.Answers).HasForeignKey(x => x.ApplicantId)
             .OnDelete(DeleteBehavior.Cascade);
 
         /* One answer per question per applicant. */

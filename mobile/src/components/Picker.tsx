@@ -103,7 +103,7 @@ export function Picker({
                 value={term}
                 onChangeText={setTerm}
                 placeholder="Search"
-                placeholderTextColor={colors.ink400}
+                placeholderTextColor={colors.ink500}
                 style={styles.search}
                 autoCorrect={false}
               />
@@ -299,10 +299,10 @@ const styles = StyleSheet.create({
   controlInvalid: { borderColor: colors.danger500 },
   controlDisabled: { backgroundColor: colors.ink100 },
   value: { flex: 1, fontSize: font.base, color: colors.ink900 },
-  placeholder: { flex: 1, fontSize: font.base, color: colors.ink400 },
+  placeholder: { flex: 1, fontSize: font.base, color: colors.ink500 },
 
   error: { fontSize: font.xs, color: colors.danger700, fontWeight: '500' },
-  hint: { fontSize: font.xs, color: colors.ink500 },
+  hint: { fontSize: font.sm, color: colors.ink600, lineHeight: 17 },
 
   backdrop: {
     flex: 1,
@@ -313,8 +313,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
-    maxHeight: '75%',
-    paddingBottom: spacing.xl,
+    maxHeight: '80%',
+    /* Clear of the gesture bar, which was cutting the last option in half. */
+    paddingBottom: spacing.xxl,
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -326,7 +327,8 @@ const styles = StyleSheet.create({
   },
   sheetTitle: { fontSize: font.md, fontWeight: '700', color: colors.ink900 },
   search: {
-    margin: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginVertical: spacing.md,
     borderWidth: 1,
     borderColor: colors.borderStrong,
     borderRadius: radius.md,
@@ -335,23 +337,27 @@ const styles = StyleSheet.create({
     fontSize: font.base,
     color: colors.ink900,
   },
-  list: { paddingHorizontal: spacing.sm },
+  list: { paddingHorizontal: spacing.md },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 13,
+    gap: spacing.sm,
+    /* A finger-sized row. The old one was 13pt of padding around a single
+       line, which on a long list meant reading and hitting the wrong one. */
+    minHeight: 48,
+    paddingVertical: 12,
     paddingHorizontal: spacing.md,
     borderRadius: radius.sm,
   },
   optionActive: { backgroundColor: colors.brand50 },
-  optionText: { fontSize: font.base, color: colors.ink800, flex: 1 },
+  optionText: { fontSize: font.base, color: colors.ink900, flex: 1, lineHeight: 21 },
   optionTextActive: { color: colors.brand700, fontWeight: '600' },
   empty: { padding: spacing.lg, fontSize: font.sm, color: colors.ink500, textAlign: 'center' },
 
   group: { gap: spacing.sm },
   check: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 4 },
-  checkText: { fontSize: font.base, color: colors.ink800 },
+  checkText: { fontSize: font.base, color: colors.ink900, lineHeight: 21, flexShrink: 1 },
   checkTextWide: { flex: 1 },
   box: {
     width: 20,

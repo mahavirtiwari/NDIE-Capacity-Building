@@ -53,15 +53,25 @@ export default function Verify() {
     setError(null);
     try {
       await auth.verifyOtp(email, code.trim());
-      router.replace({
-        pathname: '/(auth)/sign-in',
-        params: {
-          applicantCode: applicantCode ?? '',
-          notice: isEmailChange
-            ? 'New email verified. Sign in again with your existing password.'
-            : 'Email verified. Your applicant ID and password have been emailed to you.',
-        },
-      });
+
+      /* Verifying is what issues the password, so this is where registration
+         actually finishes — and where the applicant is shown the ID they will
+         sign in with. Re-verifying a changed address is not a registration,
+         and goes straight back to sign-in. */
+      if (isEmailChange) {
+        router.replace({
+          pathname: '/(auth)/sign-in',
+          params: {
+            applicantCode: applicantCode ?? '',
+            notice: 'New email verified. Sign in again with your existing password.',
+          },
+        });
+      } else {
+        router.replace({
+          pathname: '/(auth)/registered',
+          params: { applicantCode: applicantCode ?? '', email },
+        });
+      }
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Verification failed.');
     } finally {

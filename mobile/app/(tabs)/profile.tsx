@@ -283,7 +283,7 @@ export default function Profile() {
             required
             value={currentPassword}
             onChangeText={setCurrentPassword}
-            secureTextEntry
+            secure
             autoCapitalize="none"
           />
           <Field
@@ -291,7 +291,7 @@ export default function Profile() {
             required
             value={newPassword}
             onChangeText={setNewPassword}
-            secureTextEntry
+            secure
             autoCapitalize="none"
             hint="At least 8 characters."
           />
@@ -300,7 +300,7 @@ export default function Profile() {
             required
             value={confirmPassword}
             onChangeText={setConfirmPassword}
-            secureTextEntry
+            secure
             autoCapitalize="none"
           />
 
