@@ -5,7 +5,7 @@ import { ApiError } from '../../src/api/client';
 import { batches as batchesApi } from '../../src/api/endpoints';
 import type { ApplicantBatch } from '../../src/api/types';
 import { Banner, EmptyState, Loading, shortDate } from '../../src/components/ui';
-import { colors, radius, spacing } from '../../src/theme';
+import { colors, font, radius, spacing } from '../../src/theme';
 
 /**
  * The dated batches an applicant can join.
@@ -105,31 +105,44 @@ export default function Batches() {
   );
 }
 
+/* Sizes and colours from the tokens, like every other screen. This one had
+   grown its own set of numbers, which is how a 12pt line in the palest grey
+   ends up carrying the dates and the venue. */
 const styles = StyleSheet.create({
   list: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.ink200,
+    borderColor: colors.border,
     padding: spacing.lg,
-    gap: 3,
+    gap: 4,
   },
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  title: { flex: 1, fontSize: 15, fontWeight: '700', color: colors.ink900 },
+  head: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  title: { flex: 1, fontSize: font.md, fontWeight: '700', color: colors.ink900, lineHeight: 21 },
   seats: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
     borderRadius: radius.pill,
     backgroundColor: colors.success50,
   },
   seatsGone: { backgroundColor: colors.ink100 },
-  seatsText: { fontSize: 11, fontWeight: '700', color: colors.success700 },
-  seatsGoneText: { color: colors.ink500 },
-  code: { fontSize: 12, fontWeight: '600', color: colors.brand700 },
-  meta: { fontSize: 12, color: colors.ink500 },
-  foot: { marginTop: spacing.sm },
-  enrolled: { fontSize: 12, fontWeight: '600', color: colors.success700 },
-  applied: { fontSize: 12, fontWeight: '600', color: colors.warning700 },
-  apply: { fontSize: 12, fontWeight: '600', color: colors.brand700 },
+  seatsText: { fontSize: font.xs, fontWeight: '700', color: colors.success700 },
+  seatsGoneText: { color: colors.ink600 },
+  code: { fontSize: font.xs, fontWeight: '600', color: colors.brand700, letterSpacing: 0.4 },
+  meta: { fontSize: font.sm, color: colors.ink600, lineHeight: 18 },
+  foot: {
+    marginTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+  },
+  enrolled: { fontSize: font.sm, fontWeight: '600', color: colors.success700 },
+  applied: { fontSize: font.sm, fontWeight: '600', color: colors.warning700 },
+  apply: { fontSize: font.sm, fontWeight: '600', color: colors.brand700 },
 });

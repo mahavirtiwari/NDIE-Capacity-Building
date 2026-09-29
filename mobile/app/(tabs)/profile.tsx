@@ -373,5 +373,5 @@ const styles = StyleSheet.create({
   },
   signOutLabel: { fontSize: font.base, fontWeight: '600', color: colors.danger700 },
 
-  footer: { fontSize: font.xs, color: colors.ink400, textAlign: 'center', lineHeight: 17 },
+  footer: { fontSize: font.xs, color: colors.ink500, textAlign: 'center', lineHeight: 17 },
 });

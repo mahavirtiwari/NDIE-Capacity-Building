@@ -11,9 +11,10 @@ import {
   View,
 } from 'react-native';
 import { me } from '../../src/api/endpoints';
-import type { ApplicantProgram } from '../../src/api/types';
+import type { Application, ApplicantProgram } from '../../src/api/types';
 import { useResource } from '../../src/api/useResource';
 import { useAuth } from '../../src/auth/AuthContext';
+import { IdentityPanel, QuickTile, QuickTiles, SectionHeading } from '../../src/components/blocks';
 import {
   Banner,
   Button,
@@ -35,6 +36,28 @@ export default function Programs() {
   const { applicant } = useAuth();
   const [term, setTerm] = useState('');
   const programs = useResource<ApplicantProgram[]>(() => me.programs(), []);
+
+  /* The tiles need a count each, and the applications carry both of them -
+     how many are in progress, and what is still owed on them. One request
+     rather than one per tile. */
+  const applications = useResource<Application[]>(() => me.applications(), []);
+
+  const standing = useMemo(() => {
+    const rows = applications.data;
+    /* Not loaded is not the same as nothing owed. A tile that says "Clear"
+       because the request failed is worse than one that admits it does not
+       know yet. */
+    if (!rows) return { known: false, count: 0, owed: 0 };
+
+    const owed = rows
+      .filter(
+        (row) =>
+          row.feeAmount > 0 &&
+          (row.paymentStatus === 'Pending' || row.paymentStatus === 'Failed'),
+      )
+      .reduce((sum, row) => sum + row.feeAmount, 0);
+    return { known: true, count: rows.length, owed };
+  }, [applications.data]);
 
   const list = useMemo(() => {
     const needle = term.trim().toLowerCase();
@@ -59,17 +82,37 @@ export default function Programs() {
       }
       ListHeaderComponent={
         <View style={styles.header}>
-          <Text style={styles.greeting}>
-            {applicant ? `Hello, ${applicant.fullName.split(' ')[0]}` : 'Programmes'}
-          </Text>
-          <Text style={styles.scope}>
-            {applicant
-              ? `${applicant.categoryName ?? 'All categories'} · ${applicant.subCategoryName ?? 'All sub-categories'}`
-              : ''}
-          </Text>
+          <IdentityPanel
+            applicant={applicant}
+            greeting={applicant ? `Hello, ${applicant.fullName.split(' ')[0]}` : 'Welcome'}
+          />
+
+          <QuickTiles>
+            <QuickTile
+              icon="documents-outline"
+              label="Applications"
+              value={standing.known ? String(standing.count) : '—'}
+              onPress={() => router.push('/(tabs)/applications')}
+            />
+            <QuickTile
+              icon="card-outline"
+              label={standing.owed > 0 ? 'Outstanding' : 'Payments'}
+              value={
+                !standing.known ? '—' : standing.owed > 0 ? inr(standing.owed) : 'Clear'
+              }
+              tone={standing.owed > 0 ? 'warn' : 'plain'}
+              onPress={() => router.push('/payments')}
+            />
+            <QuickTile
+              icon="calendar-outline"
+              label="Batches"
+              onPress={() => router.push('/(tabs)/batches')}
+            />
+          </QuickTiles>
 
           {programs.error ? <Banner tone="danger">{programs.error}</Banner> : null}
 
+          <SectionHeading>Programmes open to you</SectionHeading>
           <SearchBox value={term} onChange={setTerm} />
         </View>
       }
@@ -97,12 +140,12 @@ export default function Programs() {
 function SearchBox({ value, onChange }: { value: string; onChange: (text: string) => void }) {
   return (
     <View style={styles.search}>
-      <Ionicons name="search" size={17} color={colors.ink400} />
+      <Ionicons name="search" size={17} color={colors.ink500} />
       <TextInput
         value={value}
         onChangeText={onChange}
         placeholder="Search programmes"
-        placeholderTextColor={colors.ink400}
+        placeholderTextColor={colors.ink500}
         style={styles.searchInput}
         autoCorrect={false}
         returnKeyType="search"
@@ -176,9 +219,7 @@ function ProgramCard({
 const styles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
 
-  header: { gap: spacing.sm, marginBottom: spacing.xs },
-  greeting: { fontSize: font.xl, fontWeight: '700', color: colors.ink900 },
-  scope: { fontSize: font.sm, color: colors.ink500 },
+  header: { gap: spacing.md, marginBottom: spacing.xs },
 
   search: {
     flexDirection: 'row',
@@ -189,7 +230,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    marginTop: spacing.xs,
   },
   searchInput: { flex: 1, paddingVertical: 11, fontSize: font.base, color: colors.ink900 },
 

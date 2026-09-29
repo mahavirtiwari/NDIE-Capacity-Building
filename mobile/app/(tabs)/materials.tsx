@@ -132,7 +132,7 @@ function MaterialCard({
             </Text>
           </View>
 
-          <Ionicons name="chevron-forward" size={17} color={colors.ink400} />
+          <Ionicons name="chevron-forward" size={17} color={colors.ink500} />
         </View>
       </Card>
     </Pressable>
@@ -170,5 +170,5 @@ const styles = StyleSheet.create({
   title: { fontSize: font.base, fontWeight: '700', color: colors.ink900, lineHeight: 20 },
   description: { fontSize: font.xs, color: colors.ink600, lineHeight: 17 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 2 },
-  foot: { fontSize: font.xs, color: colors.ink400, marginTop: 2 },
+  foot: { fontSize: font.xs, color: colors.ink500, marginTop: 2 },
 });
