@@ -31,7 +31,19 @@ export default function ForgotPassword() {
 
   const typed = identifier.trim();
   const looksLikeEmail = typed.includes('@');
-  const invalid = validate(typed);
+
+  /* Neither a well formed e-mail nor anything resembling an applicant ID is
+     a typo, and sending it on would end at a screen waiting for a code that
+     was never sent. One message covers both, because from the applicant's
+     side there is one thing to do about it. */
+  const wellFormed = looksLikeEmail ? isEmail(typed) : isApplicantCode(typed);
+  const invalid =
+    typed.length > 0 && wellFormed
+      ? null
+      : text(
+          'app.forgot.invalid',
+          'Please provide a valid applicant ID or registered email ID.',
+        );
 
   const submit = async () => {
     setTouched(true);
@@ -108,25 +120,6 @@ export default function ForgotPassword() {
       </View>
     </ScrollView>
   );
-}
-
-/**
- * Caught while typing rather than at the end.
- *
- * Both shapes are checked properly: an entry that is neither a well formed
- * e-mail nor anything resembling an applicant ID is a typo, and sending it
- * on would end at a screen asking for a code that was never sent.
- */
-function validate(typed: string): string | null {
-  if (typed.length === 0) return 'Enter your applicant ID or the email on your account.';
-
-  if (typed.includes('@')) {
-    return isEmail(typed) ? null : 'That email address does not look right.';
-  }
-
-  return isApplicantCode(typed)
-    ? null
-    : 'That is not an applicant ID. It looks like APP240001 — or use the email on your account.';
 }
 
 function Row({

@@ -36,21 +36,34 @@ export default function SignIn() {
      the button has been pressed and the server has said no. */
   const typedId = applicantCode.trim();
   const idError =
-    typedId.length === 0
+    typedId.length === 0 || isApplicantCode(typedId)
       ? null
-      : typedId.includes('@')
-        ? 'Sign in with your applicant ID, not your email address.'
-        : isApplicantCode(typedId)
-          ? null
-          : 'That is not an applicant ID. It looks like APP240001.';
+      : text(
+          'app.signin.invalidId',
+          'Please enter the valid applicant ID provided during registration.',
+        );
 
   const submit = async () => {
     setTouched(true);
-    if (!applicantCode.trim() || !password) {
+
+    /* Name what is actually missing. "Enter your applicant ID and password"
+       over a filled-in ID box reads as though the box were wrong. */
+    if (!typedId && !password) {
       setError('Enter your applicant ID and password.');
       return;
     }
-    if (idError) return;
+    if (!typedId) {
+      setError('Enter your applicant ID.');
+      return;
+    }
+    if (idError) {
+      setError(null);
+      return;
+    }
+    if (!password) {
+      setError('Enter your password.');
+      return;
+    }
 
     setBusy(true);
     setError(null);
