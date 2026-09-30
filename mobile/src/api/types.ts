@@ -418,6 +418,13 @@ export interface BatchRegistration {
   message: string;
 }
 
+/** What is attached to a file field, if anything. */
+export interface FileStanding {
+  fieldKey: string;
+  fileName?: string | null;
+  size: number;
+}
+
 /** How many pictures are held for one field, and how many it takes. */
 export interface PhotoStanding {
   fieldKey: string;

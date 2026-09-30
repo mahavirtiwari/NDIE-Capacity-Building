@@ -61,7 +61,7 @@ public class ApplicantAppController(
     InvoiceService invoices,
     ProfileSubmissionService profile,
     BatchRegistrationService registration,
-    ProfilePhotoService photos) : ApiControllerBase
+    ProfileAttachmentService photos) : ApiControllerBase
 {
     private int ApplicantId =>
         CurrentUser.ApplicantId
@@ -158,13 +158,13 @@ public class ApplicantAppController(
        a time and come back as a single PDF. */
 
     [HttpGet("profile-photos/{fieldKey}")]
-    public async Task<ActionResult<ApiEnvelope<ProfilePhotoService.Standing>>> Photos(
+    public async Task<ActionResult<ApiEnvelope<ProfileAttachmentService.Standing>>> Photos(
         string fieldKey, CancellationToken ct) =>
         Envelope(await photos.StandingAsync(ApplicantId, fieldKey, ct));
 
     [HttpPost("profile-photos/{fieldKey}")]
     [RequestSizeLimit(8_388_608)]
-    public async Task<ActionResult<ApiEnvelope<ProfilePhotoService.Standing>>> AddPhoto(
+    public async Task<ActionResult<ApiEnvelope<ProfileAttachmentService.Standing>>> AddPhoto(
         string fieldKey, IFormFile picture, CancellationToken ct)
     {
         if (picture is null || picture.Length == 0)
@@ -178,7 +178,7 @@ public class ApplicantAppController(
     }
 
     [HttpDelete("profile-photos/{fieldKey}/{displayOrder:int}")]
-    public async Task<ActionResult<ApiEnvelope<ProfilePhotoService.Standing>>> RemovePhoto(
+    public async Task<ActionResult<ApiEnvelope<ProfileAttachmentService.Standing>>> RemovePhoto(
         string fieldKey, int displayOrder, CancellationToken ct) =>
         Envelope(await photos.RemoveAsync(ApplicantId, fieldKey, displayOrder, ct));
 
@@ -196,6 +196,42 @@ public class ApplicantAppController(
     public async Task<IActionResult> PhotoPdf(string fieldKey, CancellationToken ct) =>
         File(await photos.PdfAsync(ApplicantId, fieldKey, ct), "application/pdf",
             $"{fieldKey}.pdf");
+
+    /* ------------------------------------------------------ files ----
+       A file field used to record only the name of what the applicant
+       chose and throw the document away. It keeps it now. */
+
+    [HttpGet("profile-files/{fieldKey}")]
+    public async Task<ActionResult<ApiEnvelope<ProfileAttachmentService.FileStanding>>> ProfileFile(
+        string fieldKey, CancellationToken ct) =>
+        Envelope(await photos.FileStandingAsync(ApplicantId, fieldKey, ct));
+
+    /// <summary>Attaches a file, replacing whatever the field held.</summary>
+    [HttpPost("profile-files/{fieldKey}")]
+    [RequestSizeLimit(68_157_440)]
+    public async Task<ActionResult<ApiEnvelope<ProfileAttachmentService.FileStanding>>> SetProfileFile(
+        string fieldKey, IFormFile document, CancellationToken ct)
+    {
+        if (document is null || document.Length == 0)
+            throw new AppException("Choose a file to attach.");
+
+        using var buffer = new MemoryStream();
+        await document.CopyToAsync(buffer, ct);
+
+        return Envelope(
+            await photos.SetFileAsync(
+                ApplicantId, fieldKey, buffer.ToArray(),
+                document.FileName, document.ContentType, ct),
+            "File attached.");
+    }
+
+    /// <summary>The file back, as it arrived.</summary>
+    [HttpGet("profile-files/{fieldKey}/download")]
+    public async Task<IActionResult> DownloadProfileFile(string fieldKey, CancellationToken ct)
+    {
+        var (content, type, name) = await photos.FileAsync(ApplicantId, fieldKey, ct);
+        return File(content, type, name);
+    }
 
     /// <summary>Sends the profile for scrutiny, as a fresh attempt.</summary>
     [HttpPost("profile-submission")]

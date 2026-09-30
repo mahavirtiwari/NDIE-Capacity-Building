@@ -44,7 +44,7 @@ public class NtmsDbContext(DbContextOptions<NtmsDbContext> options, ICurrentUser
     public DbSet<CurriculumTopic> CurriculumTopics => Set<CurriculumTopic>();
     public DbSet<ProfileForm> ProfileForms => Set<ProfileForm>();
     public DbSet<ProfileSubmission> ProfileSubmissions => Set<ProfileSubmission>();
-    public DbSet<ProfilePhoto> ProfilePhotos => Set<ProfilePhoto>();
+    public DbSet<ProfileAttachment> ProfileAttachments => Set<ProfileAttachment>();
     public DbSet<ProfileScrutinyEvent> ProfileScrutinyEvents => Set<ProfileScrutinyEvent>();
     public DbSet<ProfileSection> ProfileSections => Set<ProfileSection>();
     public DbSet<ProfileField> ProfileFields => Set<ProfileField>();

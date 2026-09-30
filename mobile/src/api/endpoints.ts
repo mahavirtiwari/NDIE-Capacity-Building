@@ -12,6 +12,7 @@ import type {
   ExamResult,
   ExamSitting,
   FeeStructure,
+  FileStanding,
   Gender,
   LookupItem,
   MaterialTicket,
@@ -162,6 +163,27 @@ export const me = {
   removePhoto: (fieldKey: string, displayOrder: number) =>
     api.delete<PhotoStanding>(
       `me/profile-photos/${encodeURIComponent(fieldKey)}/${displayOrder}`),
+
+  /* ------------------------------------------------ a file on a field */
+
+  profileFile: (fieldKey: string) =>
+    api.getLive<FileStanding>(`me/profile-files/${encodeURIComponent(fieldKey)}`),
+
+  /** Replaces whatever the field held, because a file field has one answer. */
+  setProfileFile: (fieldKey: string, file: { uri: string; name: string; type: string }) => {
+    const body = new FormData();
+    body.append('document', {
+      uri: file.uri,
+      name: file.name,
+      type: file.type,
+    } as unknown as Blob);
+
+    return api.postForm<FileStanding>(
+      `me/profile-files/${encodeURIComponent(fieldKey)}`, body);
+  },
+
+  profileFileDownload: (fieldKey: string) =>
+    download(`me/profile-files/${encodeURIComponent(fieldKey)}/download`, fieldKey),
 
   /** Every picture for the field, merged, in the order taken. */
   photoPdf: (fieldKey: string) =>

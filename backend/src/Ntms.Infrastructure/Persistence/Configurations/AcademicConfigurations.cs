@@ -92,17 +92,19 @@ public class ProfileSubmissionConfiguration : IEntityTypeConfiguration<ProfileSu
     }
 }
 
-public class ProfilePhotoConfiguration : IEntityTypeConfiguration<ProfilePhoto>
+public class ProfileAttachmentConfiguration : IEntityTypeConfiguration<ProfileAttachment>
 {
-    public void Configure(EntityTypeBuilder<ProfilePhoto> b)
+    public void Configure(EntityTypeBuilder<ProfileAttachment> b)
     {
-        b.ToTable("ProfilePhotos");
+        b.ToTable("ProfileAttachments");
 
         b.Property(x => x.FieldKey).HasMaxLength(80).IsRequired();
+        b.Property(x => x.FileName).HasMaxLength(260);
         b.Property(x => x.ContentType).HasMaxLength(100).IsRequired();
 
-        /* One picture per position per field, so a set has no gaps and no
-           duplicates and the PDF's page order is the stored order. */
+        /* One per position per field, so a set of pictures has no gaps and
+           no duplicates and the PDF's page order is the stored order. A
+           file field only ever uses position one. */
         b.HasIndex(x => new { x.ApplicantId, x.FieldKey, x.DisplayOrder }).IsUnique();
 
         b.HasOne(x => x.Applicant).WithMany()

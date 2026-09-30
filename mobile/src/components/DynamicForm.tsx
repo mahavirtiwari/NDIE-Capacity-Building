@@ -822,17 +822,66 @@ function FileField({
   onChange: (value: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  /* What the server actually holds. The answer in the form is a copy of
+     the name, and a form reopened after a rejection has to show the
+     document that is really attached rather than a name with nothing
+     behind it. */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const held = await me.profileFile(field.key);
+        if (!cancelled && held.fileName) onChange(held.fileName);
+      } catch {
+        /* Offline, or nothing attached yet. What is in the form stands. */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [field.key]);
 
   const pick = async () => {
+    setFailure(null);
+
+    const extensions = field.validation.allowedExtensions ?? [];
+    const result = await DocumentPicker.getDocumentAsync({
+      multiple: false,
+      copyToCacheDirectory: true,
+      type: extensions.length ? extensions.map(mimeFor) : '*/*',
+    });
+
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+
+    /* Sent as it is chosen rather than held until the form goes. The
+       field used to record the name and throw the document away, which
+       looked like it had worked and had not. */
     setBusy(true);
     try {
-      const extensions = field.validation.allowedExtensions ?? [];
-      const result = await DocumentPicker.getDocumentAsync({
-        multiple: false,
-        copyToCacheDirectory: true,
-        type: extensions.length ? extensions.map(mimeFor) : '*/*',
+      const held = await me.setProfileFile(field.key, {
+        uri: asset.uri,
+        name: asset.name,
+        type: asset.mimeType ?? 'application/octet-stream',
       });
-      if (!result.canceled && result.assets[0]) onChange(result.assets[0].name);
+      onChange(held.fileName ?? asset.name);
+    } catch (caught) {
+      setFailure(caught instanceof Error ? caught.message : 'Could not attach the file.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const open = async () => {
+    setBusy(true);
+    setFailure(null);
+    try {
+      await saveAndShare(await me.profileFileDownload(field.key), field.label);
+    } catch (caught) {
+      setFailure(caught instanceof Error ? caught.message : 'Could not open the file.');
     } finally {
       setBusy(false);
     }
@@ -864,9 +913,20 @@ function FileField({
           color={value ? colors.brand700 : colors.ink500}
         />
         <Text style={[styles.fileText, !!value && styles.fileTextChosen]} numberOfLines={1}>
-          {busy ? 'Opening…' : value || 'Choose a file'}
+          {busy ? 'Working…' : value || 'Choose a file'}
         </Text>
       </Pressable>
+
+      {value && !busy ? (
+        <View style={styles.photoRow}>
+          <Pressable accessibilityRole="button" style={styles.photoAction} onPress={open}>
+            <Ionicons name="eye-outline" size={16} color={colors.brand600} />
+            <Text style={styles.photoActionText}>Open what is attached</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {failure ? <Text style={styles.error}>{failure}</Text> : null}
       {error ? (
         <Text style={styles.error}>{error}</Text>
       ) : limits ? (

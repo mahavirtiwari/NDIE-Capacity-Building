@@ -103,7 +103,7 @@ public static class DependencyInjection
         services.AddSingleton<IPaymentGateway, CCAvenueGateway>();
         services.AddSingleton<PaymentGateways>();
         services.AddScoped<ProfileSubmissionService>();
-        services.AddScoped<ProfilePhotoService>();
+        services.AddScoped<ProfileAttachmentService>();
         services.AddScoped<BatchRegistrationService>();
         services.AddScoped<PaymentService>();
         services.AddScoped<InvoiceFetcher>();

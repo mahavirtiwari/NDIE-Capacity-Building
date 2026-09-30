@@ -519,13 +519,27 @@ public class ProfileSubmissionsController(ProfileSubmissionService service) : Ap
     [HttpGet("{id:int}/photos/{fieldKey}/pdf")]
     [HasPermission(Permissions.ApplicationsView)]
     public async Task<IActionResult> Photos(
-        int id, string fieldKey, [FromServices] ProfilePhotoService photos, CancellationToken ct)
+        int id, string fieldKey, [FromServices] ProfileAttachmentService photos, CancellationToken ct)
     {
         var submission = await service.GetAsync(id, ct);
         return File(
             await photos.PdfAsync(submission.ApplicantId, fieldKey, ct),
             "application/pdf",
             $"{submission.ApplicantCode}-{fieldKey}.pdf");
+    }
+
+    /// <summary>The file an applicant attached to one field.</summary>
+    [HttpGet("{id:int}/files/{fieldKey}")]
+    [HasPermission(Permissions.ApplicationsView)]
+    public async Task<IActionResult> AttachedFile(
+        int id, string fieldKey, [FromServices] ProfileAttachmentService attachments,
+        CancellationToken ct)
+    {
+        var submission = await service.GetAsync(id, ct);
+        var (content, type, name) =
+            await attachments.FileAsync(submission.ApplicantId, fieldKey, ct);
+
+        return File(content, type, $"{submission.ApplicantCode}-{name}");
     }
 
     /* Named on the event so the history reads without a join, and so it
