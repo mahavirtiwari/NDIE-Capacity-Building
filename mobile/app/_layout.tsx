@@ -69,6 +69,7 @@ function Routes() {
         />
         <Stack.Screen name="application/[id]" options={{ title: 'Application' }} />
         <Stack.Screen name="payments" options={{ title: 'Payments' }} />
+        <Stack.Screen name="invoices" options={{ title: 'Invoices' }} />
         <Stack.Screen name="payment/[applicationId]" options={{ title: 'Pay fee' }} />
         {/* No back arrow: behind it is the summary that opens a second
             attempt, and a payer looking at a result should not be one tap

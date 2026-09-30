@@ -435,6 +435,26 @@ public class CertificateConfiguration : IEntityTypeConfiguration<Certificate>
 /// card never touches this system - so the only care needed is that the
 /// order id stays unique and the application can be reached from it.
 /// </summary>
+public class PaymentInvoiceConfiguration : IEntityTypeConfiguration<PaymentInvoice>
+{
+    public void Configure(EntityTypeBuilder<PaymentInvoice> b)
+    {
+        b.ToTable("PaymentInvoices");
+
+        b.Property(x => x.InvoiceNumber).HasMaxLength(80);
+        b.Property(x => x.FileName).HasMaxLength(260).IsRequired();
+        b.Property(x => x.ContentType).HasMaxLength(100).IsRequired();
+
+        /* One copy per payment. A second fetch replaces what is held rather
+           than leaving two documents for the same money. */
+        b.HasIndex(x => x.PaymentTransactionId).IsUnique();
+
+        b.HasOne(x => x.Payment).WithMany()
+            .HasForeignKey(x => x.PaymentTransactionId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 public class PaymentTransactionConfiguration : IEntityTypeConfiguration<PaymentTransaction>
 {
     public void Configure(EntityTypeBuilder<PaymentTransaction> b)

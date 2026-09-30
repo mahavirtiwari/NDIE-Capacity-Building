@@ -1,4 +1,4 @@
-import { api } from './client';
+import { api, download } from './client';
 import type {
   Applicant,
   ApplicantBatch,
@@ -144,6 +144,14 @@ export const me = {
   }) => api.post<Application>('me/applications', payload),
 
   enrolments: () => api.get<Enrolment[]>('me/enrolments'),
+
+  /**
+   * The applicant's copy of the invoice for one payment, as the document
+   * itself rather than JSON. Raised and numbered by the ERP; this only
+   * fetches the copy.
+   */
+  invoice: (orderId: string) =>
+    download(`me/payments/${orderId}/invoice`, `invoice-${orderId}.pdf`),
 
   /* ------------------------------------------------------------ payments */
 

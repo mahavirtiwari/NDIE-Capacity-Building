@@ -142,6 +142,78 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return data;
 }
 
+/**
+ * Fetches a file the server will only hand to a signed-in applicant, and
+ * returns it as bytes with the name and type the server gave it.
+ *
+ * Not part of `request`: that one speaks the JSON envelope and caches the
+ * answer, and neither is right for a document. A failure here still carries
+ * the envelope's message when the server sent one, so "the invoice has not
+ * been raised yet" reaches the applicant rather than a status code.
+ */
+export interface DownloadedFile {
+  bytes: ArrayBuffer;
+  fileName: string;
+  contentType: string;
+}
+
+export async function download(path: string, fallbackName = 'download'): Promise<DownloadedFile> {
+  const url = `${API_BASE_URL}/${path.replace(/^\//, '')}`;
+  const headers: Record<string, string> = {};
+
+  const token = readToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, { headers });
+  } catch {
+    throw new ApiError(`Cannot reach the server at ${API_BASE_URL}. Check your connection.`, 0);
+  }
+
+  if (response.status === 401) {
+    onUnauthorised();
+    throw new ApiError('Your session has expired. Please sign in again.', 401);
+  }
+
+  if (!response.ok) {
+    /* The refusal is a JSON envelope even though the success is a file. */
+    let message: string | null = null;
+    try {
+      message = ((await response.json()) as ApiEnvelope<unknown>).message ?? null;
+    } catch {
+      /* Not every failure has a body. */
+    }
+    throw new ApiError(message ?? `Could not download the file (${response.status}).`, response.status);
+  }
+
+  return {
+    bytes: await response.arrayBuffer(),
+    /* The header is the server's own name for the file, but a browser
+       cannot read it across origins unless the server says so, and a
+       proxy may drop it. The caller's fallback is what keeps the saved
+       file from being called "download". */
+    fileName: fileNameFrom(response.headers.get('content-disposition')) ?? fallbackName,
+    contentType: response.headers.get('content-type') ?? 'application/octet-stream',
+  };
+}
+
+/** RFC 5987 first, because that is the one that carries a non-ASCII name. */
+function fileNameFrom(disposition: string | null): string | null {
+  if (!disposition) return null;
+
+  const encoded = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(disposition)?.[1];
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded.trim().replace(/^"|"$/g, ''));
+    } catch {
+      /* A malformed header should not cost the download. */
+    }
+  }
+
+  return /filename="?([^";]+)"?/i.exec(disposition)?.[1]?.trim() ?? null;
+}
+
 export const api = {
   get: <T>(path: string, query?: RequestOptions['query'], anonymous = false) =>
     request<T>(path, { method: 'GET', query, anonymous }),

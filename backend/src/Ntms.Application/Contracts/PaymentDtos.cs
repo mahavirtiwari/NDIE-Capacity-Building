@@ -105,4 +105,12 @@ public class PaymentTransactionDto
 
     public DateTime InitiatedOn { get; set; }
     public DateTime? CompletedOn { get; set; }
+
+    /// <summary>
+    /// Whether to offer this payment's invoice. Read off the settings rather
+    /// than by asking the ERP once per row: the answer to "is invoicing on"
+    /// is the same for every row, and whether this particular invoice has
+    /// been raised is discovered when it is opened.
+    /// </summary>
+    public bool InvoiceOffered { get; set; }
 }

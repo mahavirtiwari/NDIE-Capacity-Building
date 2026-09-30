@@ -107,7 +107,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddCors(options => options.AddPolicy(CorsPolicy, policy => policy
     .WithOrigins(allowedOrigins)
     .AllowAnyHeader()
-    .AllowAnyMethod()));
+    .AllowAnyMethod()
+    /* A browser reads none of a response's headers across origins unless
+       they are named here. Without it a downloaded document arrives with
+       no name and no number, which the portal and the web build of the app
+       both need. */
+    .WithExposedHeaders("Content-Disposition", "X-Invoice-Number")));
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>

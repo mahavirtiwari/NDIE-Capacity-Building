@@ -53,6 +53,7 @@ public class NtmsDbContext(DbContextOptions<NtmsDbContext> options, ICurrentUser
     public DbSet<SignupFieldOption> SignupFieldOptions => Set<SignupFieldOption>();
     public DbSet<ApplicantAnswer> ApplicantAnswers => Set<ApplicantAnswer>();
     public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
+    public DbSet<PaymentInvoice> PaymentInvoices => Set<PaymentInvoice>();
 
     /* Overrides only: the shipped wording lives in code. */
     public DbSet<SiteText> SiteTexts => Set<SiteText>();

@@ -298,6 +298,13 @@ export interface PaymentTransaction {
   failureReason?: string | null;
   initiatedOn: string;
   completedOn?: string | null;
+
+  /**
+   * Whether to offer this payment's invoice. Says only that invoicing is
+   * switched on for the deployment — whether this particular invoice has
+   * been raised in the ERP is found out when it is opened.
+   */
+  invoiceOffered?: boolean;
 }
 
 /* ------------------------------------------------------------------- fee */

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Ntms.Infrastructure.Email;
 using Ntms.Infrastructure.Identity;
+using Ntms.Infrastructure.Invoicing;
 using Ntms.Infrastructure.Payments;
 using Ntms.Infrastructure.Persistence;
 using Ntms.Infrastructure.Services;
@@ -55,6 +56,7 @@ public static class DependencyInjection
         /* Through the factory so the handler is pooled and the timeout is the
            one in settings rather than the default hundred seconds. */
         services.AddHttpClient(nameof(PanVerifier));
+        services.AddHttpClient(nameof(InvoiceFetcher));
         services.AddScoped<IPanVerifier, PanVerifier>();
         services.AddScoped<OtpService>();
         services.AddScoped<DbSeeder>();
@@ -101,6 +103,8 @@ public static class DependencyInjection
         services.AddSingleton<IPaymentGateway, CCAvenueGateway>();
         services.AddSingleton<PaymentGateways>();
         services.AddScoped<PaymentService>();
+        services.AddScoped<InvoiceFetcher>();
+        services.AddScoped<InvoiceService>();
 
         /* Coordinator field monitoring. The photo store is a singleton: it holds
            only the configured root path and creates folders on demand. */

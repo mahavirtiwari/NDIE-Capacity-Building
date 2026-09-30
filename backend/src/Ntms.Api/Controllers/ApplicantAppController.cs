@@ -57,7 +57,8 @@ public class ApplicantAppController(
     TrainingMaterialService materials,
     ProgrammeCatalogueService catalogue,
     ExamSittingService exams,
-    PaymentService payments) : ApiControllerBase
+    PaymentService payments,
+    InvoiceService invoices) : ApiControllerBase
 {
     private int ApplicantId =>
         CurrentUser.ApplicantId
@@ -151,8 +152,40 @@ public class ApplicantAppController(
     /// <summary>Every attempt this applicant has made, newest first.</summary>
     [HttpGet("payments")]
     public async Task<ActionResult<ApiEnvelope<List<PaymentTransactionDto>>>> Payments(
-        CancellationToken ct) =>
-        Envelope(await payments.HistoryAsync(ApplicantId, ct));
+        CancellationToken ct)
+    {
+        var rows = await payments.HistoryAsync(ApplicantId, ct);
+
+        /* Asked once for the whole list rather than per row: whether
+           invoicing is switched on is a property of the deployment. */
+        var offered = await invoices.OfferedAsync(ct);
+        foreach (var row in rows) row.InvoiceOffered = offered;
+
+        return Envelope(rows);
+    }
+
+    /// <summary>
+    /// The applicant's copy of the invoice for one payment.
+    ///
+    /// The document belongs to the ERP, which raises it and sends it to
+    /// them; this hands over the copy so they can open it without going
+    /// looking through their e-mail. Refusals carry a reason they can read:
+    /// not paid, not raised yet, or the ERP unreachable.
+    /// </summary>
+    [HttpGet("payments/{orderId}/invoice")]
+    public async Task<IActionResult> Invoice(string orderId, CancellationToken ct)
+    {
+        var invoice = await invoices.ForPaymentAsync(ApplicantId, orderId, ct);
+
+        /* Named on the way out, so what lands in the applicant's downloads
+           says what it is rather than repeating the route. */
+        if (!string.IsNullOrWhiteSpace(invoice.Number))
+        {
+            Response.Headers.Append("X-Invoice-Number", invoice.Number);
+        }
+
+        return File(invoice.Content, invoice.ContentType, invoice.FileName);
+    }
 
     /// <summary>
     /// Where one attempt got to. Polled by the app when it comes back to the
