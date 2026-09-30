@@ -6,6 +6,7 @@ import {
   Modal,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -156,37 +157,81 @@ function ProgramDetails({
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
           <View style={styles.sheetHead}>
-            <Text style={styles.sheetTitle}>{program.name}</Text>
-            <Pressable onPress={onClose} accessibilityLabel="Close" hitSlop={8}>
-              <Ionicons name="close" size={22} color={colors.ink600} />
+            <View style={styles.sheetHeadText}>
+              <Text style={styles.sheetTitle}>{program.name}</Text>
+              <Text style={styles.sheetCode}>{program.code}</Text>
+            </View>
+            <Pressable
+              onPress={onClose}
+              accessibilityLabel="Close"
+              hitSlop={8}
+              style={styles.sheetClose}
+            >
+              <Ionicons name="close" size={19} color={colors.ink600} />
             </Pressable>
           </View>
 
-          {program.shortDescription ? (
-            <Text style={styles.sheetBody}>{program.shortDescription}</Text>
-          ) : null}
+          {/* Scrolled, and the sheet is capped: a long programme name and
+              six lines of detail must not push the Close button off the
+              bottom of the window. */}
+          <ScrollView
+            style={styles.sheetScroll}
+            contentContainerStyle={styles.sheetScrollBody}
+            showsVerticalScrollIndicator={false}
+          >
+            {program.shortDescription ? (
+              <Text style={styles.sheetBody}>{program.shortDescription}</Text>
+            ) : null}
 
-          <DetailLine label="Minimum qualification" value={program.minQualification ?? 'None'} />
-          <DetailLine
-            label="Minimum experience"
-            value={
-              program.minExperienceYears > 0
-                ? `${program.minExperienceYears} years`
-                : 'None'
-            }
-          />
-          <DetailLine label="Duration" value={`${program.durationDays} days`} />
-          <DetailLine label="Mode" value={program.deliveryMode} />
-          <DetailLine label="Examination" value={program.isExamMandatory ? 'Required' : 'None'} />
-          <DetailLine
-            label="Fee payable"
-            value={program.feePayable > 0 ? inr(program.feePayable) : 'Free'}
-          />
+            <Text style={styles.sheetSection}>What is asked of you</Text>
+            <DetailList
+              rows={[
+                { label: 'Minimum qualification', value: program.minQualification ?? 'None' },
+                {
+                  label: 'Minimum experience',
+                  value:
+                    program.minExperienceYears > 0
+                      ? `${program.minExperienceYears} years`
+                      : 'None',
+                },
+              ]}
+            />
+
+            <Text style={styles.sheetSection}>The program</Text>
+            <DetailList
+              rows={[
+                { label: 'Duration', value: `${program.durationDays} days` },
+                { label: 'Mode', value: program.deliveryMode },
+                { label: 'Examination', value: program.isExamMandatory ? 'Required' : 'None' },
+                {
+                  label: 'Fee payable',
+                  value: program.feePayable > 0 ? inr(program.feePayable) : 'Free',
+                },
+              ]}
+            />
+          </ScrollView>
 
           <Button label="Close" variant="secondary" onPress={onClose} />
         </Pressable>
       </Pressable>
     </Modal>
+  );
+}
+
+/** A block of label-and-value lines, ruled between rather than around. */
+function DetailList({ rows }: { rows: { label: string; value: string }[] }) {
+  return (
+    <View style={styles.dl}>
+      {rows.map((row, index) => (
+        <View key={row.label}>
+          {index > 0 ? <View style={styles.dlRule} /> : null}
+          <View style={styles.dlRow}>
+            <Text style={styles.detailLabel}>{row.label}</Text>
+            <Text style={styles.detailValue}>{row.value}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -376,18 +421,65 @@ const styles = StyleSheet.create({
 
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15,23,42,0.45)',
+    backgroundColor: 'rgba(15,23,42,0.5)',
     justifyContent: 'center',
-    padding: spacing.lg,
+    padding: spacing.xl,
   },
+  /* Capped both ways. Left to itself the sheet grew to the width of the
+     window and past the bottom of it. */
   sheet: {
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '85%',
+    alignSelf: 'center',
     backgroundColor: colors.white,
     borderRadius: radius.lg,
     padding: spacing.lg,
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  sheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sheetTitle: { flex: 1, fontSize: font.md, fontWeight: '700', color: colors.ink900 },
+  sheetHead: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.brand100,
+    paddingBottom: spacing.md,
+  },
+  sheetHeadText: { flex: 1, gap: 2 },
+  sheetCode: { fontSize: font.xs, color: colors.ink500, letterSpacing: 0.4 },
+  sheetClose: {
+    width: 30,
+    height: 30,
+    borderRadius: radius.pill,
+    backgroundColor: colors.ink100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetScroll: { flexGrow: 0 },
+  sheetScrollBody: { gap: spacing.sm },
+  sheetSection: {
+    fontSize: font.xs,
+    fontWeight: '700',
+    color: colors.brand700,
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
+  dl: {
+    backgroundColor: colors.ink50,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+  },
+  dlRule: { height: 1, backgroundColor: colors.border },
+  dlRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingVertical: 9,
+  },
+  sheetTitle: { fontSize: font.md, fontWeight: '700', color: colors.ink900 },
   sheetBody: { fontSize: font.sm, color: colors.ink600, lineHeight: 19 },
   sheetNote: { fontSize: font.xs, color: colors.ink500, lineHeight: 17, marginTop: 2 },
   standingRow: { flexDirection: 'row', paddingVertical: 2 },

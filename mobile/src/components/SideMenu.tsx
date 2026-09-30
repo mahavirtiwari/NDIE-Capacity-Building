@@ -24,47 +24,16 @@ const PANEL_WIDTH = Math.min(320, Dimensions.get('window').width * 0.86);
 interface MenuLink {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
-  note: string;
   href: string;
 }
 
 const LINKS: MenuLink[] = [
-  {
-    icon: 'grid-outline',
-    label: 'Dashboard',
-    note: 'Programs open to you',
-    href: '/(tabs)/programs',
-  },
-  {
-    icon: 'documents-outline',
-    label: 'My applications',
-    note: 'What you have applied for, and where it stands',
-    href: '/(tabs)/applications',
-  },
-  {
-    icon: 'calendar-outline',
-    label: 'Batches',
-    note: 'Sessions, attendance and your exam',
-    href: '/(tabs)/batches',
-  },
-  {
-    icon: 'card-outline',
-    label: 'Payments',
-    note: 'Fees paid, and the receipts for them',
-    href: '/payments',
-  },
-  {
-    icon: 'book-outline',
-    label: 'Training material',
-    note: 'Reading for the programs you are on',
-    href: '/(tabs)/materials',
-  },
-  {
-    icon: 'person-outline',
-    label: 'My profile',
-    note: 'Contact details and password',
-    href: '/(tabs)/profile',
-  },
+  { icon: 'grid-outline', label: 'Dashboard', href: '/(tabs)/programs' },
+  { icon: 'documents-outline', label: 'My applications', href: '/(tabs)/applications' },
+  { icon: 'calendar-outline', label: 'Batches', href: '/(tabs)/batches' },
+  { icon: 'card-outline', label: 'Payments', href: '/payments' },
+  { icon: 'book-outline', label: 'Training material', href: '/(tabs)/materials' },
+  { icon: 'person-outline', label: 'My profile', href: '/(tabs)/profile' },
 ];
 
 /**
@@ -77,7 +46,7 @@ const LINKS: MenuLink[] = [
  */
 export function SideMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
-  const { applicant, signOut } = useAuth();
+  const { signOut } = useAuth();
   const { branding } = useBranding();
   const text = useSiteText();
 
@@ -111,13 +80,6 @@ export function SideMenu({ open, onClose }: { open: boolean; onClose: () => void
     router.replace('/(auth)/sign-in');
   };
 
-  const initials = (applicant?.fullName ?? '')
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
-
   return (
     <Modal visible={open} transparent animationType="none" onRequestClose={onClose}>
       <Animated.View style={[styles.backdrop, { opacity: fade }]}>
@@ -126,35 +88,12 @@ export function SideMenu({ open, onClose }: { open: boolean; onClose: () => void
 
       <Animated.View style={[styles.panel, { transform: [{ translateX: slide }] }]}>
         <SafeAreaView edges={['top', 'bottom']} style={styles.panelInner}>
+          {/* The mark alone, centred on white. Who is signed in is on the
+              panel the menu opens onto, and the product's own name is on
+              every bar; the logo is a full-colour mark and was muddy on the
+              crimson it used to sit on. */}
           <View style={styles.head}>
-            <View style={styles.headTop}>
-              <BrandLogo size={34} />
-              <View style={styles.headText}>
-                <Text style={styles.headTitle} numberOfLines={1}>
-                  {branding.portalTitle}
-                </Text>
-                <Text style={styles.headOrg} numberOfLines={1}>
-                  {branding.organisationName}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.who}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{initials || '—'}</Text>
-              </View>
-              <View style={styles.whoText}>
-                <Text style={styles.whoName} numberOfLines={1}>
-                  {applicant?.fullName ?? 'Applicant'}
-                </Text>
-                <Text style={styles.whoCode}>{applicant?.applicantCode ?? ''}</Text>
-                {applicant?.subCategoryName ? (
-                  <Text style={styles.whoTrack} numberOfLines={1}>
-                    {applicant.categoryName} · {applicant.subCategoryName}
-                  </Text>
-                ) : null}
-              </View>
-            </View>
+            <BrandLogo size={46} />
           </View>
 
           <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
@@ -172,10 +111,7 @@ export function SideMenu({ open, onClose }: { open: boolean; onClose: () => void
                 <View style={styles.rowIcon}>
                   <Ionicons name={link.icon} size={17} color={colors.brand700} />
                 </View>
-                <View style={styles.rowText}>
-                  <Text style={styles.rowLabel}>{link.label}</Text>
-                  <Text style={styles.rowNote}>{link.note}</Text>
-                </View>
+                <Text style={styles.rowLabel}>{link.label}</Text>
                 <Ionicons name="chevron-forward" size={15} color={colors.ink400} />
               </Pressable>
             ))}
@@ -190,10 +126,7 @@ export function SideMenu({ open, onClose }: { open: boolean; onClose: () => void
               <View style={[styles.rowIcon, styles.rowIconDanger]}>
                 <Ionicons name="log-out-outline" size={17} color={colors.danger700} />
               </View>
-              <View style={styles.rowText}>
-                <Text style={[styles.rowLabel, styles.rowLabelDanger]}>Sign out</Text>
-                <Text style={styles.rowNote}>You will need your applicant ID to come back</Text>
-              </View>
+              <Text style={[styles.rowLabel, styles.rowLabelDanger]}>Sign out</Text>
             </Pressable>
           </ScrollView>
 
@@ -242,26 +175,14 @@ const styles = StyleSheet.create({
   },
   panelInner: { flex: 1 },
 
-  head: { backgroundColor: colors.brand700, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
-  headTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.md },
-  headText: { flex: 1 },
-  headTitle: { fontSize: font.sm, fontWeight: '700', color: colors.white },
-  headOrg: { fontSize: font.xs, color: colors.onBrandMuted },
-
-  who: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.pill,
-    backgroundColor: colors.brand900,
+  head: {
+    backgroundColor: colors.white,
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  avatarText: { fontSize: font.md, fontWeight: '700', color: colors.white },
-  whoText: { flex: 1 },
-  whoName: { fontSize: font.md, fontWeight: '700', color: colors.white },
-  whoCode: { fontSize: font.xs, color: colors.white, opacity: 0.9, letterSpacing: 0.5 },
-  whoTrack: { fontSize: font.xs, color: colors.onBrandMuted, marginTop: 1 },
 
   list: { padding: spacing.md, gap: 2 },
   prompt: {
@@ -292,10 +213,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rowIconDanger: { backgroundColor: colors.danger50 },
-  rowText: { flex: 1 },
-  rowLabel: { fontSize: font.base, fontWeight: '600', color: colors.ink900 },
+  /* flex on the label itself now that it is the row's only text, so the
+     chevron stays at the edge rather than following the word. */
+  rowLabel: { flex: 1, fontSize: font.base, fontWeight: '600', color: colors.ink900 },
   rowLabelDanger: { color: colors.danger700 },
-  rowNote: { fontSize: font.xs, color: colors.ink500, lineHeight: 15 },
 
   rule: { height: 1, backgroundColor: colors.border, marginVertical: spacing.sm },
   version: {
