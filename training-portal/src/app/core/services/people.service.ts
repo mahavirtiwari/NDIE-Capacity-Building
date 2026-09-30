@@ -1,14 +1,19 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   AdminRole,
   Applicant,
+  ApplicantExportRow,
+  ApplicantHistory,
+  BlockReason,
+  BlockReasonUpsert,
   GeneratedCredentials,
   Id,
   PortalUser,
   RecordStatus,
   UserHistory,
 } from '../models';
+import { ApiService } from './api.service';
 import { CrudService } from './crud.service';
 
 @Injectable({ providedIn: 'root' })
@@ -54,7 +59,53 @@ export class UserService extends CrudService<PortalUser> {
 export class ApplicantService extends CrudService<Applicant> {
   protected readonly resource = 'applicants';
 
-  setBlocked(id: Id, isBlocked: boolean): Observable<Applicant> {
-    return this.api.patch<Applicant>(`${this.resource}/${id}/blocked`, { isBlocked });
+  /** Blocking needs a reason from the master; unblocking needs a note. */
+  setBlocked(
+    id: Id,
+    isBlocked: boolean,
+    blockReasonId: Id | null,
+    remarks: string,
+  ): Observable<Applicant> {
+    return this.api.patch<Applicant>(`${this.resource}/${id}/blocked`, {
+      isBlocked,
+      blockReasonId,
+      remarks,
+    });
+  }
+
+  history(id: Id): Observable<ApplicantHistory> {
+    return this.api.get<ApplicantHistory>(`${this.resource}/${id}/history`);
+  }
+
+  /** Everything the filters match, flattened for a spreadsheet. */
+  exportRows(query: Record<string, unknown>): Observable<ApplicantExportRow[]> {
+    return this.api.get<ApplicantExportRow[]>(`${this.resource}/export`, query);
+  }
+}
+
+/**
+ * The reasons an account may be blocked.
+ *
+ * Read by anybody who may block one, written from System Settings.
+ */
+@Injectable({ providedIn: 'root' })
+export class BlockReasonService {
+  private readonly api = inject(ApiService);
+  private readonly resource = 'block-reasons';
+
+  list(activeOnly = false): Observable<BlockReason[]> {
+    return this.api.get<BlockReason[]>(this.resource, { activeOnly });
+  }
+
+  create(payload: BlockReasonUpsert): Observable<BlockReason> {
+    return this.api.post<BlockReason>(this.resource, payload);
+  }
+
+  update(id: Id, payload: BlockReasonUpsert): Observable<BlockReason> {
+    return this.api.put<BlockReason>(`${this.resource}/${id}`, payload);
+  }
+
+  remove(id: Id): Observable<boolean> {
+    return this.api.delete<boolean>(`${this.resource}/${id}`);
   }
 }

@@ -62,6 +62,17 @@ public class SubCategoryConfiguration : IEntityTypeConfiguration<SubCategory>
     }
 }
 
+public class BlockReasonConfiguration : IEntityTypeConfiguration<BlockReason>
+{
+    public void Configure(EntityTypeBuilder<BlockReason> b)
+    {
+        b.ToTable("BlockReasons");
+        b.Property(x => x.Label).HasMaxLength(200).IsRequired();
+        b.HasIndex(x => x.Label).IsUnique();
+        b.HasIndex(x => x.DisplayOrder);
+    }
+}
+
 public class RejectionReasonConfiguration : IEntityTypeConfiguration<RejectionReason>
 {
     public void Configure(EntityTypeBuilder<RejectionReason> b)

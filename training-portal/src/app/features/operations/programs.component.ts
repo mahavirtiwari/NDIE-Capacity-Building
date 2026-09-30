@@ -34,7 +34,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'agencyName', header: 'Agency name', width: '210px' },
   { key: 'programmeName', header: 'Programme', variant: 'primary', width: '230px' },
   { key: 'venue', header: 'Venue', width: '190px', variant: 'muted' },
-  { key: 'state', header: 'State', width: '130px' },
+  { key: 'state', header: 'State/UT', width: '130px' },
   { key: 'startDate', header: 'Start date', sortable: true, width: '120px' },
   { key: 'endDate', header: 'End date', width: '120px' },
   { key: 'participantCount', header: 'Participants', align: 'center', width: '110px' },
@@ -75,17 +75,13 @@ const COLUMNS: ColumnDef[] = [
       <div class="card__body card__body--tight">
         <div class="filter-bar filter-bar--two-rows">
           <div class="field">
-            <label class="field-label" for="pgState">State</label>
+            <label class="field-label" for="pgState">State/UT</label>
             <select id="pgState" class="select" (change)="list.setFilter('state', value($event))">
               <option value="">All</option>
               @for (state of states(); track state.id) {
                 <option [value]="state.name.toUpperCase()">{{ state.name }}</option>
               }
             </select>
-          </div>
-          <div class="field">
-            <label class="field-label" for="pgStart">Start date</label>
-            <input id="pgStart" type="date" class="input" (change)="list.setFilter('startDate', value($event))" />
           </div>
           <div class="field">
             <label class="field-label" for="pgType">Type</label>
@@ -105,9 +101,25 @@ const COLUMNS: ColumnDef[] = [
               }
             </select>
           </div>
-          <div class="field">
-            <label class="field-label" for="pgEnd">End date</label>
-            <input id="pgEnd" type="date" class="input" (change)="list.setFilter('endDate', value($event))" />
+          <div class="field field--range">
+            <label class="field-label" for="pgStart">Start and end date</label>
+            <div class="field-range__inputs">
+              <input
+                id="pgStart"
+                type="date"
+                class="input"
+                aria-label="Start date"
+                (change)="list.setFilter('startDate', value($event))"
+              />
+              <span class="field-range__dash">&ndash;</span>
+              <input
+                id="pgEnd"
+                type="date"
+                class="input"
+                aria-label="End date"
+                (change)="list.setFilter('endDate', value($event))"
+              />
+            </div>
           </div>
           <div class="field">
             <label class="field-label" for="pgStatus">Status</label>
@@ -246,7 +258,7 @@ const COLUMNS: ColumnDef[] = [
             </select>
           </div>
           <div class="field">
-            <label class="field-label" for="npState">State <span class="req">*</span></label>
+            <label class="field-label" for="npState">State/UT <span class="req">*</span></label>
             <select id="npState" class="select" formControlName="stateCode"
               (change)="onStateChange()">
               <option [ngValue]="null">Select</option>

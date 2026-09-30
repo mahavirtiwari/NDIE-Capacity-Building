@@ -48,6 +48,39 @@ public class CategoriesController(CategoryService service) : ApiControllerBase
 }
 
 /// <summary>
+/// The reasons an account may be blocked. Read by anybody who may block one,
+/// written only by somebody who may edit masters.
+/// </summary>
+[Route("api/block-reasons")]
+public class BlockReasonsController(BlockReasonService service) : ApiControllerBase
+{
+    [HttpGet]
+    public async Task<ActionResult<ApiEnvelope<List<BlockReasonDto>>>> List(
+        [FromQuery] bool activeOnly, CancellationToken ct) =>
+        Envelope(await service.ListAsync(activeOnly, ct));
+
+    [HttpPost]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<BlockReasonDto>>> Create(
+        [FromBody] BlockReasonUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.CreateAsync(dto, ct), "Reason added.");
+
+    [HttpPut("{id:int}")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<BlockReasonDto>>> Update(
+        int id, [FromBody] BlockReasonUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.UpdateAsync(id, dto, ct), "Reason updated.");
+
+    [HttpDelete("{id:int}")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<bool>>> Delete(int id, CancellationToken ct)
+    {
+        await service.DeleteAsync(id, ct);
+        return Envelope(true, "Reason removed.");
+    }
+}
+
+/// <summary>
 /// The reasons an application may be turned down.
 ///
 /// Read by anybody who scrutinises, because they pick from it; written only

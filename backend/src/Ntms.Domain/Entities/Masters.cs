@@ -268,6 +268,24 @@ public class Qualification : AuditableStatusEntity
 /// Editable by a Super Admin, because what a scheme rejects for is the
 /// scheme's business and changes with its rules.
 /// </summary>
+/// <summary>
+/// One reason an applicant's account may be blocked.
+///
+/// A list of its own rather than a kind on the rejection reasons, because
+/// they are different vocabularies about different things: an application is
+/// turned down for a document that cannot be read, a person is blocked for
+/// something they did. Sharing a table would put "Documents are not legible"
+/// in front of somebody deciding whether to lock an account.
+/// </summary>
+public class BlockReason : AuditableStatusEntity
+{
+    public string Label { get; set; } = string.Empty;
+    public int DisplayOrder { get; set; }
+
+    /// <summary>True where the reason needs the specifics spelled out.</summary>
+    public bool RequiresNote { get; set; }
+}
+
 public class RejectionReason : AuditableStatusEntity
 {
     public string Label { get; set; } = string.Empty;

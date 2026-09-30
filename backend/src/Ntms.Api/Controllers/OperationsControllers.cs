@@ -151,7 +151,30 @@ public class ApplicantsController(ApplicantService service) : ApiControllerBase
     [HasPermission(Permissions.ApplicationsScrutinise)]
     public async Task<ActionResult<ApiEnvelope<ApplicantDto>>> SetBlocked(
         int id, [FromBody] BlockApplicantDto dto, CancellationToken ct) =>
-        Envelope(await service.SetBlockedAsync(id, dto.IsBlocked, ct));
+        Envelope(
+            await service.SetBlockedAsync(id, dto.IsBlocked, dto.BlockReasonId, dto.Remarks, ct),
+            dto.IsBlocked ? "Account blocked." : "Account unblocked.");
+
+    /// <summary>Every time this account was blocked or let back in.</summary>
+    [HttpGet("{id:int}/history")]
+    [HasPermission(Permissions.ApplicationsView)]
+    public async Task<ActionResult<ApiEnvelope<ApplicantHistoryDto>>> History(
+        int id, CancellationToken ct) =>
+        Envelope(await service.HistoryAsync(id, ct));
+
+    /// <summary>
+    /// Everything the filters match, flattened for a spreadsheet: the whole
+    /// sign-up form, where they stand, and the dates behind it.
+    /// </summary>
+    [HttpGet("export")]
+    [HasPermission(Permissions.ApplicationsView)]
+    public async Task<ActionResult<ApiEnvelope<List<ApplicantExportRowDto>>>> Export(
+        [FromQuery] int? categoryId, [FromQuery] string? state, [FromQuery] string? standing,
+        [FromQuery] bool? isBlocked, [FromQuery] DateTime? registeredFrom,
+        [FromQuery] DateTime? registeredTo, [FromQuery] string? search,
+        CancellationToken ct) =>
+        Envelope(await service.ExportAsync(
+            categoryId, state, standing, isBlocked, registeredFrom, registeredTo, search, ct));
 }
 
 [Route("api/applications")]

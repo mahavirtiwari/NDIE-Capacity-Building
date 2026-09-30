@@ -1,12 +1,18 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { APPLICANT_STANDINGS, Applicant, LookupItem } from '../../core/models';
+import { firstValueFrom } from 'rxjs';
+import {
+  APPLICANT_STANDINGS,
+  Applicant,
+  ApplicantHistory,
+  BlockReason,
+  LookupItem,
+} from '../../core/models';
 import { LookupService } from '../../core/services/masters.service';
-import { ApplicantService } from '../../core/services/people.service';
+import { ApplicantService, BlockReasonService } from '../../core/services/people.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
-import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
 import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
@@ -66,9 +72,9 @@ const COLUMNS: ColumnDef[] = [
             </select>
           </div>
           <div class="field">
-            <label class="field-label" for="apState">State</label>
+            <label class="field-label" for="apState">State/UT</label>
             <select id="apState" class="select" (change)="list.setFilter('state', value($event))">
-              <option value="">All states</option>
+              <option value="">All states/UTs</option>
               @for (state of states(); track state.id) {
                 <option [value]="state.name">{{ state.name }}</option>
               }
@@ -87,23 +93,25 @@ const COLUMNS: ColumnDef[] = [
           <!-- Registered between two dates. Either end on its own works: a
                "from" with no "to" is everything since, and the reverse is
                everything up to and including that day. -->
-          <div class="field">
-            <label class="field-label" for="apFrom">Registered from</label>
-            <input
-              id="apFrom"
-              class="input"
-              type="date"
-              (change)="list.setFilter('registeredFrom', value($event))"
-            />
-          </div>
-          <div class="field">
-            <label class="field-label" for="apTo">Registered to</label>
-            <input
-              id="apTo"
-              class="input"
-              type="date"
-              (change)="list.setFilter('registeredTo', value($event))"
-            />
+          <div class="field field--range">
+            <label class="field-label" for="apFrom">Registered between</label>
+            <div class="field-range__inputs">
+              <input
+                id="apFrom"
+                class="input"
+                type="date"
+                aria-label="Registered from"
+                (change)="list.setFilter('registeredFrom', value($event))"
+              />
+              <span class="field-range__dash">&ndash;</span>
+              <input
+                id="apTo"
+                class="input"
+                type="date"
+                aria-label="Registered to"
+                (change)="list.setFilter('registeredTo', value($event))"
+              />
+            </div>
           </div>
           <div class="field">
             <label class="field-label" for="apBlocked">Access</label>
@@ -168,6 +176,14 @@ const COLUMNS: ColumnDef[] = [
               (click)="openDetail($any(row))"
             >
               Details
+            </button>
+            <button
+              type="button"
+              class="btn btn--icon"
+              title="Access history"
+              (click)="openHistory($any(row))"
+            >
+              <app-icon name="clock" [size]="15" />
             </button>
             <button
               type="button"
@@ -299,6 +315,157 @@ const COLUMNS: ColumnDef[] = [
         </div>
       </app-modal>
     }
+
+    @if (blockPrompt(); as prompt) {
+      <!-- Both directions are explained. A history that gives grounds only
+           for the blocks answers half the questions later put to it. -->
+      <app-modal
+        [title]="prompt.blocking ? 'Block this account?' : 'Unblock this account?'"
+        size="sm"
+        (closed)="blockPrompt.set(null)"
+      >
+        <div class="stack stack-sm">
+          <p class="text-sm">
+            {{ prompt.row.fullName }} ({{ prompt.row.applicantCode }})
+            @if (prompt.blocking) {
+              will not be able to sign in to the mobile app. The account and its history are kept.
+            } @else {
+              regains access to the mobile app.
+            }
+          </p>
+
+          @if (prompt.blocking) {
+            <div class="field">
+              <label class="field-label" for="blockReason">Reason <span class="req">*</span></label>
+              <select
+                id="blockReason"
+                class="select"
+                [value]="blockReasonId() ?? ''"
+                (change)="blockReasonId.set(numberValue($event))"
+              >
+                <option value="">Choose a reason</option>
+                @for (reason of blockReasons(); track reason.id) {
+                  <option [value]="reason.id">{{ reason.label }}</option>
+                }
+              </select>
+              @if (blockReasons().length === 0) {
+                <span class="field-hint">
+                  No reasons have been set up yet. A Super Admin adds them under System Settings.
+                </span>
+              }
+            </div>
+          }
+
+          <div class="field">
+            <label class="field-label" for="blockNote">
+              Note
+              @if (!prompt.blocking || chosenBlockReason()?.requiresNote) {
+                <span class="req">*</span>
+              }
+            </label>
+            <textarea
+              id="blockNote"
+              class="textarea"
+              maxlength="1000"
+              [value]="blockNote()"
+              (input)="blockNote.set(textValue($event))"
+              [placeholder]="
+                prompt.blocking
+                  ? 'What happened, in enough detail to stand up later.'
+                  : 'Why this account is being let back in.'
+              "
+            ></textarea>
+            <span class="field-hint">
+              Recorded against the account with your name and the date.
+            </span>
+          </div>
+        </div>
+
+        <div footer>
+          <button type="button" class="btn btn--secondary" (click)="blockPrompt.set(null)">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="btn"
+            [class.btn--danger]="prompt.blocking"
+            [class.btn--primary]="!prompt.blocking"
+            [disabled]="!canConfirmBlock() || savingBlock()"
+            (click)="confirmBlock()"
+          >
+            @if (savingBlock()) { <span class="spinner"></span> }
+            {{ prompt.blocking ? 'Block' : 'Unblock' }}
+          </button>
+        </div>
+      </app-modal>
+    }
+
+    @if (history(); as record) {
+      <app-modal [title]="record.fullName" (closed)="history.set(null)">
+        <div class="stack stack-md applicant-detail">
+          <div class="detail-group">
+            <h4 class="section-title">Access</h4>
+            <div class="dl">
+              <div>
+                <div class="dl__term">Applicant ID</div>
+                <div class="dl__value"><code>{{ record.applicantCode }}</code></div>
+              </div>
+              <div>
+                <div class="dl__term">Now</div>
+                <div class="dl__value">{{ record.isBlocked ? 'Blocked' : 'Active' }}</div>
+              </div>
+              @if (record.isBlocked) {
+                <div>
+                  <div class="dl__term">Blocked on</div>
+                  <div class="dl__value">
+                    {{ record.blockedOn | date: 'dd MMM yyyy, HH:mm' }}
+                  </div>
+                </div>
+                <div>
+                  <div class="dl__term">Current reason</div>
+                  <div class="dl__value">{{ record.blockReasonLabel }}</div>
+                </div>
+              }
+            </div>
+          </div>
+
+          @if (record.events.length === 0) {
+            <p class="text-muted text-sm">
+              This account has never been blocked.
+            </p>
+          } @else {
+            <div class="table-wrap">
+              <table class="table table--compact">
+                <thead>
+                  <tr><th>When</th><th>Change</th><th>Reason</th><th>By</th></tr>
+                </thead>
+                <tbody>
+                  @for (event of record.events; track event.id) {
+                    <tr>
+                      <td class="tabular">{{ event.on | date: 'dd MMM yyyy, HH:mm' }}</td>
+                      <td>{{ event.blocked ? 'Blocked' : 'Unblocked' }}</td>
+                      <td>
+                        @if (event.reasonLabel) { <div>{{ event.reasonLabel }}</div> }
+                        @if (event.remarks) {
+                          <div class="text-xs text-muted">{{ event.remarks }}</div>
+                        }
+                      </td>
+                      <td>
+                        {{ event.byUserName }}<br />
+                        <span class="text-xs text-muted">{{ event.byUserCode }}</span>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+        <div footer>
+          <button type="button" class="btn btn--secondary" (click)="history.set(null)">Close</button>
+        </div>
+      </app-modal>
+    }
   `,
   styles: [
     `
@@ -356,7 +523,6 @@ export class ApplicantsComponent {
   private readonly service = inject(ApplicantService);
   private readonly lookups = inject(LookupService);
   private readonly toast = inject(ToastService);
-  private readonly confirm = inject(ConfirmService);
 
   protected readonly columns = COLUMNS;
   protected readonly detail = signal<Applicant | null>(null);
@@ -386,7 +552,67 @@ export class ApplicantsComponent {
 
      function on every change detection pass. */
 
-  protected readonly exportRows = () => this.list.fetchAll();
+  /**
+   * The export is its own read, not the rows on screen.
+   *
+   * A spreadsheet of applicants is opened to be worked through: it wants
+   * every answer the sign-up form collected, the dates behind each change of
+   * status, and why an account is blocked - none of which fits in a table
+   * and none of which is on the list DTO.
+   *
+   * The custom answers differ per sub-category, so they arrive as a bag and
+   * become columns here, one per question that anybody on this list was
+   * actually asked.
+   */
+  protected readonly exportRows = async () => {
+    const filters = this.list.filters();
+    const rows = await firstValueFrom(
+      this.service.exportRows({
+        categoryId: filters['categoryId'] ?? null,
+        state: filters['state'] ?? null,
+        standing: filters['standing'] ?? null,
+        isBlocked: filters['isBlocked'] ?? null,
+        registeredFrom: filters['registeredFrom'] ?? null,
+        registeredTo: filters['registeredTo'] ?? null,
+        search: this.list.search(),
+      }),
+    );
+
+    const questions = [...new Set(rows.flatMap((r) => Object.keys(r.answers ?? {})))];
+
+    return {
+      rows: rows.map((r) => ({
+        'Applicant ID': r.applicantCode,
+        Name: r.fullName,
+        Email: r.email,
+        Mobile: r.mobile,
+        PAN: r.pan,
+        Gender: r.gender ?? '',
+        'Social category': r.socialCategory ?? '',
+        Category: r.category ?? '',
+        'Sub-category': r.subCategory ?? '',
+        'State/UT': r.state ?? '',
+        District: r.district ?? '',
+        City: r.city ?? '',
+        'Email verified': r.emailVerified ? 'Yes' : 'No',
+        'Mobile verified': r.mobileVerified ? 'Yes' : 'No',
+        Status: this.standingLabel(r.standing),
+        Registered: r.registeredOn,
+        'First applied': r.firstAppliedOn ?? '',
+        Approved: r.approvedOn ?? '',
+        Rejected: r.rejectedOn ?? '',
+        'Rejection reason': r.rejectionReason ?? '',
+        Access: r.access,
+        'Blocked on': r.blockedOn ?? '',
+        'Block reason': r.blockReason ?? '',
+        'Last signed in': r.lastLoginOn ?? '',
+        /* One column per question anybody on this list was asked; blank
+           where a particular sub-category's form did not ask it. */
+        ...Object.fromEntries(questions.map((q) => [q, r.answers?.[q] ?? ''])),
+      })),
+      truncated: false,
+    };
+  };
   protected readonly categories = toSignal(this.lookups.categories(), { initialValue: [] as LookupItem[] });
   protected readonly states = toSignal(this.lookups.states(), { initialValue: [] as LookupItem[] });
 
@@ -402,20 +628,79 @@ export class ApplicantsComponent {
     this.list.sortDir.set('desc');
   }
 
-  protected async toggleBlock(row: Applicant): Promise<void> {
-    const blocking = !row.isBlocked;
-    const confirmed = await this.confirm.ask({
-      title: blocking ? 'Block applicant?' : 'Unblock applicant?',
-      message: blocking
-        ? `${row.fullName} (${row.applicantCode}) will not be able to sign in to the mobile app.`
-        : `${row.fullName} (${row.applicantCode}) regains access to the mobile app.`,
-      confirmLabel: blocking ? 'Block' : 'Unblock',
-      tone: blocking ? 'danger' : 'primary',
-    });
-    if (!confirmed) return;
-    this.service.setBlocked(row.id, blocking).subscribe(() => {
-      this.toast.success(blocking ? 'Applicant blocked' : 'Applicant unblocked', row.applicantCode);
-      this.list.reload();
-    });
+  /* A plain confirm will not do: blocking somebody has to be explained, and
+     the explanation is kept. */
+  private readonly blockReasonService = inject(BlockReasonService);
+  protected readonly blockReasons = toSignal(this.blockReasonService.list(true), {
+    initialValue: [] as BlockReason[],
+  });
+
+  protected readonly blockPrompt = signal<{ row: Applicant; blocking: boolean } | null>(null);
+  protected readonly blockReasonId = signal<number | null>(null);
+  protected readonly blockNote = signal('');
+  protected readonly savingBlock = signal(false);
+  protected readonly history = signal<ApplicantHistory | null>(null);
+
+  protected textValue(event: Event): string {
+    return (event.target as HTMLTextAreaElement).value;
+  }
+
+  protected numberValue(event: Event): number | null {
+    const raw = (event.target as HTMLSelectElement).value;
+    return raw ? Number(raw) : null;
+  }
+
+  protected readonly chosenBlockReason = computed(() =>
+    this.blockReasons().find((r) => r.id === this.blockReasonId()) ?? null,
+  );
+
+  /* Mirrors what the server insists on, so the button is not offered for a
+     request that is going to come straight back. */
+  protected readonly canConfirmBlock = computed(() => {
+    const prompt = this.blockPrompt();
+    if (!prompt) return false;
+
+    const note = this.blockNote().trim();
+    if (!prompt.blocking) return note.length > 0;
+
+    const reason = this.chosenBlockReason();
+    if (!reason) return false;
+    return !reason.requiresNote || note.length > 0;
+  });
+
+  protected toggleBlock(row: Applicant): void {
+    this.blockReasonId.set(null);
+    this.blockNote.set('');
+    this.blockPrompt.set({ row, blocking: !row.isBlocked });
+  }
+
+  protected confirmBlock(): void {
+    const prompt = this.blockPrompt();
+    if (!prompt || !this.canConfirmBlock() || this.savingBlock()) return;
+
+    this.savingBlock.set(true);
+    this.service
+      .setBlocked(
+        prompt.row.id,
+        prompt.blocking,
+        prompt.blocking ? this.blockReasonId() : null,
+        this.blockNote().trim(),
+      )
+      .subscribe({
+        next: () => {
+          this.savingBlock.set(false);
+          this.blockPrompt.set(null);
+          this.toast.success(
+            prompt.blocking ? 'Applicant blocked' : 'Applicant unblocked',
+            prompt.row.applicantCode,
+          );
+          this.list.reload();
+        },
+        error: () => this.savingBlock.set(false),
+      });
+  }
+
+  protected openHistory(row: Applicant): void {
+    this.service.history(row.id).subscribe((record) => this.history.set(record));
   }
 }

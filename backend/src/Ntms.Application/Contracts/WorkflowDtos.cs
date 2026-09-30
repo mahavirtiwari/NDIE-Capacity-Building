@@ -60,6 +60,95 @@ public class ApplicantAnswerDto
 public class BlockApplicantDto
 {
     public bool IsBlocked { get; set; }
+
+    /// <summary>
+    /// Which of the configured reasons applies. Required when blocking;
+    /// letting somebody back in is a judgement rather than a category, so it
+    /// carries <see cref="Remarks"/> instead.
+    /// </summary>
+    public int? BlockReasonId { get; set; }
+
+    public string? Remarks { get; set; }
+}
+
+/// <summary>One time an account was blocked or let back in.</summary>
+public class ApplicantStatusEventDto
+{
+    public int Id { get; set; }
+    public bool Blocked { get; set; }
+    public string? ReasonLabel { get; set; }
+    public string? Remarks { get; set; }
+    public string ByUserName { get; set; } = string.Empty;
+    public string ByUserCode { get; set; } = string.Empty;
+    public DateTime On { get; set; }
+}
+
+/// <summary>
+/// What the history popup shows: who the account belongs to, where it stands
+/// now, and every time that changed.
+/// </summary>
+public class ApplicantHistoryDto
+{
+    public int ApplicantId { get; set; }
+    public string ApplicantCode { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public bool IsBlocked { get; set; }
+    public DateTime? BlockedOn { get; set; }
+    public string? BlockReasonLabel { get; set; }
+    public DateTime RegisteredOn { get; set; }
+    public DateTime? LastLoginOn { get; set; }
+    public List<ApplicantStatusEventDto> Events { get; set; } = [];
+}
+
+/// <summary>
+/// One row of the applicants export: everything the sign-up form collected,
+/// where the person stands, and the dates behind that.
+///
+/// A shape of its own rather than the list DTO, because an export is read in
+/// a spreadsheet rather than on a screen - it wants every answer flattened
+/// out, and it does not want paging.
+/// </summary>
+public class ApplicantExportRowDto
+{
+    public string ApplicantCode { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Mobile { get; set; } = string.Empty;
+    public string Pan { get; set; } = string.Empty;
+    public string? Gender { get; set; }
+    public string? SocialCategory { get; set; }
+    public string? Category { get; set; }
+    public string? SubCategory { get; set; }
+    public string? State { get; set; }
+    public string? District { get; set; }
+    public string? City { get; set; }
+
+    public bool EmailVerified { get; set; }
+    public bool MobileVerified { get; set; }
+
+    /// <summary>Registered, Application received, Approved or Rejected.</summary>
+    public string Standing { get; set; } = "Registered";
+
+    public DateTime RegisteredOn { get; set; }
+    public DateTime? FirstAppliedOn { get; set; }
+    public DateTime? ApprovedOn { get; set; }
+    public DateTime? RejectedOn { get; set; }
+
+    /// <summary>The reason on the most recent rejection, if any.</summary>
+    public string? RejectionReason { get; set; }
+
+    public string Access { get; set; } = "Active";
+    public DateTime? BlockedOn { get; set; }
+    public string? BlockReason { get; set; }
+
+    public DateTime? LastLoginOn { get; set; }
+
+    /// <summary>
+    /// Answers to the custom sign-up questions, keyed by the question as it
+    /// was asked. Turned into columns by the export.
+    /// </summary>
+    public Dictionary<string, string?> Answers { get; set; } = [];
 }
 
 /// <summary>Basic sign-up from the mobile app, before OTP verification.</summary>

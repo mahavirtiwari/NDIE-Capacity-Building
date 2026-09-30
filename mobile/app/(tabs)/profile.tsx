@@ -246,7 +246,7 @@ export default function Profile() {
             maxLength={10}
           />
           <Picker
-            label="State"
+            label="State/UT"
             value={stateCode}
             options={stateOptions}
             onChange={setStateCode}

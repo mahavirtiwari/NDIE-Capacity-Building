@@ -95,9 +95,9 @@ const COLUMNS: ColumnDef[] = [
             </select>
           </div>
           <div class="field">
-            <label class="field-label" for="apqState">State</label>
+            <label class="field-label" for="apqState">State/UT</label>
             <select id="apqState" class="select" (change)="list.setFilter('state', value($event))">
-              <option value="">All states</option>
+              <option value="">All states/UTs</option>
               @for (state of states(); track state.id) {
                 <option [value]="state.name">{{ state.name }}</option>
               }

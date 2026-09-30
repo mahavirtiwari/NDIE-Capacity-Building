@@ -871,3 +871,118 @@ public class RejectionReasonService(NtmsDbContext db)
         return dto;
     }
 }
+
+/* ------------------------------------------------------------ block reasons */
+
+/// <summary>
+/// The list an administrator picks from when blocking an account.
+///
+/// Deliberately separate from the rejection reasons rather than a kind
+/// alongside them: they are different vocabularies about different things,
+/// and one list would put "Documents are not legible" in front of somebody
+/// deciding whether to lock somebody out.
+/// </summary>
+public class BlockReasonService(NtmsDbContext db)
+{
+    public async Task<List<BlockReasonDto>> ListAsync(bool activeOnly, CancellationToken ct)
+    {
+        var rows = await db.BlockReasons.AsNoTracking()
+            .WhereIf(activeOnly, r => r.Status == RecordStatus.Active)
+            .OrderBy(r => r.DisplayOrder).ThenBy(r => r.Label)
+            .ToListAsync(ct);
+
+        var used = await db.ApplicantStatusEvents.AsNoTracking()
+            .Where(e => e.BlockReasonId != null)
+            .GroupBy(e => e.BlockReasonId!.Value)
+            .Select(g => new { Id = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.Id, g => g.Count, ct);
+
+        return [.. rows.Select(r => Map(r, used.GetValueOrDefault(r.Id)))];
+    }
+
+    public async Task<BlockReasonDto> CreateAsync(BlockReasonUpsertDto dto, CancellationToken ct)
+    {
+        var label = Validate(dto);
+
+        if (await db.BlockReasons.AnyAsync(r => r.Label == label, ct))
+            throw AppException.Conflict($"'{label}' is already on the list.");
+
+        var entity = new BlockReason
+        {
+            Label = label,
+            DisplayOrder = dto.DisplayOrder,
+            RequiresNote = dto.RequiresNote,
+            Status = EnumMaps.ToStatus(dto.Status),
+        };
+
+        db.BlockReasons.Add(entity);
+        await db.SaveChangesAsync(ct);
+        return Map(entity, 0);
+    }
+
+    public async Task<BlockReasonDto> UpdateAsync(
+        int id, BlockReasonUpsertDto dto, CancellationToken ct)
+    {
+        var label = Validate(dto);
+
+        var entity = await db.BlockReasons.FirstOrDefaultAsync(r => r.Id == id, ct)
+            ?? throw AppException.NotFound("Block reason");
+
+        if (await db.BlockReasons.AnyAsync(r => r.Label == label && r.Id != id, ct))
+            throw AppException.Conflict($"'{label}' is already on the list.");
+
+        entity.Label = label;
+        entity.DisplayOrder = dto.DisplayOrder;
+        entity.RequiresNote = dto.RequiresNote;
+        entity.Status = EnumMaps.ToStatus(dto.Status);
+
+        await db.SaveChangesAsync(ct);
+        return Map(entity, await UsedCountAsync(id, ct));
+    }
+
+    /// <summary>
+    /// Removes a reason nobody has been blocked for. One that has been used
+    /// is switched off instead, so the history keeps its wording.
+    /// </summary>
+    public async Task DeleteAsync(int id, CancellationToken ct)
+    {
+        var entity = await db.BlockReasons.FirstOrDefaultAsync(r => r.Id == id, ct)
+            ?? throw AppException.NotFound("Block reason");
+
+        var used = await UsedCountAsync(id, ct);
+        if (used > 0)
+        {
+            throw AppException.Conflict(
+                $"{used} account{(used == 1 ? " has" : "s have")} been blocked for this. " +
+                "Switch it off instead — that keeps it out of the list without rewriting history.");
+        }
+
+        db.BlockReasons.Remove(entity);
+        await db.SaveChangesAsync(ct);
+    }
+
+    private Task<int> UsedCountAsync(int id, CancellationToken ct) =>
+        db.ApplicantStatusEvents.CountAsync(e => e.BlockReasonId == id, ct);
+
+    private static string Validate(BlockReasonUpsertDto dto)
+    {
+        var label = (dto.Label ?? string.Empty).Trim();
+
+        Guard.Check()
+            .Required(label, "The reason")
+            .When(label.Length > 200, "A reason must be 200 characters or fewer.")
+            .ThrowIfInvalid();
+
+        return label;
+    }
+
+    private static BlockReasonDto Map(BlockReason r, int used) => new()
+    {
+        Id = r.Id,
+        Label = r.Label,
+        DisplayOrder = r.DisplayOrder,
+        RequiresNote = r.RequiresNote,
+        Status = r.Status.ToApi(),
+        UsedByCount = used,
+    };
+}

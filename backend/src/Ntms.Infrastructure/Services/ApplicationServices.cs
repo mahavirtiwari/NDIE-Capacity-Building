@@ -344,13 +344,215 @@ public class ApplicantService(
             : $"'{field.Label}' was answered with something that is not one of the choices.";
     }
 
-    public async Task<ApplicantDto> SetBlockedAsync(int id, bool isBlocked, CancellationToken ct)
+    /// <summary>
+    /// Blocks an account, or lets it back in, and records why.
+    ///
+    /// Both directions are explained. A history that gives grounds only for
+    /// the blocks answers half the questions later put to it — "who let them
+    /// back in, and on what basis" is the other half.
+    /// </summary>
+    public async Task<ApplicantDto> SetBlockedAsync(
+        int id, bool isBlocked, int? blockReasonId, string? remarks, CancellationToken ct)
     {
         var entity = await db.Applicants.FirstOrDefaultAsync(a => a.Id == id, ct)
                      ?? throw AppException.NotFound("Applicant");
+
+        if (entity.IsBlocked == isBlocked)
+        {
+            throw new AppException(
+                isBlocked ? "This account is already blocked." : "This account is not blocked.");
+        }
+
+        var note = (remarks ?? string.Empty).Trim();
+        string? reasonLabel = null;
+
+        if (isBlocked)
+        {
+            /* Chosen from the list: blocking somebody is a decision the
+               scheme has to be able to account for and count. */
+            var reason = await db.BlockReasons
+                .FirstOrDefaultAsync(r => r.Id == blockReasonId, ct)
+                ?? throw new AppException("Choose a reason for blocking this account.");
+
+            if (reason.Status != RecordStatus.Active)
+                throw new AppException($"'{reason.Label}' is no longer available as a reason.");
+
+            if (reason.RequiresNote && note.Length == 0)
+                throw new AppException($"'{reason.Label}' needs a note saying what happened.");
+
+            reasonLabel = reason.Label;
+            entity.BlockedOn = DateTime.UtcNow;
+            entity.BlockReasonLabel = reason.Label;
+        }
+        else
+        {
+            /* No master list for letting somebody back in: it is a judgement
+               about one case rather than a category, so it is written out. */
+            if (note.Length == 0)
+                throw new AppException("Say why this account is being unblocked.");
+
+            entity.BlockedOn = null;
+            entity.BlockReasonLabel = null;
+        }
+
         entity.IsBlocked = isBlocked;
+
+        entity.StatusEvents.Add(new ApplicantStatusEvent
+        {
+            Blocked = isBlocked,
+            BlockReasonId = isBlocked ? blockReasonId : null,
+            ReasonLabel = reasonLabel,
+            Remarks = note.Length == 0 ? null : note,
+            ByUserId = currentUser.UserId,
+            ByUserName = currentUser.DisplayName ?? "Administrator",
+            ByUserCode = currentUser.UserCode ?? "—",
+            On = DateTime.UtcNow,
+        });
+
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
+    }
+
+    /// <summary>Everything the history popup shows about one account.</summary>
+    public async Task<ApplicantHistoryDto> HistoryAsync(int id, CancellationToken ct)
+    {
+        var entity = await Base
+            .Include(a => a.StatusEvents)
+            .FirstOrDefaultAsync(a => a.Id == id, ct)
+            ?? throw AppException.NotFound("Applicant");
+
+        return new ApplicantHistoryDto
+        {
+            ApplicantId = entity.Id,
+            ApplicantCode = entity.ApplicantCode,
+            FullName = entity.FullName,
+            Email = entity.Email,
+            IsBlocked = entity.IsBlocked,
+            BlockedOn = entity.BlockedOn,
+            BlockReasonLabel = entity.BlockReasonLabel,
+            RegisteredOn = entity.RegisteredOn,
+            LastLoginOn = entity.LastLoginOn,
+            Events =
+            [
+                .. entity.StatusEvents
+                    .OrderByDescending(e => e.On)
+                    .Select(e => new ApplicantStatusEventDto
+                    {
+                        Id = e.Id,
+                        Blocked = e.Blocked,
+                        ReasonLabel = e.ReasonLabel,
+                        Remarks = e.Remarks,
+                        ByUserName = e.ByUserName,
+                        ByUserCode = e.ByUserCode,
+                        On = e.On,
+                    }),
+            ],
+        };
+    }
+
+    /// <summary>
+    /// Every applicant the filters match, flattened for a spreadsheet:
+    /// what the sign-up form collected, where they stand, and the dates
+    /// behind that.
+    ///
+    /// Not the list DTO. A screen shows a page and hides what will not fit;
+    /// an export is opened to be read across, and leaving the answers out is
+    /// leaving out the part nobody can get at any other way.
+    /// </summary>
+    public async Task<List<ApplicantExportRowDto>> ExportAsync(
+        int? categoryId, string? state, string? standing, bool? isBlocked,
+        DateTime? registeredFrom, DateTime? registeredTo, string? search,
+        CancellationToken ct)
+    {
+        var request = new PagedRequest { Page = 1, PageSize = 100000, Search = search };
+        var page = await ListAsync(
+            request, categoryId, state, standing, isBlocked, registeredFrom, registeredTo, ct);
+
+        var ids = page.Items.Select(r => r.Id).ToList();
+        if (ids.Count == 0) return [];
+
+        /* Three reads for the whole export rather than three per row. */
+        var answers = await db.ApplicantAnswers.AsNoTracking()
+            .Where(a => ids.Contains(a.ApplicantId))
+            .Select(a => new { a.ApplicantId, a.Label, a.Value })
+            .ToListAsync(ct);
+
+        var applications = await db.Applications.AsNoTracking()
+            .Where(a => ids.Contains(a.ApplicantId))
+            .Select(a => new
+            {
+                a.ApplicantId, a.Status, a.SubmittedOn, a.RejectionReasonLabel, a.ModifiedOn,
+            })
+            .ToListAsync(ct);
+
+        var byApplicant = applications.GroupBy(a => a.ApplicantId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var answersByApplicant = answers.GroupBy(a => a.ApplicantId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var rows = new List<ApplicantExportRowDto>(page.Items.Count);
+
+        foreach (var item in page.Items)
+        {
+            var mine = byApplicant.GetValueOrDefault(item.Id) ?? [];
+            var rejected = mine
+                .Where(a => a.Status == ApplicationStatus.Rejected)
+                .OrderByDescending(a => a.ModifiedOn ?? a.SubmittedOn)
+                .FirstOrDefault();
+
+            var row = new ApplicantExportRowDto
+            {
+                ApplicantCode = item.ApplicantCode,
+                FullName = item.FullName,
+                Email = item.Email,
+                Mobile = item.Mobile,
+                Pan = item.Pan,
+                Gender = item.Gender,
+                SocialCategory = item.SocialCategory,
+                Category = item.CategoryName,
+                SubCategory = item.SubCategoryName,
+                State = item.State,
+                District = item.District,
+                City = item.City,
+                EmailVerified = item.EmailVerified,
+                MobileVerified = item.MobileVerified,
+                Standing = item.Standing,
+                RegisteredOn = item.RegisteredOn,
+                FirstAppliedOn = mine.Where(a => a.SubmittedOn != null)
+                    .Min(a => a.SubmittedOn),
+                ApprovedOn = mine
+                    .Where(a => a.Status is ApplicationStatus.Approved or ApplicationStatus.Enrolled)
+                    .Max(a => a.ModifiedOn ?? a.SubmittedOn),
+                RejectedOn = rejected is null ? null : rejected.ModifiedOn ?? rejected.SubmittedOn,
+                RejectionReason = rejected?.RejectionReasonLabel,
+                Access = item.IsBlocked ? "Blocked" : "Active",
+                LastLoginOn = item.LastLoginOn,
+            };
+
+            foreach (var answer in answersByApplicant.GetValueOrDefault(item.Id) ?? [])
+            {
+                row.Answers[answer.Label] = answer.Value;
+            }
+
+            rows.Add(row);
+        }
+
+        /* The block details are on the applicant rather than the list DTO,
+           so they come from one more read keyed by the same ids. */
+        var blocks = await db.Applicants.AsNoTracking()
+            .Where(a => ids.Contains(a.Id))
+            .Select(a => new { a.Id, a.ApplicantCode, a.BlockedOn, a.BlockReasonLabel })
+            .ToDictionaryAsync(a => a.ApplicantCode, a => a, ct);
+
+        foreach (var row in rows)
+        {
+            if (!blocks.TryGetValue(row.ApplicantCode, out var block)) continue;
+            row.BlockedOn = block.BlockedOn;
+            row.BlockReason = block.BlockReasonLabel;
+        }
+
+        return rows;
     }
 }
 

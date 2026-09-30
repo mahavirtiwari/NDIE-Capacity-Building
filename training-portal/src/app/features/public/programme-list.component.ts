@@ -42,7 +42,7 @@ import {
         <section class="card">
           <div class="card__body filters">
             <div class="field">
-              <label class="field-label" for="fState">State</label>
+              <label class="field-label" for="fState">State/UT</label>
               <select id="fState" class="select" (change)="set('stateCode', $event)">
                 <option value="">All</option>
                 @for (s of options()?.states ?? []; track s.id) {
@@ -113,7 +113,7 @@ import {
                     <th>Programme</th>
                     <th>Venue</th>
                     <th style="width: 130px">District</th>
-                    <th style="width: 140px">State</th>
+                    <th style="width: 140px">State/UT</th>
                     <th style="width: 110px">Status</th>
                     <th style="width: 120px">Start</th>
                     <th style="width: 120px">End</th>

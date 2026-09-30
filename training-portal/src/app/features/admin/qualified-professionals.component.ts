@@ -16,7 +16,7 @@ import { ListState, searchTerm } from '../../shared/list-state';
 const COLUMNS: ColumnDef[] = [
   { key: 'name', header: 'Professional', sortable: true, variant: 'primary' },
   { key: 'programType', header: 'Qualified as', sortable: true },
-  { key: 'state', header: 'State', sortable: true, width: '150px' },
+  { key: 'state', header: 'State/UT', sortable: true, width: '150px' },
   { key: 'certificate', header: 'Certificate', width: '190px' },
   { key: 'validTill', header: 'Valid till', sortable: true, width: '150px' },
   { key: 'standing', header: 'Standing', width: '130px' },
@@ -100,9 +100,9 @@ const STANDINGS: Record<CertificateStanding, { label: string; tone: string }> = 
           </div>
 
           <div class="field">
-            <label class="field-label" for="qpState">State</label>
+            <label class="field-label" for="qpState">State/UT</label>
             <select id="qpState" class="select" (change)="list.setFilter('stateCode', value($event))">
-              <option value="">All states</option>
+              <option value="">All states/UTs</option>
               @for (option of states(); track option.id) {
                 <option [value]="option.id">{{ option.name }}</option>
               }

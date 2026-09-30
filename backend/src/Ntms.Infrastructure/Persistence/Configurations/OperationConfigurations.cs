@@ -163,6 +163,7 @@ public class ApplicantConfiguration : IEntityTypeConfiguration<Applicant>
         b.Property(x => x.Email).HasMaxLength(200).IsRequired();
         b.Property(x => x.Mobile).HasMaxLength(10).IsRequired();
         b.Property(x => x.Pan).HasMaxLength(10).IsRequired();
+        b.Property(x => x.BlockReasonLabel).HasMaxLength(200);
         b.Property(x => x.PasswordHash).HasMaxLength(400);
         b.Property(x => x.City).HasMaxLength(120);
 
@@ -459,6 +460,33 @@ public class PaymentTransactionConfiguration : IEntityTypeConfiguration<PaymentT
 
         b.HasOne(x => x.Applicant).WithMany()
             .HasForeignKey(x => x.ApplicantId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+/// <summary>
+/// The record of an account being blocked or let back in. Cascades with the
+/// applicant: an account that is gone has no history worth keeping.
+/// </summary>
+public class ApplicantStatusEventConfiguration : IEntityTypeConfiguration<ApplicantStatusEvent>
+{
+    public void Configure(EntityTypeBuilder<ApplicantStatusEvent> b)
+    {
+        b.ToTable("ApplicantStatusEvents");
+        b.Property(x => x.ReasonLabel).HasMaxLength(200);
+        b.Property(x => x.Remarks).HasMaxLength(1000);
+        b.Property(x => x.ByUserName).HasMaxLength(160).IsRequired();
+        b.Property(x => x.ByUserCode).HasMaxLength(40).IsRequired();
+
+        b.HasIndex(x => new { x.ApplicantId, x.On });
+
+        b.HasOne(x => x.Applicant).WithMany(a => a.StatusEvents)
+            .HasForeignKey(x => x.ApplicantId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        /* Restrict: retiring a reason must not delete the blocks taken for it. */
+        b.HasOne(x => x.BlockReason).WithMany()
+            .HasForeignKey(x => x.BlockReasonId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

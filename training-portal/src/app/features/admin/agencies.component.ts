@@ -87,9 +87,9 @@ const COLUMNS: ColumnDef[] = [
           </div>
           <app-master-filter [list]="list" programTypeLabel="Programme type" #masters />
           <div class="field">
-            <label class="field-label" for="agState">State</label>
+            <label class="field-label" for="agState">State/UT</label>
             <select id="agState" class="select" (change)="list.setFilter('state', value($event))">
-              <option value="">All states</option>
+              <option value="">All states/UTs</option>
               @for (state of states(); track state.id) {
                 <option [value]="state.name">{{ state.name }}</option>
               }
@@ -233,7 +233,7 @@ const COLUMNS: ColumnDef[] = [
               <input id="agCity" class="input" formControlName="city" />
             </div>
             <div class="field">
-              <label class="field-label" for="agStateSel">State <span class="req">*</span></label>
+              <label class="field-label" for="agStateSel">State/UT <span class="req">*</span></label>
               <select id="agStateSel" class="select" formControlName="stateCode" (change)="onStateChange()">
                 <option [ngValue]="null">Select</option>
                 @for (state of states(); track state.id) {
@@ -298,7 +298,7 @@ const COLUMNS: ColumnDef[] = [
               [(selected)]="programTypeIds"
             />
             <app-scope-picker
-              label="States"
+              label="States/UTs"
               [options]="states()"
               [(selected)]="stateCodes"
             />

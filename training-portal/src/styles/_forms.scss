@@ -196,6 +196,20 @@
 .filter-bar .field { min-width: 180px; }
 .filter-bar .field--search { min-width: 260px; flex: 1; }
 
+/* A from/to pair is one filter, so it occupies one slot in the bar. Two
+   separate fields wrap independently, which is how a Start date can end up
+   on one row with its End date on the next. */
+.filter-bar .field--range { min-width: 320px; }
+
+.field--range .field-range__inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.field--range .field-range__inputs .input { min-width: 0; flex: 1; }
+.field--range .field-range__dash { color: var(--ink-500); }
+
 /* Those floors are wider than a small phone's content box, so drop them. */
 @media (max-width: 480px) {
   .filter-bar { gap: 0.6rem; }

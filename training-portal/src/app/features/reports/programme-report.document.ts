@@ -143,7 +143,7 @@ function programmeSection(report: ProgrammeReport): string {
     ['Implementing agency', p.agencyName],
     ['Mode', p.mode],
     ['From – to', `${date(p.startDate)} – ${date(p.endDate)}`],
-    ['State', p.stateName],
+    ['State/UT', p.stateName],
     ['District', p.districtName],
     ['Status', p.status],
     ['Coordinator', report.coordinatorName],

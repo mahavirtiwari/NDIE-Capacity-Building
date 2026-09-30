@@ -142,7 +142,7 @@ function summaryRows(report: ProgrammeReport): Record<string, unknown>[] {
     ['Implementing agency', p.agencyName],
     ['Mode', p.mode],
     ['Venue', p.venue],
-    ['State', p.stateName],
+    ['State/UT', p.stateName],
     ['District', p.districtName],
     ['From', p.startDate],
     ['To', p.endDate],

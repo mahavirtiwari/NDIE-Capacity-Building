@@ -110,9 +110,9 @@ const COLUMNS: ColumnDef[] = [
           </div>
 
           <div class="field">
-            <label class="field-label" for="rpState">State</label>
+            <label class="field-label" for="rpState">State/UT</label>
             <select id="rpState" class="select" (change)="list.setFilter('stateCode', value($event))">
-              <option value="">All states</option>
+              <option value="">All states/UTs</option>
               @for (option of states(); track option.id) {
                 <option [value]="option.id">{{ option.name }}</option>
               }

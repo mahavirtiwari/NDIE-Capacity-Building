@@ -144,9 +144,9 @@ const TIER_DEPTH: Record<string, number> = {
             </select>
           </div>
           <div class="field">
-            <label class="field-label" for="usrState">State</label>
+            <label class="field-label" for="usrState">State/UT</label>
             <select id="usrState" class="select" (change)="list.setFilter('state', value($event))">
-              <option value="">All states</option>
+              <option value="">All states/UTs</option>
               @for (state of states(); track state.id) {
                 <option [value]="state.name">{{ state.name }}</option>
               }
@@ -311,7 +311,7 @@ const TIER_DEPTH: Record<string, number> = {
                  so a picker could only record a different answer from the
                  truth. -->
             <div class="field">
-              <label class="field-label" for="uState">State</label>
+              <label class="field-label" for="uState">State/UT</label>
               <select id="uState" class="select" formControlName="stateCode" (change)="onStateChange()">
                 <option [ngValue]="null">Select</option>
                 @for (state of states(); track state.id) {
@@ -373,7 +373,7 @@ const TIER_DEPTH: Record<string, number> = {
             }
             @if (axes().state) {
               <app-scope-picker
-                label="States"
+                label="States/UTs"
                 [options]="states()"
                 [(selected)]="stateCodes"
               />

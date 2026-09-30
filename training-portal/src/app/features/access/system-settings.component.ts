@@ -1,8 +1,9 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { RejectionReason, SystemSettings } from '../../core/models';
+import { BlockReason, RejectionReason, SystemSettings } from '../../core/models';
 import { SystemSettingsService } from '../../core/services/system.service';
+import { BlockReasonService } from '../../core/services/people.service';
 import { RejectionReasonService } from '../../core/services/workflow.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -440,6 +441,115 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
         </div>
       </section>
 
+      <!-- ------------------------------------------- block reasons -->
+      <section class="card">
+        <div class="card__header">
+          <div class="stack stack-xs">
+            <span class="card__title">Reasons for blocking an account</span>
+            <span class="card__subtitle">
+              What an administrator picks from when blocking an applicant’s account.
+            </span>
+          </div>
+        </div>
+        <div class="card__body">
+          <div class="stack stack-sm">
+            @if (blockReasons().length === 0) {
+              <p class="text-muted text-sm">
+                Nothing here yet. Until a reason exists, an account cannot be blocked.
+              </p>
+            } @else {
+              <div class="table-wrap">
+                <table class="table table--compact">
+                  <thead>
+                    <tr>
+                      <th style="width: 70px">Order</th>
+                      <th>Reason</th>
+                      <th style="width: 130px">Needs a note</th>
+                      <th style="width: 110px">Used by</th>
+                      <th style="width: 100px">Status</th>
+                      <th style="width: 110px"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (reason of blockReasons(); track reason.id) {
+                      <tr>
+                        <td class="tabular">{{ reason.displayOrder }}</td>
+                        <td>{{ reason.label }}</td>
+                        <td>{{ reason.requiresNote ? 'Yes' : 'No' }}</td>
+                        <td class="tabular">
+                          {{ reason.usedByCount || '—' }}
+                        </td>
+                        <td><app-status-badge [value]="reason.status" /></td>
+                        <td>
+                          <div class="btn-row btn-row--end">
+                            <button
+                              type="button"
+                              class="btn btn--sm btn--secondary"
+                              (click)="toggleBlockReason(reason)"
+                            >
+                              {{ reason.status === 'Active' ? 'Switch off' : 'Switch on' }}
+                            </button>
+                            @if (!reason.usedByCount) {
+                              <button
+                                type="button"
+                                class="btn btn--icon"
+                                title="Remove"
+                                (click)="removeBlockReason(reason)"
+                              >
+                                <app-icon name="trash" [size]="15" />
+                              </button>
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+
+            <!-- Outside the settings form: this list saves a row at a time,
+                 and it must not be tangled with Save settings. -->
+            <div class="row row-sm row-wrap" style="align-items: flex-end">
+              <div class="field" style="flex: 1 1 320px">
+                <label class="field-label" for="newBlockReason">Add a reason</label>
+                <input
+                  id="newBlockReason"
+                  class="input"
+                  [value]="newBlockReason()"
+                  (input)="newBlockReason.set(inputValue($event))"
+                  placeholder="e.g. Repeated no-shows after enrolment"
+                  maxlength="200"
+                />
+              </div>
+              <label class="check" style="padding-bottom: 0.6rem">
+                <input
+                  type="checkbox"
+                  [checked]="newBlockReasonNeedsNote()"
+                  (change)="newBlockReasonNeedsNote.set(checkedValue($event))"
+                />
+                <span>Needs a note</span>
+              </label>
+              <button
+                type="button"
+                class="btn btn--secondary"
+                style="margin-bottom: 0.35rem"
+                [disabled]="!newBlockReason().trim() || savingBlockReason()"
+                (click)="addBlockReason()"
+              >
+                @if (savingBlockReason()) { <span class="spinner"></span> }
+                Add
+              </button>
+            </div>
+
+            <span class="field-hint">
+              A reason that has already been used is switched off rather than removed, so the
+              history keeps its wording.
+            </span>
+          </div>
+        </div>
+      </section>
+
       <div class="btn-row btn-row--end">
         <button type="submit" class="btn btn--primary" [disabled]="saving()">
           @if (saving()) { <span class="spinner"></span> }
@@ -526,6 +636,77 @@ export class SystemSettingsComponent {
       });
   }
 
+  /* The block list, managed exactly as the rejection list is. Two lists
+     rather than one with a kind: they are different vocabularies, and one
+     would put "Documents are not legible" in front of somebody deciding
+     whether to lock an account. */
+  private readonly blockReasonService = inject(BlockReasonService);
+  protected readonly blockReasons = signal<BlockReason[]>([]);
+  protected readonly newBlockReason = signal('');
+  protected readonly newBlockReasonNeedsNote = signal(false);
+  protected readonly savingBlockReason = signal(false);
+
+  private loadBlockReasons(): void {
+    this.blockReasonService.list(false).subscribe((rows) => this.blockReasons.set(rows));
+  }
+
+  protected addBlockReason(): void {
+    const label = this.newBlockReason().trim();
+    if (!label || this.savingBlockReason()) return;
+
+    this.savingBlockReason.set(true);
+    this.blockReasonService
+      .create({
+        label,
+        displayOrder: (this.blockReasons().at(-1)?.displayOrder ?? 0) + 10,
+        requiresNote: this.newBlockReasonNeedsNote(),
+        status: 'Active',
+      })
+      .subscribe({
+        next: () => {
+          this.savingBlockReason.set(false);
+          this.newBlockReason.set('');
+          this.newBlockReasonNeedsNote.set(false);
+          this.toast.success('Reason added', label);
+          this.loadBlockReasons();
+        },
+        error: () => this.savingBlockReason.set(false),
+      });
+  }
+
+  protected toggleBlockReason(reason: BlockReason): void {
+    const next = reason.status === 'Active' ? 'Inactive' : 'Active';
+    this.blockReasonService
+      .update(reason.id, {
+        label: reason.label,
+        displayOrder: reason.displayOrder,
+        requiresNote: reason.requiresNote,
+        status: next,
+      })
+      .subscribe(() => {
+        this.toast.success(
+          next === 'Active' ? 'Reason switched on' : 'Reason switched off',
+          reason.label,
+        );
+        this.loadBlockReasons();
+      });
+  }
+
+  protected async removeBlockReason(reason: BlockReason): Promise<void> {
+    const confirmed = await this.confirm.ask({
+      title: 'Remove this reason?',
+      message: `'${reason.label}' will no longer be offered. No account has been blocked for it, so no history loses its wording.`,
+      confirmLabel: 'Remove',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    this.blockReasonService.remove(reason.id).subscribe(() => {
+      this.toast.success('Reason removed', reason.label);
+      this.loadBlockReasons();
+    });
+  }
+
   protected async removeReason(reason: RejectionReason): Promise<void> {
     const confirmed = await this.confirm.ask({
       title: 'Remove this reason?',
@@ -570,6 +751,7 @@ export class SystemSettingsComponent {
   constructor() {
     this.load();
     this.loadReasons();
+    this.loadBlockReasons();
   }
 
   private load(): void {

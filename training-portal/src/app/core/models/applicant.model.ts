@@ -1,4 +1,4 @@
-import { AuditInfo, Id } from './common.model';
+import { AuditInfo, Id, RecordStatus } from './common.model';
 
 export type ApplicantKycStatus = 'Pending' | 'Verified' | 'Rejected';
 
@@ -51,6 +51,10 @@ export interface Applicant extends AuditInfo {
 
   /** Where they stand, read from their applications rather than held on the account. */
   standing: ApplicantStanding;
+
+  /** The current block: when, and the reason chosen at the time. */
+  blockedOn?: string | null;
+  blockReasonLabel?: string | null;
   state?: string;
   city?: string;
   registeredOn: string;
@@ -68,4 +72,77 @@ export interface ApplicantAnswer {
   key: string;
   label: string;
   value?: string | null;
+}
+
+/* --------------------------------------------------------- blocking */
+
+/** One reason an account may be blocked, as configured by a Super Admin. */
+export interface BlockReason {
+  id: Id;
+  label: string;
+  displayOrder: number;
+  /** True where the reason needs the specifics spelled out. */
+  requiresNote: boolean;
+  status: RecordStatus;
+  usedByCount: number;
+}
+
+export interface BlockReasonUpsert {
+  label: string;
+  displayOrder: number;
+  requiresNote: boolean;
+  status: RecordStatus;
+}
+
+/** One time an account was blocked or let back in. */
+export interface ApplicantStatusEvent {
+  id: Id;
+  blocked: boolean;
+  reasonLabel?: string | null;
+  remarks?: string | null;
+  byUserName: string;
+  byUserCode: string;
+  on: string;
+}
+
+export interface ApplicantHistory {
+  applicantId: Id;
+  applicantCode: string;
+  fullName: string;
+  email: string;
+  isBlocked: boolean;
+  blockedOn?: string | null;
+  blockReasonLabel?: string | null;
+  registeredOn: string;
+  lastLoginOn?: string | null;
+  events: ApplicantStatusEvent[];
+}
+
+/** One row of the applicants export, with the sign-up answers flattened in. */
+export interface ApplicantExportRow {
+  applicantCode: string;
+  fullName: string;
+  email: string;
+  mobile: string;
+  pan: string;
+  gender?: string | null;
+  socialCategory?: string | null;
+  category?: string | null;
+  subCategory?: string | null;
+  state?: string | null;
+  district?: string | null;
+  city?: string | null;
+  emailVerified: boolean;
+  mobileVerified: boolean;
+  standing: string;
+  registeredOn: string;
+  firstAppliedOn?: string | null;
+  approvedOn?: string | null;
+  rejectedOn?: string | null;
+  rejectionReason?: string | null;
+  access: string;
+  blockedOn?: string | null;
+  blockReason?: string | null;
+  lastLoginOn?: string | null;
+  answers: Record<string, string | null>;
 }

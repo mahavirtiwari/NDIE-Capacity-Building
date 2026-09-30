@@ -324,3 +324,25 @@ public class RejectionReasonUpsertDto
     public bool RequiresNote { get; set; }
     public string Status { get; set; } = "Active";
 }
+
+/* ------------------------------------------------------------ block reasons */
+
+public class BlockReasonDto : AuditDto
+{
+    public int Id { get; set; }
+    public string Label { get; set; } = string.Empty;
+    public int DisplayOrder { get; set; }
+    public bool RequiresNote { get; set; }
+    public string Status { get; set; } = "Active";
+
+    /// <summary>How many accounts have been blocked for this.</summary>
+    public int UsedByCount { get; set; }
+}
+
+public class BlockReasonUpsertDto
+{
+    public string Label { get; set; } = string.Empty;
+    public int DisplayOrder { get; set; }
+    public bool RequiresNote { get; set; }
+    public string Status { get; set; } = "Active";
+}

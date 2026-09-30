@@ -81,7 +81,7 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
               </div>
             </div>
             <div>
-              <div class="dl__term">State</div>
+              <div class="dl__term">State/UT</div>
               <div class="dl__value">{{ batch.state }}</div>
             </div>
             <div>
