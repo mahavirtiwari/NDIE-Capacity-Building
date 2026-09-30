@@ -8,11 +8,32 @@ import {
   AttendanceMark,
   Id,
   Program,
+  ProfileDecision,
+  ProfileSubmission,
   ScrutinyDecision,
   StateCoverageResult,
 } from '../models';
 import { ApiService } from './api.service';
 import { CrudService } from './crud.service';
+
+/**
+ * The profile queue: applicants waiting to be let into their discipline.
+ *
+ * Read before applications, because an applicant has none until their
+ * profile has been accepted.
+ */
+@Injectable({ providedIn: 'root' })
+export class ProfileSubmissionService extends CrudService<ProfileSubmission> {
+  protected readonly resource = 'profile-submissions';
+
+  approve(id: Id, decision: ProfileDecision): Observable<ProfileSubmission> {
+    return this.api.post<ProfileSubmission>(`${this.resource}/${id}/approve`, decision);
+  }
+
+  reject(id: Id, decision: ProfileDecision): Observable<ProfileSubmission> {
+    return this.api.post<ProfileSubmission>(`${this.resource}/${id}/reject`, decision);
+  }
+}
 
 @Injectable({ providedIn: 'root' })
 export class ApplicationService extends CrudService<Application> {

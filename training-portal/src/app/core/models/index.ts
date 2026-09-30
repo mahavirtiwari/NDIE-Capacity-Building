@@ -14,5 +14,6 @@ export * from './material.model';
 export * from './user.model';
 export * from './applicant.model';
 export * from './application.model';
+export * from './profile-submission.model';
 export * from './program.model';
 export * from './marksheet.model';

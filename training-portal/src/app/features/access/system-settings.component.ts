@@ -337,6 +337,71 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
         </div>
       </section>
 
+      <!-- --------------------------------------------- the profile gate -->
+      <section class="card">
+        <div class="card__header">
+          <div class="stack stack-xs">
+            <span class="card__title">Profile form and attempts</span>
+            <span class="card__subtitle">
+              How many times an applicant may have their profile turned down, and what
+              happens when they run out.
+            </span>
+          </div>
+        </div>
+        <div class="card__body">
+          <div class="form-grid">
+            <div class="field">
+              <label class="field-label" for="profileAttempts">Attempts at the profile form</label>
+              <input
+                id="profileAttempts"
+                class="input"
+                type="number"
+                min="1"
+                max="10"
+                formControlName="profileMaxAttempts"
+              />
+              <span class="field-hint">
+                Rejections, not submissions — a draft somebody abandoned costs them nothing.
+              </span>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="profileBlock">Then closed for (months)</label>
+              <input
+                id="profileBlock"
+                class="input"
+                type="number"
+                min="1"
+                max="60"
+                formControlName="profileBlockMonths"
+              />
+              <span class="field-hint">
+                The sub-category shuts to them for this long. It expires on its own; nobody
+                has to remember to lift it.
+              </span>
+            </div>
+
+            <div class="field field--span-2">
+              <label class="field-label" for="programAttempts">
+                Attempts at clearing a program type
+              </label>
+              <input
+                id="programAttempts"
+                class="input"
+                type="number"
+                min="1"
+                max="10"
+                formControlName="programTypeMaxAttempts"
+              />
+              <span class="field-hint">
+                How many times somebody may fail a program type before it closes to them.
+                Passing closes it too, for the happier reason.
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- ------------------------------------------------ ERP invoicing -->
       <section class="card">
         <div class="card__header">
@@ -940,6 +1005,9 @@ export class SystemSettingsComponent {
     panNamePath: ['name'],
     panTimeoutSeconds: [10],
     panRefuseWhenUnavailable: [false],
+    profileMaxAttempts: [3],
+    profileBlockMonths: [6],
+    programTypeMaxAttempts: [3],
     erpInvoiceEnabled: [false],
     erpProvider: [''],
     erpInvoiceEndpoint: [''],
@@ -1001,6 +1069,9 @@ export class SystemSettingsComponent {
         panNamePath: settings.panNamePath,
         panTimeoutSeconds: settings.panTimeoutSeconds,
         panRefuseWhenUnavailable: settings.panRefuseWhenUnavailable,
+        profileMaxAttempts: settings.profileMaxAttempts,
+        profileBlockMonths: settings.profileBlockMonths,
+        programTypeMaxAttempts: settings.programTypeMaxAttempts,
         erpInvoiceEnabled: settings.erpInvoiceEnabled,
         erpProvider: settings.erpProvider ?? '',
         erpInvoiceEndpoint: settings.erpInvoiceEndpoint ?? '',
@@ -1125,6 +1196,9 @@ export class SystemSettingsComponent {
         panNamePath: raw.panNamePath || null,
         panTimeoutSeconds: Number(raw.panTimeoutSeconds),
         panRefuseWhenUnavailable: String(raw.panRefuseWhenUnavailable) === 'true',
+        profileMaxAttempts: Number(raw.profileMaxAttempts),
+        profileBlockMonths: Number(raw.profileBlockMonths),
+        programTypeMaxAttempts: Number(raw.programTypeMaxAttempts),
         erpInvoiceEnabled: raw.erpInvoiceEnabled,
         erpProvider: raw.erpProvider || null,
         erpInvoiceEndpoint: raw.erpInvoiceEndpoint || null,

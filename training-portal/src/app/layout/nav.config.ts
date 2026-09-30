@@ -24,6 +24,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'Programs', route: '/operations/programs', icon: 'calendar', permissions: ['programs.view'] },
       { label: 'Applicants', route: '/admin/applicants', icon: 'graduation', permissions: ['applications.view'] },
+      { label: 'Profile scrutiny', route: '/admin/profile-scrutiny', icon: 'user-check', permissions: ['applications.view'] },
       { label: 'Application scrutiny', route: '/admin/applications', icon: 'inbox', permissions: ['applications.view'] },
       { label: 'Qualified professionals', route: '/admin/qualified-professionals', icon: 'award', permissions: ['professionals.view'] },
     ],

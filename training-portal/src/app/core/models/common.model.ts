@@ -177,6 +177,12 @@ export interface SystemSettings {
   panRefuseWhenUnavailable: boolean;
   panConfigured: boolean;
 
+  /** How many rejections before the sub-category closes, and for how long. */
+  profileMaxAttempts: number;
+  profileBlockMonths: number;
+  /** How many times an applicant may fail to clear a program type. */
+  programTypeMaxAttempts: number;
+
   /** Where the invoice for a paid fee is raised, and how it is fetched. */
   erpInvoiceEnabled: boolean;
   erpProvider?: string | null;
@@ -197,6 +203,10 @@ export interface SystemSettings {
 }
 
 export interface SystemSettingsUpdate {
+  profileMaxAttempts: number;
+  profileBlockMonths: number;
+  programTypeMaxAttempts: number;
+
   maintenanceMode: boolean;
   maintenanceMessage?: string | null;
   maintenanceUntil?: string | null;

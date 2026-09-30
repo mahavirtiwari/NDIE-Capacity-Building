@@ -245,6 +245,15 @@ export const routes: Routes = [
               ),
           },
           {
+            path: 'profile-scrutiny',
+            title: 'Profile scrutiny · CBMS',
+            canActivate: [permissionGuard('applications.view')],
+            loadComponent: () =>
+              import('./features/admin/profile-scrutiny.component').then(
+                (m) => m.ProfileScrutinyComponent,
+              ),
+          },
+          {
             path: 'applications',
             title: 'Application scrutiny · CBMS',
             canActivate: [permissionGuard('applications.view')],
