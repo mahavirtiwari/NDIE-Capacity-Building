@@ -204,8 +204,25 @@ public class ExamSittingService(NtmsDbContext db, ResultRecorder results)
     /// alternative is a candidate who opens the paper, reads it and starts the
     /// timer afterwards.
     /// </summary>
+    /// <summary>
+    /// Opens the paper.
+    ///
+    /// A selfie is taken at the desk first and stored against the sitting.
+    /// It is required: an unproctored online paper with no record of who
+    /// was in front of the screen is worth very little, and the photograph
+    /// is the cheapest thing that makes sitting it for somebody else
+    /// awkward.
+    /// </summary>
     public async Task<ExamSittingDto> StartAsync(
         int applicantId, int participantId, CancellationToken ct)
+        => await StartAsync(applicantId, participantId, null, null, ct);
+
+    public async Task<ExamSittingDto> StartAsync(
+        int applicantId,
+        int participantId,
+        byte[]? selfie,
+        string? selfieContentType,
+        CancellationToken ct)
     {
         var participant = await MineAsync(applicantId, participantId, ct);
         var programme = participant.Programme!;
@@ -245,6 +262,9 @@ public class ExamSittingService(NtmsDbContext db, ResultRecorder results)
             StartedOn = now,
             ExpiresOn = now.AddMinutes(paper.DurationMinutes),
             Status = ExamAttemptStatus.InProgress,
+            SelfieData = selfie,
+            SelfieContentType = selfie is { Length: > 0 } ? selfieContentType : null,
+            SelfieTakenOn = selfie is { Length: > 0 } ? now : null,
             PaperTotal = paper.Questions.Sum(q => q.Marks),
             QuestionCount = paper.Questions.Count,
         };

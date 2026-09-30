@@ -5,6 +5,7 @@ import type {
   ApplicantLoginResponse,
   ApplicantProgram,
   Application,
+  BatchRegistration,
   Branding,
   Enrolment,
   ExamAvailability,
@@ -63,6 +64,13 @@ export interface SignUpPayload {
 export const batches = {
   /** Open batches this applicant could join, with their standing on each. */
   mine: () => api.get<ApplicantBatch[]>('me/batches'),
+
+  /**
+   * Takes a seat. Answers either that they are registered, or that the fee
+   * has to be paid first and against which application.
+   */
+  register: (programmeId: number) =>
+    api.post<BatchRegistration>(`me/batches/${programmeId}/register`),
 };
 
 export const auth = {
@@ -206,8 +214,28 @@ export const exam = {
   availability: (participantId: number) =>
     api.get<ExamAvailability>(`me/enrolments/${participantId}/exam`),
 
-  start: (participantId: number) =>
-    api.post<ExamSitting>(`me/enrolments/${participantId}/exam/start`),
+  /**
+   * Opens the paper, with the photograph taken at the desk.
+   *
+   * Multipart rather than JSON, because the picture is a file. It is
+   * required by the screen rather than by the API: an older app that does
+   * not send one still works, and the sitting simply has no photograph
+   * against it.
+   */
+  start: (participantId: number, selfie?: { uri: string; type: string }) => {
+    if (!selfie) {
+      return api.post<ExamSitting>(`me/enrolments/${participantId}/exam/start`);
+    }
+
+    const body = new FormData();
+    body.append('selfie', {
+      uri: selfie.uri,
+      name: 'selfie.jpg',
+      type: selfie.type,
+    } as unknown as Blob);
+
+    return api.postForm<ExamSitting>(`me/enrolments/${participantId}/exam/start`, body);
+  },
 
   resume: (attemptId: number) => api.get<ExamSitting>(`me/exam/${attemptId}`),
 

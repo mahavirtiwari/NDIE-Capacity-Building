@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../src/api/client';
 import { batches as batchesApi } from '../../src/api/endpoints';
 import type { ApplicantBatch } from '../../src/api/types';
@@ -20,7 +20,6 @@ export default function Batches() {
   const [rows, setRows] = useState<ApplicantBatch[] | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-
   const load = useCallback(async () => {
     setFailure(null);
     try {
@@ -34,6 +33,60 @@ export default function Batches() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /** Which batch is being registered, so only its own card says so. */
+  const [busy, setBusy] = useState<number | null>(null);
+
+  /**
+   * Takes the seat.
+   *
+   * The server decides whether money is owed — the app only routes on the
+   * answer. Confirmed first, because a free registration is immediate and
+   * a batch is a date somebody has to turn up on.
+   */
+  const register = useCallback(
+    (batch: ApplicantBatch) => {
+      if (batch.isEnrolled || batch.seatsLeft === 0) return;
+
+      Alert.alert(
+        'Register for this batch?',
+        [
+          batch.programTypeName,
+          `${shortDate(batch.startDate)} – ${shortDate(batch.endDate)}`,
+          batch.isFeeApplicable ? 'You will be asked to pay the fee.' : '',
+        ]
+          .filter(Boolean)
+          .join('\n'),
+        [
+          { text: 'Not now', style: 'cancel' },
+          {
+            text: 'Register',
+            onPress: async () => {
+              setBusy(batch.id);
+              setFailure(null);
+              try {
+                const outcome = await batchesApi.register(batch.id);
+                if (outcome.status === 'PaymentRequired') {
+                  router.push(`/payment/${outcome.applicationId}`);
+                } else {
+                  Alert.alert('Registered', outcome.message);
+                }
+                await load();
+              } catch (caught) {
+                setFailure(
+                  caught instanceof ApiError ? caught.message : 'Could not register.',
+                );
+              } finally {
+                setBusy(null);
+              }
+            },
+          },
+        ],
+      );
+    },
+    [load, router],
+  );
+
 
   if (rows === null) return <Loading label="Loading batches…" />;
 
@@ -64,8 +117,8 @@ export default function Batches() {
       renderItem={({ item }) => (
         <Pressable
           style={styles.card}
-          onPress={() => router.push(`/apply/${item.programTypeId}`)}
-          disabled={item.isEnrolled}
+          onPress={() => register(item)}
+          disabled={item.isEnrolled || busy !== null}
         >
           <View style={styles.head}>
             <Text style={styles.title}>{item.programTypeName}</Text>
@@ -93,10 +146,14 @@ export default function Batches() {
           <View style={styles.foot}>
             {item.isEnrolled ? (
               <Text style={styles.enrolled}>You are enrolled on this batch</Text>
-            ) : item.hasApplied ? (
-              <Text style={styles.applied}>Application in progress for this track</Text>
+            ) : busy === item.id ? (
+              <Text style={styles.apply}>Registering…</Text>
+            ) : item.seatsLeft === 0 ? (
+              <Text style={styles.applied}>No seats left</Text>
             ) : (
-              <Text style={styles.apply}>Tap to apply</Text>
+              <Text style={styles.apply}>
+                {item.isFeeApplicable ? 'Tap to register and pay' : 'Tap to register'}
+              </Text>
             )}
           </View>
         </Pressable>

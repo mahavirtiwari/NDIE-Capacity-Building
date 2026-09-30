@@ -214,7 +214,52 @@ function fileNameFrom(disposition: string | null): string | null {
   return /filename="?([^";]+)"?/i.exec(disposition)?.[1]?.trim() ?? null;
 }
 
+/**
+ * A multipart POST, for the few places that send a file.
+ *
+ * Separate from `request` because the Content-Type has to be left alone —
+ * the runtime sets it with the boundary, and naming it ourselves produces
+ * a body the server cannot parse.
+ */
+async function postForm<T>(path: string, body: FormData): Promise<T> {
+  const url = `${API_BASE_URL}/${path.replace(/^\//, '')}`;
+  const headers: Record<string, string> = { Accept: 'application/json' };
+
+  const token = readToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, { method: 'POST', headers, body });
+  } catch {
+    throw new ApiError(`Cannot reach the server at ${API_BASE_URL}. Check your connection.`, 0);
+  }
+
+  if (response.status === 401) {
+    onUnauthorised();
+    throw new ApiError('Your session has expired. Please sign in again.', 401);
+  }
+
+  let envelope: ApiEnvelope<T> | null = null;
+  try {
+    envelope = (await response.json()) as ApiEnvelope<T>;
+  } catch {
+    /* A body-less response is fine. */
+  }
+
+  if (!response.ok || envelope?.success === false) {
+    throw new ApiError(
+      envelope?.message ?? `Request failed (${response.status}).`,
+      response.status,
+      envelope?.errors,
+    );
+  }
+
+  return (envelope?.data ?? (null as T)) as T;
+}
+
 export const api = {
+  postForm,
   get: <T>(path: string, query?: RequestOptions['query'], anonymous = false) =>
     request<T>(path, { method: 'GET', query, anonymous }),
   /** A read that must be fresh or fail, such as a fee about to be paid. */

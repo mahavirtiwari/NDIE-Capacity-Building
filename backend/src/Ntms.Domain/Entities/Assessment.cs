@@ -68,6 +68,20 @@ public class ExamAttempt : AuditableEntity
     /// <summary>1 for the first sitting, counted against the paper's limit.</summary>
     public int AttemptNo { get; set; }
 
+    /// <summary>
+    /// The photograph taken at the desk before the paper opened.
+    ///
+    /// Stored against the sitting, beside the photograph on the profile, so
+    /// whoever reviews a result can see who actually sat it. Nothing here
+    /// compares the two: matching faces automatically is a decision about
+    /// biometric data — different consent, different retention, and a false
+    /// non-match would lock out a candidate who travelled to be there — so
+    /// it is a human looking, until somebody decides otherwise.
+    /// </summary>
+    public byte[]? SelfieData { get; set; }
+    public string? SelfieContentType { get; set; }
+    public DateTime? SelfieTakenOn { get; set; }
+
     public DateTime StartedOn { get; set; } = DateTime.UtcNow;
     /// <summary>Started plus the paper's duration. The clock nobody can argue with.</summary>
     public DateTime ExpiresOn { get; set; }

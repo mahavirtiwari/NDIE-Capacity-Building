@@ -194,6 +194,22 @@ public class ApplicantAuthService(
                         && (f.EffectiveTo == null || f.EffectiveTo >= today))
             .ToListAsync(ct);
 
+        /* What they have already done with each track. A participation is
+           the record of actually having sat it, which is what decides
+           whether a track is finished with them — an application only says
+           they asked. */
+        var sat = await db.ProgrammeParticipants.AsNoTracking()
+            .Where(p => p.ApplicantId == applicantId)
+            .Select(p => new { p.Programme!.ProgramTypeId, p.Result })
+            .ToListAsync(ct);
+
+        var maxTries = Math.Clamp(
+            await db.SystemSettings.AsNoTracking()
+                .Where(s => s.Id == 1)
+                .Select(s => s.ProgramTypeMaxAttempts)
+                .FirstOrDefaultAsync(ct) is var n and > 0 ? n : 3,
+            1, 10);
+
         var applied = await db.Applications.AsNoTracking()
             .Where(a => a.ApplicantId == applicantId)
             .Select(a => new
@@ -227,6 +243,26 @@ public class ApplicantAuthService(
                 var wantsForm = pt.SubCategory?.RequiresProfileForm ?? true;
                 var accepting = !wantsForm || forms.Contains(pt.SubCategoryId);
 
+                /* ---- is this track finished with them? ----------------
+                   Passing closes it, because the certificate is the point
+                   and they have it. Sitting a track that certifies nobody
+                   closes it too, for the same reason read the other way:
+                   there was never anything to earn twice. Otherwise it is
+                   the count of failures against the allowance. */
+                var mySittings = sat.Where(s => s.ProgramTypeId == pt.Id).ToList();
+                var passed = mySittings.Any(s => s.Result == ParticipantResult.Pass);
+                var failed = mySittings.Count(s => s.Result == ParticipantResult.Fail);
+                var decided = mySittings.Count(s => s.Result != ParticipantResult.Pending);
+                var certifies = pt.CertificationPolicy != CertificationPolicy.None;
+
+                var closedReason =
+                    passed ? "You have already cleared this program."
+                    : !certifies && decided > 0
+                        ? "You have already taken this program."
+                    : failed >= maxTries
+                        ? $"You have used all {maxTries} attempts at this program."
+                        : null;
+
                 return new ApplicantProgramDto
                 {
                     ProgramTypeId = pt.Id,
@@ -248,6 +284,11 @@ public class ApplicantAuthService(
                     AcceptingApplications = accepting,
                     RequiresProfileForm = wantsForm,
 
+                    Closed = closedReason is not null,
+                    ClosedReason = closedReason,
+                    AttemptsUsed = failed,
+                    AttemptsAllowed = maxTries,
+
                     ExistingApplicationStatus = existing?.Status.ToApi(),
                     ExistingApplicationId = existing?.Id,
                     ExistingApplicationNo = existing?.ApplicationNo,
@@ -256,7 +297,9 @@ public class ApplicantAuthService(
                         ? existing.RejectionReasonLabel
                         : null,
 
-                    CanApply = accepting && live is null,
+                    /* A track that is finished with them cannot be applied
+                       to again, whatever else is true of it. */
+                    CanApply = accepting && live is null && closedReason is null,
                 };
             }),
         ];

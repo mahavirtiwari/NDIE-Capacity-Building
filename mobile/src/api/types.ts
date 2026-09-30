@@ -401,6 +401,21 @@ export interface Enrolment {
   certificateNo?: string | null;
 }
 
+/**
+ * What happened when an applicant took a seat.
+ *
+ * Two answers only: they are on the batch, or the fee has to be paid
+ * first. The app routes on this rather than deciding for itself whether
+ * money is owed.
+ */
+export interface BatchRegistration {
+  status: 'Registered' | 'PaymentRequired';
+  applicationId: number;
+  applicationNo: string;
+  amountDue: number;
+  message: string;
+}
+
 /* --------------------------------------------------------- profile form */
 
 /**

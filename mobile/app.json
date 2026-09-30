@@ -35,7 +35,14 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Used to photograph you at the start of an examination, so the paper can be shown to have been sat by you.",
+          "photosPermission": "Not used to choose an existing picture: the photograph at an examination has to be taken there."
+        }
+      ]
     ],
     "extra": {
       "apiBaseUrl": "http://localhost:5210/api"

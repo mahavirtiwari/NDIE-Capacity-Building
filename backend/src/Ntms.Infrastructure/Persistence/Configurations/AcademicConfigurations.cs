@@ -228,6 +228,7 @@ public class ExamAttemptConfiguration : IEntityTypeConfiguration<ExamAttempt>
 {
     public void Configure(EntityTypeBuilder<ExamAttempt> b)
     {
+        b.Property(x => x.SelfieContentType).HasMaxLength(100);
         b.ToTable("ExamAttempts");
 
         b.HasOne(x => x.Participant).WithMany()

@@ -59,6 +59,20 @@ public class ApplicantProgramDto
     /// straight away — there is nothing to ask.
     /// </summary>
     public bool RequiresProfileForm { get; set; } = true;
+
+    /// <summary>
+    /// Shut to this applicant, and why.
+    ///
+    /// Three ways in: they passed it, so there is nothing left to gain;
+    /// they sat it and the track certifies nobody, so again nothing left;
+    /// or they failed it as many times as System Settings allows.
+    /// </summary>
+    public bool Closed { get; set; }
+    public string? ClosedReason { get; set; }
+
+    /// <summary>Tries used and allowed, so the app can warn on the last one.</summary>
+    public int AttemptsUsed { get; set; }
+    public int AttemptsAllowed { get; set; }
     /* What this applicant has already done about this track.
 
        Enough to answer "where is my application" without a second call: the

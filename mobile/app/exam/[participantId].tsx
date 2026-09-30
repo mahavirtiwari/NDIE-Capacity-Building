@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { ApiError } from '../../src/api/client';
 import { exam } from '../../src/api/endpoints';
 import type { ExamAvailability } from '../../src/api/types';
@@ -44,11 +45,44 @@ export default function ExamIntro() {
     void load();
   }, [load]);
 
+  /**
+   * The photograph at the desk, before the clock starts.
+   *
+   * The camera, never the gallery: the point is a picture of whoever is
+   * about to sit the paper, and one chosen from the roll proves nothing.
+   * It is stored beside the photograph on their profile for a human to
+   * compare; nothing here matches faces.
+   */
+  const capture = async (): Promise<{ uri: string; type: string } | null> => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(
+        'Camera needed',
+        'A photograph is taken before the paper opens. Allow the camera to continue.',
+      );
+      return null;
+    }
+
+    const shot = await ImagePicker.launchCameraAsync({
+      cameraType: ImagePicker.CameraType.front,
+      quality: 0.6,
+      exif: false,
+      allowsEditing: false,
+    });
+
+    if (shot.canceled || !shot.assets?.[0]) return null;
+    const asset = shot.assets[0];
+    return { uri: asset.uri, type: asset.mimeType ?? 'image/jpeg' };
+  };
+
   const start = async () => {
+    const selfie = await capture();
+    if (!selfie) return;
+
     setStarting(true);
     setFailure(null);
     try {
-      const sitting = await exam.start(id);
+      const sitting = await exam.start(id, selfie);
       /* Replaced, not pushed: going back from a paper in progress to the desk
          that offers to start one would be a confusing place to land. */
       router.replace(`/exam/sitting/${sitting.attemptId}`);

@@ -59,7 +59,8 @@ public class ApplicantAppController(
     ExamSittingService exams,
     PaymentService payments,
     InvoiceService invoices,
-    ProfileSubmissionService profile) : ApiControllerBase
+    ProfileSubmissionService profile,
+    BatchRegistrationService registration) : ApiControllerBase
 {
     private int ApplicantId =>
         CurrentUser.ApplicantId
@@ -78,6 +79,22 @@ public class ApplicantAppController(
     public async Task<ActionResult<ApiEnvelope<List<ApplicantBatchDto>>>> Batches(
         CancellationToken ct) =>
         Envelope(await catalogue.ForApplicantAsync(ApplicantId, ct));
+
+    /// <summary>
+    /// Takes a seat on a batch.
+    ///
+    /// Answers one of two ways: registered, where there is no fee and the
+    /// seat is theirs; or payment required, with the application to pay
+    /// against. The app routes on that rather than deciding for itself
+    /// whether money is owed.
+    /// </summary>
+    [HttpPost("batches/{programmeId:int}/register")]
+    public async Task<ActionResult<ApiEnvelope<BatchRegistrationService.Outcome>>> RegisterForBatch(
+        int programmeId, CancellationToken ct)
+    {
+        var outcome = await registration.RegisterAsync(ApplicantId, programmeId, ct);
+        return Envelope(outcome, outcome.Message);
+    }
 
     [HttpPut]
     public async Task<ActionResult<ApiEnvelope<ApplicantDto>>> UpdateProfile(
@@ -258,11 +275,35 @@ public class ApplicantAppController(
         int participantId, CancellationToken ct) =>
         Envelope(await exams.AvailabilityAsync(ApplicantId, participantId, ct));
 
-    /// <summary>Opens a sitting — the clock starts here — and serves the paper.</summary>
+    /// <summary>
+    /// Opens a sitting — the clock starts here — and serves the paper.
+    ///
+    /// A photograph taken at the desk comes with it, as multipart. It is
+    /// kept against the sitting beside the one on their profile, so whoever
+    /// reviews the result can see who was actually there. Nothing compares
+    /// them automatically.
+    /// </summary>
     [HttpPost("enrolments/{participantId:int}/exam/start")]
+    [RequestSizeLimit(4_194_304)]
     public async Task<ActionResult<ApiEnvelope<ExamSittingDto>>> StartExam(
-        int participantId, CancellationToken ct) =>
-        Envelope(await exams.StartAsync(ApplicantId, participantId, ct));
+        int participantId, IFormFile? selfie, CancellationToken ct)
+    {
+        byte[]? bytes = null;
+        string? type = null;
+
+        if (selfie is { Length: > 0 })
+        {
+            if (!selfie.ContentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ?? true)
+                throw new AppException("The photograph must be an image.");
+
+            using var buffer = new MemoryStream();
+            await selfie.CopyToAsync(buffer, ct);
+            bytes = buffer.ToArray();
+            type = selfie.ContentType;
+        }
+
+        return Envelope(await exams.StartAsync(ApplicantId, participantId, bytes, type, ct));
+    }
 
     /// <summary>The paper as it stands, for an app that was closed mid-sitting.</summary>
     [HttpGet("exam/{attemptId:int}")]
