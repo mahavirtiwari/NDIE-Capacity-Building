@@ -59,8 +59,30 @@ public class ApplicantProgramDto
     /// straight away — there is nothing to ask.
     /// </summary>
     public bool RequiresRegistrationForm { get; set; } = true;
+    /* What this applicant has already done about this track.
+
+       Enough to answer "where is my application" without a second call: the
+       card shows the standing and the popup behind it shows the rest. */
+
     /// <summary>Set when this applicant has already applied for the track.</summary>
     public string? ExistingApplicationStatus { get; set; }
+
+    public int? ExistingApplicationId { get; set; }
+    public string? ExistingApplicationNo { get; set; }
+    public DateTime? ExistingSubmittedOn { get; set; }
+
+    /// <summary>Why the last one was turned down, where it was.</summary>
+    public string? ExistingRejectionReason { get; set; }
+
+    /// <summary>
+    /// Whether the Apply button should be there at all.
+    ///
+    /// Not the same as <see cref="AcceptingApplications"/>: a track can be
+    /// open while this applicant already has one in flight. A rejected
+    /// application does not stand in the way — they are allowed to fix what
+    /// was wrong and try again — so this stays true after a rejection.
+    /// </summary>
+    public bool CanApply { get; set; }
 }
 
 /// <summary>A batch the applicant is enrolled in.</summary>

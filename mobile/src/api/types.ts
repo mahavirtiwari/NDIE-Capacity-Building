@@ -101,6 +101,20 @@ export interface ApplicantProgram {
   /** False when applying needs no form — the app submits straight away. */
   requiresRegistrationForm?: boolean;
   existingApplicationStatus?: string | null;
+  existingApplicationId?: number | null;
+  existingApplicationNo?: string | null;
+  existingSubmittedOn?: string | null;
+  /** Why the last one was turned down, where it was. */
+  existingRejectionReason?: string | null;
+
+  /**
+   * Whether to offer the Apply button.
+   *
+   * Not the same as `acceptingApplications`: a track can be open while this
+   * applicant already has one in flight. A rejection does not stand in the
+   * way — they may fix what was wrong and apply again.
+   */
+  canApply: boolean;
 }
 
 /* ------------------------------------------------- dynamic registration form */

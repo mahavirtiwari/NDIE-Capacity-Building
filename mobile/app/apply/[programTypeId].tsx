@@ -24,6 +24,7 @@ import {
   EmptyState,
   Field,
   Loading,
+  StatusPill,
   inr,
 } from '../../src/components/ui';
 import { colors, font, radius, spacing } from '../../src/theme';
@@ -127,7 +128,11 @@ export default function Apply() {
     }
   };
 
-  const alreadyApplied = !!program?.existingApplicationStatus;
+  /* A live application closes this screen. A rejected one does not — the
+     applicant is allowed to fix what was wrong and apply again, and the
+     form they need is this one. */
+  const alreadyApplied = !!program && program.canApply === false
+    && !!program.existingApplicationStatus;
 
   return (
     <KeyboardAvoidingView
@@ -151,12 +156,32 @@ export default function Apply() {
         ) : null}
 
         {alreadyApplied ? (
-          <Banner tone="info">
-            {`You already have an application for this programme (${program!.existingApplicationStatus}). Submitting again will be rejected.`}
-          </Banner>
+          /* Not a disabled form with a warning over it: there is nothing to
+             fill in here and nothing that could be submitted. Say where the
+             application is and give a way to it. */
+          <Card style={styles.card}>
+            <Text style={styles.sectionTitle}>You have already applied</Text>
+            <View style={styles.appliedRow}>
+              <StatusPill value={program!.existingApplicationStatus!} />
+              {program!.existingApplicationNo ? (
+                <Text style={styles.appliedNo}>{program!.existingApplicationNo}</Text>
+              ) : null}
+            </View>
+            <Text style={styles.appliedNote}>
+              You will be emailed as soon as scrutiny reaches a decision.
+            </Text>
+            {program!.existingApplicationId ? (
+              <Button
+                label="Open the application"
+                icon="arrow-forward"
+                onPress={() => router.replace(`/application/${program!.existingApplicationId}`)}
+              />
+            ) : null}
+            <Button label="Back to programs" variant="secondary" onPress={() => router.back()} />
+          </Card>
         ) : null}
 
-        {needsForm && form.data ? (
+        {alreadyApplied ? null : needsForm && form.data ? (
           <DynamicFormView form={form.data} state={state} />
         ) : (
           <Card style={styles.card}>
@@ -279,6 +304,9 @@ const styles = StyleSheet.create({
 
   card: { gap: spacing.md },
   sectionTitle: { fontSize: font.md, fontWeight: '700', color: colors.ink900 },
+  appliedRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  appliedNo: { fontSize: font.sm, fontWeight: '600', color: colors.ink700 },
+  appliedNote: { fontSize: font.sm, color: colors.ink600, lineHeight: 19 },
   muted: { fontSize: font.sm, color: colors.ink500 },
 
   feeBox: {

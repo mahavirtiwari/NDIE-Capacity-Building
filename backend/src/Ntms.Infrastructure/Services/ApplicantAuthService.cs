@@ -168,7 +168,16 @@ public class ApplicantAuthService(
 
         var applied = await db.Applications.AsNoTracking()
             .Where(a => a.ApplicantId == applicantId)
-            .Select(a => new { a.ProgramTypeId, a.Status })
+            .Select(a => new
+            {
+                a.Id,
+                a.ProgramTypeId,
+                a.ApplicationNo,
+                a.Status,
+                a.SubmittedOn,
+                a.RejectionReasonLabel,
+            })
+            .OrderByDescending(a => a.SubmittedOn)
             .ToListAsync(ct);
 
         return
@@ -179,7 +188,15 @@ public class ApplicantAuthService(
                 var taxable = fee?.Components.Where(c => c.IsTaxable).Sum(c => c.Amount) ?? 0m;
                 var nonTaxable = fee?.Components.Where(c => !c.IsTaxable).Sum(c => c.Amount) ?? 0m;
                 var gst = fee is null ? 0m : Math.Round(taxable * fee.GstPercent / 100m, 2);
-                var existing = applied.FirstOrDefault(a => a.ProgramTypeId == pt.Id);
+                /* The one in flight, if there is one. A rejected application
+                   is history rather than a blocker: the applicant is allowed
+                   to fix what was wrong and apply again, so the newest
+                   rejection is shown only when nothing live stands. */
+                var mine = applied.Where(a => a.ProgramTypeId == pt.Id).ToList();
+                var live = mine.FirstOrDefault(a => a.Status != ApplicationStatus.Rejected);
+                var existing = live ?? mine.FirstOrDefault();
+
+                var accepting = !pt.RequiresRegistrationForm || forms.Contains(pt.Id);
 
                 return new ApplicantProgramDto
                 {
@@ -199,10 +216,18 @@ public class ApplicantAuthService(
                     TdsOptions = EnumMaps.SplitInts(fee?.TdsOptions),
                     /* A track that asks for no registration form is open the
                        moment it exists: there is no form to wait on. */
-                    AcceptingApplications =
-                        !pt.RequiresRegistrationForm || forms.Contains(pt.Id),
+                    AcceptingApplications = accepting,
                     RequiresRegistrationForm = pt.RequiresRegistrationForm,
+
                     ExistingApplicationStatus = existing?.Status.ToApi(),
+                    ExistingApplicationId = existing?.Id,
+                    ExistingApplicationNo = existing?.ApplicationNo,
+                    ExistingSubmittedOn = existing?.SubmittedOn,
+                    ExistingRejectionReason = existing?.Status == ApplicationStatus.Rejected
+                        ? existing.RejectionReasonLabel
+                        : null,
+
+                    CanApply = accepting && live is null,
                 };
             }),
         ];
