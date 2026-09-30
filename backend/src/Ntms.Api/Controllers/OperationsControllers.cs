@@ -510,6 +510,24 @@ public class ProfileSubmissionsController(ProfileSubmissionService service) : Ap
             "Profile turned down. The applicant can correct it and send it again.");
     }
 
+    /// <summary>
+    /// The pictures an applicant took for one field, merged.
+    ///
+    /// The whole point of the field is that the officer reads the document
+    /// they add up to, so there is no route here for a single image.
+    /// </summary>
+    [HttpGet("{id:int}/photos/{fieldKey}/pdf")]
+    [HasPermission(Permissions.ApplicationsView)]
+    public async Task<IActionResult> Photos(
+        int id, string fieldKey, [FromServices] ProfilePhotoService photos, CancellationToken ct)
+    {
+        var submission = await service.GetAsync(id, ct);
+        return File(
+            await photos.PdfAsync(submission.ApplicantId, fieldKey, ct),
+            "application/pdf",
+            $"{submission.ApplicantCode}-{fieldKey}.pdf");
+    }
+
     /* Named on the event so the history reads without a join, and so it
        still reads after the account that made the decision is gone. */
     private string Who => CurrentUser.DisplayName ?? "Unknown";

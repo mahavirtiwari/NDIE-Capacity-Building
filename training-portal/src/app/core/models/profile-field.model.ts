@@ -17,7 +17,8 @@ export type FieldType =
   | 'multiselect'
   | 'radio'
   | 'checkbox'
-  | 'file';
+  | 'file'
+  | 'photos';
 
 export const FIELD_TYPES: { value: FieldType; label: string; hasOptions: boolean }[] = [
   { value: 'text', label: 'Single line text', hasOptions: false },
@@ -37,6 +38,7 @@ export const FIELD_TYPES: { value: FieldType; label: string; hasOptions: boolean
   { value: 'radio', label: 'Radio group', hasOptions: true },
   { value: 'checkbox', label: 'Checkbox', hasOptions: false },
   { value: 'file', label: 'File upload', hasOptions: false },
+  { value: 'photos', label: 'Pictures from the camera', hasOptions: false },
 ];
 
 export function fieldTypeHasOptions(type: FieldType): boolean {
@@ -57,6 +59,8 @@ export interface FieldValidation {
   pattern?: string | null;
   allowedExtensions?: string[];
   maxFileSizeMb?: number | null;
+  /** How many pictures a camera field accepts. */
+  maxPhotos?: number | null;
 }
 
 export interface ProfileField {

@@ -68,6 +68,9 @@ public class FieldValidationDto
     public string? Pattern { get; set; }
     public List<string>? AllowedExtensions { get; set; }
     public int? MaxFileSizeMb { get; set; }
+
+    /// <summary>How many pictures a Photos field accepts.</summary>
+    public int? MaxPhotos { get; set; }
 }
 
 public class FieldOptionDto

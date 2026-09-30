@@ -18,6 +18,7 @@ import type {
   PaymentInitiation,
   PaymentSummary,
   PaymentTransaction,
+  PhotoStanding,
   ProfileForm,
   ProfileStanding,
   SignupForm,
@@ -140,6 +141,31 @@ export const me = {
 
   /** Live, not cached: this decides whether anything else is reachable. */
   profileStanding: () => api.getLive<ProfileStanding>('me/profile-submission'),
+
+  /* -------------------------------------------- pictures on a field */
+
+  photoStanding: (fieldKey: string) =>
+    api.getLive<PhotoStanding>(`me/profile-photos/${encodeURIComponent(fieldKey)}`),
+
+  addPhoto: (fieldKey: string, picture: { uri: string; type: string }) => {
+    const body = new FormData();
+    body.append('picture', {
+      uri: picture.uri,
+      name: 'picture.jpg',
+      type: picture.type,
+    } as unknown as Blob);
+
+    return api.postForm<PhotoStanding>(
+      `me/profile-photos/${encodeURIComponent(fieldKey)}`, body);
+  },
+
+  removePhoto: (fieldKey: string, displayOrder: number) =>
+    api.delete<PhotoStanding>(
+      `me/profile-photos/${encodeURIComponent(fieldKey)}/${displayOrder}`),
+
+  /** Every picture for the field, merged, in the order taken. */
+  photoPdf: (fieldKey: string) =>
+    download(`me/profile-photos/${encodeURIComponent(fieldKey)}/pdf`, `${fieldKey}.pdf`),
 
   /** The form for this applicant's own sub-category. */
   profileForm: () => api.get<ProfileForm>('me/profile-form'),

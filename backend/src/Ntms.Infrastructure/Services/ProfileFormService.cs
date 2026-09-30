@@ -187,6 +187,7 @@ public class ProfileFormService(NtmsDbContext db)
                         Pattern = field.Validation.Pattern,
                         AllowedExtensions = field.Validation.AllowedExtensions,
                         MaxFileSizeMb = field.Validation.MaxFileSizeMb,
+                        MaxPhotos = field.Validation.MaxPhotos,
                     },
                 };
 
@@ -461,6 +462,7 @@ public class ProfileFormService(NtmsDbContext db)
                         Pattern = fieldDto.Validation.Pattern,
                         AllowedExtensions = EnumMaps.JoinList(fieldDto.Validation.AllowedExtensions),
                         MaxFileSizeMb = fieldDto.Validation.MaxFileSizeMb,
+                        MaxPhotos = fieldDto.Validation.MaxPhotos,
                     },
                 };
 

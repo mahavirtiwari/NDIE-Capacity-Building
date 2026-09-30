@@ -1,10 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ProfileField, ProfileForm, ProfileSection } from '../api/types';
 import { colors, font, radius, spacing } from '../theme';
 import { MAX_LENGTHS, UPPERCASE_TYPES, formatErrorFor } from '../validation/formats';
+import { me } from '../api/endpoints';
+import { saveAndShare } from '../files/saveAndShare';
 import { Card, Chip, Field } from './ui';
 import { CheckboxGroup, Picker, RadioGroup, Switch } from './Picker';
 
@@ -742,6 +745,16 @@ function FieldRenderer({
         />
       );
 
+    case 'photos':
+      return (
+        <PhotosField
+          field={field}
+          value={typeof value === 'string' ? value : ''}
+          error={error}
+          onChange={onChange}
+        />
+      );
+
     case 'file':
       return (
         <FileField
@@ -863,6 +876,177 @@ function FileField({
   );
 }
 
+/**
+ * Pictures taken with the camera for one field.
+ *
+ * The pictures go to the server as they are taken rather than being held
+ * on the device until the form is sent: a phone that runs out of battery
+ * half way through a form should not cost somebody the photographs of
+ * their certificates, and the server is where they have to end up anyway.
+ *
+ * What the answer holds is the count. That is what makes "required" mean
+ * something — a field asking for pictures is answered by having taken
+ * some — and the pictures themselves are fetched by field key.
+ */
+function PhotosField({
+  field,
+  value,
+  error,
+  onChange,
+}: {
+  field: ProfileField;
+  value: string;
+  error?: string;
+  onChange: (value: string) => void;
+}) {
+  const limit = Math.min(Math.max(field.validation.maxPhotos ?? 5, 1), 20);
+
+  const [count, setCount] = useState(() => Number(value) || 0);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  /* What the server actually holds, which is the truth — the answer in the
+     form is only a copy, and a form reopened after a rejection has to show
+     the pictures that are really there. */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const standing = await me.photoStanding(field.key);
+        if (cancelled) return;
+        setCount(standing.count);
+        onChange(String(standing.count));
+      } catch {
+        /* Offline, or the field is new. The local count stands. */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [field.key]);
+
+  const take = async () => {
+    setFailure(null);
+
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      setFailure('Allow the camera to take pictures for this field.');
+      return;
+    }
+
+    const shot = await ImagePicker.launchCameraAsync({ quality: 0.6, exif: false });
+    if (shot.canceled || !shot.assets?.[0]) return;
+
+    setBusy(true);
+    try {
+      const asset = shot.assets[0];
+      const standing = await me.addPhoto(field.key, {
+        uri: asset.uri,
+        type: asset.mimeType ?? 'image/jpeg',
+      });
+      setCount(standing.count);
+      onChange(String(standing.count));
+    } catch (caught) {
+      setFailure(caught instanceof Error ? caught.message : 'Could not add the picture.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeLast = async () => {
+    if (count === 0) return;
+    setBusy(true);
+    setFailure(null);
+    try {
+      const standing = await me.removePhoto(field.key, count);
+      setCount(standing.count);
+      onChange(String(standing.count));
+    } catch (caught) {
+      setFailure(caught instanceof Error ? caught.message : 'Could not remove the picture.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const view = async () => {
+    setBusy(true);
+    setFailure(null);
+    try {
+      await saveAndShare(await me.photoPdf(field.key), field.label);
+    } catch (caught) {
+      setFailure(caught instanceof Error ? caught.message : 'Could not open the pictures.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View style={styles.fileField}>
+      <Text style={styles.fileLabel}>
+        {field.label}
+        {field.validation.required ? <Text style={styles.required}> *</Text> : null}
+      </Text>
+
+      <View style={[styles.photoBox, error ? styles.fileBoxInvalid : null]}>
+        <Ionicons
+          name={count > 0 ? 'images' : 'camera-outline'}
+          size={20}
+          color={count > 0 ? colors.brand700 : colors.ink500}
+        />
+        <Text style={[styles.fileText, count > 0 && styles.fileTextChosen]}>
+          {count === 0
+            ? `No pictures yet · up to ${limit}`
+            : `${count} of ${limit} taken`}
+        </Text>
+      </View>
+
+      <View style={styles.photoRow}>
+        {count < limit ? (
+          <Pressable
+            accessibilityRole="button"
+            style={styles.photoAction}
+            disabled={busy}
+            onPress={take}
+          >
+            <Ionicons name="camera" size={16} color={colors.brand600} />
+            <Text style={styles.photoActionText}>{busy ? 'Working…' : 'Take a picture'}</Text>
+          </Pressable>
+        ) : null}
+
+        {count > 0 ? (
+          <>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.photoAction}
+              disabled={busy}
+              onPress={view}
+            >
+              <Ionicons name="document-text-outline" size={16} color={colors.brand600} />
+              <Text style={styles.photoActionText}>View as PDF</Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Remove the last picture"
+              style={styles.photoAction}
+              disabled={busy}
+              onPress={removeLast}
+            >
+              <Ionicons name="trash-outline" size={16} color={colors.danger500} />
+              <Text style={[styles.photoActionText, styles.photoRemoveText]}>Remove last</Text>
+            </Pressable>
+          </>
+        ) : null}
+      </View>
+
+      {failure ? <Text style={styles.error}>{failure}</Text> : null}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {field.helpText ? <Text style={styles.hint}>{field.helpText}</Text> : null}
+    </View>
+  );
+}
+
 const mimeFor = (extension: string): string => {
   const map: Record<string, string> = {
     pdf: 'application/pdf',
@@ -942,6 +1126,31 @@ const styles = StyleSheet.create({
     backgroundColor: colors.ink50,
   },
   fileBoxInvalid: { borderColor: colors.danger500 },
+  photoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.borderStrong,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 13,
+    backgroundColor: colors.ink50,
+  },
+  photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: 2 },
+  photoAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+  },
+  photoActionText: { fontSize: font.sm, fontWeight: '600', color: colors.brand600 },
+  photoRemoveText: { color: colors.danger500 },
   fileText: { flex: 1, fontSize: font.sm, color: colors.ink500 },
   fileTextChosen: { color: colors.ink900, fontWeight: '500' },
   error: { fontSize: font.xs, color: colors.danger700, fontWeight: '500' },

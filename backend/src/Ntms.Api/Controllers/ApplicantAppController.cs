@@ -60,7 +60,8 @@ public class ApplicantAppController(
     PaymentService payments,
     InvoiceService invoices,
     ProfileSubmissionService profile,
-    BatchRegistrationService registration) : ApiControllerBase
+    BatchRegistrationService registration,
+    ProfilePhotoService photos) : ApiControllerBase
 {
     private int ApplicantId =>
         CurrentUser.ApplicantId
@@ -150,6 +151,51 @@ public class ApplicantAppController(
         var standing = await profile.StandingAsync(ApplicantId, ct);
         return Envelope(await forms.GetBySubCategoryAsync(standing.SubCategoryId, ct));
     }
+
+    /* --------------------------------------------------- pictures ----
+       A field of the profile form can ask for photographs rather than a
+       file, because a phone is what the applicant has. They go up one at
+       a time and come back as a single PDF. */
+
+    [HttpGet("profile-photos/{fieldKey}")]
+    public async Task<ActionResult<ApiEnvelope<ProfilePhotoService.Standing>>> Photos(
+        string fieldKey, CancellationToken ct) =>
+        Envelope(await photos.StandingAsync(ApplicantId, fieldKey, ct));
+
+    [HttpPost("profile-photos/{fieldKey}")]
+    [RequestSizeLimit(8_388_608)]
+    public async Task<ActionResult<ApiEnvelope<ProfilePhotoService.Standing>>> AddPhoto(
+        string fieldKey, IFormFile picture, CancellationToken ct)
+    {
+        if (picture is null || picture.Length == 0)
+            throw new AppException("Take a picture to add.");
+
+        using var buffer = new MemoryStream();
+        await picture.CopyToAsync(buffer, ct);
+
+        return Envelope(
+            await photos.AddAsync(ApplicantId, fieldKey, buffer.ToArray(), picture.ContentType, ct));
+    }
+
+    [HttpDelete("profile-photos/{fieldKey}/{displayOrder:int}")]
+    public async Task<ActionResult<ApiEnvelope<ProfilePhotoService.Standing>>> RemovePhoto(
+        string fieldKey, int displayOrder, CancellationToken ct) =>
+        Envelope(await photos.RemoveAsync(ApplicantId, fieldKey, displayOrder, ct));
+
+    /// <summary>One picture, for the thumbnail beside the field.</summary>
+    [HttpGet("profile-photos/{fieldKey}/{displayOrder:int}")]
+    public async Task<IActionResult> Photo(
+        string fieldKey, int displayOrder, CancellationToken ct)
+    {
+        var (content, type) = await photos.OneAsync(ApplicantId, fieldKey, displayOrder, ct);
+        return File(content, type);
+    }
+
+    /// <summary>Every picture for the field, merged, in the order taken.</summary>
+    [HttpGet("profile-photos/{fieldKey}/pdf")]
+    public async Task<IActionResult> PhotoPdf(string fieldKey, CancellationToken ct) =>
+        File(await photos.PdfAsync(ApplicantId, fieldKey, ct), "application/pdf",
+            $"{fieldKey}.pdf");
 
     /// <summary>Sends the profile for scrutiny, as a fresh attempt.</summary>
     [HttpPost("profile-submission")]

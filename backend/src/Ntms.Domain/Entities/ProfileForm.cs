@@ -116,6 +116,13 @@ public class FieldValidation
     /// <summary>Comma separated extensions for file fields.</summary>
     public string? AllowedExtensions { get; set; }
     public int? MaxFileSizeMb { get; set; }
+
+    /// <summary>
+    /// How many pictures a Photos field accepts. Null falls back to a
+    /// sensible few rather than to no limit: an unbounded set is a way to
+    /// fill a database by accident.
+    /// </summary>
+    public int? MaxPhotos { get; set; }
 }
 
 public class ProfileFieldOption : AuditableEntity

@@ -132,7 +132,7 @@ export interface ApplicantProgram {
 export type FieldType =
   | 'text' | 'textarea' | 'number' | 'email' | 'mobile' | 'pan' | 'tan' | 'gstin'
   | 'ifsc' | 'pincode' | 'aadhaar' | 'date' | 'select' | 'multiselect' | 'radio'
-  | 'checkbox' | 'file';
+  | 'checkbox' | 'file' | 'photos';
 
 export interface FieldOption {
   value: string;
@@ -148,6 +148,8 @@ export interface FieldValidation {
   pattern?: string | null;
   allowedExtensions?: string[] | null;
   maxFileSizeMb?: number | null;
+  /** How many pictures a camera field accepts. */
+  maxPhotos?: number | null;
 }
 
 export interface ProfileField {
@@ -414,6 +416,13 @@ export interface BatchRegistration {
   applicationNo: string;
   amountDue: number;
   message: string;
+}
+
+/** How many pictures are held for one field, and how many it takes. */
+export interface PhotoStanding {
+  fieldKey: string;
+  count: number;
+  limit: number;
 }
 
 /* --------------------------------------------------------- profile form */

@@ -293,6 +293,7 @@ public static class DtoMappings
                                 Pattern = f.Validation.Pattern,
                                 AllowedExtensions = EnumMaps.SplitList(f.Validation.AllowedExtensions),
                                 MaxFileSizeMb = f.Validation.MaxFileSizeMb,
+                                MaxPhotos = f.Validation.MaxPhotos,
                             },
                             VisibleWhenFieldKey = f.VisibleWhenFieldKey,
                             VisibleWhenValues = EnumMaps.SplitList(f.VisibleWhenValues),

@@ -92,6 +92,25 @@ public class ProfileSubmissionConfiguration : IEntityTypeConfiguration<ProfileSu
     }
 }
 
+public class ProfilePhotoConfiguration : IEntityTypeConfiguration<ProfilePhoto>
+{
+    public void Configure(EntityTypeBuilder<ProfilePhoto> b)
+    {
+        b.ToTable("ProfilePhotos");
+
+        b.Property(x => x.FieldKey).HasMaxLength(80).IsRequired();
+        b.Property(x => x.ContentType).HasMaxLength(100).IsRequired();
+
+        /* One picture per position per field, so a set has no gaps and no
+           duplicates and the PDF's page order is the stored order. */
+        b.HasIndex(x => new { x.ApplicantId, x.FieldKey, x.DisplayOrder }).IsUnique();
+
+        b.HasOne(x => x.Applicant).WithMany()
+            .HasForeignKey(x => x.ApplicantId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 public class ProfileScrutinyEventConfiguration : IEntityTypeConfiguration<ProfileScrutinyEvent>
 {
     public void Configure(EntityTypeBuilder<ProfileScrutinyEvent> b)

@@ -529,6 +529,24 @@ function blankField(): ProfileField {
                 <input id="feMax" type="number" class="input" [value]="editor.field.validation.max ?? ''" (input)="editValidation({ max: numberValue($event) })" />
               </div>
             }
+            @if (editor.field.type === 'photos') {
+              <div class="field field--span-2">
+                <label class="field-label" for="fePhotos">How many pictures</label>
+                <input
+                  id="fePhotos"
+                  type="number"
+                  min="1"
+                  max="20"
+                  class="input"
+                  [value]="editor.field.validation.maxPhotos ?? ''"
+                  (input)="editValidation({ maxPhotos: numberValue($event) })"
+                />
+                <span class="field-hint">
+                  The applicant takes up to this many with the camera, and they are served
+                  back as one PDF in the order taken. Left blank, five.
+                </span>
+              </div>
+            }
             @if (editor.field.type === 'file') {
               <div class="field">
                 <label class="field-label" for="feExt">Allowed extensions</label>

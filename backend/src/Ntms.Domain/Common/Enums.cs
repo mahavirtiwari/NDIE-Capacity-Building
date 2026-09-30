@@ -65,6 +65,16 @@ public enum FieldType
     Radio = 15,
     Checkbox = 16,
     File = 17,
+
+    /// <summary>
+    /// Pictures taken with the camera, up to a limit the form sets.
+    ///
+    /// Distinct from File: a file is chosen from the device and could be
+    /// anything from anywhere, while these are taken at the time. They are
+    /// served back merged into one PDF, because a reader wants the document
+    /// the pages add up to, not five separate images.
+    /// </summary>
+    Photos = 18,
 }
 
 public enum FeeComponentKind
