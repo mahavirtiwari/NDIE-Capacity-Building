@@ -81,6 +81,12 @@ public class SystemSettingService(NtmsDbContext db)
                 $"Choose what the ERP keys an invoice on: {string.Join(", ", InvoiceReferences)}.")
             .When(dto.ErpTimeoutSeconds is < 3 or > 120,
                 "The ERP timeout must be between 3 and 120 seconds.")
+            .When(dto.ProfileMaxAttempts is < 1 or > 10,
+                "Profile attempts must be between 1 and 10.")
+            .When(dto.ProfileBlockMonths is < 1 or > 60,
+                "The profile block must be between 1 and 60 months.")
+            .When(dto.ProgramTypeMaxAttempts is < 1 or > 10,
+                "Program type attempts must be between 1 and 10.")
             .ThrowIfInvalid();
 
         var row = await LoadAsync(ct);
@@ -132,6 +138,10 @@ public class SystemSettingService(NtmsDbContext db)
                 $"PAN verification cannot be switched on yet — {string.Join(", ", lacking)} " +
                 (lacking.Count == 1 ? "is missing." : "are missing."));
         }
+
+        row.ProfileMaxAttempts = dto.ProfileMaxAttempts;
+        row.ProfileBlockMonths = dto.ProfileBlockMonths;
+        row.ProgramTypeMaxAttempts = dto.ProgramTypeMaxAttempts;
 
         row.ErpProvider = Blank(dto.ErpProvider);
         row.ErpInvoiceEndpoint = Blank(dto.ErpInvoiceEndpoint);
@@ -215,6 +225,10 @@ public class SystemSettingService(NtmsDbContext db)
         PanTimeoutSeconds = row.PanTimeoutSeconds,
         PanRefuseWhenUnavailable = row.PanRefuseWhenUnavailable,
         PanConfigured = PanMissing(row).Count == 0,
+
+        ProfileMaxAttempts = row.ProfileMaxAttempts,
+        ProfileBlockMonths = row.ProfileBlockMonths,
+        ProgramTypeMaxAttempts = row.ProgramTypeMaxAttempts,
 
         ErpInvoiceEnabled = row.ErpInvoiceEnabled,
         ErpProvider = row.ErpProvider,

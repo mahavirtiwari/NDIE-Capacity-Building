@@ -102,6 +102,7 @@ public static class DependencyInjection
            settings screen offers but nobody has integrated. */
         services.AddSingleton<IPaymentGateway, CCAvenueGateway>();
         services.AddSingleton<PaymentGateways>();
+        services.AddScoped<ProfileSubmissionService>();
         services.AddScoped<PaymentService>();
         services.AddScoped<InvoiceFetcher>();
         services.AddScoped<InvoiceService>();

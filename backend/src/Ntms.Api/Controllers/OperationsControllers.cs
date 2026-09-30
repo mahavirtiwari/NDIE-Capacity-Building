@@ -217,6 +217,7 @@ public class ApplicationsController(ApplicationService service) : ApiControllerB
         int id, [FromBody] ScrutinyDecisionDto dto, CancellationToken ct) =>
         Envelope(await service.DecideAsync(id, dto, ct), "Decision recorded.");
 
+
     [HttpPatch("{id:int}/assign")]
     [HasPermission(Permissions.ApplicationsScrutinise)]
     public async Task<ActionResult<ApiEnvelope<ApplicationDto>>> Assign(
@@ -462,4 +463,55 @@ public class QualifiedProfessionalsController(QualifiedProfessionalService servi
         Envelope(await service.ListAsync(
             request, categoryId, subCategoryId, programTypeId, stateCode, standing,
             qualifiedFrom, qualifiedTo, ct));
+}
+
+/// <summary>
+/// The profile queue: applicants waiting to be let into their discipline.
+///
+/// Read before anything else about them, because nothing else exists yet —
+/// an applicant has no applications until their profile has been accepted.
+/// It carries the same permission as application scrutiny, since it is the
+/// same job done earlier.
+/// </summary>
+[Route("api/profile-submissions")]
+public class ProfileSubmissionsController(ProfileSubmissionService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.ApplicationsView)]
+    public async Task<ActionResult<ApiEnvelope<PagedResult<ProfileSubmissionDto>>>> List(
+        [FromQuery] PagedRequest request, [FromQuery] string? status,
+        [FromQuery] int? subCategoryId, CancellationToken ct) =>
+        Envelope(await service.QueueAsync(request, status, subCategoryId, ct));
+
+    [HttpGet("{id:int}")]
+    [HasPermission(Permissions.ApplicationsView)]
+    public async Task<ActionResult<ApiEnvelope<ProfileSubmissionDto>>> Get(
+        int id, CancellationToken ct) =>
+        Envelope(await service.GetAsync(id, ct));
+
+    [HttpPost("{id:int}/approve")]
+    [HasPermission(Permissions.ApplicationsScrutinise)]
+    public async Task<ActionResult<ApiEnvelope<ProfileSubmissionDto>>> Approve(
+        int id, [FromBody] ProfileDecisionDto dto, CancellationToken ct) =>
+        Envelope(
+            await service.ApproveAsync(id, dto.Remarks, Who, Role, ct),
+            "Profile accepted. The programs under this sub-category are now open to them.");
+
+    [HttpPost("{id:int}/reject")]
+    [HasPermission(Permissions.ApplicationsScrutinise)]
+    public async Task<ActionResult<ApiEnvelope<ProfileSubmissionDto>>> Reject(
+        int id, [FromBody] ProfileDecisionDto dto, CancellationToken ct)
+    {
+        if (dto.RejectionReasonId is not { } reasonId)
+            throw new AppException("Choose a reason for the rejection.");
+
+        return Envelope(
+            await service.RejectAsync(id, reasonId, dto.Remarks, Who, Role, ct),
+            "Profile turned down. The applicant can correct it and send it again.");
+    }
+
+    /* Named on the event so the history reads without a join, and so it
+       still reads after the account that made the decision is gone. */
+    private string Who => CurrentUser.DisplayName ?? "Unknown";
+    private string Role => CurrentUser.RoleName ?? "Unknown";
 }

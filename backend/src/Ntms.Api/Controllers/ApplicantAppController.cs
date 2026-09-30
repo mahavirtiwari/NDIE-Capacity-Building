@@ -58,7 +58,8 @@ public class ApplicantAppController(
     ProgrammeCatalogueService catalogue,
     ExamSittingService exams,
     PaymentService payments,
-    InvoiceService invoices) : ApiControllerBase
+    InvoiceService invoices,
+    ProfileSubmissionService profile) : ApiControllerBase
 {
     private int ApplicantId =>
         CurrentUser.ApplicantId
@@ -109,6 +110,37 @@ public class ApplicantAppController(
     public async Task<ActionResult<ApiEnvelope<ProfileFormDto>>> Form(
         int programTypeId, CancellationToken ct) =>
         Envelope(await forms.GetByProgramTypeAsync(programTypeId, ct));
+
+    /* ------------------------------------------------------- profile ----
+       The gate. Everything under "programs" stays shut until the profile
+       form has been read and accepted, so the app asks about this first. */
+
+    /// <summary>
+    /// Where this applicant stands with the profile form: what they sent,
+    /// what scrutiny said, how many tries are left, and whether the
+    /// discipline is shut to them for the moment.
+    /// </summary>
+    [HttpGet("profile-submission")]
+    public async Task<ActionResult<ApiEnvelope<ProfileStandingDto>>> ProfileStanding(
+        CancellationToken ct) =>
+        Envelope(await profile.StandingAsync(ApplicantId, ct));
+
+    /// <summary>The profile form this applicant fills, for their sub-category.</summary>
+    [HttpGet("profile-form")]
+    public async Task<ActionResult<ApiEnvelope<ProfileFormDto>>> MyProfileForm(
+        CancellationToken ct)
+    {
+        var standing = await profile.StandingAsync(ApplicantId, ct);
+        return Envelope(await forms.GetBySubCategoryAsync(standing.SubCategoryId, ct));
+    }
+
+    /// <summary>Sends the profile for scrutiny, as a fresh attempt.</summary>
+    [HttpPost("profile-submission")]
+    public async Task<ActionResult<ApiEnvelope<ProfileStandingDto>>> SubmitProfile(
+        [FromBody] ProfileSubmitDto dto, CancellationToken ct) =>
+        Envelope(
+            await profile.SubmitAsync(ApplicantId, dto.Responses, ct),
+            "Your profile has been sent for scrutiny.");
 
     /// <summary>The fee payable for one programme today.</summary>
     [HttpGet("programs/{programTypeId:int}/fee")]

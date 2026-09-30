@@ -48,6 +48,22 @@ public class Applicant : AuditableEntity
     public DateTime? BlockedOn { get; set; }
     public string? BlockReasonLabel { get; set; }
 
+    /// <summary>
+    /// Shut out of their sub-category until this passes, because the profile
+    /// form was rejected as many times as System Settings allows.
+    ///
+    /// Separate from IsBlocked, which an administrator sets by hand and which
+    /// stops everything. This one is the system's own answer to repeated
+    /// rejection, it expires on its own, and it stops only the applying.
+    /// </summary>
+    public DateTime? ProfileBlockedUntil { get; set; }
+
+    /// <summary>What the applicant is told, and what the officer chose.</summary>
+    public string? ProfileBlockReason { get; set; }
+
+    /// <summary>Their answers to the profile form, one row per attempt.</summary>
+    public ICollection<ProfileSubmission> ProfileSubmissions { get; set; } = [];
+
     /// <summary>Every time this account was blocked or let back in.</summary>
     public ICollection<ApplicantStatusEvent> StatusEvents { get; set; } = [];
 

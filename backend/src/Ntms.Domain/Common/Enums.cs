@@ -131,6 +131,21 @@ public enum ApplicationStatus
     Enrolled = 7,
 }
 
+/// <summary>
+/// Where an applicant's profile submission stands.
+///
+/// Deliberately shorter than ApplicationStatus: a profile is accepted or it
+/// is not, and there is no enrolment at the end of it.
+/// </summary>
+public enum ProfileSubmissionStatus
+{
+    Draft = 1,
+    Submitted = 2,
+    UnderScrutiny = 3,
+    Approved = 4,
+    Rejected = 5,
+}
+
 public enum PaymentStatus
 {
     NotApplicable = 1,

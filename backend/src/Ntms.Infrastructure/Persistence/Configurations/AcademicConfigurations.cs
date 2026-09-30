@@ -57,6 +57,58 @@ public class ProfileFormConfiguration : IEntityTypeConfiguration<ProfileForm>
     }
 }
 
+public class ProfileSubmissionConfiguration : IEntityTypeConfiguration<ProfileSubmission>
+{
+    public void Configure(EntityTypeBuilder<ProfileSubmission> b)
+    {
+        b.ToTable("ProfileSubmissions");
+
+        b.Property(x => x.Responses).IsRequired();
+        b.Property(x => x.DecidedByUserName).HasMaxLength(200);
+        b.Property(x => x.RejectionReasonLabel).HasMaxLength(200);
+        b.Property(x => x.Remarks).HasMaxLength(1000);
+
+        /* One attempt per number per applicant: a retry is a new row, and
+           two rows claiming to be the same attempt would make the count the
+           block is calculated from meaningless. */
+        b.HasIndex(x => new { x.ApplicantId, x.AttemptNo }).IsUnique();
+        b.HasIndex(x => new { x.Status, x.SubmittedOn });
+
+        b.HasOne(x => x.Applicant).WithMany(a => a.ProfileSubmissions)
+            .HasForeignKey(x => x.ApplicantId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        b.HasOne(x => x.SubCategory).WithMany()
+            .HasForeignKey(x => x.SubCategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        b.HasOne(x => x.ProfileForm).WithMany()
+            .HasForeignKey(x => x.ProfileFormId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        b.HasOne(x => x.RejectionReason).WithMany()
+            .HasForeignKey(x => x.RejectionReasonId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class ProfileScrutinyEventConfiguration : IEntityTypeConfiguration<ProfileScrutinyEvent>
+{
+    public void Configure(EntityTypeBuilder<ProfileScrutinyEvent> b)
+    {
+        b.ToTable("ProfileScrutinyEvents");
+
+        b.Property(x => x.ByUserName).HasMaxLength(200).IsRequired();
+        b.Property(x => x.ByRole).HasMaxLength(80).IsRequired();
+        b.Property(x => x.Remarks).HasMaxLength(1000);
+        b.Property(x => x.RejectionReasonLabel).HasMaxLength(200);
+
+        b.HasOne(x => x.Submission).WithMany(s => s.History)
+            .HasForeignKey(x => x.SubmissionId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 public class ProfileSectionConfiguration : IEntityTypeConfiguration<ProfileSection>
 {
     public void Configure(EntityTypeBuilder<ProfileSection> b)

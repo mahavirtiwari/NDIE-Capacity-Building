@@ -50,6 +50,12 @@ public class SystemSettingsDto
     /// <summary>False until the PAN service has everything it needs.</summary>
     public bool PanConfigured { get; set; }
 
+    /* -------------------------------------------------- profile form */
+
+    public int ProfileMaxAttempts { get; set; } = 3;
+    public int ProfileBlockMonths { get; set; } = 6;
+    public int ProgramTypeMaxAttempts { get; set; } = 3;
+
     /* ------------------------------------------------- ERP invoicing */
 
     public bool ErpInvoiceEnabled { get; set; }
@@ -107,6 +113,10 @@ public class SystemSettingsUpdateDto
     public string? PanNamePath { get; set; }
     public int PanTimeoutSeconds { get; set; } = 10;
     public bool PanRefuseWhenUnavailable { get; set; }
+
+    public int ProfileMaxAttempts { get; set; } = 3;
+    public int ProfileBlockMonths { get; set; } = 6;
+    public int ProgramTypeMaxAttempts { get; set; } = 3;
 
     public bool ErpInvoiceEnabled { get; set; }
     public string? ErpProvider { get; set; }

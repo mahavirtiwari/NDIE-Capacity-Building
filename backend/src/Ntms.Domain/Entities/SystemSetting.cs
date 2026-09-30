@@ -112,6 +112,27 @@ public class SystemSetting : AuditableEntity
     /// </summary>
     public bool PanRefuseWhenUnavailable { get; set; }
 
+    /* ------------------------------------------------- profile form */
+
+    /// <summary>
+    /// How many times an applicant may have their profile form rejected
+    /// before the sub-category closes to them. Counting the rejections
+    /// rather than the submissions, so a draft they abandoned costs nothing.
+    /// </summary>
+    public int ProfileMaxAttempts { get; set; } = 3;
+
+    /// <summary>
+    /// How long that closure lasts, in months. It expires on its own; nobody
+    /// has to remember to lift it.
+    /// </summary>
+    public int ProfileBlockMonths { get; set; } = 6;
+
+    /// <summary>
+    /// How many times an applicant may fail to clear a program type before
+    /// it closes to them. Passing closes it too, but for the happier reason.
+    /// </summary>
+    public int ProgramTypeMaxAttempts { get; set; } = 3;
+
     /* ------------------------------------------------- ERP invoicing */
 
     /// <summary>
