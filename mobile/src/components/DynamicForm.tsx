@@ -19,6 +19,13 @@ export interface DynamicFormState {
   validate: () => boolean;
   /** Answers shaped the way the API expects them. */
   payload: () => Record<string, unknown>;
+  /**
+   * Fills the form in from a previous submission — the reverse of
+   * {@link payload}. Used when an application was rejected and the
+   * applicant is correcting it rather than starting again.
+   */
+  prefill: (responses: Record<string, unknown>) => void;
+
   /** How many times a repeating section is currently filled in. */
   entryCount: (section: RegistrationSection) => number;
   addEntry: (section: RegistrationSection) => void;
@@ -281,6 +288,58 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
     return Object.keys(found).length === 0;
   }, [liveSections, fieldsOf, entryCount, values, isVisible, checkField]);
 
+  /**
+   * Unpacks a stored payload back into the flat value map the fields read.
+   *
+   * The shapes have to agree with payload() above: a plain section stores
+   * each answer under the field key, a repeating one stores an array under
+   * the section key. Anything the current form no longer asks is dropped —
+   * a form can be republished between the rejection and the correction, and
+   * an answer to a question that has gone should not travel with it.
+   */
+  const prefill = useCallback(
+    (responses: Record<string, unknown>) => {
+      const next: FormValues = {};
+      const nextCounts: Record<string, number> = {};
+
+      for (const section of liveSections) {
+        const fields = fieldsOf(section);
+
+        if (!section.isRepeatable) {
+          for (const field of fields) {
+            const stored = responses[field.key];
+            if (stored === undefined || stored === null) continue;
+            next[field.key] = stored as FormValue;
+          }
+          continue;
+        }
+
+        const key = sectionKeyOf(section);
+        const entries = responses[key];
+        if (!Array.isArray(entries)) continue;
+
+        nextCounts[key] = Math.max(entries.length, minOf(section), 1);
+
+        entries.forEach((entry, index) => {
+          if (!entry || typeof entry !== 'object') return;
+          const row = entry as Record<string, unknown>;
+          for (const field of fields) {
+            const stored = row[field.key];
+            if (stored === undefined || stored === null) continue;
+            next[storageKey(section, index, field.key)] = stored as FormValue;
+          }
+        });
+      }
+
+      setValues(next);
+      setErrors({});
+      if (Object.keys(nextCounts).length > 0) {
+        setCounts((current) => ({ ...current, ...nextCounts }));
+      }
+    },
+    [liveSections, fieldsOf],
+  );
+
   const payload = useCallback((): Record<string, unknown> => {
     const answerOf = (field: RegistrationField, key: string): FormValue => {
       const raw = values[key] ?? defaultFor(field);
@@ -317,7 +376,17 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
     return result;
   }, [liveSections, fieldsOf, entryCount, values, isVisible]);
 
-  return { values, errors, setValue, validate, payload, entryCount, addEntry, removeEntry };
+  return {
+    values,
+    errors,
+    setValue,
+    validate,
+    payload,
+    prefill,
+    entryCount,
+    addEntry,
+    removeEntry,
+  };
 }
 
 /* ------------------------------------------------------------- renderer */

@@ -338,6 +338,8 @@ export interface ScrutinyEvent {
   byRole: string;
   on: string;
   remarks?: string;
+  /** The reason chosen on a rejection, worded as it was given. */
+  rejectionReasonLabel?: string | null;
 }
 
 export interface Application {
@@ -353,6 +355,9 @@ export interface Application {
   feeAmount: number;
   tdsPercent: number;
   tan?: string | null;
+  deductorName?: string | null;
+  /** Why it was turned down, worded as it was at the time. */
+  rejectionReasonLabel?: string | null;
   score?: number | null;
   responses: Record<string, unknown>;
   documents: ApplicationDocument[];
