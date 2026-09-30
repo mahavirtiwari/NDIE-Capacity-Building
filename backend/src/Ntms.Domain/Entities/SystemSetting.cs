@@ -111,4 +111,63 @@ public class SystemSetting : AuditableEntity
     /// for when a verified PAN is a hard requirement.
     /// </summary>
     public bool PanRefuseWhenUnavailable { get; set; }
+
+    /* ------------------------------------------------- ERP invoicing */
+
+    /// <summary>
+    /// The invoice for a paid fee is raised by the ERP, not here: this
+    /// system holds one identity for an applicant and one record of what
+    /// they paid, and the ERP is where that becomes a document. These
+    /// settings are how it is reached.
+    ///
+    /// Off until the ERP is contracted and reachable, for the same reason
+    /// PAN verification is: switched on into a gap, every applicant asking
+    /// for their invoice gets an error.
+    /// </summary>
+    public bool ErpInvoiceEnabled { get; set; }
+
+    /// <summary>Who the ERP belongs to, for the screen to name.</summary>
+    public string? ErpProvider { get; set; }
+
+    /// <summary>
+    /// Where an invoice is fetched from. <c>{reference}</c> anywhere in the
+    /// address is replaced by whichever identifier
+    /// <see cref="ErpInvoiceReference"/> names.
+    /// </summary>
+    public string? ErpInvoiceEndpoint { get; set; }
+
+    /// <summary>
+    /// The ERP's key. Write only, like the SMTP password, the gateway's
+    /// working key and the PAN key: the API accepts it and never sends it
+    /// back.
+    /// </summary>
+    public string? ErpApiKey { get; set; }
+
+    public string ErpApiKeyHeader { get; set; } = "X-API-KEY";
+
+    /// <summary>
+    /// Which of our identifiers the ERP keys an invoice on. One of
+    /// OrderId, TrackingId, ApplicationNo or ApplicantCode — whichever the
+    /// two systems agreed on, which is a settings change rather than a
+    /// deployment.
+    /// </summary>
+    public string ErpInvoiceReference { get; set; } = "OrderId";
+
+    /// <summary>
+    /// Where the answer sits in the ERP's JSON, as dotted paths. Both left
+    /// blank when the endpoint returns the PDF itself rather than JSON
+    /// describing where to find it.
+    /// </summary>
+    public string? ErpInvoicePdfPath { get; set; }
+    public string? ErpInvoiceNumberPath { get; set; }
+
+    public int ErpTimeoutSeconds { get; set; } = 30;
+
+    /// <summary>
+    /// Whether to keep a copy of each invoice once fetched. On, the
+    /// applicant can open theirs while the ERP is down and it survives the
+    /// ERP's own retention; off, nothing is held here and every view is a
+    /// fresh call. A retention decision, so it is asked rather than assumed.
+    /// </summary>
+    public bool ErpStoreInvoiceCopy { get; set; } = true;
 }

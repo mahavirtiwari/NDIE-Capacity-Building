@@ -337,6 +337,151 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
         </div>
       </section>
 
+      <!-- ------------------------------------------------ ERP invoicing -->
+      <section class="card">
+        <div class="card__header">
+          <div class="stack stack-xs">
+            <span class="card__title">Invoicing (ERP)</span>
+            <span class="card__subtitle">
+              The invoice for a paid fee is raised in the ERP and sent to the applicant from
+              there. These settings are how a copy is fetched for them to open in the app.
+            </span>
+          </div>
+          @if (current()?.erpInvoiceEnabled) {
+            <span class="chip">Fetching invoices</span>
+          }
+        </div>
+        <div class="card__body">
+          <div class="form-grid">
+            <div class="field">
+              <label class="field-label" for="erpProvider">ERP</label>
+              <input
+                id="erpProvider"
+                class="input"
+                formControlName="erpProvider"
+                placeholder="Whose system it is"
+              />
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="erpInvoiceEndpoint">Endpoint</label>
+              <input
+                id="erpInvoiceEndpoint"
+                class="input"
+                formControlName="erpInvoiceEndpoint"
+                placeholder="https://…/invoices/&#123;reference&#125;"
+              />
+              <span class="field-hint">
+                &#123;reference&#125; anywhere in the address is replaced by whichever
+                identifier is chosen below.
+              </span>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="erpApiKey">API key</label>
+              @if (current()?.hasErpApiKey && !replacingErpKey()) {
+                <div class="row row-sm">
+                  <span class="badge badge--success">Stored</span>
+                  <button type="button" class="btn btn--sm btn--secondary" (click)="replaceErpKey()">
+                    Replace
+                  </button>
+                  <button type="button" class="btn btn--sm btn--subtle-danger" (click)="clearErpKey()">
+                    Remove
+                  </button>
+                </div>
+                <span class="field-hint">
+                  Held but never sent back, so this screen cannot disclose it.
+                </span>
+              } @else {
+                <input
+                  id="erpApiKey"
+                  class="input"
+                  type="password"
+                  autocomplete="new-password"
+                  formControlName="erpApiKey"
+                  placeholder="Paste the key from the ERP team"
+                />
+              }
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="erpApiKeyHeader">Key header</label>
+              <input id="erpApiKeyHeader" class="input" formControlName="erpApiKeyHeader" />
+              <span class="field-hint">The header the key is sent in.</span>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="erpInvoiceReference">Invoice is looked up by</label>
+              <select id="erpInvoiceReference" class="select" formControlName="erpInvoiceReference">
+                @for (option of current()?.erpInvoiceReferences ?? []; track option) {
+                  <option [value]="option">{{ referenceLabel(option) }}</option>
+                }
+              </select>
+              <span class="field-hint">
+                Whichever of our identifiers the two systems agreed the ERP would key an
+                invoice on.
+              </span>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="erpTimeoutSeconds">Timeout (seconds)</label>
+              <input
+                id="erpTimeoutSeconds"
+                class="input"
+                type="number"
+                min="3"
+                max="120"
+                formControlName="erpTimeoutSeconds"
+              />
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="erpInvoicePdfPath">PDF field</label>
+              <input id="erpInvoicePdfPath" class="input" formControlName="erpInvoicePdfPath" />
+              <span class="field-hint">
+                Where the document sits in the reply, as a dotted path. Left blank when the
+                endpoint returns the PDF itself rather than JSON describing it.
+              </span>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="erpInvoiceNumberPath">Invoice number field</label>
+              <input
+                id="erpInvoiceNumberPath"
+                class="input"
+                formControlName="erpInvoiceNumberPath"
+              />
+            </div>
+
+            <div class="field field--span-2">
+              <label class="field-label" for="erpStoreCopy">Once fetched</label>
+              <select id="erpStoreCopy" class="select" formControlName="erpStoreInvoiceCopy">
+                <option [ngValue]="true">Keep a copy here</option>
+                <option [ngValue]="false">Fetch it again every time</option>
+              </select>
+              <span class="field-hint">
+                A copy lets an applicant open their invoice while the ERP is down, and
+                outlives the ERP's own retention. Fetching every time keeps nothing here but
+                shows nothing when the ERP cannot be reached.
+              </span>
+            </div>
+
+            <div class="field field--span-2">
+              <label class="check">
+                <input type="checkbox" formControlName="erpInvoiceEnabled" />
+                <span>Offer applicants their invoice</span>
+              </label>
+              @if (!current()?.erpConfigured) {
+                <span class="field-hint">
+                  The endpoint and the key have to be in place first — switched on without
+                  them, every applicant who opens their invoice is shown a failure.
+                </span>
+              }
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- ------------------------------------------- rejection reasons -->
       <section class="card">
         <div class="card__header">
@@ -578,6 +723,7 @@ export class SystemSettingsComponent {
   protected readonly saving = signal(false);
   protected readonly replacingKey = signal(false);
   protected readonly replacingPanKey = signal(false);
+  protected readonly replacingErpKey = signal(false);
 
   /* The rejection list. Saved a row at a time rather than with the rest of
      the settings, because adding a reason and changing the upload limit are
@@ -794,7 +940,29 @@ export class SystemSettingsComponent {
     panNamePath: ['name'],
     panTimeoutSeconds: [10],
     panRefuseWhenUnavailable: [false],
+    erpInvoiceEnabled: [false],
+    erpProvider: [''],
+    erpInvoiceEndpoint: [''],
+    erpApiKey: [''],
+    erpApiKeyHeader: ['X-API-KEY'],
+    erpInvoiceReference: ['OrderId'],
+    erpInvoicePdfPath: [''],
+    erpInvoiceNumberPath: [''],
+    erpTimeoutSeconds: [30],
+    erpStoreInvoiceCopy: [true],
   });
+
+  /** The identifiers spelled the way somebody reading the screen says them. */
+  protected referenceLabel(value: string): string {
+    return (
+      {
+        OrderId: 'Our payment order ID',
+        TrackingId: "The gateway's tracking ID",
+        ApplicationNo: 'The application number',
+        ApplicantCode: 'The applicant ID',
+      }[value] ?? value
+    );
+  }
 
   constructor() {
     this.load();
@@ -807,6 +975,7 @@ export class SystemSettingsComponent {
       this.current.set(settings);
       this.replacingKey.set(false);
       this.replacingPanKey.set(false);
+      this.replacingErpKey.set(false);
       this.form.reset({
         maintenanceMode: settings.maintenanceMode,
         maintenanceMessage: settings.maintenanceMessage ?? '',
@@ -832,6 +1001,16 @@ export class SystemSettingsComponent {
         panNamePath: settings.panNamePath,
         panTimeoutSeconds: settings.panTimeoutSeconds,
         panRefuseWhenUnavailable: settings.panRefuseWhenUnavailable,
+        erpInvoiceEnabled: settings.erpInvoiceEnabled,
+        erpProvider: settings.erpProvider ?? '',
+        erpInvoiceEndpoint: settings.erpInvoiceEndpoint ?? '',
+        erpApiKey: '',
+        erpApiKeyHeader: settings.erpApiKeyHeader,
+        erpInvoiceReference: settings.erpInvoiceReference,
+        erpInvoicePdfPath: settings.erpInvoicePdfPath ?? '',
+        erpInvoiceNumberPath: settings.erpInvoiceNumberPath ?? '',
+        erpTimeoutSeconds: settings.erpTimeoutSeconds,
+        erpStoreInvoiceCopy: settings.erpStoreInvoiceCopy,
       });
     });
   }
@@ -880,7 +1059,32 @@ export class SystemSettingsComponent {
     this.save(false, true);
   }
 
-  protected async save(clearingKey = false, clearingPanKey = false): Promise<void> {
+  protected replaceErpKey(): void {
+    this.replacingErpKey.set(true);
+    this.form.controls.erpApiKey.setValue('');
+  }
+
+  protected async clearErpKey(): Promise<void> {
+    const confirmed = await this.confirm.ask({
+      title: 'Remove the ERP API key?',
+      message:
+        'The ERP cannot be called without it, so invoices will be switched off until a new key is saved.',
+      confirmLabel: 'Remove',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    this.replacingErpKey.set(true);
+    this.form.controls.erpApiKey.setValue('');
+    this.form.controls.erpInvoiceEnabled.setValue(false);
+    this.save(false, false, true);
+  }
+
+  protected async save(
+    clearingKey = false,
+    clearingPanKey = false,
+    clearingErpKey = false,
+  ): Promise<void> {
     const raw = this.form.getRawValue();
 
     if (raw.maintenanceMode && !this.current()?.maintenanceMode) {
@@ -921,13 +1125,25 @@ export class SystemSettingsComponent {
         panNamePath: raw.panNamePath || null,
         panTimeoutSeconds: Number(raw.panTimeoutSeconds),
         panRefuseWhenUnavailable: String(raw.panRefuseWhenUnavailable) === 'true',
+        erpInvoiceEnabled: raw.erpInvoiceEnabled,
+        erpProvider: raw.erpProvider || null,
+        erpInvoiceEndpoint: raw.erpInvoiceEndpoint || null,
+        erpApiKey: clearingErpKey ? '' : raw.erpApiKey || undefined,
+        erpApiKeyHeader: raw.erpApiKeyHeader || null,
+        erpInvoiceReference: raw.erpInvoiceReference || null,
+        erpInvoicePdfPath: raw.erpInvoicePdfPath || null,
+        erpInvoiceNumberPath: raw.erpInvoiceNumberPath || null,
+        erpTimeoutSeconds: Number(raw.erpTimeoutSeconds),
+        erpStoreInvoiceCopy: String(raw.erpStoreInvoiceCopy) === 'true',
       })
       .subscribe({
         next: (settings) => {
           this.saving.set(false);
           this.current.set(settings);
           this.replacingKey.set(false);
+          this.replacingErpKey.set(false);
           this.form.controls.workingKey.setValue('');
+          this.form.controls.erpApiKey.setValue('');
           this.toast.success(
             'System settings saved',
             settings.maintenanceMode ? 'The site is closed to everybody but you.' : undefined,

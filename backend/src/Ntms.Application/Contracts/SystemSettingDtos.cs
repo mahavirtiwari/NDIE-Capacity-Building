@@ -50,6 +50,28 @@ public class SystemSettingsDto
     /// <summary>False until the PAN service has everything it needs.</summary>
     public bool PanConfigured { get; set; }
 
+    /* ------------------------------------------------- ERP invoicing */
+
+    public bool ErpInvoiceEnabled { get; set; }
+    public string? ErpProvider { get; set; }
+    public string? ErpInvoiceEndpoint { get; set; }
+
+    /// <summary>True when a key is stored; the value is never sent.</summary>
+    public bool HasErpApiKey { get; set; }
+
+    public string ErpApiKeyHeader { get; set; } = "X-API-KEY";
+    public string ErpInvoiceReference { get; set; } = "OrderId";
+    public string? ErpInvoicePdfPath { get; set; }
+    public string? ErpInvoiceNumberPath { get; set; }
+    public int ErpTimeoutSeconds { get; set; } = 30;
+    public bool ErpStoreInvoiceCopy { get; set; } = true;
+
+    /// <summary>False until the ERP has everything it needs.</summary>
+    public bool ErpConfigured { get; set; }
+
+    /// <summary>What an administrator may choose as the invoice key.</summary>
+    public IReadOnlyList<string> ErpInvoiceReferences { get; set; } = [];
+
     public DateTime UpdatedOn { get; set; }
 }
 
@@ -85,6 +107,20 @@ public class SystemSettingsUpdateDto
     public string? PanNamePath { get; set; }
     public int PanTimeoutSeconds { get; set; } = 10;
     public bool PanRefuseWhenUnavailable { get; set; }
+
+    public bool ErpInvoiceEnabled { get; set; }
+    public string? ErpProvider { get; set; }
+    public string? ErpInvoiceEndpoint { get; set; }
+
+    /// <summary>Left null to keep the stored key; empty string clears it.</summary>
+    public string? ErpApiKey { get; set; }
+
+    public string? ErpApiKeyHeader { get; set; }
+    public string? ErpInvoiceReference { get; set; }
+    public string? ErpInvoicePdfPath { get; set; }
+    public string? ErpInvoiceNumberPath { get; set; }
+    public int ErpTimeoutSeconds { get; set; } = 30;
+    public bool ErpStoreInvoiceCopy { get; set; } = true;
 }
 
 /// <summary>

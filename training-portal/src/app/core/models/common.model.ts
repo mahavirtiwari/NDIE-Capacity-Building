@@ -177,6 +177,22 @@ export interface SystemSettings {
   panRefuseWhenUnavailable: boolean;
   panConfigured: boolean;
 
+  /** Where the invoice for a paid fee is raised, and how it is fetched. */
+  erpInvoiceEnabled: boolean;
+  erpProvider?: string | null;
+  erpInvoiceEndpoint?: string | null;
+  /** True when a key is stored; the value never leaves the server. */
+  hasErpApiKey: boolean;
+  erpApiKeyHeader: string;
+  erpInvoiceReference: string;
+  erpInvoicePdfPath?: string | null;
+  erpInvoiceNumberPath?: string | null;
+  erpTimeoutSeconds: number;
+  erpStoreInvoiceCopy: boolean;
+  erpConfigured: boolean;
+  /** What may be chosen as the key the ERP looks an invoice up by. */
+  erpInvoiceReferences: string[];
+
   updatedOn: string;
 }
 
@@ -206,6 +222,18 @@ export interface SystemSettingsUpdate {
   panRefuseWhenUnavailable: boolean;
   returnUrl?: string | null;
   cancelUrl?: string | null;
+
+  erpInvoiceEnabled: boolean;
+  erpProvider?: string | null;
+  erpInvoiceEndpoint?: string | null;
+  /** Left out to keep the stored key; empty string clears it. */
+  erpApiKey?: string | null;
+  erpApiKeyHeader?: string | null;
+  erpInvoiceReference?: string | null;
+  erpInvoicePdfPath?: string | null;
+  erpInvoiceNumberPath?: string | null;
+  erpTimeoutSeconds: number;
+  erpStoreInvoiceCopy: boolean;
 }
 
 /* ---------------------------------------------------------------- reports */

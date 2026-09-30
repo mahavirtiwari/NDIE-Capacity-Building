@@ -285,6 +285,13 @@ public class SystemSettingConfiguration : IEntityTypeConfiguration<SystemSetting
         b.Property(x => x.PanApiKeyHeader).HasMaxLength(80);
         b.Property(x => x.PanValidPath).HasMaxLength(120);
         b.Property(x => x.PanNamePath).HasMaxLength(120);
+        b.Property(x => x.ErpProvider).HasMaxLength(80);
+        b.Property(x => x.ErpInvoiceEndpoint).HasMaxLength(500);
+        b.Property(x => x.ErpApiKey).HasMaxLength(400);
+        b.Property(x => x.ErpApiKeyHeader).HasMaxLength(80);
+        b.Property(x => x.ErpInvoiceReference).HasMaxLength(40);
+        b.Property(x => x.ErpInvoicePdfPath).HasMaxLength(120);
+        b.Property(x => x.ErpInvoiceNumberPath).HasMaxLength(120);
     }
 }
 

@@ -17,6 +17,14 @@ public class SystemSettingService(NtmsDbContext db)
     public static readonly IReadOnlyList<string> Gateways =
         ["CCAvenue", "Razorpay", "PayU", "BillDesk", "Paytm"];
 
+    /// <summary>
+    /// What the ERP may key an invoice on. All four are identifiers this
+    /// system already holds against a payment, so whichever the two sides
+    /// agreed on can be picked rather than built.
+    /// </summary>
+    public static readonly IReadOnlyList<string> InvoiceReferences =
+        ["OrderId", "TrackingId", "ApplicationNo", "ApplicantCode"];
+
     private async Task<SystemSetting> LoadAsync(CancellationToken ct)
     {
         var existing = await db.SystemSettings.FirstOrDefaultAsync(s => s.Id == 1, ct);
@@ -51,6 +59,7 @@ public class SystemSettingService(NtmsDbContext db)
         SystemSettingsUpdateDto dto, CancellationToken ct)
     {
         var gateway = string.IsNullOrWhiteSpace(dto.PaymentGateway) ? null : dto.PaymentGateway.Trim();
+        var reference = Blank(dto.ErpInvoiceReference);
 
         Guard.Check()
             .When(gateway is not null && !Gateways.Contains(gateway, StringComparer.OrdinalIgnoreCase),
@@ -65,6 +74,13 @@ public class SystemSettingService(NtmsDbContext db)
                 "The PAN endpoint must be a full http or https address.")
             .When(dto.PanTimeoutSeconds is < 3 or > 60,
                 "The PAN timeout must be between 3 and 60 seconds.")
+            .When(!IsAbsoluteUrl(dto.ErpInvoiceEndpoint),
+                "The ERP invoice endpoint must be a full http or https address.")
+            .When(reference is not null
+                    && !InvoiceReferences.Contains(reference, StringComparer.OrdinalIgnoreCase),
+                $"Choose what the ERP keys an invoice on: {string.Join(", ", InvoiceReferences)}.")
+            .When(dto.ErpTimeoutSeconds is < 3 or > 120,
+                "The ERP timeout must be between 3 and 120 seconds.")
             .ThrowIfInvalid();
 
         var row = await LoadAsync(ct);
@@ -117,8 +133,38 @@ public class SystemSettingService(NtmsDbContext db)
                 (lacking.Count == 1 ? "is missing." : "are missing."));
         }
 
+        row.ErpProvider = Blank(dto.ErpProvider);
+        row.ErpInvoiceEndpoint = Blank(dto.ErpInvoiceEndpoint);
+        row.ErpApiKeyHeader = Blank(dto.ErpApiKeyHeader) ?? "X-API-KEY";
+        row.ErpInvoiceReference = reference ?? "OrderId";
+        row.ErpInvoicePdfPath = Blank(dto.ErpInvoicePdfPath);
+        row.ErpInvoiceNumberPath = Blank(dto.ErpInvoiceNumberPath);
+        row.ErpTimeoutSeconds = dto.ErpTimeoutSeconds;
+        row.ErpStoreInvoiceCopy = dto.ErpStoreInvoiceCopy;
+
+        if (dto.ErpApiKey is not null) row.ErpApiKey = Blank(dto.ErpApiKey);
+
+        /* Same rule again: switched on with nowhere to ask means every
+           applicant who opens their invoice is shown a failure. */
+        row.ErpInvoiceEnabled = dto.ErpInvoiceEnabled;
+        if (row.ErpInvoiceEnabled && ErpMissing(row) is { Count: > 0 } wanting)
+        {
+            throw new AppException(
+                $"ERP invoicing cannot be switched on yet — {string.Join(", ", wanting)} " +
+                (wanting.Count == 1 ? "is missing." : "are missing."));
+        }
+
         await db.SaveChangesAsync(ct);
         return Map(row);
+    }
+
+    /// <summary>What the ERP still needs before an invoice can be fetched.</summary>
+    private static List<string> ErpMissing(SystemSetting row)
+    {
+        var missing = new List<string>();
+        if (string.IsNullOrWhiteSpace(row.ErpInvoiceEndpoint)) missing.Add("the endpoint");
+        if (string.IsNullOrWhiteSpace(row.ErpApiKey)) missing.Add("the API key");
+        return missing;
     }
 
     /// <summary>What the gateway still needs before it can be used.</summary>
@@ -169,6 +215,19 @@ public class SystemSettingService(NtmsDbContext db)
         PanTimeoutSeconds = row.PanTimeoutSeconds,
         PanRefuseWhenUnavailable = row.PanRefuseWhenUnavailable,
         PanConfigured = PanMissing(row).Count == 0,
+
+        ErpInvoiceEnabled = row.ErpInvoiceEnabled,
+        ErpProvider = row.ErpProvider,
+        ErpInvoiceEndpoint = row.ErpInvoiceEndpoint,
+        HasErpApiKey = !string.IsNullOrWhiteSpace(row.ErpApiKey),
+        ErpApiKeyHeader = row.ErpApiKeyHeader,
+        ErpInvoiceReference = row.ErpInvoiceReference,
+        ErpInvoicePdfPath = row.ErpInvoicePdfPath,
+        ErpInvoiceNumberPath = row.ErpInvoiceNumberPath,
+        ErpTimeoutSeconds = row.ErpTimeoutSeconds,
+        ErpStoreInvoiceCopy = row.ErpStoreInvoiceCopy,
+        ErpConfigured = ErpMissing(row).Count == 0,
+        ErpInvoiceReferences = InvoiceReferences,
 
         UpdatedOn = row.ModifiedOn ?? row.CreatedOn,
     };
