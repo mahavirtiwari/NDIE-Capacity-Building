@@ -64,10 +64,35 @@
   justify-content: flex-end;
 }
 
+/* The bar over a table, holding whatever acts on the whole list rather than
+   on one row - today just the Excel download. */
+.table-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 0 0.5rem;
+}
+
 .table .cell-primary {
   font-weight: 600;
   color: var(--ink-900);
 }
+
+/* The first column of a row, where it opens the record.
+   An anchor gets this from the base link colour; a button that opens a panel
+   rather than navigating has to be told, and it should look the same either
+   way - a name that opens something reads as one everywhere in the portal. */
+.table .cell-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--brand-600);
+  text-align: left;
+  cursor: pointer;
+}
+
+.table .cell-link:hover { text-decoration: underline; }
 
 .table .cell-muted {
   color: var(--ink-500);

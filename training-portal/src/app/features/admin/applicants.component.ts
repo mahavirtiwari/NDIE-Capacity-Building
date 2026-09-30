@@ -21,8 +21,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'pan', header: 'PAN', width: '130px' },
   { key: 'categoryName', header: 'Category', variant: 'muted' },
   { key: 'subCategoryName', header: 'Sub-category', variant: 'muted' },
-  { key: 'location', header: 'Location', width: '170px' },
-  { key: 'verification', header: 'Verification', width: '190px' },
+  { key: 'verification', header: 'Verification', width: '130px' },
   { key: 'registeredOn', header: 'Registered', width: '130px' },
   { key: 'actions', header: '', width: '150px', align: 'right' },
 ];
@@ -119,7 +118,9 @@ const COLUMNS: ColumnDef[] = [
       >
         <ng-template appCell="fullName" let-row>
           <div class="stack stack-xs">
-            <strong>{{ $any(row).fullName }}</strong>
+            <button type="button" class="cell-link" (click)="openDetail($any(row))">
+              {{ $any(row).fullName }}
+            </button>
             @if ($any(row).isBlocked) {
               <span class="badge badge--danger">Blocked</span>
             }
@@ -131,18 +132,8 @@ const COLUMNS: ColumnDef[] = [
             <span class="cell-muted">{{ $any(row).mobile }}</span>
           </div>
         </ng-template>
-        <ng-template appCell="location" let-row>
-          <div class="stack stack-xs">
-            <span>{{ $any(row).city }}</span>
-            <span class="cell-muted">{{ $any(row).state }}</span>
-          </div>
-        </ng-template>
         <ng-template appCell="verification" let-row>
-          <div class="row row-sm row-wrap">
-            <span class="chip" [class.is-off]="!$any(row).emailVerified">Email</span>
-            <span class="chip" [class.is-off]="!$any(row).mobileVerified">Mobile</span>
-            <app-status-badge [value]="$any(row).kycStatus" />
-          </div>
+          <app-status-badge [value]="$any(row).kycStatus" />
         </ng-template>
         <ng-template appCell="registeredOn" let-row>
           <span class="cell-muted">{{ $any(row).registeredOn | date: 'dd MMM yyyy' }}</span>
@@ -252,7 +243,6 @@ const COLUMNS: ColumnDef[] = [
       </app-modal>
     }
   `,
-  styles: [`.chip.is-off { opacity: 0.45; text-decoration: line-through; }`],
 })
 export class ApplicantsComponent {
   protected readonly copy = inject(SiteTextService);
