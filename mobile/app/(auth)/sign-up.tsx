@@ -98,7 +98,7 @@ export default function SignUp() {
         );
       })
       .catch(() => {
-        if (!cancelled) setFailure('Could not load the registration form. Check your connection.');
+        if (!cancelled) setFailure('Could not load the profile form. Check your connection.');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

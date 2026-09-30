@@ -52,7 +52,7 @@ public class ApplicantAuthController(ApplicantAuthService service) : ApiControll
 public class ApplicantAppController(
     ApplicantAuthService service,
     ApplicationService applications,
-    RegistrationFormService forms,
+    ProfileFormService forms,
     FeeService fees,
     TrainingMaterialService materials,
     ProgrammeCatalogueService catalogue,
@@ -97,9 +97,9 @@ public class ApplicantAppController(
         CancellationToken ct) =>
         Envelope(await service.AvailableProgramsAsync(ApplicantId, ct));
 
-    /// <summary>The registration form for one programme.</summary>
+    /// <summary>The profile form for one programme.</summary>
     [HttpGet("programs/{programTypeId:int}/form")]
-    public async Task<ActionResult<ApiEnvelope<RegistrationFormDto>>> Form(
+    public async Task<ActionResult<ApiEnvelope<ProfileFormDto>>> Form(
         int programTypeId, CancellationToken ct) =>
         Envelope(await forms.GetByProgramTypeAsync(programTypeId, ct));
 

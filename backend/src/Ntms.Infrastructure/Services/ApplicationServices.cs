@@ -279,7 +279,7 @@ public class ApplicantService(
         var given = new Dictionary<string, string?>(supplied, StringComparer.OrdinalIgnoreCase);
 
         /* A document is not collected at sign-up: there is no account to hang
-           an upload off yet, and the registration form is where the scheme
+           an upload off yet, and the profile form is where the scheme
            asks for papers. One on this form is ignored rather than blocking. */
         foreach (var field in form.Fields.Where(f => !f.IsBuiltIn && f.Type != "file"))
         {
@@ -683,7 +683,7 @@ public class ApplicationService(
 
     /// <summary>
     /// Submission from the mobile app. Answers are validated against the active
-    /// registration form for the chosen program type before anything is stored.
+    /// profile form for the chosen program type before anything is stored.
     /// </summary>
     public async Task<ApplicationDto> SubmitAsync(ApplicationSubmitDto dto, CancellationToken ct)
     {
@@ -697,18 +697,18 @@ public class ApplicationService(
         if (programType.Status != RecordStatus.Active)
             throw new AppException("This program type is not open for applications.");
 
-        /* A track that does not ask for a registration form has no form to
+        /* A track that does not ask for a profile form has no form to
            publish, nothing to validate, and nothing to scrutinise. */
-        RegistrationForm? form = null;
+        ProfileForm? form = null;
 
-        if (programType.RequiresRegistrationForm)
+        if (programType.RequiresProfileForm)
         {
-            form = await db.RegistrationForms
+            form = await db.ProfileForms
                 .Include(f => f.Sections).ThenInclude(s => s.Fields)
                 .Where(f => f.ProgramTypeId == dto.ProgramTypeId && f.Status == RecordStatus.Active)
                 .OrderByDescending(f => f.Id)
                 .FirstOrDefaultAsync(ct)
-                ?? throw new AppException("No registration form is published for this program type.");
+                ?? throw new AppException("No profile form is published for this program type.");
 
             ValidateResponses(form, dto.Responses);
         }
@@ -732,7 +732,7 @@ public class ApplicationService(
             CategoryId = programType.CategoryId,
             SubCategoryId = programType.SubCategoryId,
             ProgramTypeId = programType.Id,
-            RegistrationFormId = form?.Id,
+            ProfileFormId = form?.Id,
 
             /* Scrutiny is the reading of what was declared on the registration
                form. Where the track asks for no form, there is nothing to
@@ -778,7 +778,7 @@ public class ApplicationService(
                 On = now,
                 Remarks =
                     $"Approved without scrutiny: {programType.Name} does not require a "
-                    + "registration form.",
+                    + "profile form.",
             });
         }
 
@@ -938,7 +938,7 @@ public class ApplicationService(
     /// entry they were wrong in.
     /// </summary>
     private static void ValidateResponses(
-        RegistrationForm form, Dictionary<string, JsonElement> responses)
+        ProfileForm form, Dictionary<string, JsonElement> responses)
     {
         var errors = new List<string>();
 
@@ -984,7 +984,7 @@ public class ApplicationService(
     /// entry in any message, so "'Degree' is required" says which one.
     /// </summary>
     private static void ValidateEntry(
-        RegistrationSection section,
+        ProfileSection section,
         Dictionary<string, JsonElement> scope,
         Dictionary<string, JsonElement> outer,
         int? ordinal,
@@ -1028,7 +1028,7 @@ public class ApplicationService(
     }
 
     /// <summary>What one entry of a repeating section is called, in a sentence.</summary>
-    private static string EntryNoun(RegistrationSection section) =>
+    private static string EntryNoun(ProfileSection section) =>
         string.IsNullOrWhiteSpace(section.ItemLabel) ? section.Title : section.ItemLabel;
 
     /// <summary>
@@ -1057,7 +1057,7 @@ public class ApplicationService(
         return entries;
     }
 
-    private static string? CheckFormat(RegistrationField field, string value) => field.Type switch
+    private static string? CheckFormat(ProfileField field, string value) => field.Type switch
     {
         FieldType.Email when !Formats.IsEmail(value) => $"'{field.Label}' is not a valid email.",
         FieldType.Mobile when !Formats.IsMobile(value) => $"'{field.Label}' is not a valid mobile number.",

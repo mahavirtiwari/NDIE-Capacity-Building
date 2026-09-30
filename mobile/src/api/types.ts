@@ -109,7 +109,7 @@ export interface ApplicantProgram {
   tdsOptions: number[];
   acceptingApplications: boolean;
   /** False when applying needs no form — the app submits straight away. */
-  requiresRegistrationForm?: boolean;
+  requiresProfileForm?: boolean;
   existingApplicationStatus?: string | null;
   existingApplicationId?: number | null;
   existingApplicationNo?: string | null;
@@ -127,7 +127,7 @@ export interface ApplicantProgram {
   canApply: boolean;
 }
 
-/* ------------------------------------------------- dynamic registration form */
+/* ------------------------------------------------- dynamic profile form */
 
 export type FieldType =
   | 'text' | 'textarea' | 'number' | 'email' | 'mobile' | 'pan' | 'tan' | 'gstin'
@@ -150,7 +150,7 @@ export interface FieldValidation {
   maxFileSizeMb?: number | null;
 }
 
-export interface RegistrationField {
+export interface ProfileField {
   id: number;
   key: string;
   label: string;
@@ -166,7 +166,7 @@ export interface RegistrationField {
   visibleWhenValues?: string[] | null;
 }
 
-export interface RegistrationSection {
+export interface ProfileSection {
   id: number;
   /** What a repeating section's entries are stored under, set by the server. */
   key?: string;
@@ -180,16 +180,16 @@ export interface RegistrationSection {
   maxEntries?: number;
   /** What one entry is called: "Qualification 2", "Add qualification". */
   itemLabel?: string;
-  fields: RegistrationField[];
+  fields: ProfileField[];
 }
 
-export interface RegistrationForm {
+export interface ProfileForm {
   id: number;
   programTypeId: number;
   programTypeName?: string;
   version: string;
   status: string;
-  sections: RegistrationSection[];
+  sections: ProfileSection[];
 }
 
 /* --------------------------------------------------------- sign-up form */

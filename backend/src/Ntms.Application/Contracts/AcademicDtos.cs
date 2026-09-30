@@ -56,7 +56,7 @@ public class CurriculumUpsertDto
     public List<CurriculumSessionDto>? Sessions { get; set; }
 }
 
-/* ------------------------------------------------------ registration form */
+/* ------------------------------------------------------ profile form */
 
 public class FieldValidationDto
 {
@@ -76,7 +76,7 @@ public class FieldOptionDto
     public string Label { get; set; } = string.Empty;
 }
 
-public class RegistrationFieldDto
+public class ProfileFieldDto
 {
     public int Id { get; set; }
     public string Key { get; set; } = string.Empty;
@@ -93,7 +93,7 @@ public class RegistrationFieldDto
     public List<string>? VisibleWhenValues { get; set; }
 }
 
-public class RegistrationSectionDto
+public class ProfileSectionDto
 {
     public int Id { get; set; }
 
@@ -116,10 +116,10 @@ public class RegistrationSectionDto
     /// <summary>What one entry is called. Falls back to the section title.</summary>
     public string? ItemLabel { get; set; }
 
-    public List<RegistrationFieldDto> Fields { get; set; } = [];
+    public List<ProfileFieldDto> Fields { get; set; } = [];
 }
 
-public class RegistrationFormDto : AuditDto
+public class ProfileFormDto : AuditDto
 {
     public int Id { get; set; }
     public int ProgramTypeId { get; set; }
@@ -130,15 +130,15 @@ public class RegistrationFormDto : AuditDto
     public string? SubCategoryName { get; set; }
     public string Version { get; set; } = "v1.0";
     public string Status { get; set; } = "Active";
-    public List<RegistrationSectionDto> Sections { get; set; } = [];
+    public List<ProfileSectionDto> Sections { get; set; } = [];
 }
 
-public class RegistrationFormUpsertDto
+public class ProfileFormUpsertDto
 {
     public int ProgramTypeId { get; set; }
     public string Version { get; set; } = "v1.0";
     public string Status { get; set; } = "Active";
-    public List<RegistrationSectionDto> Sections { get; set; } = [];
+    public List<ProfileSectionDto> Sections { get; set; } = [];
 }
 
 /// <summary>Copies a finished form onto another program type.</summary>

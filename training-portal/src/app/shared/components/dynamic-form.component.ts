@@ -10,7 +10,7 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
-import { FieldType, RegistrationField, RegistrationForm, RegistrationSection } from '../../core/models';
+import { FieldType, ProfileField, ProfileForm, ProfileSection } from '../../core/models';
 import { FORMAT_MESSAGES, FORMAT_PATTERNS } from '../../core/validation/formats';
 import { IconComponent } from './icon.component';
 
@@ -45,7 +45,7 @@ const FORMAT_HINTS: Partial<Record<FieldType, string>> = {
 const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
 
 /**
- * Renders a Super Admin defined registration form. Used for the form-builder
+ * Renders a Super Admin defined profile form. Used for the form-builder
  * preview, and in read-only mode to display an applicant's submitted answers
  * on the scrutiny screen.
  *
@@ -306,7 +306,7 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
 export class DynamicFormComponent {
   private readonly fb = inject(FormBuilder);
 
-  readonly definition = input.required<RegistrationForm>();
+  readonly definition = input.required<ProfileForm>();
   readonly values = input<Record<string, FieldValue | EntryValues[]>>({});
   readonly readonly = input(false);
 
@@ -367,20 +367,20 @@ export class DynamicFormComponent {
     this.definition().sections.filter((s) => s.isEnabled !== false),
   );
 
-  protected enabledFields(section: { fields: RegistrationField[] }): RegistrationField[] {
+  protected enabledFields(section: { fields: ProfileField[] }): ProfileField[] {
     return section.fields.filter((f) => f.isEnabled !== false);
   }
 
   /** What one entry is called, falling back to the section's own title. */
-  protected entryNoun(section: RegistrationSection): string {
+  protected entryNoun(section: ProfileSection): string {
     return section.itemLabel?.trim() || section.title;
   }
 
-  protected minEntries(section: RegistrationSection): number {
+  protected minEntries(section: ProfileSection): number {
     return Math.max(0, section.minEntries ?? 1);
   }
 
-  protected maxEntries(section: RegistrationSection): number {
+  protected maxEntries(section: ProfileSection): number {
     return Math.max(1, section.maxEntries ?? 10);
   }
 
@@ -388,47 +388,47 @@ export class DynamicFormComponent {
    * The key a repeating section's entries live under. Falls back to the id so
    * a form saved before section keys existed still renders.
    */
-  private keyOf(section: RegistrationSection): string {
+  private keyOf(section: ProfileSection): string {
     return section.key?.trim() || `section${section.id}`;
   }
 
   /* -------------------------------------------------------------- entries */
 
-  protected entriesOf(section: RegistrationSection): FormGroup[] {
+  protected entriesOf(section: ProfileSection): FormGroup[] {
     const array = this.form().get(this.keyOf(section));
     return array instanceof FormArray ? (array.controls as FormGroup[]) : [];
   }
 
-  protected canAdd(section: RegistrationSection): boolean {
+  protected canAdd(section: ProfileSection): boolean {
     return !this.readonly() && this.entriesOf(section).length < this.maxEntries(section);
   }
 
-  protected canRemove(section: RegistrationSection): boolean {
+  protected canRemove(section: ProfileSection): boolean {
     return (
       !this.readonly() &&
       this.entriesOf(section).length > Math.max(this.minEntries(section), 1)
     );
   }
 
-  protected addEntry(section: RegistrationSection): void {
+  protected addEntry(section: ProfileSection): void {
     const array = this.form().get(this.keyOf(section));
     if (!(array instanceof FormArray) || !this.canAdd(section)) return;
     array.push(this.entryGroup(this.enabledFields(section), {}));
   }
 
-  protected removeEntry(section: RegistrationSection, index: number): void {
+  protected removeEntry(section: ProfileSection, index: number): void {
     const array = this.form().get(this.keyOf(section));
     if (!(array instanceof FormArray) || !this.canRemove(section)) return;
     array.removeAt(index);
   }
 
-  private entryGroup(fields: RegistrationField[], values: EntryValues): FormGroup {
+  private entryGroup(fields: ProfileField[], values: EntryValues): FormGroup {
     const group: Record<string, FormControl> = {};
     for (const field of fields) group[field.key] = this.controlFor(field, values[field.key]);
     return this.fb.group(group);
   }
 
-  private controlFor(field: RegistrationField, value: FieldValue | undefined): FormControl {
+  private controlFor(field: ProfileField, value: FieldValue | undefined): FormControl {
     return new FormControl<FieldValue>(
       { value: value ?? defaultFor(field), disabled: this.readonly() },
       { validators: validatorsFor(field) },
@@ -446,7 +446,7 @@ export class DynamicFormComponent {
    * Unique per entry, so clicking a label focuses the field in the entry it
    * was clicked in rather than the first one on the page.
    */
-  protected idFor(field: RegistrationField, group: FormGroup): string {
+  protected idFor(field: ProfileField, group: FormGroup): string {
     const parent = group.parent;
     if (parent instanceof FormArray) {
       return `${field.key}-${parent.controls.indexOf(group)}`;
@@ -459,7 +459,7 @@ export class DynamicFormComponent {
    * entry answers for itself, and from the form when the trigger is a field
    * outside the section.
    */
-  protected isVisible(field: RegistrationField, group: FormGroup): boolean {
+  protected isVisible(field: ProfileField, group: FormGroup): boolean {
     if (!field.visibleWhenFieldKey) return true;
     const source = group.get(field.visibleWhenFieldKey)
       ?? this.form().get(field.visibleWhenFieldKey);
@@ -481,11 +481,11 @@ export class DynamicFormComponent {
     return !!control && control.invalid && (control.dirty || control.touched);
   }
 
-  protected isUppercase(field: RegistrationField): boolean {
+  protected isUppercase(field: ProfileField): boolean {
     return UPPERCASE_TYPES.includes(field.type);
   }
 
-  protected maxLengthFor(field: RegistrationField): number | null {
+  protected maxLengthFor(field: ProfileField): number | null {
     if (field.type === 'pan' || field.type === 'tan') return 10;
     if (field.type === 'gstin') return 15;
     if (field.type === 'ifsc') return 11;
@@ -494,12 +494,12 @@ export class DynamicFormComponent {
     return field.validation.maxLength ?? null;
   }
 
-  protected hintFor(field: RegistrationField): string {
+  protected hintFor(field: ProfileField): string {
     if (field.type === 'checkbox') return '';
     return field.helpText || FORMAT_HINTS[field.type] || '';
   }
 
-  protected errorFor(group: FormGroup, field: RegistrationField): string {
+  protected errorFor(group: FormGroup, field: ProfileField): string {
     const errors = group.get(field.key)?.errors ?? {};
     if (errors['required']) return `${field.label} is required.`;
     if (errors['pattern']) {
@@ -535,13 +535,13 @@ export class DynamicFormComponent {
   }
 }
 
-function defaultFor(field: RegistrationField): FieldValue {
+function defaultFor(field: ProfileField): FieldValue {
   if (field.type === 'multiselect') return [];
   if (field.type === 'checkbox') return false;
   return '';
 }
 
-function validatorsFor(field: RegistrationField): ValidatorFn[] {
+function validatorsFor(field: ProfileField): ValidatorFn[] {
   const rules: ValidatorFn[] = [];
   const v = field.validation;
   if (v.required) {

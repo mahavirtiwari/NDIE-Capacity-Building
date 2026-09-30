@@ -5,7 +5,7 @@ namespace Ntms.Domain.Entities;
 /// <summary>
 /// One field on the form an applicant fills in to create their account.
 ///
-/// This is not the same thing as a <see cref="RegistrationForm"/>. That one is
+/// This is not the same thing as a <see cref="ProfileForm"/>. That one is
 /// per programme type and is answered when applying; this is the single form
 /// that exists before an applicant has an account at all, so it has no owner
 /// to hang off and there is exactly one of it.

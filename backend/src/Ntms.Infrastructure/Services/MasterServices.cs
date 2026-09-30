@@ -328,7 +328,7 @@ public class ProgramTypeService(NtmsDbContext db, CertificateTemplateStore templ
         entity.CertificateValidityMonths = dto.CertificateValidityMonths;
         entity.IsFeeApplicable = dto.IsFeeApplicable;
         entity.RequiresSignupForm = dto.RequiresSignupForm;
-        entity.RequiresRegistrationForm = dto.RequiresRegistrationForm;
+        entity.RequiresProfileForm = dto.RequiresProfileForm;
         entity.CertificationPolicy = EnumMaps.ParseEnum(
             dto.CertificationPolicy, CertificationPolicy.QualificationOnly);
         entity.Status = EnumMaps.ToStatus(dto.Status);

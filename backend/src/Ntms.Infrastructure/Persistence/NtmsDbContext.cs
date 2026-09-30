@@ -42,10 +42,10 @@ public class NtmsDbContext(DbContextOptions<NtmsDbContext> options, ICurrentUser
     public DbSet<Curriculum> Curricula => Set<Curriculum>();
     public DbSet<CurriculumSession> CurriculumSessions => Set<CurriculumSession>();
     public DbSet<CurriculumTopic> CurriculumTopics => Set<CurriculumTopic>();
-    public DbSet<RegistrationForm> RegistrationForms => Set<RegistrationForm>();
-    public DbSet<RegistrationSection> RegistrationSections => Set<RegistrationSection>();
-    public DbSet<RegistrationField> RegistrationFields => Set<RegistrationField>();
-    public DbSet<RegistrationFieldOption> RegistrationFieldOptions => Set<RegistrationFieldOption>();
+    public DbSet<ProfileForm> ProfileForms => Set<ProfileForm>();
+    public DbSet<ProfileSection> ProfileSections => Set<ProfileSection>();
+    public DbSet<ProfileField> ProfileFields => Set<ProfileField>();
+    public DbSet<ProfileFieldOption> ProfileFieldOptions => Set<ProfileFieldOption>();
 
     /* The account creation form, which exists once and before any applicant
        does - not to be confused with the per programme type form above. */

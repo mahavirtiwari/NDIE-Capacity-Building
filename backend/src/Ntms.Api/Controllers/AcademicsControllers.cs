@@ -51,12 +51,12 @@ public class CurriculaController(CurriculumService service) : ApiControllerBase
         Envelope(await service.SetStatusAsync(id, dto.Status, ct));
 }
 
-[Route("api/registration-forms")]
-public class RegistrationFormsController(RegistrationFormService service) : ApiControllerBase
+[Route("api/profile-forms")]
+public class ProfileFormsController(ProfileFormService service) : ApiControllerBase
 {
     [HttpGet]
     [HasPermission(Permissions.MastersView)]
-    public async Task<ActionResult<ApiEnvelope<PagedResult<RegistrationFormDto>>>> List(
+    public async Task<ActionResult<ApiEnvelope<PagedResult<ProfileFormDto>>>> List(
         [FromQuery] PagedRequest request, [FromQuery] int? categoryId,
         [FromQuery] int? subCategoryId, [FromQuery] int? programTypeId,
         [FromQuery] string? status, CancellationToken ct) =>
@@ -65,43 +65,43 @@ public class RegistrationFormsController(RegistrationFormService service) : ApiC
 
     [HttpGet("all")]
     [HasPermission(Permissions.MastersView)]
-    public async Task<ActionResult<ApiEnvelope<List<RegistrationFormDto>>>> All(
+    public async Task<ActionResult<ApiEnvelope<List<ProfileFormDto>>>> All(
         [FromQuery] string? status, CancellationToken ct) =>
         Envelope(await service.AllAsync(status, ct));
 
     [HttpGet("{id:int}")]
     [HasPermission(Permissions.MastersView)]
-    public async Task<ActionResult<ApiEnvelope<RegistrationFormDto>>> Get(int id, CancellationToken ct) =>
+    public async Task<ActionResult<ApiEnvelope<ProfileFormDto>>> Get(int id, CancellationToken ct) =>
         Envelope(await service.GetAsync(id, ct));
 
     /// <summary>The form the mobile app renders for a program type.</summary>
     [HttpGet("by-program-type/{programTypeId:int}")]
-    public async Task<ActionResult<ApiEnvelope<RegistrationFormDto>>> ByProgramType(
+    public async Task<ActionResult<ApiEnvelope<ProfileFormDto>>> ByProgramType(
         int programTypeId, CancellationToken ct) =>
         Envelope(await service.GetByProgramTypeAsync(programTypeId, ct));
 
     [HttpPost]
     [HasPermission(Permissions.MastersManage)]
-    public async Task<ActionResult<ApiEnvelope<RegistrationFormDto>>> Create(
-        [FromBody] RegistrationFormUpsertDto dto, CancellationToken ct) =>
-        Envelope(await service.CreateAsync(dto, ct), "Registration form created.");
+    public async Task<ActionResult<ApiEnvelope<ProfileFormDto>>> Create(
+        [FromBody] ProfileFormUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.CreateAsync(dto, ct), "Profile form created.");
 
     [HttpPut("{id:int}")]
     [HasPermission(Permissions.MastersManage)]
-    public async Task<ActionResult<ApiEnvelope<RegistrationFormDto>>> Update(
-        int id, [FromBody] RegistrationFormUpsertDto dto, CancellationToken ct) =>
-        Envelope(await service.UpdateAsync(id, dto, ct), "Registration form saved.");
+    public async Task<ActionResult<ApiEnvelope<ProfileFormDto>>> Update(
+        int id, [FromBody] ProfileFormUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.UpdateAsync(id, dto, ct), "Profile form saved.");
 
     /// <summary>Copies a finished form onto another program type.</summary>
     [HttpPost("replicate")]
     [HasPermission(Permissions.MastersManage)]
-    public async Task<ActionResult<ApiEnvelope<RegistrationFormDto>>> Replicate(
+    public async Task<ActionResult<ApiEnvelope<ProfileFormDto>>> Replicate(
         [FromBody] ReplicateFormDto dto, CancellationToken ct) =>
-        Envelope(await service.ReplicateAsync(dto, ct), "Registration form replicated.");
+        Envelope(await service.ReplicateAsync(dto, ct), "Profile form replicated.");
 
     [HttpPatch("{id:int}/status")]
     [HasPermission(Permissions.MastersManage)]
-    public async Task<ActionResult<ApiEnvelope<RegistrationFormDto>>> SetStatus(
+    public async Task<ActionResult<ApiEnvelope<ProfileFormDto>>> SetStatus(
         int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
         Envelope(await service.SetStatusAsync(id, dto.Status, ct));
 }

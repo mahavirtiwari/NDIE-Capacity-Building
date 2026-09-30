@@ -8,14 +8,14 @@ using Ntms.Infrastructure.Persistence;
 
 namespace Ntms.Infrastructure.Services;
 
-public class RegistrationFormService(NtmsDbContext db)
+public class ProfileFormService(NtmsDbContext db)
 {
-    private IQueryable<RegistrationForm> Base => db.RegistrationForms.AsNoTracking()
+    private IQueryable<ProfileForm> Base => db.ProfileForms.AsNoTracking()
         .Include(f => f.ProgramType)!.ThenInclude(p => p!.Category)
         .Include(f => f.ProgramType)!.ThenInclude(p => p!.SubCategory)
         .Include(f => f.Sections).ThenInclude(s => s.Fields).ThenInclude(x => x.Options);
 
-    public async Task<PagedResult<RegistrationFormDto>> ListAsync(
+    public async Task<PagedResult<ProfileFormDto>> ListAsync(
         PagedRequest request, int? categoryId, int? subCategoryId, int? programTypeId,
         string? status, CancellationToken ct)
     {
@@ -28,38 +28,38 @@ public class RegistrationFormService(NtmsDbContext db)
             .WhereIf(!string.IsNullOrWhiteSpace(status), f => f.Status == EnumMaps.ToStatus(status))
             .WhereIf(!string.IsNullOrWhiteSpace(request.Search),
                 f => f.ProgramType!.Name.Contains(request.Search!))
-            .ApplySort(request, db.Model.FindEntityType(typeof(RegistrationForm))!, f => f.Id);
+            .ApplySort(request, db.Model.FindEntityType(typeof(ProfileForm))!, f => f.Id);
 
         return await query.ToPagedResultAsync(request, f => f.ToDto(), ct);
     }
 
-    public async Task<List<RegistrationFormDto>> AllAsync(string? status, CancellationToken ct) =>
+    public async Task<List<ProfileFormDto>> AllAsync(string? status, CancellationToken ct) =>
         [.. (await Base
                 .WhereIf(!string.IsNullOrWhiteSpace(status), f => f.Status == EnumMaps.ToStatus(status))
                 .ToListAsync(ct))
             .Select(f => f.ToDto())];
 
-    public async Task<RegistrationFormDto> GetAsync(int id, CancellationToken ct) =>
+    public async Task<ProfileFormDto> GetAsync(int id, CancellationToken ct) =>
         (await Base.FirstOrDefaultAsync(f => f.Id == id, ct)
-         ?? throw AppException.NotFound("Registration form")).ToDto();
+         ?? throw AppException.NotFound("Profile form")).ToDto();
 
     /// <summary>The active form a mobile applicant should be shown.</summary>
-    public async Task<RegistrationFormDto> GetByProgramTypeAsync(int programTypeId, CancellationToken ct)
+    public async Task<ProfileFormDto> GetByProgramTypeAsync(int programTypeId, CancellationToken ct)
     {
         var form = await Base
             .Where(f => f.ProgramTypeId == programTypeId && f.Status == RecordStatus.Active)
             .OrderByDescending(f => f.Id)
             .FirstOrDefaultAsync(ct)
-            ?? throw AppException.NotFound("Registration form for this program type");
+            ?? throw AppException.NotFound("Profile form for this program type");
         return form.ToDto();
     }
 
-    public async Task<RegistrationFormDto> CreateAsync(RegistrationFormUpsertDto dto, CancellationToken ct)
+    public async Task<ProfileFormDto> CreateAsync(ProfileFormUpsertDto dto, CancellationToken ct)
     {
         await GuardAsync(dto.ProgramTypeId, dto.Version, null, ct);
         Validate(dto.Sections);
 
-        var entity = new RegistrationForm
+        var entity = new ProfileForm
         {
             ProgramTypeId = dto.ProgramTypeId,
             Version = dto.Version,
@@ -67,18 +67,18 @@ public class RegistrationFormService(NtmsDbContext db)
         };
         BuildSections(entity, dto.Sections);
 
-        db.RegistrationForms.Add(entity);
+        db.ProfileForms.Add(entity);
         await db.SaveChangesAsync(ct);
         return await GetAsync(entity.Id, ct);
     }
 
-    public async Task<RegistrationFormDto> UpdateAsync(
-        int id, RegistrationFormUpsertDto dto, CancellationToken ct)
+    public async Task<ProfileFormDto> UpdateAsync(
+        int id, ProfileFormUpsertDto dto, CancellationToken ct)
     {
-        var entity = await db.RegistrationForms
+        var entity = await db.ProfileForms
             .Include(f => f.Sections).ThenInclude(s => s.Fields).ThenInclude(x => x.Options)
             .FirstOrDefaultAsync(f => f.Id == id, ct)
-            ?? throw AppException.NotFound("Registration form");
+            ?? throw AppException.NotFound("Profile form");
 
         await GuardAsync(dto.ProgramTypeId, dto.Version, id, ct);
         Validate(dto.Sections);
@@ -90,7 +90,7 @@ public class RegistrationFormService(NtmsDbContext db)
         /* The designer always posts the whole tree, so the simplest correct
            behaviour is to rebuild it. Submitted applications keep their own
            copy of the answers, so nothing historical is lost. */
-        db.RegistrationSections.RemoveRange(entity.Sections);
+        db.ProfileSections.RemoveRange(entity.Sections);
         entity.Sections.Clear();
         BuildSections(entity, dto.Sections);
 
@@ -98,27 +98,27 @@ public class RegistrationFormService(NtmsDbContext db)
         return await GetAsync(id, ct);
     }
 
-    public async Task<RegistrationFormDto> SetStatusAsync(int id, string status, CancellationToken ct)
+    public async Task<ProfileFormDto> SetStatusAsync(int id, string status, CancellationToken ct)
     {
-        var entity = await db.RegistrationForms.FirstOrDefaultAsync(f => f.Id == id, ct)
-                     ?? throw AppException.NotFound("Registration form");
+        var entity = await db.ProfileForms.FirstOrDefaultAsync(f => f.Id == id, ct)
+                     ?? throw AppException.NotFound("Profile form");
         entity.Status = EnumMaps.ToStatus(status);
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
     }
 
     /// <summary>Copies a finished form onto another program type.</summary>
-    public async Task<RegistrationFormDto> ReplicateAsync(ReplicateFormDto dto, CancellationToken ct)
+    public async Task<ProfileFormDto> ReplicateAsync(ReplicateFormDto dto, CancellationToken ct)
     {
         var source = await Base.FirstOrDefaultAsync(f => f.Id == dto.SourceFormId, ct)
-                     ?? throw AppException.NotFound("Source registration form");
+                     ?? throw AppException.NotFound("Source profile form");
 
         if (source.ProgramTypeId == dto.TargetProgramTypeId)
             throw new AppException("Pick a different program type to replicate onto.");
 
         await GuardAsync(dto.TargetProgramTypeId, dto.Version, null, ct);
 
-        var copy = new RegistrationForm
+        var copy = new ProfileForm
         {
             ProgramTypeId = dto.TargetProgramTypeId,
             Version = dto.Version,
@@ -127,7 +127,7 @@ public class RegistrationFormService(NtmsDbContext db)
 
         foreach (var section in source.Sections.OrderBy(s => s.DisplayOrder))
         {
-            var newSection = new RegistrationSection
+            var newSection = new ProfileSection
             {
                 Key = section.Key,
                 Title = section.Title,
@@ -142,7 +142,7 @@ public class RegistrationFormService(NtmsDbContext db)
 
             foreach (var field in section.Fields.OrderBy(f => f.DisplayOrder))
             {
-                var newField = new RegistrationField
+                var newField = new ProfileField
                 {
                     Key = field.Key,
                     Label = field.Label,
@@ -169,7 +169,7 @@ public class RegistrationFormService(NtmsDbContext db)
 
                 foreach (var option in field.Options.OrderBy(o => o.DisplayOrder))
                 {
-                    newField.Options.Add(new RegistrationFieldOption
+                    newField.Options.Add(new ProfileFieldOption
                     {
                         Value = option.Value,
                         Label = option.Label,
@@ -183,7 +183,7 @@ public class RegistrationFormService(NtmsDbContext db)
             copy.Sections.Add(newSection);
         }
 
-        db.RegistrationForms.Add(copy);
+        db.ProfileForms.Add(copy);
         await db.SaveChangesAsync(ct);
         return await GetAsync(copy.Id, ct);
     }
@@ -195,7 +195,7 @@ public class RegistrationFormService(NtmsDbContext db)
         if (!await db.ProgramTypes.AnyAsync(p => p.Id == programTypeId, ct))
             throw AppException.NotFound("Program type");
 
-        var clash = await db.RegistrationForms.AnyAsync(
+        var clash = await db.ProfileForms.AnyAsync(
             f => f.ProgramTypeId == programTypeId && f.Version == version
                  && (exceptId == null || f.Id != exceptId), ct);
         if (clash)
@@ -203,10 +203,10 @@ public class RegistrationFormService(NtmsDbContext db)
                 $"Version '{version}' already exists for this program type.");
     }
 
-    private static void Validate(List<RegistrationSectionDto> sections)
+    private static void Validate(List<ProfileSectionDto> sections)
     {
         if (sections.Count == 0)
-            throw new AppException("A registration form needs at least one section.");
+            throw new AppException("A profile form needs at least one section.");
 
         var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var field in sections.SelectMany(s => s.Fields))
@@ -261,7 +261,7 @@ public class RegistrationFormService(NtmsDbContext db)
     /// field, whose answers sit at the top level beside it.
     /// </summary>
     private static void ValidateRepeats(
-        List<RegistrationSectionDto> sections, HashSet<string> fieldKeys)
+        List<ProfileSectionDto> sections, HashSet<string> fieldKeys)
     {
         var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -312,7 +312,7 @@ public class RegistrationFormService(NtmsDbContext db)
     /// other section is keyed from its title afresh each save: nothing is
     /// stored under it, so it may as well read like the section it names.
     /// </summary>
-    private static string SectionKey(RegistrationSectionDto section, HashSet<string> used)
+    private static string SectionKey(ProfileSectionDto section, HashSet<string> used)
     {
         var stem = section.IsRepeatable && !string.IsNullOrWhiteSpace(section.Key)
             ? CamelKey(section.Key)
@@ -341,14 +341,14 @@ public class RegistrationFormService(NtmsDbContext db)
         return key.Length <= 80 ? key : key[..80];
     }
 
-    private static void BuildSections(RegistrationForm form, List<RegistrationSectionDto> sections)
+    private static void BuildSections(ProfileForm form, List<ProfileSectionDto> sections)
     {
         var usedSectionKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var sectionOrder = 0;
         foreach (var sectionDto in sections.OrderBy(s => s.DisplayOrder))
         {
             sectionOrder++;
-            var section = new RegistrationSection
+            var section = new ProfileSection
             {
                 Key = SectionKey(sectionDto, usedSectionKeys),
                 Title = sectionDto.Title.Trim(),
@@ -367,7 +367,7 @@ public class RegistrationFormService(NtmsDbContext db)
             foreach (var fieldDto in sectionDto.Fields.OrderBy(f => f.DisplayOrder))
             {
                 fieldOrder++;
-                var field = new RegistrationField
+                var field = new ProfileField
                 {
                     Key = fieldDto.Key.Trim(),
                     Label = fieldDto.Label.Trim(),
@@ -398,7 +398,7 @@ public class RegistrationFormService(NtmsDbContext db)
                 foreach (var option in fieldDto.Options)
                 {
                     optionOrder++;
-                    field.Options.Add(new RegistrationFieldOption
+                    field.Options.Add(new ProfileFieldOption
                     {
                         Value = string.IsNullOrWhiteSpace(option.Value)
                             ? Slug(option.Label)

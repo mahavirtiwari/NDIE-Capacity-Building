@@ -5,7 +5,7 @@ namespace Ntms.Domain.Entities;
 /// <summary>
 /// Effective dated fee for one program type. The structure declares which TDS
 /// rates an applicant may opt for; the TAN itself is collected from the
-/// applicant on the registration form and never stored here.
+/// applicant on the profile form and never stored here.
 /// </summary>
 public class FeeStructure : AuditableStatusEntity
 {

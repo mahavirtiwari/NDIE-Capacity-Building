@@ -45,11 +45,11 @@ public class CurriculumTopicConfiguration : IEntityTypeConfiguration<CurriculumT
     }
 }
 
-public class RegistrationFormConfiguration : IEntityTypeConfiguration<RegistrationForm>
+public class ProfileFormConfiguration : IEntityTypeConfiguration<ProfileForm>
 {
-    public void Configure(EntityTypeBuilder<RegistrationForm> b)
+    public void Configure(EntityTypeBuilder<ProfileForm> b)
     {
-        b.ToTable("RegistrationForms");
+        b.ToTable("ProfileForms");
         b.Property(x => x.Version).HasMaxLength(20).IsRequired();
         b.HasOne(x => x.ProgramType).WithMany().HasForeignKey(x => x.ProgramTypeId)
             .OnDelete(DeleteBehavior.Restrict);
@@ -57,11 +57,11 @@ public class RegistrationFormConfiguration : IEntityTypeConfiguration<Registrati
     }
 }
 
-public class RegistrationSectionConfiguration : IEntityTypeConfiguration<RegistrationSection>
+public class ProfileSectionConfiguration : IEntityTypeConfiguration<ProfileSection>
 {
-    public void Configure(EntityTypeBuilder<RegistrationSection> b)
+    public void Configure(EntityTypeBuilder<ProfileSection> b)
     {
-        b.ToTable("RegistrationSections");
+        b.ToTable("ProfileSections");
         b.Property(x => x.Key).HasMaxLength(80).IsRequired();
         b.Property(x => x.Title).HasMaxLength(200).IsRequired();
         b.Property(x => x.Description).HasMaxLength(500);
@@ -74,11 +74,11 @@ public class RegistrationSectionConfiguration : IEntityTypeConfiguration<Registr
     }
 }
 
-public class RegistrationFieldConfiguration : IEntityTypeConfiguration<RegistrationField>
+public class ProfileFieldConfiguration : IEntityTypeConfiguration<ProfileField>
 {
-    public void Configure(EntityTypeBuilder<RegistrationField> b)
+    public void Configure(EntityTypeBuilder<ProfileField> b)
     {
-        b.ToTable("RegistrationFields");
+        b.ToTable("ProfileFields");
         b.Property(x => x.Key).HasMaxLength(80).IsRequired();
         b.Property(x => x.Label).HasMaxLength(250).IsRequired();
         b.Property(x => x.Placeholder).HasMaxLength(200);
@@ -106,11 +106,11 @@ public class RegistrationFieldConfiguration : IEntityTypeConfiguration<Registrat
     }
 }
 
-public class RegistrationFieldOptionConfiguration : IEntityTypeConfiguration<RegistrationFieldOption>
+public class ProfileFieldOptionConfiguration : IEntityTypeConfiguration<ProfileFieldOption>
 {
-    public void Configure(EntityTypeBuilder<RegistrationFieldOption> b)
+    public void Configure(EntityTypeBuilder<ProfileFieldOption> b)
     {
-        b.ToTable("RegistrationFieldOptions");
+        b.ToTable("ProfileFieldOptions");
         b.Property(x => x.Value).HasMaxLength(120).IsRequired();
         b.Property(x => x.Label).HasMaxLength(250).IsRequired();
         b.HasOne(x => x.Field).WithMany(x => x.Options).HasForeignKey(x => x.FieldId)

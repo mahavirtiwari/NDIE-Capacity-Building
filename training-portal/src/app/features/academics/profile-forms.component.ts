@@ -6,15 +6,15 @@ import {
   FieldType,
   LookupItem,
   RecordStatus,
-  RegistrationField,
-  RegistrationForm,
-  RegistrationSection,
+  ProfileField,
+  ProfileForm,
+  ProfileSection,
   activeFieldCount,
-  cloneRegistrationForm,
+  cloneProfileForm,
   fieldTypeHasOptions,
-  registrationFieldCount,
+  profileFieldCount,
 } from '../../core/models';
-import { RegistrationFormService } from '../../core/services/academics.service';
+import { ProfileFormService } from '../../core/services/academics.service';
 import { LookupService } from '../../core/services/masters.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -43,7 +43,7 @@ const COLUMNS: ColumnDef[] = [
 let localId = 10_000;
 const nextLocalId = () => ++localId;
 
-function blankField(): RegistrationField {
+function blankField(): ProfileField {
   return {
     id: nextLocalId(),
     key: '',
@@ -58,7 +58,7 @@ function blankField(): RegistrationField {
 }
 
 @Component({
-  selector: 'app-registration-forms',
+  selector: 'app-profile-forms',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CanDirective,
@@ -75,10 +75,10 @@ function blankField(): RegistrationField {
   ],
   template: `
     <app-page-header
-      [title]="copy.text('page.registrationForms.title')"
-      [subtitle]="copy.text('page.registrationForms.subtitle')"
+      [title]="copy.text('page.profileForms.title')"
+      [subtitle]="copy.text('page.profileForms.subtitle')"
       icon="form"
-      [breadcrumbs]="[{ label: 'Program setup' }, { label: copy.text('page.registrationForms.title') }]"
+      [breadcrumbs]="[{ label: 'Program setup' }, { label: copy.text('page.profileForms.title') }]"
     >
       <button *appCan="'masters.manage'" type="button" class="btn btn--primary" (click)="openBuilder()">
         <app-icon name="plus" [size]="15" /> New form
@@ -154,7 +154,7 @@ function blankField(): RegistrationField {
       </div>
 
       <app-data-table
-        exportName="Registration forms"
+        exportName="Profile forms"
         [exportRows]="exportRows"
         [columns]="columns"
         [rows]="list.rows()"
@@ -164,7 +164,7 @@ function blankField(): RegistrationField {
         [loading]="list.loading()"
         [sortBy]="list.sortBy()"
         [sortDir]="list.sortDir()"
-        emptyTitle="No registration forms"
+        emptyTitle="No profile forms"
         emptyIcon="form"
         (pageChange)="list.goToPage($event)"
         (pageSizeChange)="list.setPageSize($event)"
@@ -200,7 +200,7 @@ function blankField(): RegistrationField {
     <!-- ---------------- Builder ---------------- -->
     @if (builderOpen()) {
       <app-modal
-        [title]="editing() ? 'Design registration form' : 'New registration form'"
+        [title]="editing() ? 'Design profile form' : 'New profile form'"
         [subtitle]="enabledFieldCount() + ' active of ' + totalFieldCount() + ' fields · ' + sections().length + ' sections'"
         size="xl"
         (closed)="closeBuilder()"
@@ -588,7 +588,7 @@ function blankField(): RegistrationField {
     <!-- ---------------- Replicate whole form ---------------- -->
     @if (replicateFrom(); as source) {
       <app-modal
-        title="Replicate registration form"
+        title="Replicate profile form"
         [subtitle]="'From ' + source.programTypeName"
         size="sm"
         (closed)="replicateFrom.set(null)"
@@ -695,9 +695,9 @@ function blankField(): RegistrationField {
     `,
   ],
 })
-export class RegistrationFormsComponent {
+export class ProfileFormsComponent {
   protected readonly copy = inject(SiteTextService);
-  private readonly service = inject(RegistrationFormService);
+  private readonly service = inject(ProfileFormService);
   private readonly lookups = inject(LookupService);
   private readonly toast = inject(ToastService);
   private readonly confirm = inject(ConfirmService);
@@ -711,7 +711,7 @@ export class RegistrationFormsComponent {
 
   protected readonly exportRows = () => this.list.fetchAll();
   protected readonly fieldTypes = FIELD_TYPES;
-  protected readonly fieldCount = registrationFieldCount;
+  protected readonly fieldCount = profileFieldCount;
   protected readonly activeCount = activeFieldCount;
   protected readonly term = searchTerm;
   protected readonly value = (event: Event) => (event.target as HTMLSelectElement).value;
@@ -727,7 +727,7 @@ export class RegistrationFormsComponent {
     initialValue: [] as LookupItem[],
   });
 
-  protected readonly list = new ListState<RegistrationForm>((request) => this.service.list(request), {
+  protected readonly list = new ListState<ProfileForm>((request) => this.service.list(request), {
     sortBy: 'programTypeName',
   });
 
@@ -787,8 +787,8 @@ export class RegistrationFormsComponent {
   protected readonly builderOpen = signal(false);
   protected readonly builderTab = signal<'design' | 'preview'>('design');
   protected readonly saving = signal(false);
-  protected readonly editing = signal<RegistrationForm | null>(null);
-  protected readonly sections = signal<RegistrationSection[]>([]);
+  protected readonly editing = signal<ProfileForm | null>(null);
+  protected readonly sections = signal<ProfileSection[]>([]);
 
   protected readonly headerForm = this.fb.group({
     programTypeId: [null as number | null, Validators.required],
@@ -806,7 +806,7 @@ export class RegistrationFormsComponent {
   );
 
   /** Live definition fed to the preview tab. */
-  protected readonly previewDefinition = computed<RegistrationForm>(() => ({
+  protected readonly previewDefinition = computed<ProfileForm>(() => ({
     id: this.editing()?.id ?? 0,
     programTypeId: this.headerForm.value.programTypeId ?? 0,
     programTypeName: this.programTypes().find((p) => p.id === this.headerForm.value.programTypeId)?.name,
@@ -816,16 +816,16 @@ export class RegistrationFormsComponent {
   }));
 
   /* ---------------- dialogs ---------------- */
-  protected readonly previewOf = signal<RegistrationForm | null>(null);
+  protected readonly previewOf = signal<ProfileForm | null>(null);
   protected readonly copyFromOpen = signal(false);
   protected readonly copySourceId = signal<number | null>(null);
-  protected readonly replicateFrom = signal<RegistrationForm | null>(null);
+  protected readonly replicateFrom = signal<ProfileForm | null>(null);
   protected readonly replicateTargetId = signal<number | null>(null);
   protected readonly replicateVersion = signal('v1.0');
   protected readonly fieldEditor = signal<{
     sectionIndex: number;
     fieldIndex: number;
-    field: RegistrationField;
+    field: ProfileField;
   } | null>(null);
 
   protected readonly replicableTargets = computed(() => {
@@ -912,7 +912,7 @@ export class RegistrationFormsComponent {
     });
   }
 
-  protected patchSection(index: number, patch: Partial<RegistrationSection>): void {
+  protected patchSection(index: number, patch: Partial<ProfileSection>): void {
     this.sections.update((list) => list.map((s, i) => (i === index ? { ...s, ...patch } : s)));
   }
 
@@ -927,7 +927,7 @@ export class RegistrationFormsComponent {
   }
 
   /** What one entry is called, falling back to the section's own title. */
-  protected entryNoun(section: RegistrationSection): string {
+  protected entryNoun(section: ProfileSection): string {
     return section.itemLabel?.trim() || section.title || 'entry';
   }
 
@@ -965,7 +965,7 @@ export class RegistrationFormsComponent {
     );
   }
 
-  protected patchField(sectionIndex: number, fieldIndex: number, patch: Partial<RegistrationField>): void {
+  protected patchField(sectionIndex: number, fieldIndex: number, patch: Partial<ProfileField>): void {
     this.sections.update((list) =>
       list.map((s, i) =>
         i === sectionIndex
@@ -982,7 +982,7 @@ export class RegistrationFormsComponent {
   protected patchValidation(
     sectionIndex: number,
     fieldIndex: number,
-    patch: Partial<RegistrationField['validation']>,
+    patch: Partial<ProfileField['validation']>,
   ): void {
     const current = this.sections()[sectionIndex].fields[fieldIndex];
     this.patchField(sectionIndex, fieldIndex, {
@@ -992,7 +992,7 @@ export class RegistrationFormsComponent {
 
   protected changeType(sectionIndex: number, fieldIndex: number, event: Event): void {
     const type = this.inputValue(event) as FieldType;
-    const patch: Partial<RegistrationField> = { type };
+    const patch: Partial<ProfileField> = { type };
     if (!fieldTypeHasOptions(type)) patch.options = [];
     this.patchField(sectionIndex, fieldIndex, patch);
   }
@@ -1006,13 +1006,13 @@ export class RegistrationFormsComponent {
     });
   }
 
-  protected editField(patch: Partial<RegistrationField>): void {
+  protected editField(patch: Partial<ProfileField>): void {
     const editor = this.fieldEditor();
     if (!editor) return;
     this.patchField(editor.sectionIndex, editor.fieldIndex, patch);
   }
 
-  protected editValidation(patch: Partial<RegistrationField['validation']>): void {
+  protected editValidation(patch: Partial<ProfileField['validation']>): void {
     const editor = this.fieldEditor();
     if (!editor) return;
     this.patchValidation(editor.sectionIndex, editor.fieldIndex, patch);
@@ -1044,7 +1044,7 @@ export class RegistrationFormsComponent {
   }
 
   /* ---------------- open / save ---------------- */
-  protected openBuilder(row?: RegistrationForm): void {
+  protected openBuilder(row?: ProfileForm): void {
     this.editing.set(row ?? null);
     this.builderTab.set('design');
     this.headerForm.reset({
@@ -1088,13 +1088,13 @@ export class RegistrationFormsComponent {
       })),
     );
     this.copyFromOpen.set(false);
-    this.toast.success('Layout copied', `${registrationFieldCount(source)} fields brought across.`);
+    this.toast.success('Layout copied', `${profileFieldCount(source)} fields brought across.`);
   }
 
   protected save(): void {
     if (this.headerForm.invalid) {
       this.headerForm.markAllAsTouched();
-      this.toast.warning('Select a program type', 'A registration form always belongs to one track.');
+      this.toast.warning('Select a program type', 'A profile form always belongs to one track.');
       return;
     }
     const invalidField = this.sections()
@@ -1123,7 +1123,7 @@ export class RegistrationFormsComponent {
     request.subscribe({
       next: () => {
         this.saving.set(false);
-        this.toast.success('Registration form saved', `${this.enabledFieldCount()} active fields.`);
+        this.toast.success('Profile form saved', `${this.enabledFieldCount()} active fields.`);
         this.closeBuilder();
         this.list.reload();
       },
@@ -1132,7 +1132,7 @@ export class RegistrationFormsComponent {
   }
 
   /* ---------------- replicate ---------------- */
-  protected openReplicate(row: RegistrationForm): void {
+  protected openReplicate(row: ProfileForm): void {
     this.replicateFrom.set(row);
     this.replicateTargetId.set(null);
     this.replicateVersion.set(row.version);
@@ -1143,7 +1143,7 @@ export class RegistrationFormsComponent {
     const targetId = this.replicateTargetId();
     if (!source || !targetId) return;
     this.saving.set(true);
-    const payload = cloneRegistrationForm(source, targetId, this.replicateVersion());
+    const payload = cloneProfileForm(source, targetId, this.replicateVersion());
     this.service.create(payload as unknown as Record<string, unknown>).subscribe({
       next: () => {
         this.saving.set(false);
@@ -1156,10 +1156,10 @@ export class RegistrationFormsComponent {
     });
   }
 
-  protected async setStatus(row: RegistrationForm, status: RecordStatus): Promise<void> {
+  protected async setStatus(row: ProfileForm, status: RecordStatus): Promise<void> {
     const verb = status === 'Active' ? 'Enable' : 'Disable';
     const confirmed = await this.confirm.ask({
-      title: `${verb} registration form?`,
+      title: `${verb} profile form?`,
       message:
         status === 'Active'
           ? 'Applicants can submit against this form again.'
@@ -1170,7 +1170,7 @@ export class RegistrationFormsComponent {
     if (!confirmed) return;
     this.service.setStatus(row.id, status).subscribe(() => {
       this.toast.success(
-        `Registration form ${status === 'Active' ? 'enabled' : 'disabled'}`,
+        `Profile form ${status === 'Active' ? 'enabled' : 'disabled'}`,
         row.programTypeName,
       );
       this.list.reload();

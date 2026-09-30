@@ -3,7 +3,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { me } from '../../src/api/endpoints';
-import type { Application, RegistrationForm } from '../../src/api/types';
+import type { Application, ProfileForm } from '../../src/api/types';
 import { useResource } from '../../src/api/useResource';
 import {
   Banner,
@@ -32,7 +32,7 @@ export default function ApplicationDetail() {
   );
 
   /* The form definition supplies the labels for the stored answer keys. */
-  const form = useResource<RegistrationForm | null>(
+  const form = useResource<ProfileForm | null>(
     () => (application ? me.form(application.programTypeId) : Promise.resolve(null)),
     [application?.programTypeId],
   );

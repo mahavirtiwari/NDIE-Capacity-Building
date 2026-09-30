@@ -1,10 +1,10 @@
 import { Id, RecordStatus } from './common.model';
-import { FieldType } from './registration-field.model';
+import { FieldType } from './profile-field.model';
 
 /**
  * One field on the form somebody fills in to create an applicant account.
  *
- * Not the same thing as a `RegistrationField`. That belongs to a programme
+ * Not the same thing as a `ProfileField`. That belongs to a programme
  * type's application form; this is the single form that exists before anyone
  * has an account at all.
  */

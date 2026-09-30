@@ -17,9 +17,9 @@ public class TrainingApplication : AuditableEntity
     public int SubCategoryId { get; set; }
     public SubCategory? SubCategory { get; set; }
 
-    /// <summary>The registration form version the answers were captured against.</summary>
-    public int? RegistrationFormId { get; set; }
-    public RegistrationForm? RegistrationForm { get; set; }
+    /// <summary>The profile form version the answers were captured against.</summary>
+    public int? ProfileFormId { get; set; }
+    public ProfileForm? ProfileForm { get; set; }
 
     public ApplicationStatus Status { get; set; } = ApplicationStatus.Draft;
     public DateTime? SubmittedOn { get; set; }

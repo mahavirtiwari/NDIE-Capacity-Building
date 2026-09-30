@@ -116,10 +116,10 @@ public class ProgramTypeDto : AuditDto
     public bool RequiresSignupForm { get; set; } = true;
 
     /// <summary>
-    /// Applying means filling in this track's registration form — and so the
+    /// Applying means filling in this track's profile form — and so the
     /// application is scrutinised. Off, and it is approved on submission.
     /// </summary>
-    public bool RequiresRegistrationForm { get; set; } = true;
+    public bool RequiresProfileForm { get; set; } = true;
 
     /// <summary>None, ParticipationOnly, QualificationOnly or QualificationAndParticipation.</summary>
     public string CertificationPolicy { get; set; } = "QualificationOnly";
@@ -211,10 +211,10 @@ public class ProgramTypeUpsertDto
     public bool RequiresSignupForm { get; set; } = true;
 
     /// <summary>
-    /// Applying means filling in this track's registration form — and so the
+    /// Applying means filling in this track's profile form — and so the
     /// application is scrutinised. Off, and it is approved on submission.
     /// </summary>
-    public bool RequiresRegistrationForm { get; set; } = true;
+    public bool RequiresProfileForm { get; set; } = true;
     public string CertificationPolicy { get; set; } = "QualificationOnly";
 
     /// <summary>

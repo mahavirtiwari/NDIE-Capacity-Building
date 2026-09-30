@@ -192,7 +192,7 @@ const COLUMNS: ColumnDef[] = [
                 }
               </div>
               <span class="field-hint">
-                Applicants who opt for TDS declare their own TAN on the registration form.
+                Applicants who opt for TDS declare their own TAN on the profile form.
               </span>
             </div>
             <div class="field">

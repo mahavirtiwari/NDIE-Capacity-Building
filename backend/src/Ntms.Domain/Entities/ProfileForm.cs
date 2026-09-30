@@ -3,23 +3,23 @@ using Ntms.Domain.Common;
 namespace Ntms.Domain.Entities;
 
 /// <summary>
-/// The applicant registration form for one program type. Super Admin designs it
+/// The applicant profile form for one program type. Super Admin designs it
 /// field by field; a finished form can be replicated onto another track.
 /// </summary>
-public class RegistrationForm : AuditableStatusEntity
+public class ProfileForm : AuditableStatusEntity
 {
     public int ProgramTypeId { get; set; }
     public ProgramType? ProgramType { get; set; }
 
     public string Version { get; set; } = "v1.0";
 
-    public ICollection<RegistrationSection> Sections { get; set; } = [];
+    public ICollection<ProfileSection> Sections { get; set; } = [];
 }
 
-public class RegistrationSection : AuditableEntity
+public class ProfileSection : AuditableEntity
 {
     public int FormId { get; set; }
-    public RegistrationForm? Form { get; set; }
+    public ProfileForm? Form { get; set; }
 
     /// <summary>
     /// Stable key the section is stored against, and only meaningful when it
@@ -56,13 +56,13 @@ public class RegistrationSection : AuditableEntity
     /// </summary>
     public string? ItemLabel { get; set; }
 
-    public ICollection<RegistrationField> Fields { get; set; } = [];
+    public ICollection<ProfileField> Fields { get; set; } = [];
 }
 
-public class RegistrationField : AuditableEntity
+public class ProfileField : AuditableEntity
 {
     public int SectionId { get; set; }
-    public RegistrationSection? Section { get; set; }
+    public ProfileSection? Section { get; set; }
 
     /// <summary>Stable key the applicant's answer is stored against.</summary>
     public string Key { get; set; } = string.Empty;
@@ -82,7 +82,7 @@ public class RegistrationField : AuditableEntity
     /// <summary>Comma separated list of values that reveal the field.</summary>
     public string? VisibleWhenValues { get; set; }
 
-    public ICollection<RegistrationFieldOption> Options { get; set; } = [];
+    public ICollection<ProfileFieldOption> Options { get; set; } = [];
 }
 
 /// <summary>Owned value object persisted into the field row.</summary>
@@ -99,10 +99,10 @@ public class FieldValidation
     public int? MaxFileSizeMb { get; set; }
 }
 
-public class RegistrationFieldOption : AuditableEntity
+public class ProfileFieldOption : AuditableEntity
 {
     public int FieldId { get; set; }
-    public RegistrationField? Field { get; set; }
+    public ProfileField? Field { get; set; }
 
     public string Value { get; set; } = string.Empty;
     public string Label { get; set; } = string.Empty;

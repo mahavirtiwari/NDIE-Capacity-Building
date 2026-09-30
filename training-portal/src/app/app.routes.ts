@@ -129,12 +129,12 @@ export const routes: Routes = [
               ),
           },
           {
-            path: 'registration-forms',
-            title: 'Registration forms · CBMS',
+            path: 'profile-forms',
+            title: 'Profile forms · CBMS',
             canActivate: [permissionGuard('masters.view')],
             loadComponent: () =>
-              import('./features/academics/registration-forms.component').then(
-                (m) => m.RegistrationFormsComponent,
+              import('./features/academics/profile-forms.component').then(
+                (m) => m.ProfileFormsComponent,
               ),
           },
           {

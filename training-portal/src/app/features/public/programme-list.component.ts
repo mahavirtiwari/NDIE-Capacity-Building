@@ -33,7 +33,7 @@ import {
           <h1 class="pub__title">Training programs</h1>
           <p class="pub__lead">
             Scheduled batches across the country. Pick one that is open and apply through the
-            applicant app or the registration form.
+            applicant app or the profile form.
           </p>
         </div>
       </header>

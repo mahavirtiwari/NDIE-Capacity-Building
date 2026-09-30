@@ -44,7 +44,7 @@ export const DELIVERY_MODES: DeliveryMode[] = ['Physical', 'Virtual', 'Hybrid'];
 
 /**
  * The applicant-facing program type, e.g. Master Trainer / Assessor /
- * Consultant. Drives the registration form, fee, curriculum and exam paper.
+ * Consultant. Drives the profile form, fee, curriculum and exam paper.
  */
 export interface ProgramType extends AuditInfo {
   id: Id;
@@ -67,10 +67,10 @@ export interface ProgramType extends AuditInfo {
   /** The applicant answers the sign-up form before applying to this track. */
   requiresSignupForm?: boolean;
   /**
-   * Applying means filling in this track's registration form — and so the
+   * Applying means filling in this track's profile form — and so the
    * application is scrutinised. Off, and it is approved on submission.
    */
-  requiresRegistrationForm?: boolean;
+  requiresProfileForm?: boolean;
   /** What the programme awards at the end of it. */
   certificationPolicy: CertificationPolicy;
   certificationPolicyLabel?: string;

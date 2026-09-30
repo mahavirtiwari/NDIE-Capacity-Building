@@ -3,8 +3,8 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, input, si
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { Application, LookupItem, RegistrationForm, RejectionReason } from '../../core/models';
-import { RegistrationFormService } from '../../core/services/academics.service';
+import { Application, LookupItem, ProfileForm, RejectionReason } from '../../core/models';
+import { ProfileFormService } from '../../core/services/academics.service';
 import { AuthService } from '../../core/services/auth.service';
 import { LookupService } from '../../core/services/masters.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -87,7 +87,7 @@ type Tab = 'responses' | 'documents' | 'history';
                       [readonly]="true"
                     />
                   } @else {
-                    <p class="text-sm text-muted">Loading the registration form for this program type…</p>
+                    <p class="text-sm text-muted">Loading the profile form for this program type…</p>
                   }
                 }
                 @case ('documents') {
@@ -399,7 +399,7 @@ type Tab = 'responses' | 'documents' | 'history';
 })
 export class ApplicationDetailComponent {
   private readonly service = inject(ApplicationService);
-  private readonly forms = inject(RegistrationFormService);
+  private readonly forms = inject(ProfileFormService);
   private readonly lookups = inject(LookupService);
   private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
@@ -408,7 +408,7 @@ export class ApplicationDetailComponent {
   readonly id = input.required<string>();
 
   protected readonly application = signal<Application | null>(null);
-  protected readonly formDefinition = signal<RegistrationForm | null>(null);
+  protected readonly formDefinition = signal<ProfileForm | null>(null);
   protected readonly tab = signal<Tab>('responses');
   protected readonly decision = signal<Decision | null>(null);
   protected readonly saving = signal(false);

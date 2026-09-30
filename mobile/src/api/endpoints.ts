@@ -17,7 +17,7 @@ import type {
   PaymentInitiation,
   PaymentSummary,
   PaymentTransaction,
-  RegistrationForm,
+  ProfileForm,
   SignupForm,
   SocialCategory,
   TrainingMaterial,
@@ -128,7 +128,7 @@ export const me = {
   programs: () => api.get<ApplicantProgram[]>('me/programs'),
 
   form: (programTypeId: number) =>
-    api.get<RegistrationForm>(`me/programs/${programTypeId}/form`),
+    api.get<ProfileForm>(`me/programs/${programTypeId}/form`),
 
   fee: (programTypeId: number) =>
     api.get<FeeStructure | null>(`me/programs/${programTypeId}/fee`),

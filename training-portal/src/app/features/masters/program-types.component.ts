@@ -163,11 +163,11 @@ const COLUMNS: ColumnDef[] = [
             <span class="chip" [class.is-off]="!$any(row).isFeeApplicable">Fee</span>
             <span
               class="chip"
-              [class.is-off]="!$any(row).requiresRegistrationForm"
+              [class.is-off]="!$any(row).requiresProfileForm"
               [title]="
-                $any(row).requiresRegistrationForm
+                $any(row).requiresProfileForm
                   ? 'Applications are scrutinised'
-                  : 'Approved on submission — no registration form'
+                  : 'Approved on submission — no profile form'
               "
             >
               Scrutiny
@@ -179,8 +179,8 @@ const COLUMNS: ColumnDef[] = [
           <div class="btn-row btn-row--end">
             <a
               class="btn btn--icon"
-              title="Registration form"
-              [routerLink]="['/academics/registration-forms']"
+              title="Profile form"
+              [routerLink]="['/academics/profile-forms']"
               [queryParams]="{ programTypeId: $any(row).id }"
             >
               <app-icon name="form" [size]="15" />
@@ -287,16 +287,16 @@ const COLUMNS: ColumnDef[] = [
                   <span>Sign-up form required</span>
                 </label>
                 <label class="check">
-                  <input type="checkbox" formControlName="requiresRegistrationForm" />
-                  <span>Registration form required</span>
+                  <input type="checkbox" formControlName="requiresProfileForm" />
+                  <span>Profile form required</span>
                 </label>
               </div>
               <span class="field-hint">
-                @if (form.controls.requiresRegistrationForm.value) {
+                @if (form.controls.requiresProfileForm.value) {
                   Applications for this track are read on the scrutiny queue before anybody is
                   enrolled.
                 } @else {
-                  No registration form, so nothing to scrutinise: an application to this track is
+                  No profile form, so nothing to scrutinise: an application to this track is
                   approved as it is submitted. The history says so on every one.
                 }
               </span>
@@ -681,7 +681,7 @@ export class ProgramTypesComponent {
     certificationPolicy: ['QualificationOnly' as ProgramType['certificationPolicy']],
     isFeeApplicable: [true],
     requiresSignupForm: [true],
-    requiresRegistrationForm: [true],
+    requiresProfileForm: [true],
     evaluation: this.fb.nonNullable.group({
       kind: ['Written' as ExaminationKind],
       totalMarks: [100],
@@ -770,7 +770,7 @@ export class ProgramTypesComponent {
       certificationPolicy: row?.certificationPolicy ?? 'QualificationOnly',
       isFeeApplicable: row?.isFeeApplicable ?? true,
       requiresSignupForm: row?.requiresSignupForm ?? true,
-      requiresRegistrationForm: row?.requiresRegistrationForm ?? true,
+      requiresProfileForm: row?.requiresProfileForm ?? true,
       evaluation: {
         kind: row?.evaluation?.kind ?? 'Written',
         totalMarks: row?.evaluation?.totalMarks ?? 100,

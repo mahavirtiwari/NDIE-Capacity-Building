@@ -77,7 +77,7 @@ public static class DependencyInjection
         services.AddScoped<DelegationGuard>();
         services.AddScoped<AgencyService>();
         services.AddScoped<CurriculumService>();
-        services.AddScoped<RegistrationFormService>();
+        services.AddScoped<ProfileFormService>();
         services.AddScoped<SignupFormService>();
         services.AddScoped<RejectionReasonService>();
         services.AddScoped<BlockReasonService>();

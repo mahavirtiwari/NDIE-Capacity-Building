@@ -58,7 +58,7 @@ public class ApplicantProgramDto
     /// Whether applying means filling in a form. False and the app submits
     /// straight away — there is nothing to ask.
     /// </summary>
-    public bool RequiresRegistrationForm { get; set; } = true;
+    public bool RequiresProfileForm { get; set; } = true;
     /* What this applicant has already done about this track.
 
        Enough to answer "where is my application" without a second call: the

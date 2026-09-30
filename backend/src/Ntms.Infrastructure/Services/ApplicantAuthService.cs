@@ -153,7 +153,7 @@ public class ApplicantAuthService(
 
         var typeIds = programTypes.Select(p => p.Id).ToList();
 
-        var forms = await db.RegistrationForms.AsNoTracking()
+        var forms = await db.ProfileForms.AsNoTracking()
             .Where(f => typeIds.Contains(f.ProgramTypeId) && f.Status == RecordStatus.Active)
             .Select(f => f.ProgramTypeId)
             .ToListAsync(ct);
@@ -196,7 +196,7 @@ public class ApplicantAuthService(
                 var live = mine.FirstOrDefault(a => a.Status != ApplicationStatus.Rejected);
                 var existing = live ?? mine.FirstOrDefault();
 
-                var accepting = !pt.RequiresRegistrationForm || forms.Contains(pt.Id);
+                var accepting = !pt.RequiresProfileForm || forms.Contains(pt.Id);
 
                 return new ApplicantProgramDto
                 {
@@ -214,10 +214,10 @@ public class ApplicantAuthService(
                     IsExamMandatory = pt.IsExamMandatory,
                     FeePayable = pt.IsFeeApplicable ? Math.Round(taxable + nonTaxable + gst, 2) : 0m,
                     TdsOptions = EnumMaps.SplitInts(fee?.TdsOptions),
-                    /* A track that asks for no registration form is open the
+                    /* A track that asks for no profile form is open the
                        moment it exists: there is no form to wait on. */
                     AcceptingApplications = accepting,
-                    RequiresRegistrationForm = pt.RequiresRegistrationForm,
+                    RequiresProfileForm = pt.RequiresProfileForm,
 
                     ExistingApplicationStatus = existing?.Status.ToApi(),
                     ExistingApplicationId = existing?.Id,

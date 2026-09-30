@@ -5,7 +5,7 @@ export * from './branding.model';
 export * from './email.model';
 export * from './masters.model';
 export * from './curriculum.model';
-export * from './registration-field.model';
+export * from './profile-field.model';
 export * from './signup-field.model';
 export * from './site-text.model';
 export * from './fee.model';

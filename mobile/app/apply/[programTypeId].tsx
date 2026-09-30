@@ -19,8 +19,8 @@ import type {
   ApplicantProgram,
   Application,
   FeeStructure,
-  RegistrationForm,
-  RegistrationSection,
+  ProfileForm,
+  ProfileSection,
 } from '../../src/api/types';
 import { useResource } from '../../src/api/useResource';
 import {
@@ -64,7 +64,7 @@ export default function Apply() {
      once the programme list arrives, and a second round of hooks keyed on
      that would change the hook order between renders. An error is tolerated
      below where the track needs no form. */
-  const form = useResource<RegistrationForm>(() => me.form(programTypeId), [programTypeId]);
+  const form = useResource<ProfileForm>(() => me.form(programTypeId), [programTypeId]);
   const fee = useResource<FeeStructure | null>(() => me.fee(programTypeId), [programTypeId]);
 
   const program = useMemo(
@@ -211,17 +211,17 @@ export default function Apply() {
 
   if (form.loading || programs.loading) return <Loading label="Loading the form…" />;
 
-  /* Some tracks ask nothing: no registration form, and no scrutiny either.
+  /* Some tracks ask nothing: no profile form, and no scrutiny either.
      Applying to one is a declaration and a tap, so a missing form is the
      expected state rather than a fault. */
-  const needsForm = program?.requiresRegistrationForm !== false;
+  const needsForm = program?.requiresProfileForm !== false;
 
   if (needsForm && (form.error || !form.data)) {
     return (
       <EmptyState
         icon="alert-circle-outline"
         title="Form unavailable"
-        message={form.error ?? 'No registration form has been published for this program yet.'}
+        message={form.error ?? 'No profile form has been published for this program yet.'}
       />
     );
   }
@@ -451,7 +451,7 @@ export default function Apply() {
           <Card style={styles.card}>
             <Text style={styles.sectionTitle}>Application</Text>
             <Text style={styles.muted}>
-              This program asks for no registration form. Confirm below and submit — your
+              This program asks for no profile form. Confirm below and submit — your
               application is accepted straight away, with no scrutiny to wait for.
             </Text>
           </Card>
@@ -607,7 +607,7 @@ export default function Apply() {
  * Whether a section is a declaration rather than a set of questions: one
  * enabled field, a tick, and nothing repeated.
  */
-function isConsent(section: RegistrationSection): boolean {
+function isConsent(section: ProfileSection): boolean {
   if (section.isRepeatable) return false;
   const fields = section.fields.filter((field) => field.isEnabled);
   return fields.length === 1 && fields[0].type === 'checkbox';
@@ -641,7 +641,7 @@ function SectionRow({
   onPress,
 }: {
   index: number;
-  section: RegistrationSection;
+  section: ProfileSection;
   progress: SectionProgress;
   onPress: () => void;
 }) {

@@ -92,7 +92,7 @@ public static class DtoMappings
             IsExamMandatory = e.IsExamMandatory,
             IsFeeApplicable = e.IsFeeApplicable,
             RequiresSignupForm = e.RequiresSignupForm,
-            RequiresRegistrationForm = e.RequiresRegistrationForm,
+            RequiresProfileForm = e.RequiresProfileForm,
             CertificationPolicy = e.CertificationPolicy.ToString(),
             CertificationPolicyLabel = CertificationPolicies.Label(e.CertificationPolicy),
             CertificateKinds =
@@ -237,11 +237,11 @@ public static class DtoMappings
         return dto;
     }
 
-    /* ----------------------------------------------- registration form */
+    /* ----------------------------------------------- profile form */
 
-    public static RegistrationFormDto ToDto(this RegistrationForm e)
+    public static ProfileFormDto ToDto(this ProfileForm e)
     {
-        var dto = new RegistrationFormDto
+        var dto = new ProfileFormDto
         {
             Id = e.Id,
             ProgramTypeId = e.ProgramTypeId,
@@ -254,7 +254,7 @@ public static class DtoMappings
             Status = e.Status.ToApi(),
             Sections =
             [
-                .. e.Sections.OrderBy(s => s.DisplayOrder).Select(s => new RegistrationSectionDto
+                .. e.Sections.OrderBy(s => s.DisplayOrder).Select(s => new ProfileSectionDto
                 {
                     Id = s.Id,
                     Key = s.Key,
@@ -268,7 +268,7 @@ public static class DtoMappings
                     ItemLabel = s.ItemLabel,
                     Fields =
                     [
-                        .. s.Fields.OrderBy(f => f.DisplayOrder).Select(f => new RegistrationFieldDto
+                        .. s.Fields.OrderBy(f => f.DisplayOrder).Select(f => new ProfileFieldDto
                         {
                             Id = f.Id,
                             Key = f.Key,

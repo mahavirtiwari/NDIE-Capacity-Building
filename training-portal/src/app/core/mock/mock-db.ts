@@ -11,7 +11,7 @@ import {
   PortalUser,
   Program,
   ProgramType,
-  RegistrationForm,
+  ProfileForm,
   SubCategory,
   TrainingMaterial,
 } from '../models';
@@ -35,7 +35,7 @@ export interface MockState {
   users: PortalUser[];
   applicants: Applicant[];
   curricula: Curriculum[];
-  registrationForms: RegistrationForm[];
+  profileForms: ProfileForm[];
   fees: FeeStructure[];
   examPapers: ExamPaper[];
   materials: TrainingMaterial[];
@@ -59,7 +59,7 @@ export const db: MockState = {
   users: clone(PORTAL_USERS),
   applicants: clone(APPLICANTS),
   curricula: clone(CURRICULA),
-  registrationForms: clone(REGISTRATION_FORMS),
+  profileForms: clone(REGISTRATION_FORMS),
   fees: clone(FEE_STRUCTURES),
   examPapers: clone(EXAM_PAPERS),
   materials: clone(TRAINING_MATERIALS),
@@ -124,7 +124,7 @@ export const COLLECTIONS: Record<string, keyof MockState> = {
   users: 'users',
   applicants: 'applicants',
   curricula: 'curricula',
-  'registration-forms': 'registrationForms',
+  'profile-forms': 'profileForms',
   fees: 'fees',
   'exam-papers': 'examPapers',
   materials: 'materials',

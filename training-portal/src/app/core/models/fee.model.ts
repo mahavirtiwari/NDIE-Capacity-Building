@@ -49,7 +49,7 @@ export interface FeeStructure extends AuditInfo {
   gstPercent: number;
   /**
    * TDS rates the applicant may opt for. The applicant chooses one on the
-   * registration form and supplies their own TAN there — the portal never
+   * profile form and supplies their own TAN there — the portal never
    * stores a TAN against the fee structure.
    */
   tdsOptions: TdsRate[];

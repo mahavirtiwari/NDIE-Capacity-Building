@@ -7,7 +7,7 @@ import {
   FeeStructure,
   Id,
   RecordStatus,
-  RegistrationForm,
+  ProfileForm,
   SignupField,
   SignupFieldUpsert,
   SignupForm,
@@ -22,12 +22,12 @@ export class CurriculumService extends CrudService<Curriculum> {
 }
 
 @Injectable({ providedIn: 'root' })
-export class RegistrationFormService extends CrudService<RegistrationForm> {
-  protected readonly resource = 'registration-forms';
+export class ProfileFormService extends CrudService<ProfileForm> {
+  protected readonly resource = 'profile-forms';
 
   /** Used by the applicant app and by the scrutiny screen to render answers. */
-  byProgramType(programTypeId: Id): Observable<RegistrationForm> {
-    return this.api.get<RegistrationForm>(`${this.resource}/by-program-type/${programTypeId}`);
+  byProgramType(programTypeId: Id): Observable<ProfileForm> {
+    return this.api.get<ProfileForm>(`${this.resource}/by-program-type/${programTypeId}`);
   }
 }
 

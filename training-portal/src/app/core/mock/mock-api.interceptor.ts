@@ -309,10 +309,10 @@ function customRoutes(
   rest: string[],
   body: Record<string, unknown>,
 ): unknown {
-  if (resource === 'registration-forms' && rest[0] === 'by-program-type') {
+  if (resource === 'profile-forms' && rest[0] === 'by-program-type') {
     const programTypeId = Number(rest[1]);
-    const form = db.registrationForms.find((f) => f.programTypeId === programTypeId);
-    if (!form) throw new Error('404 No registration form configured for this program type.');
+    const form = db.profileForms.find((f) => f.programTypeId === programTypeId);
+    if (!form) throw new Error('404 No profile form configured for this program type.');
     return decorate(resource, form as unknown as Record<string, unknown>);
   }
 

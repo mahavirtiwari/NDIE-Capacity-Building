@@ -5,9 +5,9 @@ import {
   ExamQuestion,
   FeeStructure,
   TdsRate,
-  RegistrationField,
-  RegistrationForm,
-  RegistrationSection,
+  ProfileField,
+  ProfileForm,
+  ProfileSection,
   TrainingMaterial,
 } from '../models';
 import { PROGRAM_TYPES } from './seed-masters';
@@ -72,13 +72,13 @@ export const CURRICULA: Curriculum[] = PROGRAM_TYPES.map((pt, i) => {
 });
 
 /* ------------------------------------------------------------------ */
-/* Applicant registration forms (dynamic, per program type)            */
+/* Applicant profile forms (dynamic, per program type)            */
 /* ------------------------------------------------------------------ */
 
 let fieldSeq = 0;
 function field(
-  partial: Partial<RegistrationField> & Pick<RegistrationField, 'key' | 'label' | 'type'>,
-): RegistrationField {
+  partial: Partial<ProfileField> & Pick<ProfileField, 'key' | 'label' | 'type'>,
+): ProfileField {
   fieldSeq += 1;
   return {
     id: fieldSeq,
@@ -107,7 +107,7 @@ const ZED_DISCIPLINES = opts(
  * Consultant application form. Super Admin can enable, disable, extend or
  * replicate these per program type.
  */
-function baseSections(): RegistrationSection[] {
+function baseSections(): ProfileSection[] {
   return [
     {
       id: 1,
@@ -228,7 +228,7 @@ function baseSections(): RegistrationSection[] {
 }
 
 /** Track specific block appended after the common sections. */
-function roleSection(programTypeName: string): RegistrationSection {
+function roleSection(programTypeName: string): ProfileSection {
   if (/Assessor/i.test(programTypeName)) {
     return {
       id: 9,
@@ -277,7 +277,7 @@ function roleSection(programTypeName: string): RegistrationSection {
  * source and, if so, supply their own TAN. Admin only decides which rates the
  * fee structure offers.
  */
-function tdsSection(): RegistrationSection {
+function tdsSection(): ProfileSection {
   return {
     id: 10,
     title: 'Payment & TDS declaration',
@@ -319,7 +319,7 @@ function tdsSection(): RegistrationSection {
   };
 }
 
-function declarationSection(): RegistrationSection {
+function declarationSection(): ProfileSection {
   return {
     id: 11,
     title: 'Declaration',
@@ -331,7 +331,7 @@ function declarationSection(): RegistrationSection {
   };
 }
 
-export const REGISTRATION_FORMS: RegistrationForm[] = PROGRAM_TYPES.map((pt, i) => ({
+export const REGISTRATION_FORMS: ProfileForm[] = PROGRAM_TYPES.map((pt, i) => ({
   id: i + 1,
   programTypeId: pt.id,
   version: 'v1.0',

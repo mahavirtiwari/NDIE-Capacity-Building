@@ -29,7 +29,7 @@ public class SubCategory : AuditableStatusEntity
 
 /// <summary>
 /// The applicant facing track — Master Trainer, Assessor, Consultant. Drives the
-/// registration form, fee, curriculum and exam paper.
+/// profile form, fee, curriculum and exam paper.
 /// </summary>
 public class ProgramType : AuditableStatusEntity
 {
@@ -71,7 +71,7 @@ public class ProgramType : AuditableStatusEntity
     public bool RequiresSignupForm { get; set; } = true;
 
     /// <summary>
-    /// Whether applying means filling in this track's registration form.
+    /// Whether applying means filling in this track's profile form.
     ///
     /// It also decides whether the application is scrutinised. The two go
     /// together: scrutiny is the reading of what was declared on that form,
@@ -80,7 +80,7 @@ public class ProgramType : AuditableStatusEntity
     /// two settings would allow "no form, but scrutinise it", which is a
     /// queue of blank applications nobody can act on.
     /// </summary>
-    public bool RequiresRegistrationForm { get; set; } = true;
+    public bool RequiresProfileForm { get; set; } = true;
 
     /// <summary>
     /// What this programme awards. Defaults to the behaviour the system had

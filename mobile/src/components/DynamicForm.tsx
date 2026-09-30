@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { RegistrationField, RegistrationForm, RegistrationSection } from '../api/types';
+import type { ProfileField, ProfileForm, ProfileSection } from '../api/types';
 import { colors, font, radius, spacing } from '../theme';
 import { MAX_LENGTHS, UPPERCASE_TYPES, formatErrorFor } from '../validation/formats';
 import { Card, Chip, Field } from './ui';
@@ -55,15 +55,15 @@ export interface DynamicFormState {
    * where they were. The section screen runs this on the way out, so a
    * mistake is reported where it was made rather than at the very end.
    */
-  validateSection: (section: RegistrationSection) => boolean;
+  validateSection: (section: ProfileSection) => boolean;
 
   /** Where one section stands, for the section list. */
-  progressOf: (section: RegistrationSection) => SectionProgress;
+  progressOf: (section: ProfileSection) => SectionProgress;
 
   /** How many times a repeating section is currently filled in. */
-  entryCount: (section: RegistrationSection) => number;
-  addEntry: (section: RegistrationSection) => void;
-  removeEntry: (section: RegistrationSection, index: number) => void;
+  entryCount: (section: ProfileSection) => number;
+  addEntry: (section: ProfileSection) => void;
+  removeEntry: (section: ProfileSection, index: number) => void;
 }
 
 /**
@@ -73,7 +73,7 @@ export interface DynamicFormState {
 const SEP = '\u001f';
 
 /** Where a repeating section's entries are stored. */
-export function sectionKeyOf(section: RegistrationSection): string {
+export function sectionKeyOf(section: ProfileSection): string {
   return section.key?.trim() || `section${section.id}`;
 }
 
@@ -85,14 +85,14 @@ export function sectionKeyOf(section: RegistrationSection): string {
  * field is answered once or five times.
  */
 export function storageKey(
-  section: RegistrationSection,
+  section: ProfileSection,
   index: number | null,
   fieldKey: string,
 ): string {
   return index === null ? fieldKey : `${sectionKeyOf(section)}${SEP}${index}${SEP}${fieldKey}`;
 }
 
-function defaultFor(field: RegistrationField): FormValue {
+function defaultFor(field: ProfileField): FormValue {
   if (field.type === 'multiselect') return [];
   if (field.type === 'checkbox') return false;
   return '';
@@ -113,7 +113,7 @@ function isBlank(raw: FormValue): boolean {
  * Whether a stored key belongs to this section, so its errors can be cleared
  * without disturbing the rest of the form's.
  */
-function ownsKey(section: RegistrationSection, fields: RegistrationField[]) {
+function ownsKey(section: ProfileSection, fields: ProfileField[]) {
   const prefix = `${sectionKeyOf(section)}${SEP}`;
   const own = new Set(fields.map((field) => field.key));
   return (key: string) =>
@@ -128,11 +128,11 @@ const asText = (value: FormValue): string => {
   return value;
 };
 
-const minOf = (section: RegistrationSection) => Math.max(0, section.minEntries ?? 1);
-const maxOf = (section: RegistrationSection) => Math.max(1, section.maxEntries ?? 10);
+const minOf = (section: ProfileSection) => Math.max(0, section.minEntries ?? 1);
+const maxOf = (section: ProfileSection) => Math.max(1, section.maxEntries ?? 10);
 
 /** What one entry is called, falling back to the section's own title. */
-export function entryNoun(section: RegistrationSection): string {
+export function entryNoun(section: ProfileSection): string {
   return section.itemLabel?.trim() || section.title;
 }
 
@@ -140,7 +140,7 @@ export function entryNoun(section: RegistrationSection): string {
  * Holds the answers for a Super Admin designed form and validates them with the
  * same rules the API enforces, so the applicant is corrected before they submit.
  */
-export function useDynamicForm(form: RegistrationForm | null): DynamicFormState {
+export function useDynamicForm(form: ProfileForm | null): DynamicFormState {
   const [values, setValues] = useState<FormValues>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   /** How many entries each repeating section is showing, by section key. */
@@ -152,7 +152,7 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
   );
 
   const fieldsOf = useCallback(
-    (section: RegistrationSection) => section.fields.filter((field) => field.isEnabled),
+    (section: ProfileSection) => section.fields.filter((field) => field.isEnabled),
     [],
   );
 
@@ -175,7 +175,7 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
   }, [liveSections]);
 
   const entryCount = useCallback(
-    (section: RegistrationSection) =>
+    (section: ProfileSection) =>
       section.isRepeatable ? (counts[sectionKeyOf(section)] ?? Math.max(minOf(section), 1)) : 1,
     [counts],
   );
@@ -190,7 +190,7 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
     });
   }, []);
 
-  const addEntry = useCallback((section: RegistrationSection) => {
+  const addEntry = useCallback((section: ProfileSection) => {
     const key = sectionKeyOf(section);
     setCounts((current) => {
       const shown = current[key] ?? Math.max(minOf(section), 1);
@@ -210,7 +210,7 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
    * with them rather than the wrong entry appearing to have been deleted.
    */
   const removeEntry = useCallback(
-    (section: RegistrationSection, index: number) => {
+    (section: ProfileSection, index: number) => {
       const key = sectionKeyOf(section);
       const fields = fieldsOf(section);
 
@@ -245,8 +245,8 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
    */
   const isVisible = useCallback(
     (
-      field: RegistrationField,
-      section: RegistrationSection,
+      field: ProfileField,
+      section: ProfileSection,
       index: number | null,
       source: FormValues,
     ): boolean => {
@@ -263,7 +263,7 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
 
   const checkField = useCallback(
     (
-      field: RegistrationField,
+      field: ProfileField,
       key: string,
       found: Record<string, string>,
       source: FormValues,
@@ -321,7 +321,7 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
    * the two can never disagree about what is wrong.
    */
   const collectSection = useCallback(
-    (section: RegistrationSection, found: Record<string, string>) => {
+    (section: ProfileSection, found: Record<string, string>) => {
       const fields = fieldsOf(section);
 
       if (!section.isRepeatable) {
@@ -360,7 +360,7 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
   }, [liveSections, collectSection]);
 
   const validateSection = useCallback(
-    (section: RegistrationSection): boolean => {
+    (section: ProfileSection): boolean => {
       const found: Record<string, string> = {};
       collectSection(section, found);
 
@@ -389,7 +389,7 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
    * honest reading of a section with no requirements.
    */
   const progressOf = useCallback(
-    (section: RegistrationSection): SectionProgress => {
+    (section: ProfileSection): SectionProgress => {
       const fields = fieldsOf(section);
       const entries = section.isRepeatable ? entryCount(section) : 1;
 
@@ -482,7 +482,7 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
   );
 
   const payload = useCallback((): Record<string, unknown> => {
-    const answerOf = (field: RegistrationField, key: string): FormValue => {
+    const answerOf = (field: ProfileField, key: string): FormValue => {
       const raw = values[key] ?? defaultFor(field);
       return typeof raw === 'string' && UPPERCASE_TYPES.includes(field.type)
         ? raw.toUpperCase()
@@ -547,14 +547,14 @@ export function DynamicSectionView({
   state,
   showCount = true,
 }: {
-  section: RegistrationSection;
+  section: ProfileSection;
   state: DynamicFormState;
   /** Off where the section is the whole screen, or a one-line consent. */
   showCount?: boolean;
 }) {
   const { values, errors, setValue, entryCount, addEntry, removeEntry } = state;
 
-  const visible = (field: RegistrationField, index: number | null): boolean => {
+  const visible = (field: ProfileField, index: number | null): boolean => {
     if (!field.visibleWhenFieldKey) return true;
     const scoped = storageKey(section, index, field.visibleWhenFieldKey);
     const raw = scoped in values ? values[scoped] : values[field.visibleWhenFieldKey];
@@ -663,7 +663,7 @@ export function DynamicFormView({
   form,
   state,
 }: {
-  form: RegistrationForm;
+  form: ProfileForm;
   state: DynamicFormState;
 }) {
   return (
@@ -683,7 +683,7 @@ function FieldRenderer({
   error,
   onChange,
 }: {
-  field: RegistrationField;
+  field: ProfileField;
   value: FormValue;
   error?: string;
   onChange: (value: FormValue) => void;
@@ -803,7 +803,7 @@ function FileField({
   error,
   onChange,
 }: {
-  field: RegistrationField;
+  field: ProfileField;
   value: string;
   error?: string;
   onChange: (value: string) => void;

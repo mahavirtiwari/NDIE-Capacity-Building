@@ -237,7 +237,7 @@ public class ApplicationConfiguration : IEntityTypeConfiguration<TrainingApplica
             .OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.SubCategory).WithMany().HasForeignKey(x => x.SubCategoryId)
             .OnDelete(DeleteBehavior.Restrict);
-        b.HasOne(x => x.RegistrationForm).WithMany().HasForeignKey(x => x.RegistrationFormId)
+        b.HasOne(x => x.ProfileForm).WithMany().HasForeignKey(x => x.ProfileFormId)
             .OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.AssignedToUser).WithMany().HasForeignKey(x => x.AssignedToUserId)
             .OnDelete(DeleteBehavior.Restrict);

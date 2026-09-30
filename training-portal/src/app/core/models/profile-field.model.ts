@@ -59,7 +59,7 @@ export interface FieldValidation {
   maxFileSizeMb?: number | null;
 }
 
-export interface RegistrationField {
+export interface ProfileField {
   id: Id;
   key: string;
   label: string;
@@ -77,7 +77,7 @@ export interface RegistrationField {
   visibleWhenValues?: string[];
 }
 
-export interface RegistrationSection {
+export interface ProfileSection {
   id: Id;
   /**
    * Set by the server from the title. It is what a repeating section's answers
@@ -94,11 +94,11 @@ export interface RegistrationSection {
   maxEntries?: number;
   /** What one entry is called: "Qualification 2", "Add qualification". */
   itemLabel?: string;
-  fields: RegistrationField[];
+  fields: ProfileField[];
 }
 
-/** The complete applicant registration form for one program type. */
-export interface RegistrationForm extends AuditInfo {
+/** The complete applicant profile form for one program type. */
+export interface ProfileForm extends AuditInfo {
   id: Id;
   programTypeId: Id;
   programTypeName?: string;
@@ -106,14 +106,14 @@ export interface RegistrationForm extends AuditInfo {
   subCategoryName?: string;
   version: string;
   status: RecordStatus;
-  sections: RegistrationSection[];
+  sections: ProfileSection[];
 }
 
-export function registrationFieldCount(form: RegistrationForm): number {
+export function profileFieldCount(form: ProfileForm): number {
   return form.sections.reduce((n, s) => n + s.fields.length, 0);
 }
 
-export function activeFieldCount(form: RegistrationForm): number {
+export function activeFieldCount(form: ProfileForm): number {
   return form.sections
     .filter((s) => s.isEnabled)
     .reduce((n, s) => n + s.fields.filter((f) => f.isEnabled).length, 0);
@@ -123,11 +123,11 @@ export function activeFieldCount(form: RegistrationForm): number {
  * Deep copy of a form definition for a different program type. Ids are reset so
  * the backend treats every section and field as new.
  */
-export function cloneRegistrationForm(
-  source: RegistrationForm,
+export function cloneProfileForm(
+  source: ProfileForm,
   programTypeId: Id,
   version: string,
-): Omit<RegistrationForm, 'id'> {
+): Omit<ProfileForm, 'id'> {
   return {
     programTypeId,
     version,
