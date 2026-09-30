@@ -95,7 +95,7 @@ export default function Materials() {
         <EmptyState
           icon="book-outline"
           title="No material yet"
-          message="Reading material and videos appear here once your programme publishes them."
+          message="Reading material and videos appear here once your program publishes them."
         />
       }
       renderItem={({ item }) => <MaterialCard material={item} onOpen={() => open(item)} />}

@@ -33,9 +33,9 @@ import {
 } from './programme-report.workbook';
 
 const COLUMNS: ColumnDef[] = [
-  { key: 'code', header: 'Programme ID', sortable: true, width: '150px', variant: 'primary' },
+  { key: 'code', header: 'Program ID', sortable: true, width: '150px', variant: 'primary' },
   { key: 'agency', header: 'Agency', sortable: true },
-  { key: 'programme', header: 'Programme' },
+  { key: 'programme', header: 'Program' },
   { key: 'venue', header: 'Venue' },
   { key: 'dates', header: 'From – to', width: '190px' },
   { key: 'participantCount', header: 'Enrolled', align: 'center', sortable: true, width: '100px' },
@@ -73,7 +73,7 @@ const COLUMNS: ColumnDef[] = [
               <span class="input-icon"><app-icon name="search" [size]="15" /></span>
               <input
                 class="input"
-                placeholder="Search by programme ID, name or venue"
+                placeholder="Search by program ID, name or venue"
                 (input)="list.setSearch(term($event))"
               />
             </div>
@@ -138,7 +138,7 @@ const COLUMNS: ColumnDef[] = [
       </div>
 
       <app-data-table
-        exportName="Programme register"
+        exportName="Program register"
         [exportRows]="exportRows"
         [columns]="columns"
         [rows]="list.rows()"
@@ -148,8 +148,8 @@ const COLUMNS: ColumnDef[] = [
         [loading]="list.loading()"
         [sortBy]="list.sortBy()"
         [sortDir]="list.sortDir()"
-        emptyTitle="No programmes to report on"
-        emptyMessage="A programme appears here as soon as it is set up."
+        emptyTitle="No programs to report on"
+        emptyMessage="A program appears here as soon as it is set up."
         emptyIcon="file"
         (pageChange)="list.goToPage($event)"
         (pageSizeChange)="list.setPageSize($event)"
@@ -263,7 +263,7 @@ const COLUMNS: ColumnDef[] = [
           </div>
         </div>
         <div class="card__body">
-          <iframe #frame class="report-frame" title="Programme report"></iframe>
+          <iframe #frame class="report-frame" title="Program report"></iframe>
         </div>
       </section>
     }

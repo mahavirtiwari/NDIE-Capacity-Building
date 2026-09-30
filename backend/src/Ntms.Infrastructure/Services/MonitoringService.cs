@@ -42,7 +42,7 @@ public class MonitoringService(
             .Include(p => p.ProgramType)
             .Include(p => p.State)
             .FirstOrDefaultAsync(p => p.Id == programmeId, ct)
-            ?? throw AppException.NotFound("Programme");
+            ?? throw AppException.NotFound("Program");
 
         if (programme.CoordinatorId == currentUser.UserId) return programme;
 
@@ -54,7 +54,7 @@ public class MonitoringService(
             if (visible) return programme;
         }
 
-        throw AppException.Forbidden("This programme is not assigned to you.");
+        throw AppException.Forbidden("This program is not assigned to you.");
     }
 
     /// <summary>
@@ -68,10 +68,10 @@ public class MonitoringService(
     {
         var programme = await db.Programmes
             .FirstOrDefaultAsync(p => p.Id == programmeId, ct)
-            ?? throw AppException.NotFound("Programme");
+            ?? throw AppException.NotFound("Program");
 
         if (programme.CoordinatorId != currentUser.UserId)
-            throw AppException.Forbidden("This programme is not assigned to you.");
+            throw AppException.Forbidden("This program is not assigned to you.");
 
         var sealedOn = await db.ProgrammeSubmissions.AsNoTracking()
             .Where(s => s.ProgrammeId == programmeId)
@@ -80,7 +80,7 @@ public class MonitoringService(
 
         if (sealedOn is not null)
             throw AppException.Conflict(
-                $"This programme was finally submitted on {IndianTime.Format(sealedOn.Value)} and can no longer be changed.");
+                $"This program was finally submitted on {IndianTime.Format(sealedOn.Value)} and can no longer be changed.");
 
         return programme;
     }
@@ -91,7 +91,7 @@ public class MonitoringService(
     public async Task<List<CoordinatorProgrammeDto>> MyProgrammesAsync(CancellationToken ct)
     {
         var userId = currentUser.UserId
-            ?? throw AppException.Forbidden("Sign in to see your programmes.");
+            ?? throw AppException.Forbidden("Sign in to see your programs.");
 
         var rows = await db.Programmes.AsNoTracking()
             .Include(p => p.ProgramType)
@@ -322,7 +322,7 @@ public class MonitoringService(
             throw new AppException("That sub-topic does not belong to the chosen topic.");
 
         if (topic.Session?.CurriculumId != programme.CurriculumId)
-            throw new AppException("That topic is not part of this programme's curriculum.");
+            throw new AppException("That topic is not part of this program's curriculum.");
 
         var session = new MonitoringSession
         {
@@ -609,7 +609,7 @@ public class MonitoringService(
             /* The unique index caught a second submission that slipped past the
                check above — two taps on a slow connection. Report it as the
                conflict it is rather than a server error. */
-            throw AppException.Conflict("This programme has already been submitted.");
+            throw AppException.Conflict("This program has already been submitted.");
         }
 
         return new ProgrammeSubmissionDto

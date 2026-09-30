@@ -22,7 +22,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'fullName', header: 'Trainer', sortable: true, variant: 'primary' },
   { key: 'organisation', header: 'Organisation', sortable: true },
   { key: 'contact', header: 'Contact', width: '200px' },
-  { key: 'programme', header: 'Programme', sortable: true },
+  { key: 'programme', header: 'Program', sortable: true },
   { key: 'conducted', header: 'Conducted', sortable: true, width: '190px' },
   { key: 'actions', header: '', align: 'right', width: '90px' },
 ];
@@ -180,26 +180,26 @@ const COLUMNS: ColumnDef[] = [
     @if (formOpen()) {
       <app-modal
         [title]="editing() ? 'Edit trainer' : 'Add trainer'"
-        subtitle="Recorded against one programme — the batch they delivered."
+        subtitle="Recorded against one program — the batch they delivered."
         (closed)="closeForm()"
       >
         <form [formGroup]="form" class="form-grid" id="trainer-form" (ngSubmit)="save()">
           @if (!editing()) {
             <div class="field field--span-2">
-              <label class="field-label" for="tfProgramme">Programme <span class="req">*</span></label>
+              <label class="field-label" for="tfProgramme">Program <span class="req">*</span></label>
               <select id="tfProgramme" class="select" formControlName="programmeId">
-                <option [ngValue]="null">Select the programme they delivered</option>
+                <option [ngValue]="null">Select the program they delivered</option>
                 @for (option of programmes(); track option.id) {
                   <option [ngValue]="option.id">{{ option.name }}</option>
                 }
               </select>
               @if (invalid('programmeId')) {
-                <span class="field-error">Choose the programme this trainer took.</span>
+                <span class="field-error">Choose the program this trainer took.</span>
               }
             </div>
           } @else {
             <div class="field field--span-2">
-              <span class="field-label">Programme</span>
+              <span class="field-label">Program</span>
               <p class="text-sm">
                 {{ editing()!.programmeCode }} · {{ editing()!.programmeName }}
               </p>

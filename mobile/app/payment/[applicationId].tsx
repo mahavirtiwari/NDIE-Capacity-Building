@@ -66,7 +66,7 @@ export default function PaymentScreen() {
       {data ? (
         <>
           <View style={styles.head}>
-            <Text style={styles.programme}>{data.programTypeName ?? 'Programme fee'}</Text>
+            <Text style={styles.programme}>{data.programTypeName ?? 'Program fee'}</Text>
             <Text style={styles.applicationNo}>{data.applicationNo}</Text>
           </View>
 

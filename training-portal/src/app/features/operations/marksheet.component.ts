@@ -203,7 +203,7 @@ interface Draft {
         </div>
       } @else if (data.rows.length === 0) {
         <div class="card__body">
-          <span class="text-sm text-muted">Nobody is enrolled on this programme yet.</span>
+          <span class="text-sm text-muted">Nobody is enrolled on this program yet.</span>
         </div>
       }
     } @else {

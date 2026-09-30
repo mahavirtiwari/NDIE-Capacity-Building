@@ -95,7 +95,7 @@ interface Region {
             >
               <strong class="map__note-name">{{ region.name }}</strong>
               <span class="map__note-row">
-                <span>Programmes conducted</span>
+                <span>Programs conducted</span>
                 <b>{{ region.programmes | number }}</b>
               </span>
               <span class="map__note-row">
@@ -521,7 +521,7 @@ export class StateCoverageMapComponent {
   protected readonly ramp = [0, 0.2, 0.4, 0.6, 0.8, 1];
 
   protected readonly measureLabel = computed(() =>
-    this.measure() === 'participants' ? 'Participants' : 'Programme types',
+    this.measure() === 'participants' ? 'Participants' : 'Program types',
   );
 
   protected readonly max = computed(() => {
@@ -684,7 +684,7 @@ export class StateCoverageMapComponent {
 
   protected readonly summary = computed(() => {
     const result = this.data();
-    if (!result) return 'Programme reach by state';
+    if (!result) return 'Program reach by state';
     return (
       `Programme reach by state. ${result.statesCovered} states covered, ` +
       `${result.totalParticipants} participants in total.`

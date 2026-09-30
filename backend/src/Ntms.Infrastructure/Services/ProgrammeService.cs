@@ -67,7 +67,7 @@ public class ProgrammeService(
 
     public async Task<ProgrammeDto> GetAsync(int id, CancellationToken ct) =>
         (await Base.FirstOrDefaultAsync(p => p.Id == id, ct)
-         ?? throw AppException.NotFound("Programme")).ToDto();
+         ?? throw AppException.NotFound("Program")).ToDto();
 
     public async Task<ProgrammeDto> CreateAsync(ProgrammeUpsertDto dto, CancellationToken ct)
     {
@@ -136,10 +136,10 @@ public class ProgrammeService(
     public async Task<ProgrammeDto> UpdateAsync(int id, ProgrammeUpsertDto dto, CancellationToken ct)
     {
         var entity = await db.Programmes.FirstOrDefaultAsync(p => p.Id == id, ct)
-                     ?? throw AppException.NotFound("Programme");
+                     ?? throw AppException.NotFound("Program");
 
         if (entity.Status is ProgramStatus.Conducted or ProgramStatus.PermissionRejected)
-            throw new AppException($"A {entity.Status} programme can no longer be edited.");
+            throw new AppException($"A {entity.Status} program can no longer be edited.");
 
         Validate(dto);
         var mode = EnumMaps.ParseEnum(dto.Mode, entity.Mode);
@@ -170,7 +170,7 @@ public class ProgrammeService(
     public async Task<ProgrammeDto> ChangeStatusAsync(int id, ProgrammeStatusDto dto, CancellationToken ct)
     {
         var entity = await db.Programmes.FirstOrDefaultAsync(p => p.Id == id, ct)
-                     ?? throw AppException.NotFound("Programme");
+                     ?? throw AppException.NotFound("Program");
 
         var target = EnumMaps.ParseEnum(dto.Status, entity.Status);
         var allowed = entity.Status switch
@@ -187,7 +187,7 @@ public class ProgrammeService(
         };
 
         if (!allowed.Contains(target))
-            throw new AppException($"A {entity.Status} programme cannot move to {target}.");
+            throw new AppException($"A {entity.Status} program cannot move to {target}.");
 
         /* Permission to run a batch is granted by the tier above the agency, not
            by the agency that proposed it. Without this an agency login — which
@@ -197,7 +197,7 @@ public class ProgrammeService(
             && currentUser.Tier == BaseRole.AgencyAdmin)
         {
             throw AppException.Forbidden(
-                "An implementing agency cannot approve its own programme. "
+                "An implementing agency cannot approve its own program. "
                 + "The operation manager accepts or rejects it.");
         }
 
@@ -214,7 +214,7 @@ public class ProgrammeService(
     public async Task<ProgrammeDto> CloseRegistrationsAsync(int id, CancellationToken ct)
     {
         var entity = await db.Programmes.FirstOrDefaultAsync(p => p.Id == id, ct)
-                     ?? throw AppException.NotFound("Programme");
+                     ?? throw AppException.NotFound("Program");
         entity.RegistrationsOpen = false;
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
@@ -223,7 +223,7 @@ public class ProgrammeService(
     public async Task<ProgrammeDto> SetExamTimeAsync(int id, SetExamTimeDto dto, CancellationToken ct)
     {
         var entity = await db.Programmes.FirstOrDefaultAsync(p => p.Id == id, ct)
-                     ?? throw AppException.NotFound("Programme");
+                     ?? throw AppException.NotFound("Program");
 
         if (dto.ExamDateTime.Date < entity.StartDate.ToDateTime(TimeOnly.MinValue).Date)
             throw new AppException("The exam cannot be scheduled before the batch starts.");
@@ -253,7 +253,7 @@ public class ProgrammeService(
     {
         var entity = await db.Programmes.Include(p => p.Sessions)
                          .FirstOrDefaultAsync(p => p.Id == id, ct)
-                     ?? throw AppException.NotFound("Programme");
+                     ?? throw AppException.NotFound("Program");
 
         if (string.IsNullOrWhiteSpace(dto.Title))
             throw new AppException("A session needs a title.");
@@ -283,7 +283,7 @@ public class ProgrammeService(
             .Include(p => p.Sessions).ThenInclude(s => s.Attendance)
             .Include(p => p.Participants)
             .FirstOrDefaultAsync(p => p.Id == id, ct)
-            ?? throw AppException.NotFound("Programme");
+            ?? throw AppException.NotFound("Program");
 
         var session = entity.Sessions.FirstOrDefault(s => s.Id == sessionId)
                       ?? throw AppException.NotFound("Session");
@@ -317,7 +317,7 @@ public class ProgrammeService(
     {
         var entity = await db.Programmes.Include(p => p.Participants)
                          .FirstOrDefaultAsync(p => p.Id == id, ct)
-                     ?? throw AppException.NotFound("Programme");
+                     ?? throw AppException.NotFound("Program");
 
         if (!entity.RegistrationsOpen)
             throw new AppException("Registrations for this batch are closed.");

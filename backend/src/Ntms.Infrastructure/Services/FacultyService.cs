@@ -141,7 +141,7 @@ public class FacultyService(NtmsDbContext db, ICurrentUser currentUser)
             .WithinScope(currentUser)
             .AnyAsync(p => p.Id == programmeId, ct);
 
-        if (!visible) throw AppException.NotFound("Programme");
+        if (!visible) throw AppException.NotFound("Program");
 
         var sealedOn = await db.ProgrammeSubmissions.AsNoTracking()
             .Where(s => s.ProgrammeId == programmeId)
@@ -151,7 +151,7 @@ public class FacultyService(NtmsDbContext db, ICurrentUser currentUser)
         if (sealedOn is not null)
         {
             throw AppException.Conflict(
-                $"This programme was finally submitted on {IndianTime.Format(sealedOn.Value)} " +
+                $"This program was finally submitted on {IndianTime.Format(sealedOn.Value)} " +
                 "and its record can no longer be changed.");
         }
     }

@@ -174,7 +174,7 @@ public static class EmailTemplateDefaults
                   <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Role</td><td>{{roleName}}</td></tr>
                 </table>
                 <p><strong>Your allocation:</strong> {{scopeSummary}}</p>
-                <p>This account has read access across the whole programme — dashboards, applications, programmes, agencies and reports. It is deliberately view-only: nothing can be created, altered or removed with it.</p>
+                <p>This account has read access across the whole program — dashboards, applications, programs, agencies and reports. It is deliberately view-only: nothing can be created, altered or removed with it.</p>
                 <p>You will be asked to change the password the first time you sign in. Always sign
                    in with the user ID above, never with your email address.</p>
                 """,
@@ -198,7 +198,7 @@ public static class EmailTemplateDefaults
                   <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Role</td><td>{{roleName}}</td></tr>
                 </table>
                 <p><strong>Your allocation:</strong> {{scopeSummary}}</p>
-                <p>You empanel Implementing Agencies within your allocated program types and states, and oversee the programmes they run.</p>
+                <p>You empanel Implementing Agencies within your allocated program types and states, and oversee the programs they run.</p>
                 <p>You will be asked to change the password the first time you sign in. Always sign
                    in with the user ID above, never with your email address.</p>
                 """,
@@ -222,7 +222,7 @@ public static class EmailTemplateDefaults
                   <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Role</td><td>{{roleName}}</td></tr>
                 </table>
                 <p><strong>Your allocation:</strong> {{scopeSummary}}</p>
-                <p>Use it to add your own coordinators for the program types, states and districts allocated to you, and to run and record training programmes.</p>
+                <p>Use it to add your own coordinators for the program types, states and districts allocated to you, and to run and record training programs.</p>
                 <p>You will be asked to change the password the first time you sign in. Always sign
                    in with the user ID above, never with your email address.</p>
                 """,
@@ -246,7 +246,7 @@ public static class EmailTemplateDefaults
                   <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Role</td><td>{{roleName}}</td></tr>
                 </table>
                 <p><strong>Your allocation:</strong> {{scopeSummary}}</p>
-                <p>You record programmes conducted in person or online and mark attendance, for the program types and districts allocated to you.</p>
+                <p>You record programs conducted in person or online and mark attendance, for the program types and districts allocated to you.</p>
                 <p>You will be asked to change the password the first time you sign in. Always sign
                    in with the user ID above, never with your email address.</p>
                 """,
@@ -305,7 +305,7 @@ public static class EmailTemplateDefaults
                 <p>Your application has been received and is queued for scrutiny.</p>
                 <table style="margin:18px 0;border-collapse:collapse;">
                   <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Application no.</td><td style="font-weight:700;">{{applicationNo}}</td></tr>
-                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Programme</td><td>{{programme}}</td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Program</td><td>{{programme}}</td></tr>
                 </table>
                 <p>You will be notified as soon as a decision is recorded.</p>
                 """,
@@ -435,7 +435,7 @@ public static class EmailTemplateDefaults
         new()
         {
             Key = ProgrammeSchedule,
-            Name = "Programme schedule",
+            Name = "Program schedule",
             Description = "Sent to a participant when a batch is scheduled.",
             Placeholders = "name,programmeName,programmeId,startDate,endDate,mode,venue,meetingLink",
             Subject = "{{programmeName}} — {{startDate}}",

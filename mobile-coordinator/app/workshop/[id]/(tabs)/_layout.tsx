@@ -30,7 +30,7 @@ export default function WorkshopTabs() {
       <Tabs.Screen
         name="programme"
         options={{
-          title: 'Programme',
+          title: 'Program',
           tabBarIcon: ({ color, size }) => <Ionicons name="clipboard-outline" color={color} size={size} />,
         }}
       />

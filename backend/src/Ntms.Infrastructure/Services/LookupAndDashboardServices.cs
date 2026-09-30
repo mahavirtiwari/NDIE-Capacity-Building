@@ -389,7 +389,7 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
             [
                 new() { Key = "applications", Label = "Applications received", Value = applicationRows.Count, Tone = "primary", Icon = "inbox" },
                 new() { Key = "approved", Label = "Approved applications", Value = approved, Tone = "success", Icon = "check" },
-                new() { Key = "programs", Label = "Programmes conducted", Value = conducted, Tone = "info", Icon = "calendar" },
+                new() { Key = "programs", Label = "Programs conducted", Value = conducted, Tone = "info", Icon = "calendar" },
                 new() { Key = "participated", Label = "Candidates participated", Value = participated, Tone = "primary", Icon = "users" },
                 new() { Key = "certified", Label = "Candidates certified", Value = certified, Tone = "success", Icon = "award" },
             ],

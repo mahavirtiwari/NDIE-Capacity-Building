@@ -99,7 +99,7 @@ export default function SessionManagement() {
         {locked ? <Banner tone="info">Finally submitted — read only.</Banner> : null}
 
         <Card style={styles.card}>
-          <Text style={styles.heading}>Programme</Text>
+          <Text style={styles.heading}>Program</Text>
           <View style={styles.fixed}>
             <Text style={styles.fixedValue}>{detail?.programmeName}</Text>
             <Text style={styles.fixedMeta}>{detail?.programmeId}</Text>
@@ -138,7 +138,7 @@ export default function SessionManagement() {
               required
               value={topicId}
               options={topics.map((t) => ({ value: String(t.sessionId), label: t.sessionName }))}
-              hint={topics.length === 0 ? 'This programme has no curriculum attached.' : undefined}
+              hint={topics.length === 0 ? 'This program has no curriculum attached.' : undefined}
               error={errors.topicId}
               onChange={(value) => {
                 setTopicId(value);

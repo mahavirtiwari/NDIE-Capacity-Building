@@ -99,7 +99,7 @@ public class ExamSittingService(NtmsDbContext db, ResultRecorder results)
 
         if (paper is null)
         {
-            dto.Blocker = problem ?? "There is no online paper for this programme.";
+            dto.Blocker = problem ?? "There is no online paper for this program.";
             return dto;
         }
 
@@ -213,7 +213,7 @@ public class ExamSittingService(NtmsDbContext db, ResultRecorder results)
 
         if (paper is null)
         {
-            throw new AppException(problem ?? "There is no online paper for this programme.");
+            throw new AppException(problem ?? "There is no online paper for this program.");
         }
 
         var attempts = await db.ExamAttempts

@@ -61,7 +61,7 @@ const COLUMNS: ColumnDef[] = [
       [title]="copy.text('page.fees.title')"
       [subtitle]="copy.text('page.fees.subtitle')"
       icon="rupee"
-      [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.fees.title') }]"
+      [breadcrumbs]="[{ label: 'Program setup' }, { label: copy.text('page.fees.title') }]"
     >
       <button *appCan="'fees.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New fee structure
@@ -77,7 +77,7 @@ const COLUMNS: ColumnDef[] = [
               <input class="input" placeholder="Search fee structures" (input)="list.setSearch(term($event))" />
             </div>
           </div>
-          <app-master-filter [list]="list" programTypeLabel="Programme type" #masters />
+          <app-master-filter [list]="list" programTypeLabel="Program type" #masters />
           <div class="field">
             <label class="field-label" for="feeStatus">Status</label>
             <select id="feeStatus" class="select" (change)="list.setFilter('status', value($event))">
@@ -158,9 +158,9 @@ const COLUMNS: ColumnDef[] = [
         <form [formGroup]="form" id="fee-form" (ngSubmit)="save()" class="stack stack-md">
           <div class="form-grid form-grid--3">
             <div class="field">
-              <label class="field-label">Programme type <span class="req">*</span></label>
+              <label class="field-label">Program type <span class="req">*</span></label>
               <select class="select" formControlName="programTypeId">
-                <option [ngValue]="null">Select programme type</option>
+                <option [ngValue]="null">Select program type</option>
                 @for (type of allProgramTypes(); track type.id) {
                   <option [ngValue]="type.id">{{ type.code }} — {{ type.name }}</option>
                 }

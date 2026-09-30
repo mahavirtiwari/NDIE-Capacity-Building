@@ -70,7 +70,7 @@ export default function Programs() {
     );
   }, [programs.data, term]);
 
-  if (programs.loading) return <Loading label="Loading programmes…" />;
+  if (programs.loading) return <Loading label="Loading programs…" />;
 
   return (
     <FlatList
@@ -112,18 +112,18 @@ export default function Programs() {
 
           {programs.error ? <Banner tone="danger">{programs.error}</Banner> : null}
 
-          <SectionHeading>Programmes open to you</SectionHeading>
+          <SectionHeading>Programs open to you</SectionHeading>
           <SearchBox value={term} onChange={setTerm} />
         </View>
       }
       ListEmptyComponent={
         <EmptyState
           icon="layers-outline"
-          title={term ? 'No match' : 'No programmes open yet'}
+          title={term ? 'No match' : 'No programs open yet'}
           message={
             term
               ? 'Try a different name or code.'
-              : 'Programmes appear here as soon as they open for your category.'
+              : 'Programs appear here as soon as they open for your category.'
           }
         />
       }
@@ -144,7 +144,7 @@ function SearchBox({ value, onChange }: { value: string; onChange: (text: string
       <TextInput
         value={value}
         onChangeText={onChange}
-        placeholder="Search programmes"
+        placeholder="Search programs"
         placeholderTextColor={colors.ink500}
         style={styles.searchInput}
         autoCorrect={false}

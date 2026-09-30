@@ -103,13 +103,13 @@ public class CertificateService(
 
         if (policy == CertificationPolicy.None)
         {
-            row.Blocker = "This programme awards no certificate.";
+            row.Blocker = "This program awards no certificate.";
             return row;
         }
 
         if (programme.Status != ProgramStatus.Conducted)
         {
-            row.Blocker = "The programme has not been marked as conducted.";
+            row.Blocker = "The program has not been marked as conducted.";
             return row;
         }
 
@@ -127,7 +127,7 @@ public class CertificateService(
         if (kind is null)
         {
             row.Blocker = participant.Result == ParticipantResult.Fail
-                ? "Did not qualify, and this programme awards nothing otherwise."
+                ? "Did not qualify, and this program awards nothing otherwise."
                 : "Nothing is awarded for this result.";
             return row;
         }
@@ -374,7 +374,7 @@ public class CertificateService(
             .ToListAsync(ct);
 
         if (certificates.Count == 0)
-            throw new AppException("No certificates have been issued on this programme yet.");
+            throw new AppException("No certificates have been issued on this program yet.");
 
         /* Printed in one pass per kind, because each kind has its own artwork
            and a single document can only carry one background. */
@@ -382,7 +382,7 @@ public class CertificateService(
         if (byKind.Count > 1)
         {
             throw new AppException(
-                "This programme has issued both certification and participation certificates. " +
+                "This program has issued both certification and participation certificates. " +
                 "Print each kind separately so the right artwork is used for each.");
         }
 
@@ -495,7 +495,7 @@ public class CertificateService(
             .Include(p => p.ProgramType)!.ThenInclude(t => t!.CertificateTemplates)
             .Include(p => p.Participants).ThenInclude(x => x.Applicant)
             .FirstOrDefaultAsync(p => p.Id == programmeId, ct)
-        ?? throw AppException.NotFound("Programme");
+        ?? throw AppException.NotFound("Program");
 
     private async Task<CertificateRenderer.Template?> LoadTemplateAsync(
         int programTypeId, CertificateKind kind, CancellationToken ct)

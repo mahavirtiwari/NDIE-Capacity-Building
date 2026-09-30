@@ -69,8 +69,8 @@ function rows<T extends object>(list: T[], report: ProgrammeReport): Record<stri
 }
 
 const OWNER: ExportColumn[] = [
-  { key: 'programmeCode', header: 'Programme ID' },
-  { key: 'programmeName', header: 'Programme' },
+  { key: 'programmeCode', header: 'Program ID' },
+  { key: 'programmeName', header: 'Program' },
   { key: 'programTypeName', header: 'Program type' },
 ];
 
@@ -134,8 +134,8 @@ function summaryRows(report: ProgrammeReport): Record<string, unknown>[] {
   const t = report.totals;
 
   return [
-    ['Programme ID', p.programmeCode],
-    ['Programme', p.programmeName],
+    ['Program ID', p.programmeCode],
+    ['Program', p.programmeName],
     ['Program type', p.programTypeName],
     ['Category', p.categoryName],
     ['Sub-category', p.subCategoryName],

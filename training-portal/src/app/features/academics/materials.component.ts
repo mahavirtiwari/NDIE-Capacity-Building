@@ -65,7 +65,7 @@ const KIND_ICONS: Record<string, IconName> = {
       [title]="copy.text('page.materials.title')"
       [subtitle]="copy.text('page.materials.subtitle')"
       icon="video"
-      [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.materials.title') }]"
+      [breadcrumbs]="[{ label: 'Program setup' }, { label: copy.text('page.materials.title') }]"
     >
       <button *appCan="'materials.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="upload" [size]="15" /> Publish material

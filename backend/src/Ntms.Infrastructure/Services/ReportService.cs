@@ -102,7 +102,7 @@ public class ReportService(NtmsDbContext db, ICurrentUser currentUser)
             .Include(p => p.District)
             .Include(p => p.Coordinator)
             .FirstOrDefaultAsync(p => p.Id == programmeId, ct)
-            ?? throw AppException.NotFound("Programme");
+            ?? throw AppException.NotFound("Program");
 
         var branding = await db.Branding.AsNoTracking().FirstOrDefaultAsync(ct);
 

@@ -24,7 +24,7 @@ import { ListState, searchTerm } from '../../shared/list-state';
 const COLUMNS: ColumnDef[] = [
   { key: 'serial', header: 'S.No', width: '70px', align: 'center' },
   { key: 'programTypeCode', header: 'Code', sortable: true, width: '160px' },
-  { key: 'programTypeName', header: 'Programme type', sortable: true, variant: 'primary' },
+  { key: 'programTypeName', header: 'Program type', sortable: true, variant: 'primary' },
   { key: 'structure', header: 'Sessions / topics', width: '180px' },
   { key: 'actions', header: '', width: '200px', align: 'right' },
 ];
@@ -47,7 +47,7 @@ const COLUMNS: ColumnDef[] = [
       [title]="copy.text('page.curriculum.title')"
       [subtitle]="copy.text('page.curriculum.subtitle')"
       icon="book"
-      [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.curriculum.title') }]"
+      [breadcrumbs]="[{ label: 'Program setup' }, { label: copy.text('page.curriculum.title') }]"
     >
       <button *appCan="'curriculum.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New curriculum
@@ -86,24 +86,24 @@ const COLUMNS: ColumnDef[] = [
             </select>
           </div>
           <div class="field">
-            <label class="field-label" for="curProgType">Programme type</label>
+            <label class="field-label" for="curProgType">Program type</label>
             <select
               id="curProgType"
               class="select"
               [value]="filterProgramTypeId() ?? ''"
               (change)="onProgramTypeFilter($event)"
             >
-              <option value="">All programme types</option>
+              <option value="">All program types</option>
               @for (type of filterProgramTypes(); track type.id) {
                 <option [value]="type.id">{{ type.name }}</option>
               }
             </select>
           </div>
           <div class="field">
-            <label class="field-label" for="curName">Programme name</label>
+            <label class="field-label" for="curName">Program name</label>
             <div class="input-group">
               <span class="input-icon"><app-icon name="search" [size]="15" /></span>
-              <input id="curName" class="input" placeholder="Search programme" (input)="list.setSearch(term($event))" />
+              <input id="curName" class="input" placeholder="Search program" (input)="list.setSearch(term($event))" />
             </div>
           </div>
           <div class="filter-bar__actions">
@@ -179,7 +179,7 @@ const COLUMNS: ColumnDef[] = [
     @if (formOpen()) {
       <app-modal
         [title]="editing() ? 'Edit curriculum' : 'New curriculum'"
-        subtitle="Sessions and topics are maintained from the programme detail screen."
+        subtitle="Sessions and topics are maintained from the program detail screen."
         size="lg"
         (closed)="closeForm()"
       >
@@ -196,13 +196,13 @@ const COLUMNS: ColumnDef[] = [
                 [class.is-invalid]="invalid('programTypeId')"
                 (change)="onProgramTypeChange()"
               >
-                <option [ngValue]="null">Select a programme type</option>
+                <option [ngValue]="null">Select a program type</option>
                 @for (type of programTypes(); track type.id) {
                   <option [ngValue]="type.id">{{ type.code }} — {{ type.name }}</option>
                 }
               </select>
               @if (invalid('programTypeId')) {
-                <span class="field-error">Select the programme type.</span>
+                <span class="field-error">Select the program type.</span>
               } @else {
                 <span class="field-hint">
                   The code and name come from Programme types; session codes are built from it.
@@ -221,7 +221,7 @@ const COLUMNS: ColumnDef[] = [
                 class="input"
                 [value]="linkedCategory()"
                 disabled
-                placeholder="Follows the programme type"
+                placeholder="Follows the program type"
               />
             </div>
             <div class="field">
@@ -231,7 +231,7 @@ const COLUMNS: ColumnDef[] = [
                 class="input"
                 [value]="linkedSubCategory()"
                 disabled
-                placeholder="Follows the programme type"
+                placeholder="Follows the program type"
               />
             </div>
           </div>
@@ -463,8 +463,8 @@ export class CurriculumComponent {
       title: `${verb} curriculum?`,
       message:
         status === 'Active'
-          ? 'The programme becomes available again for scheduling new batches.'
-          : 'The programme moves to the blocked list. Running batches keep their syllabus.',
+          ? 'The program becomes available again for scheduling new batches.'
+          : 'The program moves to the blocked list. Running batches keep their syllabus.',
       confirmLabel: verb,
       tone: status === 'Active' ? 'primary' : 'danger',
     });

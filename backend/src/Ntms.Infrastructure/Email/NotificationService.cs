@@ -148,7 +148,7 @@ public class NotificationService(
     {
         if (!Application.Common.RoleHierarchy.IsScoped(user.BaseRole))
         {
-            return "The whole programme — no category, state or district limits apply.";
+            return "The whole program — no category, state or district limits apply.";
         }
 
         var parts = new List<string>();
@@ -227,7 +227,7 @@ public class NotificationService(
         {
             ["name"] = applicantName,
             ["applicationNo"] = application.ApplicationNo,
-            ["programme"] = application.ProgramType?.Name ?? "the programme",
+            ["programme"] = application.ProgramType?.Name ?? "the program",
         }, ct);
 
     public Task SendApplicantAccessChangedAsync(

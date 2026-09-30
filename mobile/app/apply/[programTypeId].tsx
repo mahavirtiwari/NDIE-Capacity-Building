@@ -89,7 +89,7 @@ export default function Apply() {
       <EmptyState
         icon="alert-circle-outline"
         title="Form unavailable"
-        message={form.error ?? 'No registration form has been published for this programme yet.'}
+        message={form.error ?? 'No registration form has been published for this program yet.'}
       />
     );
   }
@@ -186,7 +186,7 @@ export default function Apply() {
             <Text style={styles.muted}>
               {gross > 0
                 ? `Fee payable: ${inr(gross)}`
-                : 'No fee has been configured for this programme.'}
+                : 'No fee has been configured for this program.'}
             </Text>
           )}
 

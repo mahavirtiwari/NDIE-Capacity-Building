@@ -63,7 +63,7 @@ export default function Payments() {
         <EmptyState
           icon="card"
           title="Nothing to pay"
-          message="Fees appear here once you apply for a programme that charges one."
+          message="Fees appear here once you apply for a program that charges one."
         />
       ) : null}
 
@@ -100,7 +100,7 @@ export default function Payments() {
                 </View>
                 <View style={styles.rowText}>
                   <Text style={styles.rowTitle} numberOfLines={1}>
-                    {row.programTypeName ?? 'Programme fee'}
+                    {row.programTypeName ?? 'Program fee'}
                   </Text>
                   <Text style={styles.rowMeta} numberOfLines={1}>
                     {row.applicationNo} · {shortDate(row.submittedOn)}

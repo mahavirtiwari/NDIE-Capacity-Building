@@ -85,7 +85,7 @@ const COLUMNS: ColumnDef[] = [
               }
             </select>
           </div>
-          <app-master-filter [list]="list" programTypeLabel="Programme type" #masters />
+          <app-master-filter [list]="list" programTypeLabel="Program type" #masters />
           <div class="field">
             <label class="field-label" for="agState">State/UT</label>
             <select id="agState" class="select" (change)="list.setFilter('state', value($event))">
@@ -455,8 +455,8 @@ export class AgenciesComponent {
       title: `${verb} agency?`,
       message:
         status === 'Active'
-          ? 'The agency can be selected for new programmes again.'
-          : 'Existing programmes are retained, but no new programme can be assigned to this agency.',
+          ? 'The agency can be selected for new programs again.'
+          : 'Existing programs are retained, but no new program can be assigned to this agency.',
       confirmLabel: verb,
       tone: status === 'Active' ? 'primary' : 'danger',
     });

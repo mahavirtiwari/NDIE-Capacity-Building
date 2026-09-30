@@ -30,7 +30,7 @@ import {
       <header class="pub__masthead">
         <div class="pub__inner">
           <span class="pub__eyebrow">Ministry of MSME</span>
-          <h1 class="pub__title">Training programmes</h1>
+          <h1 class="pub__title">Training programs</h1>
           <p class="pub__lead">
             Scheduled batches across the country. Pick one that is open and apply through the
             applicant app or the registration form.
@@ -67,7 +67,7 @@ import {
             </div>
 
             <div class="field">
-              <label class="field-label" for="fType">Programme</label>
+              <label class="field-label" for="fType">Program</label>
               <select id="fType" class="select" (change)="set('programTypeId', $event)">
                 <option value="">All</option>
                 @for (t of options()?.programTypes ?? []; track t.id) {
@@ -110,7 +110,7 @@ import {
                   <tr>
                     <th style="width: 56px">#</th>
                     <th style="width: 120px">Batch</th>
-                    <th>Programme</th>
+                    <th>Program</th>
                     <th>Venue</th>
                     <th style="width: 130px">District</th>
                     <th style="width: 140px">State/UT</th>

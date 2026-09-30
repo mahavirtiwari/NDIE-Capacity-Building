@@ -71,7 +71,7 @@ const COLUMNS: ColumnDef[] = [
       [title]="copy.text('page.programTypes.title')"
       [subtitle]="copy.text('page.programTypes.subtitle')"
       icon="layers"
-      [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.programTypes.title') }]"
+      [breadcrumbs]="[{ label: 'Program setup' }, { label: copy.text('page.programTypes.title') }]"
     >
       <button *appCan="'masters.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New program type
@@ -260,7 +260,7 @@ const COLUMNS: ColumnDef[] = [
               <input id="ptValidity" type="number" class="input" formControlName="certificateValidityMonths" />
             </div>
             <div class="field field--span-2">
-              <label class="field-label" for="ptCert">What this programme awards</label>
+              <label class="field-label" for="ptCert">What this program awards</label>
               <select id="ptCert" class="select" formControlName="certificationPolicy">
                 @for (option of certificationPolicies; track option.value) {
                   <option [value]="option.value">{{ option.label }}</option>
@@ -558,7 +558,7 @@ export class ProgramTypesComponent {
     const sections = this.sectionTotal();
     const total = Number(marks?.totalMarks ?? 0) || sections;
 
-    if (sections === 0) return 'An examined programme needs marks against at least one section.';
+    if (sections === 0) return 'An examined program needs marks against at least one section.';
     if (total !== sections) {
       return `The sections add up to ${sections}, which does not match the total of ${total}.`;
     }

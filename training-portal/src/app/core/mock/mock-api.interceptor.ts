@@ -548,7 +548,7 @@ function dashboard(query: Record<string, string>): DashboardData {
   const kpis: DashboardKpi[] = [
     { key: 'applications', label: 'Applications received', value: applications.length, tone: 'primary', icon: 'inbox' },
     { key: 'approved', label: 'Approved applications', value: approved.length, tone: 'success', icon: 'check' },
-    { key: 'programs', label: 'Programmes conducted', value: conducted.length, tone: 'info', icon: 'calendar' },
+    { key: 'programs', label: 'Programs conducted', value: conducted.length, tone: 'info', icon: 'calendar' },
     { key: 'participated', label: 'Candidates participated', value: participants.length, tone: 'primary', icon: 'users' },
     { key: 'certified', label: 'Candidates certified', value: trainedCount, tone: 'success', icon: 'award' },
   ];

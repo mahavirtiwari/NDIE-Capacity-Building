@@ -6,7 +6,7 @@ export const routes: Routes = [
     /* The public batch listing — the page an agency points people at. No guard:
        somebody choosing a programme has no account yet. */
     path: 'programmes',
-    title: 'Training programmes · CBMS',
+    title: 'Training programs · CBMS',
     loadComponent: () =>
       import('./features/public/programme-list.component').then((m) => m.ProgrammeListComponent),
   },
@@ -276,14 +276,14 @@ export const routes: Routes = [
           },
           {
             path: 'programs',
-            title: 'Programmes · CBMS',
+            title: 'Programs · CBMS',
             canActivate: [permissionGuard('programs.view')],
             loadComponent: () =>
               import('./features/operations/programs.component').then((m) => m.ProgramsComponent),
           },
           {
             path: 'programs/:id',
-            title: 'Programme · CBMS',
+            title: 'Program · CBMS',
             canActivate: [permissionGuard('programs.view')],
             loadComponent: () =>
               import('./features/operations/program-detail.component').then(

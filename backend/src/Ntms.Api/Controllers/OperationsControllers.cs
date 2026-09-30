@@ -257,13 +257,13 @@ public class ProgramsController(ProgrammeService service) : ApiControllerBase
     [HasPermission(Permissions.ProgramsManage)]
     public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> Create(
         [FromBody] ProgrammeUpsertDto dto, CancellationToken ct) =>
-        Envelope(await service.CreateAsync(dto, ct), "Programme submitted for permission.");
+        Envelope(await service.CreateAsync(dto, ct), "Program submitted for permission.");
 
     [HttpPut("{id:int}")]
     [HasPermission(Permissions.ProgramsManage)]
     public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> Update(
         int id, [FromBody] ProgrammeUpsertDto dto, CancellationToken ct) =>
-        Envelope(await service.UpdateAsync(id, dto, ct), "Programme updated.");
+        Envelope(await service.UpdateAsync(id, dto, ct), "Program updated.");
 
     /// <summary>Moves the batch along the register's workflow.</summary>
     [HttpPatch("{id:int}/status")]

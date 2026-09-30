@@ -81,7 +81,7 @@ export class MasterFilterComponent {
 
   readonly showProgramType = input(true);
   /** "Program type" on the masters, "Programme type" on the academic screens. */
-  readonly programTypeLabel = input('Programme type');
+  readonly programTypeLabel = input('Program type');
 
   private readonly allCategories = toSignal(this.lookups.categories(), {
     initialValue: [] as LookupItem[],

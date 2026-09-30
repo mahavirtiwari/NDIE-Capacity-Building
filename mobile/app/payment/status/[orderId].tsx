@@ -145,7 +145,7 @@ export default function PaymentStatus() {
           <Row label="Reason" value={payment.failureReason} />
         ) : null}
         <Row label="Application" value={payment.applicationNo} />
-        {payment.programTypeName ? <Row label="Programme" value={payment.programTypeName} /> : null}
+        {payment.programTypeName ? <Row label="Program" value={payment.programTypeName} /> : null}
         <Row label="Reference" value={payment.trackingId ?? payment.orderId} />
         {payment.method ? <Row label="Method" value={payment.method} /> : null}
         {payment.bankReference ? <Row label="Bank reference" value={payment.bankReference} /> : null}

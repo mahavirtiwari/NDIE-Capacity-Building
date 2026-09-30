@@ -45,7 +45,7 @@ public class PaymentService(
 
         var lines = new List<PaymentLineDto>
         {
-            new() { Label = "Programme fee", Amount = money.Taxable + money.NonTaxable },
+            new() { Label = "Program fee", Amount = money.Taxable + money.NonTaxable },
         };
 
         if (money.Gst > 0)
@@ -97,19 +97,19 @@ public class PaymentService(
     private string? WhyNot(TrainingApplication application, SystemSetting? settings, decimal payable)
     {
         if (application.PaymentStatus == PaymentStatus.NotApplicable)
-            return "There is no fee to pay for this programme.";
+            return "There is no fee to pay for this program.";
 
         if (application.PaymentStatus == PaymentStatus.Paid)
             return "This fee has already been paid.";
 
         if (application.PaymentStatus == PaymentStatus.Refunded)
-            return "This fee was refunded. Ask the programme office before paying again.";
+            return "This fee was refunded. Ask the program office before paying again.";
 
         if (payable <= 0)
             return "Nothing is payable on this application.";
 
         if (settings is null || !settings.PaymentEnabled)
-            return "Online payment is switched off at the moment. The programme office can tell you how else to pay.";
+            return "Online payment is switched off at the moment. The program office can tell you how else to pay.";
 
         if (!gateways.Handles(settings.PaymentGateway))
         {

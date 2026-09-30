@@ -70,12 +70,12 @@ public class ProgrammeCatalogueService(NtmsDbContext db)
 
         var programme = await Base
             .FirstOrDefaultAsync(p => p.ProgrammeId == trimmed || p.ProgrammeId == slashed, ct)
-            ?? throw AppException.NotFound("Programme");
+            ?? throw AppException.NotFound("Program");
 
         /* A batch nobody has approved yet is not public. Until then the link
            would advertise something that may never run. */
         if (programme.Status == ProgramStatus.New)
-            throw AppException.NotFound("Programme");
+            throw AppException.NotFound("Program");
 
         return ToPublic(programme);
     }

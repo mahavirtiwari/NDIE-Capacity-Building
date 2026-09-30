@@ -44,7 +44,7 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
         icon="calendar"
         [breadcrumbs]="[
           { label: 'Operations' },
-          { label: 'Programmes', link: '/operations/programs' },
+          { label: 'Programs', link: '/operations/programs' },
           { label: batch.programmeId }
         ]"
       >

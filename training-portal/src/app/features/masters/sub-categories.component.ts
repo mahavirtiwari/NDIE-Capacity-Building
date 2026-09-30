@@ -58,7 +58,7 @@ const COLUMNS: ColumnDef[] = [
       [title]="copy.text('page.subCategories.title')"
       [subtitle]="copy.text('page.subCategories.subtitle')"
       icon="tag"
-      [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.subCategories.title') }]"
+      [breadcrumbs]="[{ label: 'Program setup' }, { label: copy.text('page.subCategories.title') }]"
     >
       <button *appCan="'masters.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New sub-category

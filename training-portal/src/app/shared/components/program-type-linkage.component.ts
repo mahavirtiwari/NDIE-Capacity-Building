@@ -45,7 +45,7 @@ export class ProgramTypeLinkageComponent {
 
   /** The programme type currently chosen, or null before one is picked. */
   readonly programTypeId = input<Id | null | undefined>(null);
-  readonly placeholder = input('Follows the programme type');
+  readonly placeholder = input('Follows the program type');
 
   /** Keeps ids unique when more than one of these appears on a page. */
   readonly id = `ptl${Math.random().toString(36).slice(2, 7)}`;

@@ -70,7 +70,7 @@ export default function MarksheetScreen() {
     return (
       <EmptyState
         title="Nobody enrolled"
-        message="This programme has no enrolled candidates to mark."
+        message="This program has no enrolled candidates to mark."
       />
     );
   }

@@ -38,7 +38,7 @@ const TONE_BY_VALUE: Record<string, Tone> = {
 const LABELS: Record<string, string> = {
   UnderScrutiny: 'Under scrutiny',
   NotApplicable: 'Not applicable',
-  New: 'New programme',
+  New: 'New program',
   PermissionAccepted: 'Permission accepted',
   CalendarCreated: 'Calendar created',
   ApplicationReceived: 'Application received',

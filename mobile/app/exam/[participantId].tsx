@@ -119,7 +119,7 @@ export default function ExamIntro() {
                 value={`${info.best.score} of ${info.best.paperTotal} · ${info.best.percentage}%`}
               />
               <DetailRow label="This paper" value={info.best.passed ? 'Passed' : 'Not passed'} />
-              <DetailRow label="On the programme" value={info.best.programmeResult} />
+              <DetailRow label="On the program" value={info.best.programmeResult} />
               <Text style={styles.note}>
                 The programme result also waits on the viva, where there is one.
               </Text>
@@ -158,7 +158,7 @@ export default function ExamIntro() {
         </>
       ) : (
         <Banner tone="info">
-          {info.blocker ?? 'There is no online paper for this programme.'}
+          {info.blocker ?? 'There is no online paper for this program.'}
         </Banner>
       )}
     </ScrollView>

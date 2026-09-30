@@ -14,8 +14,8 @@ export const STATES: string[] = LGD_STATES.map((s) => s.name);
 export const CATEGORIES: Category[] = [
   { id: 1, code: 'ZED', name: 'ZED Certification', description: 'Zero Defect Zero Effect certification ecosystem for MSMEs.', displayOrder: 1, status: 'Active' },
   { id: 2, code: 'LMC', name: 'Lean Manufacturing Competitiveness', description: 'Lean tools and productivity improvement for manufacturing clusters.', displayOrder: 2, status: 'Active' },
-  { id: 3, code: 'DGM', name: 'Digital MSME', description: 'Cloud, ERP and cyber security adoption programmes.', displayOrder: 3, status: 'Active' },
-  { id: 4, code: 'ESD', name: 'Entrepreneurship & Skill Development', description: 'Entrepreneurship development and skill upgradation programmes.', displayOrder: 4, status: 'Active' },
+  { id: 3, code: 'DGM', name: 'Digital MSME', description: 'Cloud, ERP and cyber security adoption programs.', displayOrder: 3, status: 'Active' },
+  { id: 4, code: 'ESD', name: 'Entrepreneurship & Skill Development', description: 'Entrepreneurship development and skill upgradation programs.', displayOrder: 4, status: 'Active' },
 ];
 
 export const SUB_CATEGORIES: SubCategory[] = [
@@ -54,7 +54,7 @@ const PT_SEED: PtSeed[] = [
   { id: 6, categoryId: 2, subCategoryId: 5, code: 'LMC-MT-A', name: 'Lean Master Trainer - Advanced', days: 12, mode: 'Hybrid', exp: 8, qual: 'GRADUATION', exam: true, fee: true, desc: 'TPM, SMED, TOC and advanced lean deployment for cluster level interventions.' },
   { id: 7, categoryId: 3, subCategoryId: 6, code: 'DGM-TR-C', name: 'Digital Transformation Trainer', days: 5, mode: 'Virtual', exp: 3, qual: 'GRADUATION', exam: true, fee: false, desc: 'Cloud readiness, ERP selection and digital adoption roadmaps for MSMEs.' },
   { id: 8, categoryId: 3, subCategoryId: 7, code: 'DGM-AS-CY', name: 'Cyber Security Assessor', days: 6, mode: 'Virtual', exp: 5, qual: 'GRADUATION', exam: true, fee: true, desc: 'Cyber hygiene assessment methodology and reporting for small enterprises.' },
-  { id: 9, categoryId: 4, subCategoryId: 8, code: 'ESD-FAC', name: 'EDP Facilitator', days: 4, mode: 'Physical', exp: 2, qual: 'GRADUATION', exam: false, fee: false, desc: 'Facilitator track for entrepreneurship development programmes in districts.' },
+  { id: 9, categoryId: 4, subCategoryId: 8, code: 'ESD-FAC', name: 'EDP Facilitator', days: 4, mode: 'Physical', exp: 2, qual: 'GRADUATION', exam: false, fee: false, desc: 'Facilitator track for entrepreneurship development programs in districts.' },
   { id: 10, categoryId: 4, subCategoryId: 9, code: 'ESD-TOT', name: 'Trainer of Trainers', days: 5, mode: 'Hybrid', exp: 3, qual: 'GRADUATION', exam: true, fee: false, desc: 'Pedagogy, adult learning and assessment design for skill trainers.' },
 ];
 

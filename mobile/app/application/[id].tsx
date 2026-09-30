@@ -76,7 +76,7 @@ export default function ApplicationDetail() {
       <Card style={styles.card}>
         <View style={styles.head}>
           <View style={styles.headText}>
-            <Text style={styles.title}>{application.programTypeName ?? 'Programme'}</Text>
+            <Text style={styles.title}>{application.programTypeName ?? 'Program'}</Text>
             <Text style={styles.code}>{application.applicationNo}</Text>
           </View>
           <StatusPill value={application.status} />

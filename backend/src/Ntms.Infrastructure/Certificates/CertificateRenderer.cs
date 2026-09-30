@@ -119,7 +119,7 @@ public static class CertificateRenderer
         }
 
         throw new AppException(
-            $"This programme's {kind.ToString().ToLowerInvariant()} template is a " +
+            $"This program's {kind.ToString().ToLowerInvariant()} template is a " +
             $"{Describe(template.ContentType)} file, which cannot be filled in automatically. " +
             "Upload the template as HTML, PNG or JPEG to generate certificates from it.");
     }

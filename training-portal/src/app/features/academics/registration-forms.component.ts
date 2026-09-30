@@ -78,7 +78,7 @@ function blankField(): RegistrationField {
       [title]="copy.text('page.registrationForms.title')"
       [subtitle]="copy.text('page.registrationForms.subtitle')"
       icon="form"
-      [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.registrationForms.title') }]"
+      [breadcrumbs]="[{ label: 'Program setup' }, { label: copy.text('page.registrationForms.title') }]"
     >
       <button *appCan="'masters.manage'" type="button" class="btn btn--primary" (click)="openBuilder()">
         <app-icon name="plus" [size]="15" /> New form

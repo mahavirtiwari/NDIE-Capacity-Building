@@ -29,7 +29,7 @@ export function buildProgrammeReport(report: ProgrammeReport, logo?: string | nu
   <header class="masthead">
     <div>
       <p class="org">${esc(report.organisationName)}</p>
-      <h1>Programme report</h1>
+      <h1>Program report</h1>
       <p class="code">${esc(p.programmeCode)} · ${esc(p.programmeName)}</p>
     </div>
     <dl class="issued">
@@ -82,7 +82,7 @@ function cover(report: ProgrammeReport, logo?: string | null): string {
     </div>
 
     <div class="cover__middle">
-      <p class="cover__kicker">Programme report</p>
+      <p class="cover__kicker">Program report</p>
       <h1 class="cover__code">${esc(p.programmeCode)}</h1>
       <p class="cover__name">${esc(p.programmeName)}</p>
       <p class="cover__type">${esc(p.programTypeName)}</p>
@@ -134,8 +134,8 @@ function summary(report: ProgrammeReport): string {
 
 function programmeSection(report: ProgrammeReport): string {
   const p = report.programme;
-  return block('Programme', pairs([
-    ['Programme ID', p.programmeCode],
+  return block('Program', pairs([
+    ['Program ID', p.programmeCode],
     ['Name', p.programmeName],
     ['Category', p.categoryName],
     ['Sub-category', p.subCategoryName],
@@ -174,7 +174,7 @@ function venueSection(report: ProgrammeReport): string {
 
 function trainersSection(report: ProgrammeReport): string {
   if (report.trainers.length === 0) {
-    return block('Trainers', `<p class="none">No trainer was registered for this programme.</p>`);
+    return block('Trainers', `<p class="none">No trainer was registered for this program.</p>`);
   }
 
   return block('Trainers', table(
@@ -187,7 +187,7 @@ function trainersSection(report: ProgrammeReport): string {
 
 function participantsSection(report: ProgrammeReport): string {
   if (report.participants.length === 0) {
-    return block('Participants', `<p class="none">Nobody is enrolled on this programme.</p>`);
+    return block('Participants', `<p class="none">Nobody is enrolled on this program.</p>`);
   }
 
   return block(`Participants (${report.participants.length})`, table(

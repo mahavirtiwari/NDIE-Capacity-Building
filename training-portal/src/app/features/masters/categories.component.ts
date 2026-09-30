@@ -54,7 +54,7 @@ const COLUMNS: ColumnDef[] = [
       [title]="copy.text('page.categories.title')"
       [subtitle]="copy.text('page.categories.subtitle')"
       icon="folder"
-      [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.categories.title') }]"
+      [breadcrumbs]="[{ label: 'Program setup' }, { label: copy.text('page.categories.title') }]"
     >
       <button *appCan="'masters.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New category
@@ -102,7 +102,7 @@ const COLUMNS: ColumnDef[] = [
         [sortBy]="list.sortBy()"
         [sortDir]="list.sortDir()"
         emptyTitle="No categories yet"
-        emptyMessage="Create the first category to start configuring programmes."
+        emptyMessage="Create the first category to start configuring programs."
         emptyIcon="folder"
         (pageChange)="list.goToPage($event)"
         (pageSizeChange)="list.setPageSize($event)"

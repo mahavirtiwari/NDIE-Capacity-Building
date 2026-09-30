@@ -38,7 +38,7 @@ public class MarksheetService(NtmsDbContext db, ICurrentUser currentUser)
         var programme = await db.Programmes
             .Include(p => p.ProgramType)
             .FirstOrDefaultAsync(p => p.Id == programmeId, ct)
-            ?? throw AppException.NotFound("Programme");
+            ?? throw AppException.NotFound("Program");
 
         if (programme.CoordinatorId == currentUser.UserId) return programme;
 
@@ -50,7 +50,7 @@ public class MarksheetService(NtmsDbContext db, ICurrentUser currentUser)
             if (visible) return programme;
         }
 
-        throw AppException.Forbidden("This programme is not assigned to you.");
+        throw AppException.Forbidden("This program is not assigned to you.");
     }
 
     /// <summary>
@@ -63,7 +63,7 @@ public class MarksheetService(NtmsDbContext db, ICurrentUser currentUser)
     {
         if (programme.CoordinatorId == currentUser.UserId) return null;
         if (currentUser.HasPermission(Permissions.ProgramsManage)) return null;
-        return "Marks are entered by the coordinator this programme is assigned to.";
+        return "Marks are entered by the coordinator this program is assigned to.";
     }
 
     /* -------------------------------------------------------------- read */

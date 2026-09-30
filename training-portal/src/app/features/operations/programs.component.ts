@@ -30,9 +30,9 @@ import { ListState } from '../../shared/list-state';
 
 const COLUMNS: ColumnDef[] = [
   { key: 'serial', header: 'S.No', width: '64px', align: 'center' },
-  { key: 'programmeId', header: 'Programme ID', sortable: true, width: '140px' },
+  { key: 'programmeId', header: 'Program ID', sortable: true, width: '140px' },
   { key: 'agencyName', header: 'Agency name', width: '210px' },
-  { key: 'programmeName', header: 'Programme', variant: 'primary', width: '230px' },
+  { key: 'programmeName', header: 'Program', variant: 'primary', width: '230px' },
   { key: 'venue', header: 'Venue', width: '190px', variant: 'muted' },
   { key: 'state', header: 'State/UT', width: '130px' },
   { key: 'startDate', header: 'Start date', sortable: true, width: '120px' },
@@ -139,7 +139,7 @@ const COLUMNS: ColumnDef[] = [
       </div>
 
       <app-data-table
-        exportName="Programmes"
+        exportName="Programs"
         [exportRows]="exportRows"
         [columns]="columns"
         [rows]="rows()"
@@ -151,7 +151,7 @@ const COLUMNS: ColumnDef[] = [
         [sortDir]="list.sortDir()"
         [compact]="true"
         minWidth="1560px"
-        emptyTitle="No programmes"
+        emptyTitle="No programs"
         emptyIcon="calendar"
         (pageChange)="list.goToPage($event)"
         (pageSizeChange)="list.setPageSize($event)"
@@ -220,10 +220,10 @@ const COLUMNS: ColumnDef[] = [
     </section>
 
     @if (formOpen()) {
-      <app-modal title="New programme" size="lg" (closed)="formOpen.set(false)">
+      <app-modal title="New program" size="lg" (closed)="formOpen.set(false)">
         <form [formGroup]="form" id="programme-form" (ngSubmit)="save()" class="form-grid">
           <div class="field">
-            <label class="field-label" for="npProgramType">Programme type <span class="req">*</span></label>
+            <label class="field-label" for="npProgramType">Program type <span class="req">*</span></label>
             <select id="npProgramType" class="select" formControlName="programTypeId">
               <option [ngValue]="null">Select</option>
               @for (programType of programTypes(); track programType.id) {
@@ -520,7 +520,7 @@ export class ProgramsComponent {
       .subscribe({
         next: () => {
           this.saving.set(false);
-          this.toast.success('Programme submitted', 'Awaiting permission from the operation manager.');
+          this.toast.success('Program submitted', 'Awaiting permission from the operation manager.');
           this.formOpen.set(false);
           this.list.reload();
         },
@@ -573,7 +573,7 @@ export class ProgramsComponent {
 
   protected async postpone(programme: Program): Promise<void> {
     const confirmed = await this.confirm.ask({
-      title: 'Postpone programme?',
+      title: 'Postpone program?',
       message: `${programme.programmeId} moves to the postponed list and drops off the calendar.`,
       confirmLabel: 'Postpone',
       tone: 'danger',
@@ -586,7 +586,7 @@ export class ProgramsComponent {
         comments: 'Postponed by operations.',
       })
       .subscribe(() => {
-        this.toast.success('Programme postponed', programme.programmeId);
+        this.toast.success('Program postponed', programme.programmeId);
         this.list.reload();
       });
   }

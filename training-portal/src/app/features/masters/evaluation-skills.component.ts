@@ -56,7 +56,7 @@ const COLUMNS: ColumnDef[] = [
       [title]="copy.text('skills.title')"
       [subtitle]="copy.text('skills.subtitle')"
       icon="clipboard"
-      [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('skills.title') }]"
+      [breadcrumbs]="[{ label: 'Program setup' }, { label: copy.text('skills.title') }]"
     >
       <button *appCan="'masters.manage'" type="button" class="btn btn--primary" [disabled]="!selected()" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New skill

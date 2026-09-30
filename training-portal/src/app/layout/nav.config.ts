@@ -45,7 +45,7 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    label: 'Programme setup',
+    label: 'Program setup',
     items: [
       { label: 'Categories', route: '/masters/categories', icon: 'folder', permissions: ['masters.view'] },
       { label: 'Sub-categories', route: '/masters/sub-categories', icon: 'tag', permissions: ['masters.view'] },

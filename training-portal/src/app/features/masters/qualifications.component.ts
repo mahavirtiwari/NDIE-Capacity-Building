@@ -47,7 +47,7 @@ const COLUMNS: ColumnDef[] = [
       [subtitle]="copy.text('page.qualifications.subtitle')"
       icon="book"
       [breadcrumbs]="[
-        { label: 'Programme setup' },
+        { label: 'Program setup' },
         { label: copy.text('page.qualifications.title') },
       ]"
     >

@@ -373,16 +373,16 @@ function Result({ result, onDone }: { result: ExamResult; onDone: () => void }) 
         <DetailRow label="Answered" value={`${result.answered} of ${result.questionCount}`} />
         <DetailRow label="This paper" value={result.passed ? 'Passed' : 'Not passed'} />
         {result.writtenMarks != null ? (
-          <DetailRow label="Counted towards the programme" value={`${result.writtenMarks} marks`} />
+          <DetailRow label="Counted towards the program" value={`${result.writtenMarks} marks`} />
         ) : null}
-        <DetailRow label="Programme result" value={result.programmeResult} />
+        <DetailRow label="Program result" value={result.programmeResult} />
       </Card>
 
       {result.programmeResult === 'Pending' ? (
         <Banner tone="info">
           {words(
             'exam.resultPending',
-            'Your programme result waits on the rest of the assessment — the viva or practical, where your programme has one.',
+            'Your program result waits on the rest of the assessment — the viva or practical, where your program has one.',
           )}
         </Banner>
       ) : null}

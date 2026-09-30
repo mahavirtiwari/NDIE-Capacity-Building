@@ -137,7 +137,7 @@ function baseSections(): RegistrationSection[] {
     {
       id: 3,
       title: 'Nomination',
-      description: 'How the applicant is nominated for the programme.',
+      description: 'How the applicant is nominated for the program.',
       displayOrder: 3,
       isEnabled: true,
       fields: [

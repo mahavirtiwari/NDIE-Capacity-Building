@@ -96,7 +96,7 @@ public class DbSeeder(
                 "Owns the masters and the portal itself. Appoints Admins and the Ministry account.",
                 [.. Permissions.All]),
             ("Ministry of MSME", "MINISTRY", BaseRole.Ministry,
-                "Oversight for the parent ministry: sees the whole programme, changes none of it.",
+                "Oversight for the parent ministry: sees the whole program, changes none of it.",
                 [
                     Permissions.MastersView, Permissions.CurriculumView, Permissions.FeesView,
                     Permissions.ExamsView, Permissions.MaterialsView, Permissions.AgenciesView,
@@ -123,7 +123,7 @@ public class DbSeeder(
                     Permissions.CoordinatorsView, Permissions.ReportsView,
                 ]),
             ("Implementing Agency", "AGENCY_ADMIN", BaseRole.AgencyAdmin,
-                "The agency's own login. Adds its coordinators and runs its programmes.",
+                "The agency's own login. Adds its coordinators and runs its programs.",
                 [
                     Permissions.MastersView, Permissions.CurriculumView, Permissions.MaterialsView,
                     Permissions.RolesView,
@@ -132,7 +132,7 @@ public class DbSeeder(
                     Permissions.ProgramsView, Permissions.ProgramsManage, Permissions.ReportsView,
                 ]),
             ("Coordinator", "COORDINATOR", BaseRole.Coordinator,
-                "Captures programmes conducted physically or virtually and marks attendance.",
+                "Captures programs conducted physically or virtually and marks attendance.",
                 [Permissions.ProgramsView, Permissions.ProgramsManage, Permissions.MaterialsView]),
         ];
 

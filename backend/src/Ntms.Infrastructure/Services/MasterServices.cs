@@ -383,7 +383,7 @@ public class ProgramTypeService(NtmsDbContext db, CertificateTemplateStore templ
 
         if (sectionTotal == 0)
         {
-            errors.Add("An examined programme needs marks against at least one section.");
+            errors.Add("An examined program needs marks against at least one section.");
         }
 
         if (scheme.TotalMarks == 0)

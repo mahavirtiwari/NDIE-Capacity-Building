@@ -57,7 +57,7 @@ const COLUMNS: ColumnDef[] = [
       [title]="copy.text('page.examPapers.title')"
       [subtitle]="copy.text('page.examPapers.subtitle')"
       icon="clipboard"
-      [breadcrumbs]="[{ label: 'Programme setup' }, { label: copy.text('page.examPapers.title') }]"
+      [breadcrumbs]="[{ label: 'Program setup' }, { label: copy.text('page.examPapers.title') }]"
     >
       <button *appCan="'exams.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New exam paper
@@ -73,7 +73,7 @@ const COLUMNS: ColumnDef[] = [
               <input class="input" placeholder="Search exam papers" (input)="list.setSearch(term($event))" />
             </div>
           </div>
-          <app-master-filter [list]="list" programTypeLabel="Programme type" #masters />
+          <app-master-filter [list]="list" programTypeLabel="Program type" #masters />
           <div class="field">
             <label class="field-label" for="examStatus">Status</label>
             <select id="examStatus" class="select" (change)="list.setFilter('status', value($event))">
@@ -141,9 +141,9 @@ const COLUMNS: ColumnDef[] = [
         <form [formGroup]="form" id="exam-form" (ngSubmit)="save()" class="stack stack-md">
           <div class="form-grid form-grid--3">
             <div class="field">
-              <label class="field-label">Programme type <span class="req">*</span></label>
+              <label class="field-label">Program type <span class="req">*</span></label>
               <select class="select" formControlName="programTypeId">
-                <option [ngValue]="null">Select programme type</option>
+                <option [ngValue]="null">Select program type</option>
                 @for (type of allProgramTypes(); track type.id) {
                   <option [ngValue]="type.id">{{ type.code }} — {{ type.name }}</option>
                 }

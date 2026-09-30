@@ -81,7 +81,7 @@ export default function ProgrammeManagement() {
 
       <MenuRow
         icon="checkbox-outline"
-        title="Programme attendance"
+        title="Program attendance"
         status={
           p?.participantCount
             ? `${p.attendanceMarkedCount}/${p.participantCount} marked · ${p.presentCount} present`

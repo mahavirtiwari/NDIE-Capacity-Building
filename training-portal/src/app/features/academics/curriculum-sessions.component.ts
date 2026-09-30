@@ -44,7 +44,7 @@ interface FlatRow {
         [subtitle]="(programme.programTypeCode ?? '') + ' · ' + programme.durationDays + ' days'"
         icon="book"
         [breadcrumbs]="[
-          { label: 'Programme setup' },
+          { label: 'Program setup' },
           { label: 'Curriculum', link: '/academics/curriculum' },
           { label: programme.programTypeCode ?? 'Curriculum' }
         ]"
@@ -61,7 +61,7 @@ interface FlatRow {
         <div class="card__body">
           <div class="dl">
             <div>
-              <div class="dl__term">Programme type</div>
+              <div class="dl__term">Program type</div>
               <div class="dl__value">{{ programme.programTypeName }}</div>
             </div>
             <div>
@@ -183,7 +183,7 @@ interface FlatRow {
           <div class="field">
             <label class="field-label" for="sessionCode">Session code</label>
             <input id="sessionCode" class="input" formControlName="sessionCode" readonly />
-            <span class="field-hint">Generated from the programme code.</span>
+            <span class="field-hint">Generated from the program code.</span>
           </div>
           <div class="field">
             <label class="field-label" for="sessionDay">Day</label>

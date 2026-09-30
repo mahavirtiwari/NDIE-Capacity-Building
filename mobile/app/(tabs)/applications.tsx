@@ -80,7 +80,7 @@ export default function Applications() {
           <EmptyState
             icon="document-text-outline"
             title="No applications yet"
-            message="Apply from the Programmes tab and your application will appear here."
+            message="Apply from the Programs tab and your application will appear here."
           />
         ) : (
           <EmptyState
@@ -137,7 +137,7 @@ function ApplicationCard({
       <Card style={styles.card}>
         <View style={styles.cardTop}>
           <View style={styles.cardTitleWrap}>
-            <Text style={styles.cardTitle}>{application.programTypeName ?? 'Programme'}</Text>
+            <Text style={styles.cardTitle}>{application.programTypeName ?? 'Program'}</Text>
             <Text style={styles.cardCode}>{application.applicationNo}</Text>
           </View>
           <StatusPill value={application.status} />

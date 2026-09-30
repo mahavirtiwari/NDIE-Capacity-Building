@@ -32,7 +32,7 @@ const LINKS: MenuLink[] = [
   {
     icon: 'grid-outline',
     label: 'Dashboard',
-    note: 'Programmes open to you',
+    note: 'Programs open to you',
     href: '/(tabs)/programs',
   },
   {
@@ -56,7 +56,7 @@ const LINKS: MenuLink[] = [
   {
     icon: 'book-outline',
     label: 'Training material',
-    note: 'Reading for the programmes you are on',
+    note: 'Reading for the programs you are on',
     href: '/(tabs)/materials',
   },
   {

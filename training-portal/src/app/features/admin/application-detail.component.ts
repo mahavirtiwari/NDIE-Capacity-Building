@@ -203,7 +203,7 @@ type Tab = 'responses' | 'documents' | 'history';
           </section>
 
           <section class="card">
-            <div class="card__header"><span class="card__title">Programme &amp; fee</span></div>
+            <div class="card__header"><span class="card__title">Program &amp; fee</span></div>
             <div class="card__body">
               <div class="dl">
                 <div>

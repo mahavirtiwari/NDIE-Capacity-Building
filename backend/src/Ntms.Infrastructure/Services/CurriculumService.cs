@@ -102,7 +102,7 @@ public class CurriculumService(NtmsDbContext db)
 
     private static void Validate(CurriculumUpsertDto dto) =>
         Guard.Check()
-            .When(dto.ProgramTypeId <= 0, "Select the programme type.")
+            .When(dto.ProgramTypeId <= 0, "Select the program type.")
             .Range(dto.DurationDays, 1, 365, "Duration (days)")
             .ThrowIfInvalid();
 

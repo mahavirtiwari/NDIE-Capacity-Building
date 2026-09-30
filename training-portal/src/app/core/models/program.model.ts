@@ -24,7 +24,7 @@ export const PROGRAM_STATUSES: ProgramStatus[] = [
 ];
 
 export const PROGRAM_STATUS_LABELS: Record<ProgramStatus, string> = {
-  New: 'New programme',
+  New: 'New program',
   PermissionAccepted: 'Permission accepted',
   CalendarCreated: 'Calendar created',
   Conducted: 'Conducted',
