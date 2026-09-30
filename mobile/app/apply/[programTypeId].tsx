@@ -25,7 +25,6 @@ import type {
 import { useResource } from '../../src/api/useResource';
 import {
   DynamicSectionView,
-  entryNoun,
   statusLabelFor,
   useDynamicForm,
   type SectionProgress,
@@ -440,7 +439,6 @@ export default function Apply() {
                   index={index}
                   section={section}
                   progress={state.progressOf(section)}
-                  entries={state.entryCount(section)}
                   onPress={() => {
                     setSectionError(null);
                     setOpenId(section.id);
@@ -617,17 +615,16 @@ function isConsent(section: RegistrationSection): boolean {
 
 /* ------------------------------------------------------------ the list */
 
-const statusTone: Record<SectionStatus, { bg: string; fg: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  done: { bg: colors.success50, fg: colors.success700, icon: 'checkmark-circle' },
-  progress: { bg: colors.warning50, fg: colors.warning700, icon: 'ellipsis-horizontal-circle' },
-  pending: { bg: colors.ink100, fg: colors.ink500, icon: 'ellipse-outline' },
+const statusTone: Record<SectionStatus, { bg: string; fg: string }> = {
+  done: { bg: colors.success50, fg: colors.success700 },
+  progress: { bg: colors.warning50, fg: colors.warning700 },
+  pending: { bg: colors.ink100, fg: colors.ink500 },
 };
 
 function StatusChip({ status }: { status: SectionStatus }) {
   const tone = statusTone[status];
   return (
     <View style={[styles.statusChip, { backgroundColor: tone.bg }]}>
-      <Ionicons name={tone.icon} size={13} color={tone.fg} />
       <Text style={[styles.statusText, { color: tone.fg }]}>{statusLabelFor(status)}</Text>
     </View>
   );
@@ -641,22 +638,14 @@ function SectionRow({
   index,
   section,
   progress,
-  entries,
   onPress,
 }: {
   index: number;
   section: RegistrationSection;
   progress: SectionProgress;
-  entries: number;
   onPress: () => void;
 }) {
   const tone = statusTone[progress.status];
-  const noun = entryNoun(section).toLowerCase();
-
-  const counted = `${progress.answered} of ${progress.total} answered`;
-  const meta = section.isRepeatable
-    ? `${entries} ${entries === 1 ? noun : `${noun}s`} · ${counted}`
-    : counted;
 
   return (
     <Pressable
@@ -680,7 +669,6 @@ function SectionRow({
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle}>{section.title}</Text>
         <View style={styles.rowStanding}>
-          <Text style={styles.rowMeta}>{meta}</Text>
           <StatusChip status={progress.status} />
         </View>
       </View>
@@ -752,13 +740,9 @@ const styles = StyleSheet.create({
   rowNumber: { fontSize: font.sm, fontWeight: '700' },
   rowBody: { flex: 1, gap: 4 },
   rowTitle: { fontSize: font.sm, fontWeight: '700', color: colors.ink900 },
-  rowStanding: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm },
-  rowMeta: { fontSize: font.xs, color: colors.ink500 },
+  rowStanding: { flexDirection: 'row', alignItems: 'center' },
 
   statusChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.pill,
