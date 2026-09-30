@@ -36,7 +36,6 @@ import {
   Banner,
   Button,
   Card,
-  Chip,
   EmptyState,
   Field,
   Loading,
@@ -77,8 +76,8 @@ export default function Apply() {
   const state = useDynamicForm(form.data);
 
   /* The sections, in the order the designer put them and with the ones that
-     were switched off or emptied left out. This list is the screen. */
-  const sections = useMemo(
+     were switched off or emptied left out. */
+  const live = useMemo(
     () =>
       (form.data?.sections ?? [])
         .filter((section) => section.isEnabled && section.fields.some((field) => field.isEnabled))
@@ -86,6 +85,16 @@ export default function Apply() {
         .sort((a, b) => a.displayOrder - b.displayOrder),
     [form.data],
   );
+
+  /* A section that asks for a single tick is a declaration, and sending
+     somebody into a screen of their own to give it is absurd. It is put on
+     the page instead, under the sections and above the button it governs.
+     Read off the shape of the section, so it follows the designer rather
+     than the wording of any particular form. */
+  const consents = useMemo(() => live.filter(isConsent), [live]);
+
+  /** What the list shows, and what stepping through it walks. */
+  const sections = useMemo(() => live.filter((section) => !isConsent(section)), [live]);
 
   /* Which section is open, by id rather than by position: a form can be
      republished while this screen is up and positions would shift. */
@@ -220,7 +229,7 @@ export default function Apply() {
 
   const submit = async () => {
     if (needsForm && !state.validate()) {
-      setError('Some sections are not complete. Open the ones marked below and correct them.');
+      setError('Something is still missing. Check whatever is marked in red.');
       return;
     }
     if (tdsPercent > 0 && !isTan(tan)) {
@@ -357,12 +366,6 @@ export default function Apply() {
           <Card style={styles.summary}>
             <Text style={styles.programName}>{program.name}</Text>
             <Text style={styles.programCode}>{program.code}</Text>
-            <View style={styles.chips}>
-              <Chip>{`${program.durationDays} days`}</Chip>
-              <Chip>{program.deliveryMode}</Chip>
-              {program.isExamMandatory ? <Chip>Exam</Chip> : null}
-              {form.data ? <Chip>{`Form v${form.data.version}`}</Chip> : null}
-            </View>
           </Card>
         ) : null}
 
@@ -518,6 +521,17 @@ export default function Apply() {
           </Card>
         ) : null}
 
+        {alreadyApplied
+          ? null
+          : consents.map((section) => (
+              <DynamicSectionView
+                key={section.id}
+                section={section}
+                state={state}
+                showCount={false}
+              />
+            ))}
+
         {error ? <Banner tone="danger">{error}</Banner> : null}
 
         <Button
@@ -591,6 +605,16 @@ export default function Apply() {
   );
 }
 
+/**
+ * Whether a section is a declaration rather than a set of questions: one
+ * enabled field, a tick, and nothing repeated.
+ */
+function isConsent(section: RegistrationSection): boolean {
+  if (section.isRepeatable) return false;
+  const fields = section.fields.filter((field) => field.isEnabled);
+  return fields.length === 1 && fields[0].type === 'checkbox';
+}
+
 /* ------------------------------------------------------------ the list */
 
 const statusTone: Record<SectionStatus, { bg: string; fg: string; icon: keyof typeof Ionicons.glyphMap }> = {
@@ -655,18 +679,13 @@ function SectionRow({
 
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle}>{section.title}</Text>
-        <Text style={styles.rowMeta}>{meta}</Text>
-        {progress.wrong > 0 ? (
-          <Text style={styles.rowWrongText}>
-            {progress.wrong === 1 ? '1 answer to correct' : `${progress.wrong} answers to correct`}
-          </Text>
-        ) : null}
+        <View style={styles.rowStanding}>
+          <Text style={styles.rowMeta}>{meta}</Text>
+          <StatusChip status={progress.status} />
+        </View>
       </View>
 
-      <View style={styles.rowEnd}>
-        <StatusChip status={progress.status} />
-        <Ionicons name="chevron-forward" size={18} color={colors.ink400} />
-      </View>
+      <Ionicons name="chevron-forward" size={18} color={colors.ink400} />
     </Pressable>
   );
 }
@@ -695,7 +714,6 @@ const styles = StyleSheet.create({
   summary: { gap: 4 },
   programName: { fontSize: font.md, fontWeight: '700', color: colors.ink900 },
   programCode: { fontSize: font.xs, color: colors.ink500, letterSpacing: 0.4 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.xs },
 
   card: { gap: spacing.md },
   sectionTitle: { fontSize: font.md, fontWeight: '700', color: colors.ink900 },
@@ -732,11 +750,10 @@ const styles = StyleSheet.create({
   rowWrong: { borderColor: colors.danger500, backgroundColor: colors.danger50 },
   rowIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   rowNumber: { fontSize: font.sm, fontWeight: '700' },
-  rowBody: { flex: 1, gap: 2 },
+  rowBody: { flex: 1, gap: 4 },
   rowTitle: { fontSize: font.sm, fontWeight: '700', color: colors.ink900 },
+  rowStanding: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm },
   rowMeta: { fontSize: font.xs, color: colors.ink500 },
-  rowWrongText: { fontSize: font.xs, fontWeight: '600', color: colors.danger700 },
-  rowEnd: { alignItems: 'flex-end', gap: 4 },
 
   statusChip: {
     flexDirection: 'row',

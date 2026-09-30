@@ -273,7 +273,12 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
       const empty = Array.isArray(raw) ? raw.length === 0 : text.trim() === '' || text === 'false';
 
       if (field.validation.required && empty) {
-        found[key] = `${field.label} is required.`;
+        /* A declaration's label is a paragraph, and "<the whole paragraph>
+           is required." is not a sentence anybody should be shown. */
+        found[key] =
+          field.type === 'checkbox'
+            ? 'You need to tick this to continue.'
+            : `${field.label} is required.`;
         return;
       }
       if (empty) return;
@@ -540,9 +545,12 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
 export function DynamicSectionView({
   section,
   state,
+  showCount = true,
 }: {
   section: RegistrationSection;
   state: DynamicFormState;
+  /** Off where the section is the whole screen, or a one-line consent. */
+  showCount?: boolean;
 }) {
   const { values, errors, setValue, entryCount, addEntry, removeEntry } = state;
 
@@ -583,7 +591,9 @@ export function DynamicSectionView({
       <Card style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{section.title}</Text>
-          <Chip>{`${rendered.length} fields`}</Chip>
+          {showCount ? (
+            <Chip>{rendered.length === 1 ? '1 field' : `${rendered.length} fields`}</Chip>
+          ) : null}
         </View>
         {section.description ? (
           <Text style={styles.sectionDescription}>{section.description}</Text>
@@ -603,7 +613,7 @@ export function DynamicSectionView({
     <Card style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>{section.title}</Text>
-        <Chip>{`${shown} of ${ceiling}`}</Chip>
+        {showCount ? <Chip>{`${shown} of ${ceiling}`}</Chip> : null}
       </View>
       {section.description ? (
         <Text style={styles.sectionDescription}>{section.description}</Text>
