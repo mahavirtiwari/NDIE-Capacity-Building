@@ -77,8 +77,12 @@ export interface ApplicantAnswer {
 /* --------------------------------------------------------- blocking */
 
 /** One reason an account may be blocked, as configured by a Super Admin. */
+export type AccessReasonKind = 'Block' | 'Unblock';
+
 export interface BlockReason {
   id: Id;
+  /** Whether this is a reason to block or a reason to let back in. */
+  kind: AccessReasonKind;
   label: string;
   displayOrder: number;
   /** True where the reason needs the specifics spelled out. */
@@ -88,6 +92,7 @@ export interface BlockReason {
 }
 
 export interface BlockReasonUpsert {
+  kind: AccessReasonKind;
   label: string;
   displayOrder: number;
   requiresNote: boolean;

@@ -334,32 +334,32 @@ const COLUMNS: ColumnDef[] = [
             }
           </p>
 
-          @if (prompt.blocking) {
-            <div class="field">
-              <label class="field-label" for="blockReason">Reason <span class="req">*</span></label>
-              <select
-                id="blockReason"
-                class="select"
-                [value]="blockReasonId() ?? ''"
-                (change)="blockReasonId.set(numberValue($event))"
-              >
-                <option value="">Choose a reason</option>
-                @for (reason of blockReasons(); track reason.id) {
-                  <option [value]="reason.id">{{ reason.label }}</option>
-                }
-              </select>
-              @if (blockReasons().length === 0) {
-                <span class="field-hint">
-                  No reasons have been set up yet. A Super Admin adds them under System Settings.
-                </span>
+          <!-- Both directions pick from a list, so both halves of the
+               history give grounds that can be counted. -->
+          <div class="field">
+            <label class="field-label" for="blockReason">Reason <span class="req">*</span></label>
+            <select
+              id="blockReason"
+              class="select"
+              [value]="blockReasonId() ?? ''"
+              (change)="blockReasonId.set(numberValue($event))"
+            >
+              <option value="">Choose a reason</option>
+              @for (reason of reasonsForDirection(); track reason.id) {
+                <option [value]="reason.id">{{ reason.label }}</option>
               }
-            </div>
-          }
+            </select>
+            @if (reasonsForDirection().length === 0) {
+              <span class="field-hint">
+                No reasons have been set up yet. A Super Admin adds them under System Settings.
+              </span>
+            }
+          </div>
 
           <div class="field">
             <label class="field-label" for="blockNote">
               Note
-              @if (!prompt.blocking || chosenBlockReason()?.requiresNote) {
+              @if (chosenBlockReason()?.requiresNote) {
                 <span class="req">*</span>
               }
             </label>
@@ -650,6 +650,14 @@ export class ApplicantsComponent {
     return raw ? Number(raw) : null;
   }
 
+  /** The half of the list that applies to what is being done. */
+  protected readonly reasonsForDirection = computed(() => {
+    const prompt = this.blockPrompt();
+    if (!prompt) return [];
+    const kind = prompt.blocking ? 'Block' : 'Unblock';
+    return this.blockReasons().filter((r) => r.kind === kind);
+  });
+
   protected readonly chosenBlockReason = computed(() =>
     this.blockReasons().find((r) => r.id === this.blockReasonId()) ?? null,
   );
@@ -657,15 +665,9 @@ export class ApplicantsComponent {
   /* Mirrors what the server insists on, so the button is not offered for a
      request that is going to come straight back. */
   protected readonly canConfirmBlock = computed(() => {
-    const prompt = this.blockPrompt();
-    if (!prompt) return false;
-
-    const note = this.blockNote().trim();
-    if (!prompt.blocking) return note.length > 0;
-
     const reason = this.chosenBlockReason();
-    if (!reason) return false;
-    return !reason.requiresNote || note.length > 0;
+    if (!this.blockPrompt() || !reason) return false;
+    return !reason.requiresNote || this.blockNote().trim().length > 0;
   });
 
   protected toggleBlock(row: Applicant): void {
@@ -680,12 +682,7 @@ export class ApplicantsComponent {
 
     this.savingBlock.set(true);
     this.service
-      .setBlocked(
-        prompt.row.id,
-        prompt.blocking,
-        prompt.blocking ? this.blockReasonId() : null,
-        this.blockNote().trim(),
-      )
+      .setBlocked(prompt.row.id, prompt.blocking, this.blockReasonId(), this.blockNote().trim())
       .subscribe({
         next: () => {
           this.savingBlock.set(false);

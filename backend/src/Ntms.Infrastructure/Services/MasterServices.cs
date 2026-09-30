@@ -884,11 +884,15 @@ public class RejectionReasonService(NtmsDbContext db)
 /// </summary>
 public class BlockReasonService(NtmsDbContext db)
 {
-    public async Task<List<BlockReasonDto>> ListAsync(bool activeOnly, CancellationToken ct)
+    public async Task<List<BlockReasonDto>> ListAsync(
+        bool activeOnly, string? kind, CancellationToken ct)
     {
+        var wanted = EnumMaps.ParseEnumOrNull<AccessReasonKind>(kind);
+
         var rows = await db.BlockReasons.AsNoTracking()
             .WhereIf(activeOnly, r => r.Status == RecordStatus.Active)
-            .OrderBy(r => r.DisplayOrder).ThenBy(r => r.Label)
+            .WhereIf(wanted.HasValue, r => r.Kind == wanted)
+            .OrderBy(r => r.Kind).ThenBy(r => r.DisplayOrder).ThenBy(r => r.Label)
             .ToListAsync(ct);
 
         var used = await db.ApplicantStatusEvents.AsNoTracking()
@@ -903,12 +907,14 @@ public class BlockReasonService(NtmsDbContext db)
     public async Task<BlockReasonDto> CreateAsync(BlockReasonUpsertDto dto, CancellationToken ct)
     {
         var label = Validate(dto);
+        var kind = EnumMaps.ParseEnum(dto.Kind, AccessReasonKind.Block);
 
-        if (await db.BlockReasons.AnyAsync(r => r.Label == label, ct))
-            throw AppException.Conflict($"'{label}' is already on the list.");
+        if (await db.BlockReasons.AnyAsync(r => r.Label == label && r.Kind == kind, ct))
+            throw AppException.Conflict($"'{label}' is already on that list.");
 
         var entity = new BlockReason
         {
+            Kind = kind,
             Label = label,
             DisplayOrder = dto.DisplayOrder,
             RequiresNote = dto.RequiresNote,
@@ -928,9 +934,12 @@ public class BlockReasonService(NtmsDbContext db)
         var entity = await db.BlockReasons.FirstOrDefaultAsync(r => r.Id == id, ct)
             ?? throw AppException.NotFound("Block reason");
 
-        if (await db.BlockReasons.AnyAsync(r => r.Label == label && r.Id != id, ct))
-            throw AppException.Conflict($"'{label}' is already on the list.");
+        var kind = EnumMaps.ParseEnum(dto.Kind, entity.Kind);
 
+        if (await db.BlockReasons.AnyAsync(r => r.Label == label && r.Kind == kind && r.Id != id, ct))
+            throw AppException.Conflict($"'{label}' is already on that list.");
+
+        entity.Kind = kind;
         entity.Label = label;
         entity.DisplayOrder = dto.DisplayOrder;
         entity.RequiresNote = dto.RequiresNote;
@@ -979,6 +988,7 @@ public class BlockReasonService(NtmsDbContext db)
     private static BlockReasonDto Map(BlockReason r, int used) => new()
     {
         Id = r.Id,
+        Kind = r.Kind.ToString(),
         Label = r.Label,
         DisplayOrder = r.DisplayOrder,
         RequiresNote = r.RequiresNote,

@@ -44,6 +44,8 @@ public static class EmailTemplateDefaults
     public const string AgencyEmpanelled = "agency-empanelled";
     public const string AccountStatusChanged = "account-status-changed";
     public const string AccountUpdated = "account-updated";
+    public const string CertificateIssued = "certificate-issued";
+    public const string ApplicantAccessChanged = "applicant-access-changed";
 
     /// <summary>
     /// Messages that carry a credential or a one-time code. The editor keeps
@@ -323,6 +325,52 @@ public static class EmailTemplateDefaults
                 <p>{{remarks}}</p>
                 """,
             PlainTextBody = "Application {{applicationNo}}: {{outcome}}. {{remarks}}",
+        },
+        new()
+        {
+            Key = ApplicantAccessChanged,
+            Name = "Applicant blocked or unblocked",
+            Description =
+                "Tells an applicant their account was blocked or let back in, and on what "
+                + "grounds.",
+            Placeholders = "name,applicantCode,outcome,reason,remarks",
+            Subject = "Your applicant account has been {{outcome}}",
+            HtmlBody = """
+                <p>Dear {{name}},</p>
+                <p>Your applicant account <strong>{{applicantCode}}</strong> has been
+                   <strong>{{outcome}}</strong>.</p>
+                <p><strong>Reason:</strong> {{reason}}</p>
+                <p>{{remarks}}</p>
+                <p>If you believe this is a mistake, reply to this message.</p>
+                """,
+            PlainTextBody =
+                "Your applicant account {{applicantCode}} has been {{outcome}}. "
+                + "Reason: {{reason}}. {{remarks}}",
+        },
+        new()
+        {
+            Key = CertificateIssued,
+            Name = "Certificate issued",
+            Description =
+                "Sends the holder their certificate details and where to verify it. "
+                + "Also used by the Re-send button.",
+            Placeholders = "name,certificateNumber,kind,programme,issuedOn,validTill,verifyUrl",
+            Subject = "Your {{kind}} certificate {{certificateNumber}}",
+            HtmlBody = """
+                <p>Dear {{name}},</p>
+                <p>Your <strong>{{kind}}</strong> certificate for
+                   <strong>{{programme}}</strong> has been issued.</p>
+                <table cellpadding="4">
+                  <tr><td>Certificate number</td><td><strong>{{certificateNumber}}</strong></td></tr>
+                  <tr><td>Issued on</td><td>{{issuedOn}}</td></tr>
+                  <tr><td>Valid till</td><td>{{validTill}}</td></tr>
+                </table>
+                <p>Anybody can confirm it is genuine at
+                   <a href="{{verifyUrl}}">{{verifyUrl}}</a>.</p>
+                """,
+            PlainTextBody =
+                "Your {{kind}} certificate {{certificateNumber}} for {{programme}} was issued "
+                + "on {{issuedOn}} and is valid till {{validTill}}. Verify it at {{verifyUrl}}.",
         },
         new()
         {

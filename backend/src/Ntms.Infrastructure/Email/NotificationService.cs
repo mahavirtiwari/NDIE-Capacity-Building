@@ -51,6 +51,23 @@ public interface INotificationService
     /// <summary>Tells the holder their details or allocation were changed.</summary>
     Task SendAccountUpdatedAsync(PortalUser user, CancellationToken ct = default);
 
+    /// <summary>
+    /// Tells an applicant their account was blocked or let back in, and why.
+    /// Sent both ways: being locked out without being told why is the worst
+    /// version of this, and being let back in is worth knowing.
+    /// </summary>
+    Task SendApplicantAccessChangedAsync(
+        Applicant applicant, bool blocked, string reason, string remarks,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Sends the holder their certificate details and where to verify it.
+    /// Used when one is issued and again whenever somebody re-sends it.
+    /// </summary>
+    Task SendCertificateAsync(
+        Certificate certificate, string email, string name, string verifyUrl,
+        CancellationToken ct = default);
+
     /// <summary>A one-time code for an applicant recovering their password.</summary>
     Task SendApplicantResetCodeAsync(
         Applicant applicant, string code, int validityMinutes, CancellationToken ct = default);
@@ -211,6 +228,32 @@ public class NotificationService(
             ["name"] = applicantName,
             ["applicationNo"] = application.ApplicationNo,
             ["programme"] = application.ProgramType?.Name ?? "the programme",
+        }, ct);
+
+    public Task SendApplicantAccessChangedAsync(
+        Applicant applicant, bool blocked, string reason, string remarks,
+        CancellationToken ct = default) =>
+        SendAsync(EmailTemplateDefaults.ApplicantAccessChanged, applicant.Email, new()
+        {
+            ["name"] = applicant.FullName,
+            ["applicantCode"] = applicant.ApplicantCode,
+            ["outcome"] = blocked ? "blocked" : "unblocked",
+            ["reason"] = reason,
+            ["remarks"] = remarks,
+        }, ct);
+
+    public Task SendCertificateAsync(
+        Certificate certificate, string email, string name, string verifyUrl,
+        CancellationToken ct = default) =>
+        SendAsync(EmailTemplateDefaults.CertificateIssued, email, new()
+        {
+            ["name"] = name,
+            ["certificateNumber"] = certificate.Number,
+            ["kind"] = certificate.Kind.ToString(),
+            ["programme"] = certificate.ProgrammeName,
+            ["issuedOn"] = certificate.IssuedOn.ToString("dd MMM yyyy"),
+            ["validTill"] = certificate.ValidTill?.ToString("dd MMM yyyy") ?? "No expiry",
+            ["verifyUrl"] = verifyUrl,
         }, ct);
 
     public Task SendScrutinyOutcomeAsync(

@@ -1,7 +1,12 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { BlockReason, RejectionReason, SystemSettings } from '../../core/models';
+import {
+  AccessReasonKind,
+  BlockReason,
+  RejectionReason,
+  SystemSettings,
+} from '../../core/models';
 import { SystemSettingsService } from '../../core/services/system.service';
 import { BlockReasonService } from '../../core/services/people.service';
 import { RejectionReasonService } from '../../core/services/workflow.service';
@@ -441,106 +446,109 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
         </div>
       </section>
 
-      <!-- ------------------------------------------- block reasons -->
+      <!-- ------------------------------------------- account access -->
       <section class="card">
         <div class="card__header">
           <div class="stack stack-xs">
-            <span class="card__title">Reasons for blocking an account</span>
+            <span class="card__title">Reasons for blocking and unblocking</span>
             <span class="card__subtitle">
-              What an administrator picks from when blocking an applicant’s account.
+              What an administrator picks from when locking an applicant out, and when
+              letting them back in. Both are recorded and e-mailed to the applicant.
             </span>
           </div>
         </div>
         <div class="card__body">
-          <div class="stack stack-sm">
-            @if (blockReasons().length === 0) {
-              <p class="text-muted text-sm">
-                Nothing here yet. Until a reason exists, an account cannot be blocked.
-              </p>
-            } @else {
-              <div class="table-wrap">
-                <table class="table table--compact">
-                  <thead>
-                    <tr>
-                      <th style="width: 70px">Order</th>
-                      <th>Reason</th>
-                      <th style="width: 130px">Needs a note</th>
-                      <th style="width: 110px">Used by</th>
-                      <th style="width: 100px">Status</th>
-                      <th style="width: 110px"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (reason of blockReasons(); track reason.id) {
-                      <tr>
-                        <td class="tabular">{{ reason.displayOrder }}</td>
-                        <td>{{ reason.label }}</td>
-                        <td>{{ reason.requiresNote ? 'Yes' : 'No' }}</td>
-                        <td class="tabular">
-                          {{ reason.usedByCount || '—' }}
-                        </td>
-                        <td><app-status-badge [value]="reason.status" /></td>
-                        <td>
-                          <div class="btn-row btn-row--end">
-                            <button
-                              type="button"
-                              class="btn btn--sm btn--secondary"
-                              (click)="toggleBlockReason(reason)"
-                            >
-                              {{ reason.status === 'Active' ? 'Switch off' : 'Switch on' }}
-                            </button>
-                            @if (!reason.usedByCount) {
-                              <button
-                                type="button"
-                                class="btn btn--icon"
-                                title="Remove"
-                                (click)="removeBlockReason(reason)"
-                              >
-                                <app-icon name="trash" [size]="15" />
-                              </button>
-                            }
-                          </div>
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
+          <div class="stack stack-lg">
+            @for (group of accessGroups; track group.kind) {
+              <div class="stack stack-sm">
+                <h4 class="section-title">{{ group.title }}</h4>
+
+                @if (reasonsOfKind(group.kind).length === 0) {
+                  <p class="text-muted text-sm">{{ group.empty }}</p>
+                } @else {
+                  <div class="table-wrap">
+                    <table class="table table--compact">
+                      <thead>
+                        <tr>
+                          <th style="width: 70px">Order</th>
+                          <th>Reason</th>
+                          <th style="width: 130px">Needs a note</th>
+                          <th style="width: 110px">Used by</th>
+                          <th style="width: 100px">Status</th>
+                          <th style="width: 110px"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (reason of reasonsOfKind(group.kind); track reason.id) {
+                          <tr>
+                            <td class="tabular">{{ reason.displayOrder }}</td>
+                            <td>{{ reason.label }}</td>
+                            <td>{{ reason.requiresNote ? 'Yes' : 'No' }}</td>
+                            <td class="tabular">{{ reason.usedByCount || '—' }}</td>
+                            <td><app-status-badge [value]="reason.status" /></td>
+                            <td>
+                              <div class="btn-row btn-row--end">
+                                <button
+                                  type="button"
+                                  class="btn btn--sm btn--secondary"
+                                  (click)="toggleBlockReason(reason)"
+                                >
+                                  {{ reason.status === 'Active' ? 'Switch off' : 'Switch on' }}
+                                </button>
+                                @if (!reason.usedByCount) {
+                                  <button
+                                    type="button"
+                                    class="btn btn--icon"
+                                    title="Remove"
+                                    (click)="removeBlockReason(reason)"
+                                  >
+                                    <app-icon name="trash" [size]="15" />
+                                  </button>
+                                }
+                              </div>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
+
+                <div class="row row-sm row-wrap" style="align-items: flex-end">
+                  <div class="field" style="flex: 1 1 320px">
+                    <label class="field-label" [attr.for]="'newAccess' + group.kind">
+                      {{ group.addLabel }}
+                    </label>
+                    <input
+                      [id]="'newAccess' + group.kind"
+                      class="input"
+                      [value]="newAccessReason()[group.kind]"
+                      (input)="setNewAccessReason(group.kind, inputValue($event))"
+                      [placeholder]="group.placeholder"
+                      maxlength="200"
+                    />
+                  </div>
+                  <label class="check" style="padding-bottom: 0.6rem">
+                    <input
+                      type="checkbox"
+                      [checked]="newAccessNeedsNote()[group.kind]"
+                      (change)="setNewAccessNeedsNote(group.kind, checkedValue($event))"
+                    />
+                    <span>Needs a note</span>
+                  </label>
+                  <button
+                    type="button"
+                    class="btn btn--secondary"
+                    style="margin-bottom: 0.35rem"
+                    [disabled]="!newAccessReason()[group.kind].trim() || savingBlockReason()"
+                    (click)="addAccessReason(group.kind)"
+                  >
+                    @if (savingBlockReason()) { <span class="spinner"></span> }
+                    Add
+                  </button>
+                </div>
               </div>
             }
-
-            <!-- Outside the settings form: this list saves a row at a time,
-                 and it must not be tangled with Save settings. -->
-            <div class="row row-sm row-wrap" style="align-items: flex-end">
-              <div class="field" style="flex: 1 1 320px">
-                <label class="field-label" for="newBlockReason">Add a reason</label>
-                <input
-                  id="newBlockReason"
-                  class="input"
-                  [value]="newBlockReason()"
-                  (input)="newBlockReason.set(inputValue($event))"
-                  placeholder="e.g. Repeated no-shows after enrolment"
-                  maxlength="200"
-                />
-              </div>
-              <label class="check" style="padding-bottom: 0.6rem">
-                <input
-                  type="checkbox"
-                  [checked]="newBlockReasonNeedsNote()"
-                  (change)="newBlockReasonNeedsNote.set(checkedValue($event))"
-                />
-                <span>Needs a note</span>
-              </label>
-              <button
-                type="button"
-                class="btn btn--secondary"
-                style="margin-bottom: 0.35rem"
-                [disabled]="!newBlockReason().trim() || savingBlockReason()"
-                (click)="addBlockReason()"
-              >
-                @if (savingBlockReason()) { <span class="spinner"></span> }
-                Add
-              </button>
-            </div>
 
             <span class="field-hint">
               A reason that has already been used is switched off rather than removed, so the
@@ -642,31 +650,70 @@ export class SystemSettingsComponent {
      whether to lock an account. */
   private readonly blockReasonService = inject(BlockReasonService);
   protected readonly blockReasons = signal<BlockReason[]>([]);
-  protected readonly newBlockReason = signal('');
-  protected readonly newBlockReasonNeedsNote = signal(false);
   protected readonly savingBlockReason = signal(false);
 
   private loadBlockReasons(): void {
     this.blockReasonService.list(false).subscribe((rows) => this.blockReasons.set(rows));
   }
 
-  protected addBlockReason(): void {
-    const label = this.newBlockReason().trim();
+  /** The two halves of the access list, rendered from one template. */
+  protected readonly accessGroups = [
+    {
+      kind: 'Block' as AccessReasonKind,
+      title: 'Blocking an account',
+      empty: 'Nothing here yet. Until a reason exists, an account cannot be blocked.',
+      addLabel: 'Add a reason to block',
+      placeholder: 'e.g. Repeated no-shows after enrolment',
+    },
+    {
+      kind: 'Unblock' as AccessReasonKind,
+      title: 'Letting an account back in',
+      empty: 'Nothing here yet. Until a reason exists, an account cannot be unblocked.',
+      addLabel: 'Add a reason to unblock',
+      placeholder: 'e.g. Undertaking signed and accepted',
+    },
+  ];
+
+  protected readonly newAccessReason = signal<Record<AccessReasonKind, string>>({
+    Block: '',
+    Unblock: '',
+  });
+
+  protected readonly newAccessNeedsNote = signal<Record<AccessReasonKind, boolean>>({
+    Block: false,
+    Unblock: false,
+  });
+
+  protected reasonsOfKind(kind: AccessReasonKind): BlockReason[] {
+    return this.blockReasons().filter((r) => r.kind === kind);
+  }
+
+  protected setNewAccessReason(kind: AccessReasonKind, value: string): void {
+    this.newAccessReason.set({ ...this.newAccessReason(), [kind]: value });
+  }
+
+  protected setNewAccessNeedsNote(kind: AccessReasonKind, value: boolean): void {
+    this.newAccessNeedsNote.set({ ...this.newAccessNeedsNote(), [kind]: value });
+  }
+
+  protected addAccessReason(kind: AccessReasonKind): void {
+    const label = this.newAccessReason()[kind].trim();
     if (!label || this.savingBlockReason()) return;
 
     this.savingBlockReason.set(true);
     this.blockReasonService
       .create({
+        kind,
         label,
-        displayOrder: (this.blockReasons().at(-1)?.displayOrder ?? 0) + 10,
-        requiresNote: this.newBlockReasonNeedsNote(),
+        displayOrder: (this.reasonsOfKind(kind).at(-1)?.displayOrder ?? 0) + 10,
+        requiresNote: this.newAccessNeedsNote()[kind],
         status: 'Active',
       })
       .subscribe({
         next: () => {
           this.savingBlockReason.set(false);
-          this.newBlockReason.set('');
-          this.newBlockReasonNeedsNote.set(false);
+          this.setNewAccessReason(kind, '');
+          this.setNewAccessNeedsNote(kind, false);
           this.toast.success('Reason added', label);
           this.loadBlockReasons();
         },
@@ -678,6 +725,7 @@ export class SystemSettingsComponent {
     const next = reason.status === 'Active' ? 'Inactive' : 'Active';
     this.blockReasonService
       .update(reason.id, {
+        kind: reason.kind,
         label: reason.label,
         displayOrder: reason.displayOrder,
         requiresNote: reason.requiresNote,

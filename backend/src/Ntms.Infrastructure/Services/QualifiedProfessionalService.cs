@@ -38,6 +38,8 @@ public class QualifiedProfessionalService(NtmsDbContext db, ICurrentUser current
         int? programTypeId,
         int? stateCode,
         string? standing,
+        DateTime? qualifiedFrom,
+        DateTime? qualifiedTo,
         CancellationToken ct)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -64,7 +66,14 @@ public class QualifiedProfessionalService(NtmsDbContext db, ICurrentUser current
             .WhereIf(categoryId.HasValue, x => x.participant.Programme!.CategoryId == categoryId)
             .WhereIf(subCategoryId.HasValue, x => x.participant.Programme!.SubCategoryId == subCategoryId)
             .WhereIf(programTypeId.HasValue, x => x.participant.Programme!.ProgramTypeId == programTypeId)
-            .WhereIf(stateCode.HasValue, x => x.participant.Programme!.StateCode == stateCode);
+            .WhereIf(stateCode.HasValue, x => x.participant.Programme!.StateCode == stateCode)
+            /* When they qualified, which is when the marks added up to a
+               pass - not when a certificate was printed, which may be days
+               later or not at all. */
+            .WhereIf(qualifiedFrom.HasValue,
+                x => x.participant.ResultRecordedOn >= qualifiedFrom!.Value)
+            .WhereIf(qualifiedTo.HasValue,
+                x => x.participant.ResultRecordedOn < qualifiedTo!.Value.Date.AddDays(1));
 
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
@@ -145,6 +154,8 @@ public class QualifiedProfessionalService(NtmsDbContext db, ICurrentUser current
                 AttendancePercent = x.participant.AttendancePercent,
                 QualifiedOn = x.participant.ResultRecordedOn,
 
+                CertificateId = x.certificate == null ? null : x.certificate.Id,
+                CertificateKind = x.certificate == null ? null : x.certificate.Kind.ToString(),
                 CertificateNumber = x.certificate == null ? null : x.certificate.Number,
                 IssuedOn = x.certificate == null ? null : x.certificate.IssuedOn,
                 ValidTill = x.certificate == null ? null : x.certificate.ValidTill,

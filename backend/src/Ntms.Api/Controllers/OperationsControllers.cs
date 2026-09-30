@@ -456,7 +456,10 @@ public class QualifiedProfessionalsController(QualifiedProfessionalService servi
         [FromQuery] int? programTypeId,
         [FromQuery] int? stateCode,
         [FromQuery] string? standing,
+        [FromQuery] DateTime? qualifiedFrom,
+        [FromQuery] DateTime? qualifiedTo,
         CancellationToken ct) =>
         Envelope(await service.ListAsync(
-            request, categoryId, subCategoryId, programTypeId, stateCode, standing, ct));
+            request, categoryId, subCategoryId, programTypeId, stateCode, standing,
+            qualifiedFrom, qualifiedTo, ct));
 }

@@ -68,7 +68,11 @@ public class BlockReasonConfiguration : IEntityTypeConfiguration<BlockReason>
     {
         b.ToTable("BlockReasons");
         b.Property(x => x.Label).HasMaxLength(200).IsRequired();
-        b.HasIndex(x => x.Label).IsUnique();
+
+        /* Unique per direction rather than outright: "Directed by the
+           ministry" is a fair reason to block and a fair reason to unblock,
+           and the two are different rows. */
+        b.HasIndex(x => new { x.Kind, x.Label }).IsUnique();
         b.HasIndex(x => x.DisplayOrder);
     }
 }

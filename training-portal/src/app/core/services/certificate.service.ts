@@ -53,4 +53,10 @@ export class CertificateService {
   previewUrl(programTypeId: Id, kind: CertificateKind): string {
     return this.api.fileUrl(`certificates/preview/${programTypeId}/${kind}`);
   }
+
+  /** E-mails the holder their certificate details again. */
+  resend(id: Id): Observable<string> {
+    return this.api.post<string>(`certificates/${id}/resend`, {});
+  }
+
 }

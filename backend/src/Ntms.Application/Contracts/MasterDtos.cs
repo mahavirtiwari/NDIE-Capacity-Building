@@ -330,6 +330,10 @@ public class RejectionReasonUpsertDto
 public class BlockReasonDto : AuditDto
 {
     public int Id { get; set; }
+
+    /// <summary>Block or Unblock.</summary>
+    public string Kind { get; set; } = "Block";
+
     public string Label { get; set; } = string.Empty;
     public int DisplayOrder { get; set; }
     public bool RequiresNote { get; set; }
@@ -341,6 +345,7 @@ public class BlockReasonDto : AuditDto
 
 public class BlockReasonUpsertDto
 {
+    public string Kind { get; set; } = "Block";
     public string Label { get; set; } = string.Empty;
     public int DisplayOrder { get; set; }
     public bool RequiresNote { get; set; }

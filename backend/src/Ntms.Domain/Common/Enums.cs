@@ -267,6 +267,20 @@ public enum CertificationPolicy
 }
 
 /// <summary>Which of the two documents a stored template produces.</summary>
+/// <summary>
+/// Which direction a reason on the access list is for.
+///
+/// One list rather than two tables: blocking and unblocking are two sides of
+/// the same decision about the same account, and an administrator managing
+/// them wants them side by side. That is not true of the rejection reasons,
+/// which are about an application rather than a person.
+/// </summary>
+public enum AccessReasonKind
+{
+    Block = 1,
+    Unblock = 2,
+}
+
 public enum CertificateKind
 {
     Qualification = 1,

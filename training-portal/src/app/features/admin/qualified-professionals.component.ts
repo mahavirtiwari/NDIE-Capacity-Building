@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { CertificateStanding, Id, QualifiedProfessional } from '../../core/models';
+import { CertificateService } from '../../core/services/certificate.service';
 import { LookupService } from '../../core/services/masters.service';
 import { QualifiedProfessionalService } from '../../core/services/system.service';
 import { SiteTextService } from '../../core/services/site-text.service';
@@ -11,6 +12,7 @@ import {
 } from '../../shared/components/data-table.component';
 import { IconComponent } from '../../shared/components/icon.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
+import { ToastService } from '../../core/services/toast.service';
 import { ListState, searchTerm } from '../../shared/list-state';
 
 const COLUMNS: ColumnDef[] = [
@@ -20,6 +22,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'certificate', header: 'Certificate', width: '190px' },
   { key: 'validTill', header: 'Valid till', sortable: true, width: '150px' },
   { key: 'standing', header: 'Standing', width: '130px' },
+  { key: 'actions', header: '', width: '160px', align: 'right' },
 ];
 
 /** What each standing is called and how it is coloured. */
@@ -86,6 +89,19 @@ const STANDINGS: Record<CertificateStanding, { label: string; tone: string }> = 
           </div>
 
           <div class="field">
+            <label class="field-label" for="qpSubCategory">Sub-category</label>
+            <select
+              id="qpSubCategory"
+              class="select"
+              (change)="list.setFilter('subCategoryId', value($event))"
+            >
+              <option value="">All sub-categories</option>
+              @for (option of subCategories(); track option.id) {
+                <option [value]="option.id">{{ option.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
             <label class="field-label" for="qpType">Program type</label>
             <select
               id="qpType"
@@ -109,6 +125,26 @@ const STANDINGS: Record<CertificateStanding, { label: string; tone: string }> = 
             </select>
           </div>
 
+          <div class="field field--range">
+            <label class="field-label" for="qpFrom">Qualified between</label>
+            <div class="field-range__inputs">
+              <input
+                id="qpFrom"
+                class="input"
+                type="date"
+                aria-label="Qualified from"
+                (change)="list.setFilter('qualifiedFrom', value($event))"
+              />
+              <span class="field-range__dash">&ndash;</span>
+              <input
+                id="qpTo"
+                class="input"
+                type="date"
+                aria-label="Qualified to"
+                (change)="list.setFilter('qualifiedTo', value($event))"
+              />
+            </div>
+          </div>
           <div class="field">
             <label class="field-label" for="qpStanding">Standing</label>
             <select id="qpStanding" class="select" (change)="list.setFilter('standing', value($event))">
@@ -177,11 +213,47 @@ const STANDINGS: Record<CertificateStanding, { label: string; tone: string }> = 
           @if ($any(row).certificateNumber) {
             <div class="stack stack-xs">
               <span class="tabular">{{ $any(row).certificateNumber }}</span>
-              <span class="text-xs text-muted">Issued {{ $any(row).issuedOn }}</span>
+              <span class="text-xs text-muted">
+                {{ $any(row).certificateKind === 'Participation' ? 'Participation' : 'Qualification' }}
+                &middot; issued {{ $any(row).issuedOn }}
+              </span>
             </div>
           } @else {
-            <span class="text-muted">—</span>
+            <!-- Said in words. A dash here reads as missing data rather than
+                 as a fact about this person. -->
+            <span class="text-muted">No certificate</span>
           }
+        </ng-template>
+
+        <ng-template appCell="actions" let-row>
+          <div class="btn-row btn-row--end">
+            @if ($any(row).certificateId) {
+              <a
+                class="btn btn--sm btn--secondary"
+                [href]="certificateUrl($any(row).certificateId)"
+                target="_blank"
+                rel="noopener"
+                title="Opens the certificate, ready to print or save as PDF"
+              >
+                Download
+              </a>
+              @if (!$any(row).revokedOn) {
+                <button
+                  type="button"
+                  class="btn btn--icon"
+                  title="E-mail it to the holder again"
+                  [disabled]="resending() === $any(row).certificateId"
+                  (click)="resend($any(row))"
+                >
+                  @if (resending() === $any(row).certificateId) {
+                    <span class="spinner"></span>
+                  } @else {
+                    <app-icon name="mail" [size]="15" />
+                  }
+                </button>
+              }
+            }
+          </div>
         </ng-template>
 
         <ng-template appCell="validTill" let-row>
@@ -229,6 +301,31 @@ export class QualifiedProfessionalsComponent {
 
   protected readonly columns = COLUMNS;
 
+  /* The certificate itself is a printable page served by the API, the same
+     one the programme screen opens; re-sending is an e-mail of the details
+     and the verification link rather than the document, because a PDF in an
+     inbox is a copy nobody can withdraw. */
+  private readonly certificates = inject(CertificateService);
+  private readonly toast = inject(ToastService);
+  protected readonly resending = signal<number | null>(null);
+
+  protected certificateUrl(id: number): string {
+    return this.certificates.documentUrl(id);
+  }
+
+  protected resend(row: QualifiedProfessional): void {
+    if (!row.certificateId || this.resending()) return;
+
+    this.resending.set(row.certificateId as number);
+    this.certificates.resend(row.certificateId).subscribe({
+      next: (sentTo) => {
+        this.resending.set(null);
+        this.toast.success('Certificate sent', sentTo);
+      },
+      error: () => this.resending.set(null),
+    });
+  }
+
   /* Held rather than written inline: an arrow in the template is a new
 
      function on every change detection pass. */
@@ -242,11 +339,14 @@ export class QualifiedProfessionalsComponent {
   protected readonly categories = toSignal(this.lookups.categories(), { initialValue: [] });
   protected readonly states = toSignal(this.lookups.states(), { initialValue: [] });
 
-  /** Narrowed to the chosen category, so the two filters cannot contradict. */
+  /* Both narrowed to the chosen category, so the filters cannot contradict
+     one another. */
   protected readonly programTypes = signal<{ id: Id; name: string }[]>([]);
+  protected readonly subCategories = signal<{ id: Id; name: string }[]>([]);
 
   constructor() {
     this.loadProgramTypes(null);
+    this.loadSubCategories(null);
   }
 
   protected term = searchTerm;
@@ -259,10 +359,19 @@ export class QualifiedProfessionalsComponent {
 
   protected onCategory(categoryId: number | null): void {
     this.list.setFilter('categoryId', categoryId ? String(categoryId) : '');
-    /* A program type from another category would filter everything away, so
-       the narrower list is reloaded and the stale choice dropped. */
+    /* A program type or sub-category from another category would filter
+       everything away, so the narrower lists are reloaded and the stale
+       choices dropped. */
     this.list.setFilter('programTypeId', '');
+    this.list.setFilter('subCategoryId', '');
     this.loadProgramTypes(categoryId);
+    this.loadSubCategories(categoryId);
+  }
+
+  private loadSubCategories(categoryId: number | null): void {
+    this.lookups.subCategories(categoryId).subscribe((items) => {
+      this.subCategories.set(items.map((item) => ({ id: item.id, name: item.name })));
+    });
   }
 
   private loadProgramTypes(categoryId: number | null): void {

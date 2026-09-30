@@ -56,8 +56,8 @@ public class BlockReasonsController(BlockReasonService service) : ApiControllerB
 {
     [HttpGet]
     public async Task<ActionResult<ApiEnvelope<List<BlockReasonDto>>>> List(
-        [FromQuery] bool activeOnly, CancellationToken ct) =>
-        Envelope(await service.ListAsync(activeOnly, ct));
+        [FromQuery] bool activeOnly, [FromQuery] string? kind, CancellationToken ct) =>
+        Envelope(await service.ListAsync(activeOnly, kind, ct));
 
     [HttpPost]
     [HasPermission(Permissions.MastersManage)]

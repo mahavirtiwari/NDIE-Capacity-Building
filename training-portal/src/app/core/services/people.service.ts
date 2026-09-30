@@ -5,6 +5,7 @@ import {
   Applicant,
   ApplicantExportRow,
   ApplicantHistory,
+  AccessReasonKind,
   BlockReason,
   BlockReasonUpsert,
   GeneratedCredentials,
@@ -93,8 +94,8 @@ export class BlockReasonService {
   private readonly api = inject(ApiService);
   private readonly resource = 'block-reasons';
 
-  list(activeOnly = false): Observable<BlockReason[]> {
-    return this.api.get<BlockReason[]>(this.resource, { activeOnly });
+  list(activeOnly = false, kind?: AccessReasonKind): Observable<BlockReason[]> {
+    return this.api.get<BlockReason[]>(this.resource, { activeOnly, kind });
   }
 
   create(payload: BlockReasonUpsert): Observable<BlockReason> {

@@ -6,6 +6,7 @@ using Ntms.Domain.Common;
 using Ntms.Domain.Entities;
 using Ntms.Infrastructure.Certificates;
 using Ntms.Infrastructure.Identity;
+using Ntms.Infrastructure.Email;
 using Ntms.Infrastructure.Persistence;
 using Ntms.Infrastructure.Storage;
 
@@ -22,7 +23,8 @@ namespace Ntms.Infrastructure.Services;
 public class CertificateService(
     NtmsDbContext db,
     ICurrentUser currentUser,
-    CertificateTemplateStore templates)
+    CertificateTemplateStore templates,
+    INotificationService notifications)
 {
     private IQueryable<Certificate> Base => db.Certificates.AsNoTracking()
         .Include(c => c.IssuedBy);
@@ -291,6 +293,44 @@ public class CertificateService(
 
         await db.SaveChangesAsync(ct);
         return ToDto(certificate);
+    }
+
+    /* -------------------------------------------------------- re-sending */
+
+    /// <summary>
+    /// Sends the holder their certificate details again.
+    ///
+    /// Details and a verification link rather than the document itself: the
+    /// certificate is rendered from a template that can change, and a PDF
+    /// sitting in an inbox is a copy nobody can withdraw. What is e-mailed
+    /// points at the live record, so a revoked certificate stops verifying.
+    /// </summary>
+    public async Task<string> ResendAsync(int id, string verifyBaseUrl, CancellationToken ct)
+    {
+        var certificate = await db.Certificates.AsNoTracking()
+            .Include(c => c.Participant)!.ThenInclude(p => p!.Applicant)
+            .FirstOrDefaultAsync(c => c.Id == id, ct)
+            ?? throw AppException.NotFound("Certificate");
+
+        if (certificate.RevokedOn is not null)
+        {
+            throw new AppException(
+                "This certificate has been revoked, so it cannot be sent again.");
+        }
+
+        var applicant = certificate.Participant?.Applicant
+            ?? throw new AppException("This certificate is not linked to an applicant.");
+
+        if (string.IsNullOrWhiteSpace(applicant.Email))
+            throw new AppException("There is no email address on this applicant's account.");
+
+        var verifyUrl =
+            $"{verifyBaseUrl.TrimEnd('/')}/verify?number={Uri.EscapeDataString(certificate.Number)}";
+
+        await notifications.SendCertificateAsync(
+            certificate, applicant.Email, applicant.FullName, verifyUrl, ct);
+
+        return applicant.Email;
     }
 
     /* ------------------------------------------------------------ render */

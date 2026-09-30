@@ -61,10 +61,10 @@ public class BlockApplicantDto
 {
     public bool IsBlocked { get; set; }
 
-    /// <summary>
-    /// Which of the configured reasons applies. Required when blocking;
-    /// letting somebody back in is a judgement rather than a category, so it
-    /// carries <see cref="Remarks"/> instead.
+/// <summary>
+    /// Which of the configured reasons applies — one from the block list or
+    /// one from the unblock list, depending on the direction. Required either
+    /// way, so both halves of the history give grounds.
     /// </summary>
     public int? BlockReasonId { get; set; }
 
@@ -607,6 +607,16 @@ public class QualifiedProfessionalDto
     public DateTime? QualifiedOn { get; set; }
 
     /* The certificate, where one has been issued. */
+
+    /// <summary>
+    /// The certificate row, so the screen can open or re-send it. Null where
+    /// nothing has been issued, which is what "No certificate" is read from.
+    /// </summary>
+    public int? CertificateId { get; set; }
+
+    /// <summary>Qualification or Participation.</summary>
+    public string? CertificateKind { get; set; }
+
     public string? CertificateNumber { get; set; }
     public DateOnly? IssuedOn { get; set; }
     public DateOnly? ValidTill { get; set; }

@@ -282,6 +282,9 @@ public class BlockReason : AuditableStatusEntity
     public string Label { get; set; } = string.Empty;
     public int DisplayOrder { get; set; }
 
+    /// <summary>Whether this is a reason to block or a reason to let back in.</summary>
+    public AccessReasonKind Kind { get; set; } = AccessReasonKind.Block;
+
     /// <summary>True where the reason needs the specifics spelled out.</summary>
     public bool RequiresNote { get; set; }
 }

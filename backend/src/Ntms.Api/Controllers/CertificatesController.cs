@@ -47,6 +47,19 @@ public class CertificatesController(CertificateService service) : ApiControllerB
         int id, [FromBody] RevokeCertificateDto dto, CancellationToken ct) =>
         Envelope(await service.RevokeAsync(id, dto.Reason, ct), "Certificate revoked.");
 
+    /// <summary>
+    /// E-mails the holder their certificate details and where to verify it.
+    /// The same message that goes out when one is issued.
+    /// </summary>
+    [HttpPost("{id:int}/resend")]
+    [HasPermission(Permissions.ProgramsManage)]
+    public async Task<ActionResult<ApiEnvelope<string>>> Resend(int id, CancellationToken ct)
+    {
+        var sentTo = await service.ResendAsync(
+            id, $"{Request.Scheme}://{Request.Host}", ct);
+        return Envelope(sentTo, $"Certificate sent to {sentTo}.");
+    }
+
     /* --------------------------------------------------------- documents */
 
     /// <summary>The printable certificate, as a self-contained HTML page.</summary>

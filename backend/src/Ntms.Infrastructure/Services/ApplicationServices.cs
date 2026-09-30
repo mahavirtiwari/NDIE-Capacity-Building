@@ -364,33 +364,32 @@ public class ApplicantService(
         }
 
         var note = (remarks ?? string.Empty).Trim();
-        string? reasonLabel = null;
+        var wantedKind = isBlocked ? AccessReasonKind.Block : AccessReasonKind.Unblock;
+
+        /* Chosen from the list either way: both halves of the history have to
+           give grounds, and a reason typed forty different ways cannot be
+           counted or reported on. */
+        var reason = await db.BlockReasons
+            .FirstOrDefaultAsync(r => r.Id == blockReasonId && r.Kind == wantedKind, ct)
+            ?? throw new AppException(isBlocked
+                ? "Choose a reason for blocking this account."
+                : "Choose a reason for unblocking this account.");
+
+        if (reason.Status != RecordStatus.Active)
+            throw new AppException($"'{reason.Label}' is no longer available as a reason.");
+
+        if (reason.RequiresNote && note.Length == 0)
+            throw new AppException($"'{reason.Label}' needs a note saying what happened.");
+
+        var reasonLabel = reason.Label;
 
         if (isBlocked)
         {
-            /* Chosen from the list: blocking somebody is a decision the
-               scheme has to be able to account for and count. */
-            var reason = await db.BlockReasons
-                .FirstOrDefaultAsync(r => r.Id == blockReasonId, ct)
-                ?? throw new AppException("Choose a reason for blocking this account.");
-
-            if (reason.Status != RecordStatus.Active)
-                throw new AppException($"'{reason.Label}' is no longer available as a reason.");
-
-            if (reason.RequiresNote && note.Length == 0)
-                throw new AppException($"'{reason.Label}' needs a note saying what happened.");
-
-            reasonLabel = reason.Label;
             entity.BlockedOn = DateTime.UtcNow;
             entity.BlockReasonLabel = reason.Label;
         }
         else
         {
-            /* No master list for letting somebody back in: it is a judgement
-               about one case rather than a category, so it is written out. */
-            if (note.Length == 0)
-                throw new AppException("Say why this account is being unblocked.");
-
             entity.BlockedOn = null;
             entity.BlockReasonLabel = null;
         }
@@ -400,7 +399,7 @@ public class ApplicantService(
         entity.StatusEvents.Add(new ApplicantStatusEvent
         {
             Blocked = isBlocked,
-            BlockReasonId = isBlocked ? blockReasonId : null,
+            BlockReasonId = reason.Id,
             ReasonLabel = reasonLabel,
             Remarks = note.Length == 0 ? null : note,
             ByUserId = currentUser.UserId,
@@ -410,6 +409,24 @@ public class ApplicantService(
         });
 
         await db.SaveChangesAsync(ct);
+
+        /* Told, with the grounds. Somebody locked out of the app deserves to
+           know why, and somebody let back in needs to know they can work
+           again. A failed send must not undo a decision that is already
+           taken, so it is logged rather than thrown. */
+        if (!string.IsNullOrWhiteSpace(entity.Email))
+        {
+            try
+            {
+                await notifications.SendApplicantAccessChangedAsync(
+                    entity, isBlocked, reasonLabel, note, ct);
+            }
+            catch (Exception)
+            {
+                /* The email log carries the failure; the block stands. */
+            }
+        }
+
         return await GetAsync(id, ct);
     }
 

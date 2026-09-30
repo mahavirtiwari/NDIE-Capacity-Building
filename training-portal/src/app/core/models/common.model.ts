@@ -123,6 +123,10 @@ export interface QualifiedProfessional {
   attendancePercent: number;
   qualifiedOn?: string | null;
 
+  /** The certificate row, so it can be opened or re-sent. Null when none. */
+  certificateId?: Id | null;
+  /** Qualification or Participation. */
+  certificateKind?: string | null;
   certificateNumber?: string | null;
   issuedOn?: string | null;
   validTill?: string | null;
