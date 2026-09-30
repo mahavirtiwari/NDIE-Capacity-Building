@@ -58,10 +58,10 @@ public class ProfileFormsController(ProfileFormService service) : ApiControllerB
     [HasPermission(Permissions.MastersView)]
     public async Task<ActionResult<ApiEnvelope<PagedResult<ProfileFormDto>>>> List(
         [FromQuery] PagedRequest request, [FromQuery] int? categoryId,
-        [FromQuery] int? subCategoryId, [FromQuery] int? programTypeId,
+        [FromQuery] int? subCategoryId,
         [FromQuery] string? status, CancellationToken ct) =>
         Envelope(await service.ListAsync(
-            request, categoryId, subCategoryId, programTypeId, status, ct));
+            request, categoryId, subCategoryId, status, ct));
 
     [HttpGet("all")]
     [HasPermission(Permissions.MastersView)]
@@ -74,11 +74,11 @@ public class ProfileFormsController(ProfileFormService service) : ApiControllerB
     public async Task<ActionResult<ApiEnvelope<ProfileFormDto>>> Get(int id, CancellationToken ct) =>
         Envelope(await service.GetAsync(id, ct));
 
-    /// <summary>The form the mobile app renders for a program type.</summary>
-    [HttpGet("by-program-type/{programTypeId:int}")]
-    public async Task<ActionResult<ApiEnvelope<ProfileFormDto>>> ByProgramType(
-        int programTypeId, CancellationToken ct) =>
-        Envelope(await service.GetByProgramTypeAsync(programTypeId, ct));
+    /// <summary>The form an applicant under this sub-category fills.</summary>
+    [HttpGet("by-sub-category/{subCategoryId:int}")]
+    public async Task<ActionResult<ApiEnvelope<ProfileFormDto>>> BySubCategory(
+        int subCategoryId, CancellationToken ct) =>
+        Envelope(await service.GetBySubCategoryAsync(subCategoryId, ct));
 
     [HttpPost]
     [HasPermission(Permissions.MastersManage)]

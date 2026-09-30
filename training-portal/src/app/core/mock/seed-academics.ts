@@ -331,9 +331,14 @@ function declarationSection(): ProfileSection {
   };
 }
 
-export const REGISTRATION_FORMS: ProfileForm[] = PROGRAM_TYPES.map((pt, i) => ({
+/* One per sub-category now, not one per program type: the questions belong
+   to the discipline. Built from the first program type found under each, so
+   the seeded form still reads like something somebody wrote. */
+export const REGISTRATION_FORMS: ProfileForm[] = [
+  ...new Map(PROGRAM_TYPES.map((pt) => [pt.subCategoryId, pt])).values(),
+].map((pt, i) => ({
   id: i + 1,
-  programTypeId: pt.id,
+  subCategoryId: pt.subCategoryId,
   version: 'v1.0',
   status: pt.status,
   sections: [...baseSections(), roleSection(pt.name), tdsSection(), declarationSection()],

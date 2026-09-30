@@ -450,7 +450,7 @@ export class ApplicationDetailComponent {
       if (!id) return;
       this.service.getById(id).subscribe((record) => {
         this.application.set(record);
-        this.forms.byProgramType(record.programTypeId).subscribe({
+        this.forms.bySubCategory(record.subCategoryId).subscribe({
           next: (definition) => this.formDefinition.set(definition),
           error: () => this.formDefinition.set(null),
         });

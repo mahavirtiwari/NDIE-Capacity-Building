@@ -175,6 +175,33 @@ const COLUMNS: ColumnDef[] = [
               <option value="Inactive">Inactive</option>
             </select>
           </div>
+
+          <!-- --------------------------------------------------- the forms --
+               What an applicant under this discipline has to fill in. It sits
+               here rather than on the program type because the questions are
+               about the person, not about one course they might take. -->
+          <div class="field field--span-2">
+            <span class="field-label">Forms</span>
+            <div class="row row-md">
+              <label class="check">
+                <input type="checkbox" formControlName="requiresSignupForm" />
+                <span>Sign-up form required</span>
+              </label>
+              <label class="check">
+                <input type="checkbox" formControlName="requiresProfileForm" />
+                <span>Profile form required</span>
+              </label>
+            </div>
+            <span class="field-hint">
+              @if (form.controls.requiresProfileForm.value) {
+                An applicant completes the profile form and it is read on the scrutiny queue
+                before any program under this sub-category opens to them.
+              } @else {
+                No profile form, so nothing to scrutinise: the programs under this
+                sub-category are open as soon as somebody registers.
+              }
+            </span>
+          </div>
         </form>
         <div footer>
           <button type="button" class="btn btn--secondary" (click)="closeForm()">Cancel</button>
@@ -219,6 +246,8 @@ export class SubCategoriesComponent {
     description: [''],
     displayOrder: [1],
     status: ['Active' as SubCategory['status']],
+    requiresSignupForm: [true],
+    requiresProfileForm: [true],
   });
 
   /** Live preview of the code the server will derive, shown as placeholder text. */
@@ -254,6 +283,8 @@ export class SubCategoriesComponent {
       description: row?.description ?? '',
       displayOrder: row?.displayOrder ?? 1,
       status: row?.status ?? 'Active',
+      requiresSignupForm: row?.requiresSignupForm ?? true,
+      requiresProfileForm: row?.requiresProfileForm ?? true,
     });
     this.formOpen.set(true);
   }

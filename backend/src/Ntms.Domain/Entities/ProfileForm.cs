@@ -8,8 +8,17 @@ namespace Ntms.Domain.Entities;
 /// </summary>
 public class ProfileForm : AuditableStatusEntity
 {
-    public int ProgramTypeId { get; set; }
-    public ProgramType? ProgramType { get; set; }
+    /// <summary>
+    /// The sub-category this form belongs to.
+    ///
+    /// It used to hang off the program type, which meant an applicant filled
+    /// the same declarations again for every track they went near. What the
+    /// form asks — who you are, what you have done, what you can prove — is a
+    /// property of the discipline, not of one course inside it, so it is
+    /// asked once per sub-category and answered once.
+    /// </summary>
+    public int SubCategoryId { get; set; }
+    public SubCategory? SubCategory { get; set; }
 
     public string Version { get; set; } = "v1.0";
 

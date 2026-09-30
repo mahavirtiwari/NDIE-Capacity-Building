@@ -701,14 +701,15 @@ public class ApplicationService(
            publish, nothing to validate, and nothing to scrutinise. */
         ProfileForm? form = null;
 
-        if (programType.RequiresProfileForm)
+        if (programType.SubCategory?.RequiresProfileForm ?? true)
         {
             form = await db.ProfileForms
                 .Include(f => f.Sections).ThenInclude(s => s.Fields)
-                .Where(f => f.ProgramTypeId == dto.ProgramTypeId && f.Status == RecordStatus.Active)
+                .Where(f => f.SubCategoryId == programType.SubCategoryId
+                            && f.Status == RecordStatus.Active)
                 .OrderByDescending(f => f.Id)
                 .FirstOrDefaultAsync(ct)
-                ?? throw new AppException("No profile form is published for this program type.");
+                ?? throw new AppException("No profile form is published for this sub-category.");
 
             ValidateResponses(form, dto.Responses);
         }

@@ -100,10 +100,11 @@ export interface ProfileSection {
 /** The complete applicant profile form for one program type. */
 export interface ProfileForm extends AuditInfo {
   id: Id;
-  programTypeId: Id;
-  programTypeName?: string;
-  categoryName?: string;
+  /** The discipline whose applicants fill this form. */
+  subCategoryId: Id;
   subCategoryName?: string;
+  categoryId?: Id;
+  categoryName?: string;
   version: string;
   status: RecordStatus;
   sections: ProfileSection[];
@@ -120,16 +121,16 @@ export function activeFieldCount(form: ProfileForm): number {
 }
 
 /**
- * Deep copy of a form definition for a different program type. Ids are reset so
+ * Deep copy of a form definition for a different sub-category. Ids are reset so
  * the backend treats every section and field as new.
  */
 export function cloneProfileForm(
   source: ProfileForm,
-  programTypeId: Id,
+  subCategoryId: Id,
   version: string,
 ): Omit<ProfileForm, 'id'> {
   return {
-    programTypeId,
+    subCategoryId,
     version,
     status: 'Active',
     sections: source.sections.map((section, si) => ({

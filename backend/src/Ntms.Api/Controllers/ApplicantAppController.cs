@@ -97,7 +97,14 @@ public class ApplicantAppController(
         CancellationToken ct) =>
         Envelope(await service.AvailableProgramsAsync(ApplicantId, ct));
 
-    /// <summary>The profile form for one programme.</summary>
+    /// <summary>
+    /// The profile form behind one programme.
+    ///
+    /// Still addressed by program type, because that is what the applicant
+    /// tapped; the form itself belongs to the discipline the program sits
+    /// in, and the server resolves it. Keeping the route means an older app
+    /// carries on working.
+    /// </summary>
     [HttpGet("programs/{programTypeId:int}/form")]
     public async Task<ActionResult<ApiEnvelope<ProfileFormDto>>> Form(
         int programTypeId, CancellationToken ct) =>

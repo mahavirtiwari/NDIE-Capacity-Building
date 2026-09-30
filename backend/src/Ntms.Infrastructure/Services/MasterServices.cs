@@ -167,6 +167,8 @@ public class SubCategoryService(NtmsDbContext db)
             Description = dto.Description,
             DisplayOrder = dto.DisplayOrder,
             Status = EnumMaps.ToStatus(dto.Status),
+            RequiresSignupForm = dto.RequiresSignupForm,
+            RequiresProfileForm = dto.RequiresProfileForm,
         };
         db.SubCategories.Add(entity);
         await db.SaveChangesAsync(ct);
@@ -188,6 +190,8 @@ public class SubCategoryService(NtmsDbContext db)
         entity.Description = dto.Description;
         entity.DisplayOrder = dto.DisplayOrder;
         entity.Status = EnumMaps.ToStatus(dto.Status);
+        entity.RequiresSignupForm = dto.RequiresSignupForm;
+        entity.RequiresProfileForm = dto.RequiresProfileForm;
 
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
@@ -327,8 +331,6 @@ public class ProgramTypeService(NtmsDbContext db, CertificateTemplateStore templ
         entity.MinExperienceYears = dto.MinExperienceYears;
         entity.CertificateValidityMonths = dto.CertificateValidityMonths;
         entity.IsFeeApplicable = dto.IsFeeApplicable;
-        entity.RequiresSignupForm = dto.RequiresSignupForm;
-        entity.RequiresProfileForm = dto.RequiresProfileForm;
         entity.CertificationPolicy = EnumMaps.ParseEnum(
             dto.CertificationPolicy, CertificationPolicy.QualificationOnly);
         entity.Status = EnumMaps.ToStatus(dto.Status);

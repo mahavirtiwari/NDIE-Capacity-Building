@@ -66,6 +66,8 @@ public static class DtoMappings
             Description = e.Description,
             DisplayOrder = e.DisplayOrder,
             Status = e.Status.ToApi(),
+            RequiresSignupForm = e.RequiresSignupForm,
+            RequiresProfileForm = e.RequiresProfileForm,
         };
         FillAudit(dto, e);
         return dto;
@@ -91,8 +93,6 @@ public static class DtoMappings
             CertificateValidityMonths = e.CertificateValidityMonths,
             IsExamMandatory = e.IsExamMandatory,
             IsFeeApplicable = e.IsFeeApplicable,
-            RequiresSignupForm = e.RequiresSignupForm,
-            RequiresProfileForm = e.RequiresProfileForm,
             CertificationPolicy = e.CertificationPolicy.ToString(),
             CertificationPolicyLabel = CertificationPolicies.Label(e.CertificationPolicy),
             CertificateKinds =
@@ -196,13 +196,13 @@ public static class DtoMappings
         var dto = new CurriculumDto
         {
             Id = e.Id,
-            ProgramTypeCode = e.ProgramType?.Code,
             ProgramTypeId = e.ProgramTypeId,
             ProgramTypeName = e.ProgramType?.Name,
             CategoryId = e.ProgramType?.CategoryId,
             CategoryName = e.ProgramType?.Category?.Name,
             SubCategoryId = e.ProgramType?.SubCategoryId,
             SubCategoryName = e.ProgramType?.SubCategory?.Name,
+            ProgramTypeCode = e.ProgramType?.Code,
             Objective = e.Objective,
             DurationDays = e.DurationDays,
             EffectiveFrom = e.EffectiveFrom,
@@ -244,12 +244,10 @@ public static class DtoMappings
         var dto = new ProfileFormDto
         {
             Id = e.Id,
-            ProgramTypeId = e.ProgramTypeId,
-            ProgramTypeName = e.ProgramType?.Name,
-            CategoryId = e.ProgramType?.CategoryId,
-            CategoryName = e.ProgramType?.Category?.Name,
-            SubCategoryId = e.ProgramType?.SubCategoryId,
-            SubCategoryName = e.ProgramType?.SubCategory?.Name,
+            SubCategoryId = e.SubCategoryId,
+            SubCategoryName = e.SubCategory?.Name,
+            CategoryId = e.SubCategory?.CategoryId,
+            CategoryName = e.SubCategory?.Category?.Name,
             Version = e.Version,
             Status = e.Status.ToApi(),
             Sections =

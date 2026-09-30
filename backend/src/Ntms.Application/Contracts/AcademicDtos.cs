@@ -122,12 +122,10 @@ public class ProfileSectionDto
 public class ProfileFormDto : AuditDto
 {
     public int Id { get; set; }
-    public int ProgramTypeId { get; set; }
-    public string? ProgramTypeName { get; set; }
+    public int SubCategoryId { get; set; }
+    public string? SubCategoryName { get; set; }
     public int? CategoryId { get; set; }
     public string? CategoryName { get; set; }
-    public int? SubCategoryId { get; set; }
-    public string? SubCategoryName { get; set; }
     public string Version { get; set; } = "v1.0";
     public string Status { get; set; } = "Active";
     public List<ProfileSectionDto> Sections { get; set; } = [];
@@ -135,17 +133,17 @@ public class ProfileFormDto : AuditDto
 
 public class ProfileFormUpsertDto
 {
-    public int ProgramTypeId { get; set; }
+    public int SubCategoryId { get; set; }
     public string Version { get; set; } = "v1.0";
     public string Status { get; set; } = "Active";
     public List<ProfileSectionDto> Sections { get; set; } = [];
 }
 
-/// <summary>Copies a finished form onto another program type.</summary>
+/// <summary>Copies a finished form onto another sub-category.</summary>
 public class ReplicateFormDto
 {
     public int SourceFormId { get; set; }
-    public int TargetProgramTypeId { get; set; }
+    public int TargetSubCategoryId { get; set; }
     public string Version { get; set; } = "v1.0";
 }
 

@@ -37,6 +37,15 @@ export interface SubCategory extends AuditInfo {
   description?: string;
   displayOrder: number;
   status: RecordStatus;
+
+  /** The applicant answers the sign-up form to register under this discipline. */
+  requiresSignupForm?: boolean;
+  /**
+   * The applicant completes the profile form and has it scrutinised before
+   * the programs under this discipline open to them. Off, and they are open
+   * from the start.
+   */
+  requiresProfileForm?: boolean;
 }
 
 export type DeliveryMode = 'Physical' | 'Virtual' | 'Hybrid';
@@ -64,13 +73,6 @@ export interface ProgramType extends AuditInfo {
   certificateValidityMonths: number;
   isExamMandatory: boolean;
   isFeeApplicable: boolean;
-  /** The applicant answers the sign-up form before applying to this track. */
-  requiresSignupForm?: boolean;
-  /**
-   * Applying means filling in this track's profile form — and so the
-   * application is scrutinised. Off, and it is approved on submission.
-   */
-  requiresProfileForm?: boolean;
   /** What the programme awards at the end of it. */
   certificationPolicy: CertificationPolicy;
   certificationPolicyLabel?: string;

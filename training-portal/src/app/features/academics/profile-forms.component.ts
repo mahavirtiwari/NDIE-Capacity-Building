@@ -23,7 +23,6 @@ import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shar
 import { DynamicFormComponent } from '../../shared/components/dynamic-form.component';
 import { CanDirective } from '../../shared/directives/can.directive';
 import { IconComponent } from '../../shared/components/icon.component';
-import { ProgramTypeLinkageComponent } from '../../shared/components/program-type-linkage.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
@@ -31,7 +30,7 @@ import { StatusToggleComponent } from '../../shared/components/status-toggle.com
 import { ListState, searchTerm } from '../../shared/list-state';
 
 const COLUMNS: ColumnDef[] = [
-  { key: 'programTypeName', header: 'Program type', sortable: true, variant: 'primary' },
+  { key: 'subCategoryName', header: 'Program type', sortable: true, variant: 'primary' },
   { key: 'categoryName', header: 'Category', variant: 'muted' },
   { key: 'subCategoryName', header: 'Sub-category', variant: 'muted' },
   { key: 'version', header: 'Version', align: 'center', width: '100px' },
@@ -71,7 +70,6 @@ function blankField(): ProfileField {
     ModalComponent,
     DynamicFormComponent,
     IconComponent,
-    ProgramTypeLinkageComponent,
   ],
   template: `
     <app-page-header
@@ -120,20 +118,6 @@ function blankField(): ProfileField {
               <option value="">All sub-categories</option>
               @for (sub of filterSubCategories(); track sub.id) {
                 <option [value]="sub.id">{{ sub.name }}</option>
-              }
-            </select>
-          </div>
-          <div class="field">
-            <label class="field-label" for="rfProgramType">Program type</label>
-            <select
-              id="rfProgramType"
-              class="select"
-              [value]="filterProgramTypeId() ?? ''"
-              (change)="onProgramTypeFilter($event)"
-            >
-              <option value="">All program types</option>
-              @for (programType of filterProgramTypes(); track programType.id) {
-                <option [value]="programType.id">{{ programType.name }}</option>
               }
             </select>
           </div>
@@ -217,16 +201,18 @@ function blankField(): ProfileField {
         @if (builderTab() === 'design') {
           <form [formGroup]="headerForm" id="reg-form" (ngSubmit)="save()" class="form-grid form-grid--3 mb-md">
             <div class="field">
-              <label class="field-label" for="rfType">Program type <span class="req">*</span></label>
-              <select id="rfType" class="select" formControlName="programTypeId">
-                <option [ngValue]="null">Select program type</option>
-                @for (programType of programTypes(); track programType.id) {
-                  <option [ngValue]="programType.id">{{ programType.name }}</option>
+              <label class="field-label" for="rfType">Sub-category <span class="req">*</span></label>
+              <select id="rfType" class="select" formControlName="subCategoryId">
+                <option [ngValue]="null">Select sub-category</option>
+                @for (subCategory of allSubCategories(); track subCategory.id) {
+                  <option [ngValue]="subCategory.id">{{ subCategory.name }}</option>
                 }
               </select>
-              <span class="field-hint">One active form per program type.</span>
+              <span class="field-hint">
+                One active form per sub-category. Every program under it asks the same
+                questions, and the applicant answers them once.
+              </span>
             </div>
-            <app-program-type-linkage [programTypeId]="headerForm.controls.programTypeId.value" />
             <div class="field">
               <label class="field-label" for="rfVersion">Version</label>
               <input id="rfVersion" class="input" formControlName="version" />
@@ -570,7 +556,7 @@ function blankField(): ProfileField {
             <option value="">Select a form</option>
             @for (form of list.rows(); track form.id) {
               <option [value]="form.id" [selected]="form.id === copySourceId()">
-                {{ form.programTypeName }} · {{ form.version }}
+                {{ form.subCategoryName }} · {{ form.version }}
               </option>
             }
           </select>
@@ -589,7 +575,7 @@ function blankField(): ProfileField {
     @if (replicateFrom(); as source) {
       <app-modal
         title="Replicate profile form"
-        [subtitle]="'From ' + source.programTypeName"
+        [subtitle]="'From ' + source.subCategoryName"
         size="sm"
         (closed)="replicateFrom.set(null)"
       >
@@ -631,7 +617,7 @@ function blankField(): ProfileField {
     @if (previewOf(); as preview) {
       <app-modal
         title="Applicant view"
-        [subtitle]="preview.programTypeName + ' · ' + preview.version"
+        [subtitle]="preview.subCategoryName + ' · ' + preview.version"
         size="xl"
         (closed)="previewOf.set(null)"
       >
@@ -723,12 +709,12 @@ export class ProfileFormsComponent {
   protected readonly categories = toSignal(this.lookups.categories(), {
     initialValue: [] as LookupItem[],
   });
-  private readonly allSubCategories = toSignal(this.lookups.subCategories(null), {
+  protected readonly allSubCategories = toSignal(this.lookups.subCategories(null), {
     initialValue: [] as LookupItem[],
   });
 
   protected readonly list = new ListState<ProfileForm>((request) => this.service.list(request), {
-    sortBy: 'programTypeName',
+    sortBy: 'subCategoryName',
   });
 
   /* ------------------------------------------------------- list filters ----
@@ -736,50 +722,29 @@ export class ProfileFormsComponent {
      stay selected under a category it does not belong to. */
   protected readonly filterCategoryId = signal<number | null>(null);
   protected readonly filterSubCategoryId = signal<number | null>(null);
-  protected readonly filterProgramTypeId = signal<number | null>(null);
-
   protected readonly filterSubCategories = computed(() => {
     const category = this.filterCategoryId();
     const all = this.allSubCategories();
     return category === null ? all : all.filter((sc) => sc.parentId === category);
   });
 
-  protected readonly filterProgramTypes = computed(() => {
-    const subCategory = this.filterSubCategoryId();
-    const visible = this.filterSubCategories().map((sc) => sc.id);
-    return this.programTypes().filter((pt) =>
-      subCategory !== null ? pt.parentId === subCategory : visible.includes(pt.parentId as number),
-    );
-  });
-
   protected onCategoryFilter(event: Event): void {
     const raw = (event.target as HTMLSelectElement).value;
     this.filterCategoryId.set(raw ? Number(raw) : null);
     this.filterSubCategoryId.set(null);
-    this.filterProgramTypeId.set(null);
     this.list.setFilter('categoryId', raw || null);
     this.list.setFilter('subCategoryId', null);
-    this.list.setFilter('programTypeId', null);
   }
 
   protected onSubCategoryFilter(event: Event): void {
     const raw = (event.target as HTMLSelectElement).value;
     this.filterSubCategoryId.set(raw ? Number(raw) : null);
-    this.filterProgramTypeId.set(null);
     this.list.setFilter('subCategoryId', raw || null);
-    this.list.setFilter('programTypeId', null);
-  }
-
-  protected onProgramTypeFilter(event: Event): void {
-    const raw = (event.target as HTMLSelectElement).value;
-    this.filterProgramTypeId.set(raw ? Number(raw) : null);
-    this.list.setFilter('programTypeId', raw || null);
   }
 
   protected resetFilters(): void {
     this.filterCategoryId.set(null);
     this.filterSubCategoryId.set(null);
-    this.filterProgramTypeId.set(null);
     this.list.clearFilters();
   }
 
@@ -791,7 +756,7 @@ export class ProfileFormsComponent {
   protected readonly sections = signal<ProfileSection[]>([]);
 
   protected readonly headerForm = this.fb.group({
-    programTypeId: [null as number | null, Validators.required],
+    subCategoryId: [null as number | null, Validators.required],
     version: ['v1.0'],
     status: ['Active'],
   });
@@ -808,8 +773,9 @@ export class ProfileFormsComponent {
   /** Live definition fed to the preview tab. */
   protected readonly previewDefinition = computed<ProfileForm>(() => ({
     id: this.editing()?.id ?? 0,
-    programTypeId: this.headerForm.value.programTypeId ?? 0,
-    programTypeName: this.programTypes().find((p) => p.id === this.headerForm.value.programTypeId)?.name,
+    subCategoryId: this.headerForm.value.subCategoryId ?? 0,
+    subCategoryName: this.allSubCategories()
+      .find((sc) => sc.id === this.headerForm.value.subCategoryId)?.name,
     version: this.headerForm.value.version ?? 'v1.0',
     status: (this.headerForm.value.status as RecordStatus) ?? 'Active',
     sections: this.sections(),
@@ -829,8 +795,8 @@ export class ProfileFormsComponent {
   } | null>(null);
 
   protected readonly replicableTargets = computed(() => {
-    const sourceId = this.replicateFrom()?.programTypeId;
-    return this.programTypes().filter((p) => p.id !== sourceId);
+    const sourceId = this.replicateFrom()?.subCategoryId;
+    return this.allSubCategories().filter((sc) => sc.id !== sourceId);
   });
 
   protected readonly editorHasOptions = computed(() => {
@@ -1048,7 +1014,7 @@ export class ProfileFormsComponent {
     this.editing.set(row ?? null);
     this.builderTab.set('design');
     this.headerForm.reset({
-      programTypeId: row?.programTypeId ?? null,
+      subCategoryId: row?.subCategoryId ?? null,
       version: row?.version ?? 'v1.0',
       status: row?.status ?? 'Active',
     });
@@ -1108,7 +1074,7 @@ export class ProfileFormsComponent {
     this.saving.set(true);
     const raw = this.headerForm.getRawValue();
     const payload = {
-      programTypeId: raw.programTypeId,
+      subCategoryId: raw.subCategoryId,
       version: raw.version,
       status: raw.status,
       sections: this.sections().map((section, si) => ({
@@ -1147,7 +1113,7 @@ export class ProfileFormsComponent {
     this.service.create(payload as unknown as Record<string, unknown>).subscribe({
       next: () => {
         this.saving.set(false);
-        const target = this.programTypes().find((p) => p.id === targetId);
+        const target = this.allSubCategories().find((sc) => sc.id === targetId);
         this.toast.success('Form replicated', `Copied to ${target?.name ?? 'the selected track'}.`);
         this.replicateFrom.set(null);
         this.list.reload();
@@ -1171,7 +1137,7 @@ export class ProfileFormsComponent {
     this.service.setStatus(row.id, status).subscribe(() => {
       this.toast.success(
         `Profile form ${status === 'Active' ? 'enabled' : 'disabled'}`,
-        row.programTypeName,
+        row.subCategoryName,
       );
       this.list.reload();
     });

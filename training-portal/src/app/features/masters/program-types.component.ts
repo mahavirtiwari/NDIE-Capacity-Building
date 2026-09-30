@@ -161,30 +161,11 @@ const COLUMNS: ColumnDef[] = [
               {{ examChip($any(row)) }}
             </span>
             <span class="chip" [class.is-off]="!$any(row).isFeeApplicable">Fee</span>
-            <span
-              class="chip"
-              [class.is-off]="!$any(row).requiresProfileForm"
-              [title]="
-                $any(row).requiresProfileForm
-                  ? 'Applications are scrutinised'
-                  : 'Approved on submission — no profile form'
-              "
-            >
-              Scrutiny
-            </span>
             <span class="chip">{{ $any(row).certificateValidityMonths }} m validity</span>
           </div>
         </ng-template>
         <ng-template appCell="actions" let-row>
           <div class="btn-row btn-row--end">
-            <a
-              class="btn btn--icon"
-              title="Profile form"
-              [routerLink]="['/academics/profile-forms']"
-              [queryParams]="{ programTypeId: $any(row).id }"
-            >
-              <app-icon name="form" [size]="15" />
-            </a>
             <button type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
               <app-icon name="edit" [size]="15" />
             </button>
@@ -282,23 +263,11 @@ const COLUMNS: ColumnDef[] = [
                   <input type="checkbox" formControlName="isFeeApplicable" />
                   <span>Fee is applicable</span>
                 </label>
-                <label class="check">
-                  <input type="checkbox" formControlName="requiresSignupForm" />
-                  <span>Sign-up form required</span>
-                </label>
-                <label class="check">
-                  <input type="checkbox" formControlName="requiresProfileForm" />
-                  <span>Profile form required</span>
-                </label>
               </div>
               <span class="field-hint">
-                @if (form.controls.requiresProfileForm.value) {
-                  Applications for this track are read on the scrutiny queue before anybody is
-                  enrolled.
-                } @else {
-                  No profile form, so nothing to scrutinise: an application to this track is
-                  approved as it is submitted. The history says so on every one.
-                }
+                Which forms an applicant fills, and whether they are scrutinised, is set on
+                the sub-category — the questions belong to the discipline rather than to one
+                course inside it.
               </span>
             </div>
 
@@ -680,8 +649,6 @@ export class ProgramTypesComponent {
     certificateValidityMonths: [36],
     certificationPolicy: ['QualificationOnly' as ProgramType['certificationPolicy']],
     isFeeApplicable: [true],
-    requiresSignupForm: [true],
-    requiresProfileForm: [true],
     evaluation: this.fb.nonNullable.group({
       kind: ['Written' as ExaminationKind],
       totalMarks: [100],
@@ -769,8 +736,6 @@ export class ProgramTypesComponent {
       certificateValidityMonths: row?.certificateValidityMonths ?? 36,
       certificationPolicy: row?.certificationPolicy ?? 'QualificationOnly',
       isFeeApplicable: row?.isFeeApplicable ?? true,
-      requiresSignupForm: row?.requiresSignupForm ?? true,
-      requiresProfileForm: row?.requiresProfileForm ?? true,
       evaluation: {
         kind: row?.evaluation?.kind ?? 'Written',
         totalMarks: row?.evaluation?.totalMarks ?? 100,

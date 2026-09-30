@@ -11,23 +11,19 @@ namespace Ntms.Infrastructure.Services;
 public class ProfileFormService(NtmsDbContext db)
 {
     private IQueryable<ProfileForm> Base => db.ProfileForms.AsNoTracking()
-        .Include(f => f.ProgramType)!.ThenInclude(p => p!.Category)
-        .Include(f => f.ProgramType)!.ThenInclude(p => p!.SubCategory)
+        .Include(f => f.SubCategory)!.ThenInclude(s => s!.Category)
         .Include(f => f.Sections).ThenInclude(s => s.Fields).ThenInclude(x => x.Options);
 
     public async Task<PagedResult<ProfileFormDto>> ListAsync(
-        PagedRequest request, int? categoryId, int? subCategoryId, int? programTypeId,
+        PagedRequest request, int? categoryId, int? subCategoryId,
         string? status, CancellationToken ct)
     {
-        /* Category and sub-category are reached through the programme type,
-           which is where a form's placement in the masters actually lives. */
         var query = Base
-            .WhereIf(categoryId.HasValue, f => f.ProgramType!.CategoryId == categoryId)
-            .WhereIf(subCategoryId.HasValue, f => f.ProgramType!.SubCategoryId == subCategoryId)
-            .WhereIf(programTypeId.HasValue, f => f.ProgramTypeId == programTypeId)
+            .WhereIf(categoryId.HasValue, f => f.SubCategory!.CategoryId == categoryId)
+            .WhereIf(subCategoryId.HasValue, f => f.SubCategoryId == subCategoryId)
             .WhereIf(!string.IsNullOrWhiteSpace(status), f => f.Status == EnumMaps.ToStatus(status))
             .WhereIf(!string.IsNullOrWhiteSpace(request.Search),
-                f => f.ProgramType!.Name.Contains(request.Search!))
+                f => f.SubCategory!.Name.Contains(request.Search!))
             .ApplySort(request, db.Model.FindEntityType(typeof(ProfileForm))!, f => f.Id);
 
         return await query.ToPagedResultAsync(request, f => f.ToDto(), ct);
@@ -43,25 +39,51 @@ public class ProfileFormService(NtmsDbContext db)
         (await Base.FirstOrDefaultAsync(f => f.Id == id, ct)
          ?? throw AppException.NotFound("Profile form")).ToDto();
 
-    /// <summary>The active form a mobile applicant should be shown.</summary>
+    /// <summary>
+    /// The form behind a program type, which is its sub-category's.
+    ///
+    /// The app asks by the program the applicant tapped; where the form
+    /// lives is not its business, and routing that through here keeps an
+    /// installed app working after the move.
+    /// </summary>
     public async Task<ProfileFormDto> GetByProgramTypeAsync(int programTypeId, CancellationToken ct)
     {
-        var form = await Base
-            .Where(f => f.ProgramTypeId == programTypeId && f.Status == RecordStatus.Active)
-            .OrderByDescending(f => f.Id)
+        var subCategoryId = await db.ProgramTypes.AsNoTracking()
+            .Where(p => p.Id == programTypeId)
+            .Select(p => (int?)p.SubCategoryId)
             .FirstOrDefaultAsync(ct)
-            ?? throw AppException.NotFound("Profile form for this program type");
+            ?? throw AppException.NotFound("Program type");
+
+        return await GetBySubCategoryAsync(subCategoryId, ct);
+    }
+
+    /// <summary>The active form an applicant under this sub-category fills.</summary>
+    public async Task<ProfileFormDto> GetBySubCategoryAsync(int subCategoryId, CancellationToken ct)
+    {
+        var form = await ActiveForAsync(subCategoryId, ct)
+            ?? throw AppException.NotFound("Profile form for this sub-category");
         return form.ToDto();
     }
 
+    /// <summary>
+    /// The published form for a sub-category, or null where none has been.
+    ///
+    /// Newest wins, so republishing a form supersedes the one before it
+    /// without anybody having to retire the old one by hand.
+    /// </summary>
+    public Task<ProfileForm?> ActiveForAsync(int subCategoryId, CancellationToken ct) =>
+        Base.Where(f => f.SubCategoryId == subCategoryId && f.Status == RecordStatus.Active)
+            .OrderByDescending(f => f.Id)
+            .FirstOrDefaultAsync(ct);
+
     public async Task<ProfileFormDto> CreateAsync(ProfileFormUpsertDto dto, CancellationToken ct)
     {
-        await GuardAsync(dto.ProgramTypeId, dto.Version, null, ct);
+        await GuardAsync(dto.SubCategoryId, dto.Version, null, ct);
         Validate(dto.Sections);
 
         var entity = new ProfileForm
         {
-            ProgramTypeId = dto.ProgramTypeId,
+            SubCategoryId = dto.SubCategoryId,
             Version = dto.Version,
             Status = EnumMaps.ToStatus(dto.Status),
         };
@@ -80,10 +102,10 @@ public class ProfileFormService(NtmsDbContext db)
             .FirstOrDefaultAsync(f => f.Id == id, ct)
             ?? throw AppException.NotFound("Profile form");
 
-        await GuardAsync(dto.ProgramTypeId, dto.Version, id, ct);
+        await GuardAsync(dto.SubCategoryId, dto.Version, id, ct);
         Validate(dto.Sections);
 
-        entity.ProgramTypeId = dto.ProgramTypeId;
+        entity.SubCategoryId = dto.SubCategoryId;
         entity.Version = dto.Version;
         entity.Status = EnumMaps.ToStatus(dto.Status);
 
@@ -107,20 +129,20 @@ public class ProfileFormService(NtmsDbContext db)
         return await GetAsync(id, ct);
     }
 
-    /// <summary>Copies a finished form onto another program type.</summary>
+    /// <summary>Copies a finished form onto another sub-category.</summary>
     public async Task<ProfileFormDto> ReplicateAsync(ReplicateFormDto dto, CancellationToken ct)
     {
         var source = await Base.FirstOrDefaultAsync(f => f.Id == dto.SourceFormId, ct)
                      ?? throw AppException.NotFound("Source profile form");
 
-        if (source.ProgramTypeId == dto.TargetProgramTypeId)
-            throw new AppException("Pick a different program type to replicate onto.");
+        if (source.SubCategoryId == dto.TargetSubCategoryId)
+            throw new AppException("Pick a different sub-category to replicate onto.");
 
-        await GuardAsync(dto.TargetProgramTypeId, dto.Version, null, ct);
+        await GuardAsync(dto.TargetSubCategoryId, dto.Version, null, ct);
 
         var copy = new ProfileForm
         {
-            ProgramTypeId = dto.TargetProgramTypeId,
+            SubCategoryId = dto.TargetSubCategoryId,
             Version = dto.Version,
             Status = RecordStatus.Active,
         };
@@ -190,17 +212,17 @@ public class ProfileFormService(NtmsDbContext db)
 
     /* ------------------------------------------------------------ helpers */
 
-    private async Task GuardAsync(int programTypeId, string version, int? exceptId, CancellationToken ct)
+    private async Task GuardAsync(int subCategoryId, string version, int? exceptId, CancellationToken ct)
     {
-        if (!await db.ProgramTypes.AnyAsync(p => p.Id == programTypeId, ct))
-            throw AppException.NotFound("Program type");
+        if (!await db.SubCategories.AnyAsync(s => s.Id == subCategoryId, ct))
+            throw AppException.NotFound("Sub-category");
 
         var clash = await db.ProfileForms.AnyAsync(
-            f => f.ProgramTypeId == programTypeId && f.Version == version
+            f => f.SubCategoryId == subCategoryId && f.Version == version
                  && (exceptId == null || f.Id != exceptId), ct);
         if (clash)
             throw AppException.Conflict(
-                $"Version '{version}' already exists for this program type.");
+                $"Version '{version}' already exists for this sub-category.");
     }
 
     private static void Validate(List<ProfileSectionDto> sections)

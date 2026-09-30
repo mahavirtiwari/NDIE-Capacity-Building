@@ -25,6 +25,25 @@ public class SubCategory : AuditableStatusEntity
     public int DisplayOrder { get; set; }
 
     public ICollection<ProgramType> ProgramTypes { get; set; } = [];
+
+    /// <summary>
+    /// Whether an applicant must answer the sign-up form to register under
+    /// this sub-category.
+    /// </summary>
+    public bool RequiresSignupForm { get; set; } = true;
+
+    /// <summary>
+    /// Whether an applicant must complete the profile form, and have it
+    /// scrutinised, before the programs under this sub-category open to
+    /// them.
+    ///
+    /// The two go together: scrutiny is the reading of what was declared on
+    /// that form, so a sub-category that asks for nothing has nothing to
+    /// scrutinise and its programs are open from the start. Splitting them
+    /// would allow "no form, but scrutinise it", which is a queue of blank
+    /// submissions nobody can act on.
+    /// </summary>
+    public bool RequiresProfileForm { get; set; } = true;
 }
 
 /// <summary>
@@ -63,24 +82,6 @@ public class ProgramType : AuditableStatusEntity
     /// </summary>
     public ICollection<EvaluationSkill> Skills { get; set; } = [];
     public bool IsFeeApplicable { get; set; } = true;
-
-    /// <summary>
-    /// Whether an applicant must answer the sign-up form before they can
-    /// apply for this track.
-    /// </summary>
-    public bool RequiresSignupForm { get; set; } = true;
-
-    /// <summary>
-    /// Whether applying means filling in this track's profile form.
-    ///
-    /// It also decides whether the application is scrutinised. The two go
-    /// together: scrutiny is the reading of what was declared on that form,
-    /// so a track that asks for nothing has nothing to scrutinise and an
-    /// application to it is approved as it is submitted. Splitting them into
-    /// two settings would allow "no form, but scrutinise it", which is a
-    /// queue of blank applications nobody can act on.
-    /// </summary>
-    public bool RequiresProfileForm { get; set; } = true;
 
     /// <summary>
     /// What this programme awards. Defaults to the behaviour the system had

@@ -151,11 +151,18 @@ public class ApplicantAuthService(
             .OrderBy(p => p.Name)
             .ToListAsync(ct);
 
+        /* Fees are still per program type: two courses in one discipline
+           can cost different amounts. */
         var typeIds = programTypes.Select(p => p.Id).ToList();
 
+        /* The profile form belongs to the sub-category now, so a track is
+           open once its discipline has one published — not once somebody
+           has built a separate form for every course inside it. */
+        var subCategoryIds = programTypes.Select(p => p.SubCategoryId).Distinct().ToList();
+
         var forms = await db.ProfileForms.AsNoTracking()
-            .Where(f => typeIds.Contains(f.ProgramTypeId) && f.Status == RecordStatus.Active)
-            .Select(f => f.ProgramTypeId)
+            .Where(f => subCategoryIds.Contains(f.SubCategoryId) && f.Status == RecordStatus.Active)
+            .Select(f => f.SubCategoryId)
             .ToListAsync(ct);
 
         var fees = await db.FeeStructures.AsNoTracking()
@@ -196,7 +203,8 @@ public class ApplicantAuthService(
                 var live = mine.FirstOrDefault(a => a.Status != ApplicationStatus.Rejected);
                 var existing = live ?? mine.FirstOrDefault();
 
-                var accepting = !pt.RequiresProfileForm || forms.Contains(pt.Id);
+                var wantsForm = pt.SubCategory?.RequiresProfileForm ?? true;
+                var accepting = !wantsForm || forms.Contains(pt.SubCategoryId);
 
                 return new ApplicantProgramDto
                 {
@@ -217,7 +225,7 @@ public class ApplicantAuthService(
                     /* A track that asks for no profile form is open the
                        moment it exists: there is no form to wait on. */
                     AcceptingApplications = accepting,
-                    RequiresProfileForm = pt.RequiresProfileForm,
+                    RequiresProfileForm = wantsForm,
 
                     ExistingApplicationStatus = existing?.Status.ToApi(),
                     ExistingApplicationId = existing?.Id,

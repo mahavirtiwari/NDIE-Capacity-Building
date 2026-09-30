@@ -77,6 +77,13 @@ public class SubCategoryDto : AuditDto
     public string? Description { get; set; }
     public int DisplayOrder { get; set; }
     public string Status { get; set; } = "Active";
+
+    /// <summary>Which forms an applicant under this sub-category must fill.</summary>
+    public bool RequiresSignupForm { get; set; } = true;
+    public bool RequiresProfileForm { get; set; } = true;
+
+    /// <summary>Whether a profile form has actually been published for it.</summary>
+    public bool HasProfileForm { get; set; }
 }
 
 public class SubCategoryUpsertDto
@@ -87,6 +94,8 @@ public class SubCategoryUpsertDto
     public string? Description { get; set; }
     public int DisplayOrder { get; set; }
     public string Status { get; set; } = "Active";
+    public bool RequiresSignupForm { get; set; } = true;
+    public bool RequiresProfileForm { get; set; } = true;
 }
 
 /* ----------------------------------------------------------- program type */

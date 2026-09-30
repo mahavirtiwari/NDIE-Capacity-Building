@@ -51,9 +51,9 @@ public class ProfileFormConfiguration : IEntityTypeConfiguration<ProfileForm>
     {
         b.ToTable("ProfileForms");
         b.Property(x => x.Version).HasMaxLength(20).IsRequired();
-        b.HasOne(x => x.ProgramType).WithMany().HasForeignKey(x => x.ProgramTypeId)
+        b.HasOne(x => x.SubCategory).WithMany().HasForeignKey(x => x.SubCategoryId)
             .OnDelete(DeleteBehavior.Restrict);
-        b.HasIndex(x => new { x.ProgramTypeId, x.Version }).IsUnique();
+        b.HasIndex(x => new { x.SubCategoryId, x.Version }).IsUnique();
     }
 }
 
