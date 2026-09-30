@@ -188,7 +188,7 @@ const COLUMNS: ColumnDef[] = [
            beyond the standard particulars is not the same for everybody. The
            list cannot hold a column per question; this is where they are read. -->
       <app-modal [title]="row.fullName" (closed)="detail.set(null)">
-        <div class="stack stack-lg">
+        <div class="stack stack-lg applicant-detail">
           <!-- Who, at a glance: the ID they sign in with, where they stand,
                and whether they are locked out. -->
           <div class="who">
@@ -328,6 +328,26 @@ const COLUMNS: ColumnDef[] = [
         padding: 0.05rem 0.35rem;
       }
       .detail-group { display: grid; gap: 0.5rem; }
+
+      /* A dark rule under the section heading, as wide as the word rather
+         than the panel.
+
+         justify-self rather than display:inline-block: the heading is a grid
+         item, and a grid item is blockified whatever display it asks for. */
+      .applicant-detail .section-title {
+        justify-self: start;
+        margin: 0;
+        padding-bottom: 0.25rem;
+        border-bottom: 2px solid var(--brand-700);
+      }
+
+      /* A hairline under every row of fields, so a two-column grid reads as
+         rows rather than as eight loose values, and the last one in a group
+         closes it off before the next heading. */
+      .applicant-detail .dl > div {
+        padding: 0.4rem 0;
+        border-bottom: 1px solid var(--border);
+      }
     `,
   ],
 })
