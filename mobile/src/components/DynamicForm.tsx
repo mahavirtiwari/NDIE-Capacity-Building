@@ -11,6 +11,30 @@ import { CheckboxGroup, Picker, RadioGroup, Switch } from './Picker';
 export type FormValue = string | string[] | boolean | null;
 export type FormValues = Record<string, FormValue>;
 
+/**
+ * How far through one section the applicant is.
+ *
+ * The section list is the application now, so each row has to say where it
+ * stands without being opened. Nothing here is stored: it is read off the
+ * answers already held, so it follows every keystroke.
+ */
+export type SectionStatus = 'pending' | 'progress' | 'done';
+
+export interface SectionProgress {
+  status: SectionStatus;
+  /** Answers given, counting every entry of a repeating section. */
+  answered: number;
+  /** Questions asked, conditional ones only while their trigger holds. */
+  total: number;
+  /** How many answers were found wrong the last time it was checked. */
+  wrong: number;
+}
+
+export function statusLabelFor(status: SectionStatus): string {
+  if (status === 'done') return 'Completed';
+  return status === 'progress' ? 'In progress' : 'Pending';
+}
+
 /** Everything the caller needs back from the renderer. */
 export interface DynamicFormState {
   values: FormValues;
@@ -25,6 +49,16 @@ export interface DynamicFormState {
    * applicant is correcting it rather than starting again.
    */
   prefill: (responses: Record<string, unknown>) => void;
+
+  /**
+   * Checks one section on its own, leaving every other section's errors
+   * where they were. The section screen runs this on the way out, so a
+   * mistake is reported where it was made rather than at the very end.
+   */
+  validateSection: (section: RegistrationSection) => boolean;
+
+  /** Where one section stands, for the section list. */
+  progressOf: (section: RegistrationSection) => SectionProgress;
 
   /** How many times a repeating section is currently filled in. */
   entryCount: (section: RegistrationSection) => number;
@@ -62,6 +96,29 @@ function defaultFor(field: RegistrationField): FormValue {
   if (field.type === 'multiselect') return [];
   if (field.type === 'checkbox') return false;
   return '';
+}
+
+/**
+ * Whether an answer is still missing. The same test the validator applies to
+ * a required field, so a section cannot read as completed while the check
+ * that runs on submit would fail it.
+ */
+function isBlank(raw: FormValue): boolean {
+  if (Array.isArray(raw)) return raw.length === 0;
+  if (typeof raw === 'boolean') return !raw;
+  return (raw ?? '').trim() === '';
+}
+
+/**
+ * Whether a stored key belongs to this section, so its errors can be cleared
+ * without disturbing the rest of the form's.
+ */
+function ownsKey(section: RegistrationSection, fields: RegistrationField[]) {
+  const prefix = `${sectionKeyOf(section)}${SEP}`;
+  const own = new Set(fields.map((field) => field.key));
+  return (key: string) =>
+    key === sectionKeyOf(section) ||
+    (section.isRepeatable ? key.startsWith(prefix) : own.has(key));
 }
 
 const asText = (value: FormValue): string => {
@@ -253,10 +310,13 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
     [],
   );
 
-  const validate = useCallback((): boolean => {
-    const found: Record<string, string> = {};
-
-    for (const section of liveSections) {
+  /**
+   * Gathers one section's errors. Shared by the check that runs over the
+   * whole form on submit and the one a single section runs for itself, so
+   * the two can never disagree about what is wrong.
+   */
+  const collectSection = useCallback(
+    (section: RegistrationSection, found: Record<string, string>) => {
       const fields = fieldsOf(section);
 
       if (!section.isRepeatable) {
@@ -264,7 +324,7 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
           if (!isVisible(field, section, null, values)) continue;
           checkField(field, field.key, found, values);
         }
-        continue;
+        return;
       }
 
       const shown = entryCount(section);
@@ -273,7 +333,7 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
           minOf(section) === 1
             ? `Add at least one ${entryNoun(section).toLowerCase()}.`
             : `Add at least ${minOf(section)} of these.`;
-        continue;
+        return;
       }
 
       for (let index = 0; index < shown; index++) {
@@ -282,11 +342,87 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
           checkField(field, storageKey(section, index, field.key), found, values);
         }
       }
-    }
+    },
+    [fieldsOf, entryCount, values, isVisible, checkField],
+  );
+
+  const validate = useCallback((): boolean => {
+    const found: Record<string, string> = {};
+    for (const section of liveSections) collectSection(section, found);
 
     setErrors(found);
     return Object.keys(found).length === 0;
-  }, [liveSections, fieldsOf, entryCount, values, isVisible, checkField]);
+  }, [liveSections, collectSection]);
+
+  const validateSection = useCallback(
+    (section: RegistrationSection): boolean => {
+      const found: Record<string, string> = {};
+      collectSection(section, found);
+
+      /* Only this section's errors are replaced. A section the applicant
+         has not reached yet must not light up because they stepped out of
+         this one. */
+      const mine = ownsKey(section, fieldsOf(section));
+      setErrors((current) => {
+        const kept: Record<string, string> = {};
+        for (const [key, message] of Object.entries(current)) {
+          if (!mine(key)) kept[key] = message;
+        }
+        return { ...kept, ...found };
+      });
+
+      return Object.keys(found).length === 0;
+    },
+    [collectSection, fieldsOf],
+  );
+
+  /**
+   * A section is done once every required question it is actually asking has
+   * an answer — a conditional field that is hidden does not hold it back, and
+   * neither does an optional one. A section that asks nothing but optional
+   * questions is done only when they are all answered, which is the only
+   * honest reading of a section with no requirements.
+   */
+  const progressOf = useCallback(
+    (section: RegistrationSection): SectionProgress => {
+      const fields = fieldsOf(section);
+      const entries = section.isRepeatable ? entryCount(section) : 1;
+
+      let answered = 0;
+      let total = 0;
+      let required = 0;
+      let requiredAnswered = 0;
+      let wrong = 0;
+
+      for (let entry = 0; entry < entries; entry++) {
+        const index = section.isRepeatable ? entry : null;
+        for (const field of fields) {
+          if (!isVisible(field, section, index, values)) continue;
+
+          const key = storageKey(section, index, field.key);
+          const filled = !isBlank(values[key] ?? defaultFor(field));
+
+          total += 1;
+          if (filled) answered += 1;
+          if (field.validation.required) {
+            required += 1;
+            if (filled) requiredAnswered += 1;
+          }
+          if (errors[key]) wrong += 1;
+        }
+      }
+
+      if (errors[sectionKeyOf(section)]) wrong += 1;
+
+      const complete =
+        required > 0 ? requiredAnswered === required : total > 0 && answered === total;
+      const status: SectionStatus =
+        total === 0 || complete ? 'done' : answered > 0 ? 'progress' : 'pending';
+
+      return { status, answered, total, wrong };
+    },
+    [fieldsOf, entryCount, values, errors, isVisible],
+  );
 
   /**
    * Unpacks a stored payload back into the flat value map the fields read.
@@ -381,6 +517,8 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
     errors,
     setValue,
     validate,
+    validateSection,
+    progressOf,
     payload,
     prefill,
     entryCount,
@@ -391,20 +529,24 @@ export function useDynamicForm(form: RegistrationForm | null): DynamicFormState 
 
 /* ------------------------------------------------------------- renderer */
 
-export function DynamicFormView({
-  form,
+/**
+ * One section of a Super Admin designed form, on its own.
+ *
+ * Applying used to be a single scroll through every section at once. It is
+ * now a list of sections opened one at a time, so this renders the piece
+ * rather than the whole — the list screen shows one of these, the sign-up
+ * style all-at-once view below strings them together.
+ */
+export function DynamicSectionView({
+  section,
   state,
 }: {
-  form: RegistrationForm;
+  section: RegistrationSection;
   state: DynamicFormState;
 }) {
   const { values, errors, setValue, entryCount, addEntry, removeEntry } = state;
 
-  const visible = (
-    field: RegistrationField,
-    section: RegistrationSection,
-    index: number | null,
-  ): boolean => {
+  const visible = (field: RegistrationField, index: number | null): boolean => {
     if (!field.visibleWhenFieldKey) return true;
     const scoped = storageKey(section, index, field.visibleWhenFieldKey);
     const raw = scoped in values ? values[scoped] : values[field.visibleWhenFieldKey];
@@ -414,101 +556,113 @@ export function DynamicFormView({
     return wanted.some((candidate) => candidate.toLowerCase() === trigger.toLowerCase());
   };
 
-  const renderFields = (section: RegistrationSection, index: number | null) => {
-    const fields = section.fields.filter((field) => field.isEnabled && visible(field, section, index));
-    return fields.map((field) => {
-      const key = storageKey(section, index, field.key);
-      return (
-        <FieldRenderer
-          key={key}
-          field={field}
-          value={values[key] ?? defaultFor(field)}
-          error={errors[key]}
-          onChange={(value) => setValue(key, value)}
-        />
-      );
-    });
-  };
+  const renderFields = (index: number | null) =>
+    section.fields
+      .filter((field) => field.isEnabled && visible(field, index))
+      .map((field) => {
+        const key = storageKey(section, index, field.key);
+        return (
+          <FieldRenderer
+            key={key}
+            field={field}
+            value={values[key] ?? defaultFor(field)}
+            error={errors[key]}
+            onChange={(value) => setValue(key, value)}
+          />
+        );
+      });
 
+  const live = section.fields.filter((field) => field.isEnabled);
+  if (live.length === 0) return null;
+
+  if (!section.isRepeatable) {
+    const rendered = renderFields(null);
+    if (rendered.length === 0) return null;
+
+    return (
+      <Card style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{section.title}</Text>
+          <Chip>{`${rendered.length} fields`}</Chip>
+        </View>
+        {section.description ? (
+          <Text style={styles.sectionDescription}>{section.description}</Text>
+        ) : null}
+        <View style={styles.fields}>{rendered}</View>
+      </Card>
+    );
+  }
+
+  const shown = entryCount(section);
+  const noun = entryNoun(section);
+  const floor = Math.max(minOf(section), 1);
+  const ceiling = maxOf(section);
+  const sectionError = errors[sectionKeyOf(section)];
+
+  return (
+    <Card style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{section.title}</Text>
+        <Chip>{`${shown} of ${ceiling}`}</Chip>
+      </View>
+      {section.description ? (
+        <Text style={styles.sectionDescription}>{section.description}</Text>
+      ) : null}
+
+      {Array.from({ length: shown }, (_, index) => (
+        <View key={index} style={styles.entry}>
+          <View style={styles.entryHeader}>
+            <Text style={styles.entryTitle}>{`${noun} ${index + 1}`}</Text>
+            {shown > floor ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${noun.toLowerCase()} ${index + 1}`}
+                hitSlop={8}
+                onPress={() => removeEntry(section, index)}
+              >
+                <Ionicons name="trash-outline" size={18} color={colors.danger500} />
+              </Pressable>
+            ) : null}
+          </View>
+          <View style={styles.fields}>{renderFields(index)}</View>
+        </View>
+      ))}
+
+      {sectionError ? <Text style={styles.sectionError}>{sectionError}</Text> : null}
+
+      {shown < ceiling ? (
+        <Pressable
+          accessibilityRole="button"
+          style={styles.addEntry}
+          onPress={() => addEntry(section)}
+        >
+          <Ionicons name="add-circle-outline" size={18} color={colors.brand600} />
+          <Text style={styles.addEntryText}>{`Add more ${noun.toLowerCase()}`}</Text>
+        </Pressable>
+      ) : (
+        <Text style={styles.sectionDescription}>
+          {`You can add up to ${ceiling}.`}
+        </Text>
+      )}
+    </Card>
+  );
+}
+
+/** Every section of a form at once, for the screens that still ask that way. */
+export function DynamicFormView({
+  form,
+  state,
+}: {
+  form: RegistrationForm;
+  state: DynamicFormState;
+}) {
   return (
     <View style={styles.stack}>
       {form.sections
         .filter((section) => section.isEnabled)
-        .map((section) => {
-          const live = section.fields.filter((field) => field.isEnabled);
-          if (live.length === 0) return null;
-
-          if (!section.isRepeatable) {
-            const rendered = renderFields(section, null);
-            if (rendered.length === 0) return null;
-
-            return (
-              <Card key={section.id} style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>{section.title}</Text>
-                  <Chip>{`${rendered.length} fields`}</Chip>
-                </View>
-                {section.description ? (
-                  <Text style={styles.sectionDescription}>{section.description}</Text>
-                ) : null}
-                <View style={styles.fields}>{rendered}</View>
-              </Card>
-            );
-          }
-
-          const shown = entryCount(section);
-          const noun = entryNoun(section);
-          const floor = Math.max(minOf(section), 1);
-          const sectionError = errors[sectionKeyOf(section)];
-
-          return (
-            <Card key={section.id} style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>{section.title}</Text>
-                <Chip>{`${shown} of ${maxOf(section)}`}</Chip>
-              </View>
-              {section.description ? (
-                <Text style={styles.sectionDescription}>{section.description}</Text>
-              ) : null}
-
-              {Array.from({ length: shown }, (_, index) => (
-                <View key={index} style={styles.entry}>
-                  <View style={styles.entryHeader}>
-                    <Text style={styles.entryTitle}>{`${noun} ${index + 1}`}</Text>
-                    {shown > floor ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`Remove ${noun.toLowerCase()} ${index + 1}`}
-                        hitSlop={8}
-                        onPress={() => removeEntry(section, index)}
-                      >
-                        <Ionicons name="trash-outline" size={18} color={colors.danger500} />
-                      </Pressable>
-                    ) : null}
-                  </View>
-                  <View style={styles.fields}>{renderFields(section, index)}</View>
-                </View>
-              ))}
-
-              {sectionError ? <Text style={styles.sectionError}>{sectionError}</Text> : null}
-
-              {shown < maxOf(section) ? (
-                <Pressable
-                  accessibilityRole="button"
-                  style={styles.addEntry}
-                  onPress={() => addEntry(section)}
-                >
-                  <Ionicons name="add-circle-outline" size={18} color={colors.brand600} />
-                  <Text style={styles.addEntryText}>{`Add ${noun.toLowerCase()}`}</Text>
-                </Pressable>
-              ) : (
-                <Text style={styles.sectionDescription}>
-                  {`You can add up to ${maxOf(section)}.`}
-                </Text>
-              )}
-            </Card>
-          );
-        })}
+        .map((section) => (
+          <DynamicSectionView key={section.id} section={section} state={state} />
+        ))}
     </View>
   );
 }
@@ -715,15 +869,21 @@ const mimeFor = (extension: string): string => {
 
 const styles = StyleSheet.create({
   stack: { gap: spacing.lg },
-  section: { gap: spacing.md },
+  /* Tinted rather than white: on a screen that is otherwise cards on a pale
+     page, the questions being asked should read as one block and not as
+     more of the page. */
+  section: { gap: spacing.md, backgroundColor: colors.brand50, borderColor: colors.brand100 },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.brand100,
+    paddingBottom: spacing.sm,
   },
   sectionTitle: { flex: 1, fontSize: font.md, fontWeight: '700', color: colors.ink900 },
-  sectionDescription: { fontSize: font.sm, color: colors.ink500, marginTop: -6 },
+  sectionDescription: { fontSize: font.sm, color: colors.ink500, marginTop: -4 },
   fields: { gap: spacing.lg },
   textarea: { minHeight: 96, textAlignVertical: 'top' },
 
@@ -733,7 +893,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.page,
+    backgroundColor: colors.white,
   },
   entryHeader: {
     flexDirection: 'row',

@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  BackHandler,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -19,9 +20,17 @@ import type {
   Application,
   FeeStructure,
   RegistrationForm,
+  RegistrationSection,
 } from '../../src/api/types';
 import { useResource } from '../../src/api/useResource';
-import { DynamicFormView, useDynamicForm } from '../../src/components/DynamicForm';
+import {
+  DynamicSectionView,
+  entryNoun,
+  statusLabelFor,
+  useDynamicForm,
+  type SectionProgress,
+  type SectionStatus,
+} from '../../src/components/DynamicForm';
 import { Picker } from '../../src/components/Picker';
 import {
   Banner,
@@ -39,8 +48,13 @@ import { colors, font, radius, spacing } from '../../src/theme';
 import { isTan } from '../../src/validation/formats';
 
 /**
- * The applicant-facing counterpart of the Super Admin form designer: whatever
- * fields were enabled for this program type are rendered, validated and posted.
+ * The applicant-facing counterpart of the Super Admin form designer.
+ *
+ * Whatever sections and fields were enabled for this program type are what
+ * appears here — nothing about the questions is written into this screen.
+ * They are shown as a list of sections rather than one long scroll, and one
+ * section is opened at a time, because a form of any size was unreadable on
+ * a phone and gave the applicant no sense of how much was left.
  */
 export default function Apply() {
   const router = useRouter();
@@ -61,6 +75,78 @@ export default function Apply() {
   );
 
   const state = useDynamicForm(form.data);
+
+  /* The sections, in the order the designer put them and with the ones that
+     were switched off or emptied left out. This list is the screen. */
+  const sections = useMemo(
+    () =>
+      (form.data?.sections ?? [])
+        .filter((section) => section.isEnabled && section.fields.some((field) => field.isEnabled))
+        .slice()
+        .sort((a, b) => a.displayOrder - b.displayOrder),
+    [form.data],
+  );
+
+  /* Which section is open, by id rather than by position: a form can be
+     republished while this screen is up and positions would shift. */
+  const [openId, setOpenId] = useState<number | null>(null);
+  const open = useMemo(
+    () => sections.find((section) => section.id === openId) ?? null,
+    [sections, openId],
+  );
+
+  /**
+   * Where the list had been scrolled to.
+   *
+   * Both views are one ScrollView, so without this a section opened at
+   * whatever offset the list was at, and coming back from the tenth section
+   * put the applicant at the top of a list of twelve.
+   */
+  const listRef = useRef<ScrollView>(null);
+  const listOffset = useRef(0);
+  const restoreList = useRef(false);
+
+  const backToSections = useCallback(() => {
+    restoreList.current = true;
+    setSectionError(null);
+    setOpenId(null);
+  }, []);
+
+  /**
+   * The header, built once.
+   *
+   * Navigation options are compared by value and applied through an effect,
+   * so an options object holding a freshly built header button would set
+   * them again on every render and spin the navigator until React gave up.
+   */
+  const screenOptions = useMemo(
+    () => ({
+      title: open ? open.title : (program?.name ?? 'Apply'),
+      headerLeft: open
+        ? () => (
+            <Pressable
+              onPress={backToSections}
+              accessibilityRole="button"
+              accessibilityLabel="Back to sections"
+              hitSlop={10}
+            >
+              <Ionicons name="arrow-back" size={24} color={colors.white} />
+            </Pressable>
+          )
+        : undefined,
+    }),
+    [open, program, backToSections],
+  );
+
+  /* The hardware key should close the section, not the application. */
+  useEffect(() => {
+    if (!open) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      setOpenId(null);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [open]);
 
   /* A rejection is not a dead end: the applicant fixes what was wrong and
      sends the same application again. Their own applications carry the
@@ -96,6 +182,8 @@ export default function Apply() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Reported inside an open section, where the mistake was made. */
+  const [sectionError, setSectionError] = useState<string | null>(null);
 
   const tdsOptions = useMemo(() => {
     const available = fee.data?.tdsOptions?.length
@@ -132,7 +220,7 @@ export default function Apply() {
 
   const submit = async () => {
     if (needsForm && !state.validate()) {
-      setError('Please correct the highlighted fields.');
+      setError('Some sections are not complete. Open the ones marked below and correct them.');
       return;
     }
     if (tdsPercent > 0 && !isTan(tan)) {
@@ -169,14 +257,102 @@ export default function Apply() {
   const alreadyApplied = !!program && program.canApply === false
     && !!program.existingApplicationStatus;
 
+  /* ------------------------------------------------- one section, alone */
+
+  if (open && !alreadyApplied) {
+    const at = sections.indexOf(open);
+    const next = sections[at + 1] ?? null;
+    const progress = state.progressOf(open);
+
+    const leave = (to: number | null) => {
+      restoreList.current = to === null;
+      setSectionError(null);
+      setOpenId(to);
+    };
+
+
+    const keep = () => {
+      if (!state.validateSection(open)) {
+        setSectionError('Please correct the highlighted fields before moving on.');
+        return;
+      }
+      /* Whatever was wrong across the form before is worth re-reading now
+         that a section has been put right. */
+      setError(null);
+      leave(next ? next.id : null);
+    };
+
+    return (
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.flex}
+      >
+        <Stack.Screen options={screenOptions} />
+
+        {/* Keyed on the section, so moving between sections remounts the
+            scroller and every one of them opens at its first question. */}
+        <ScrollView
+          key={`section-${open.id}`}
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.stepRow}>
+            <Text style={styles.stepText}>{`Section ${at + 1} of ${sections.length}`}</Text>
+            <StatusChip status={progress.status} />
+          </View>
+
+          <DynamicSectionView section={open} state={state} />
+
+          {sectionError ? <Banner tone="danger">{sectionError}</Banner> : null}
+
+          <Button
+            label={next ? 'Save and continue' : 'Save and finish'}
+            icon={next ? 'arrow-forward' : 'checkmark'}
+            onPress={keep}
+          />
+          <Button label="Back to sections" variant="secondary" onPress={() => leave(null)} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
+
+  /* ------------------------------------------------------- the sections */
+
+  const completed = sections.filter(
+    (section) => state.progressOf(section).status === 'done',
+  ).length;
+
+  /* Nothing to say about money unless money has been configured. An empty
+     fee card told the applicant only that it was empty. */
+  const showFee = gross > 0 || (fee.data?.components.length ?? 0) > 0;
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.flex}
     >
-      <Stack.Screen options={{ title: program?.name ?? 'Apply' }} />
+      {/* headerLeft is named even when empty: options are merged, so the
+          arrow an open section installed would otherwise survive the return
+          to this list and trap the applicant here. */}
+      <Stack.Screen options={screenOptions} />
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        key="sections"
+        ref={listRef}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={64}
+        onScroll={(event) => {
+          listOffset.current = event.nativeEvent.contentOffset.y;
+        }}
+        /* Once, and only on the way back: the rows are measured by then,
+           which they are not yet when the scroller itself is laid out. */
+        onContentSizeChange={() => {
+          if (!restoreList.current) return;
+          restoreList.current = false;
+          listRef.current?.scrollTo({ y: listOffset.current, animated: false });
+        }}
+      >
         {program ? (
           <Card style={styles.summary}>
             <Text style={styles.programName}>{program.name}</Text>
@@ -199,7 +375,7 @@ export default function Apply() {
 
             <Text style={styles.sectionTitle}>Correcting your application</Text>
             <Text style={styles.appliedNote}>
-              Your previous answers are filled in below. Change what needs changing and send
+              Your previous answers are filled in already. Change what needs changing and send
               it again — this goes in as a new application.
             </Text>
 
@@ -242,81 +418,105 @@ export default function Apply() {
           </Card>
         ) : null}
 
-        {alreadyApplied ? null : needsForm && form.data ? (
-          <DynamicFormView form={form.data} state={state} />
+        {alreadyApplied ? null : needsForm && sections.length > 0 ? (
+          <Card style={styles.card}>
+            <Text style={styles.sectionTitle}>Your application</Text>
+            <Text style={styles.muted}>
+              {`${completed} of ${sections.length} sections completed. Open a section to fill it in.`}
+            </Text>
+
+            <View style={styles.track}>
+              <View style={[styles.trackFill, { flex: completed }]} />
+              <View style={{ flex: Math.max(sections.length - completed, 0) }} />
+            </View>
+
+            <View style={styles.list}>
+              {sections.map((section, index) => (
+                <SectionRow
+                  key={section.id}
+                  index={index}
+                  section={section}
+                  progress={state.progressOf(section)}
+                  entries={state.entryCount(section)}
+                  onPress={() => {
+                    setSectionError(null);
+                    setOpenId(section.id);
+                  }}
+                />
+              ))}
+            </View>
+          </Card>
         ) : (
           <Card style={styles.card}>
             <Text style={styles.sectionTitle}>Application</Text>
             <Text style={styles.muted}>
-              This programme asks for no registration form. Confirm the fee below and submit —
-              your application is accepted straight away, with no scrutiny to wait for.
+              This program asks for no registration form. Confirm below and submit — your
+              application is accepted straight away, with no scrutiny to wait for.
             </Text>
           </Card>
         )}
 
-        <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Fee and tax</Text>
+        {showFee ? (
+          <Card style={styles.card}>
+            <Text style={styles.sectionTitle}>Fee and tax</Text>
 
-          {fee.data ? (
-            <View style={styles.feeBox}>
-              {fee.data.components.map((component) => (
-                <FeeLine key={component.id} label={component.label} amount={component.amount} />
-              ))}
-              {fee.data.totals.gst > 0 ? (
-                <FeeLine label={`GST ${fee.data.gstPercent}%`} amount={fee.data.totals.gst} />
-              ) : null}
-              <View style={styles.feeDivider} />
-              <FeeLine label="Total payable" amount={fee.data.totals.gross} strong />
-            </View>
-          ) : (
-            <Text style={styles.muted}>
-              {gross > 0
-                ? `Fee payable: ${inr(gross)}`
-                : 'No fee has been configured for this program.'}
-            </Text>
-          )}
+            {fee.data ? (
+              <View style={styles.feeBox}>
+                {fee.data.components.map((component) => (
+                  <FeeLine key={component.id} label={component.label} amount={component.amount} />
+                ))}
+                {fee.data.totals.gst > 0 ? (
+                  <FeeLine label={`GST ${fee.data.gstPercent}%`} amount={fee.data.totals.gst} />
+                ) : null}
+                <View style={styles.feeDivider} />
+                <FeeLine label="Total payable" amount={fee.data.totals.gross} strong />
+              </View>
+            ) : (
+              <Text style={styles.muted}>{`Fee payable: ${inr(gross)}`}</Text>
+            )}
 
-          {tdsOptions.length > 1 ? (
-            <>
-              <Picker
-                label="TDS deduction"
-                value={tds}
-                options={tdsOptions}
-                onChange={setTds}
-                hint="Select a rate only if you are deducting tax at source."
-              />
+            {tdsOptions.length > 1 ? (
+              <>
+                <Picker
+                  label="TDS deduction"
+                  value={tds}
+                  options={tdsOptions}
+                  onChange={setTds}
+                  hint="Select a rate only if you are deducting tax at source."
+                />
 
-              {tdsPercent > 0 ? (
-                <>
-                  <Field
-                    label="TAN"
-                    required
-                    value={tan}
-                    onChangeText={(text) => setTan(text.toUpperCase())}
-                    autoCapitalize="characters"
-                    autoCorrect={false}
-                    maxLength={10}
-                    placeholder="DELA12345B"
-                    hint="The TAN of the organisation making the deduction."
-                  />
-                  <Field
-                    label="Deductor name"
-                    value={deductor}
-                    onChangeText={setDeductor}
-                    placeholder="Organisation deducting the tax"
-                  />
+                {tdsPercent > 0 ? (
+                  <>
+                    <Field
+                      label="TAN"
+                      required
+                      value={tan}
+                      onChangeText={(text) => setTan(text.toUpperCase())}
+                      autoCapitalize="characters"
+                      autoCorrect={false}
+                      maxLength={10}
+                      placeholder="DELA12345B"
+                      hint="The TAN of the organisation making the deduction."
+                    />
+                    <Field
+                      label="Deductor name"
+                      value={deductor}
+                      onChangeText={setDeductor}
+                      placeholder="Organisation deducting the tax"
+                    />
 
-                  <View style={styles.tdsSummary}>
-                    <Ionicons name="calculator-outline" size={16} color={colors.brand700} />
-                    <Text style={styles.tdsText}>
-                      {`${tdsPercent}% of ${inr(gross)} = ${inr(deduction)} deducted; ${inr(gross - deduction)} payable now.`}
-                    </Text>
-                  </View>
-                </>
-              ) : null}
-            </>
-          ) : null}
-        </Card>
+                    <View style={styles.tdsSummary}>
+                      <Ionicons name="calculator-outline" size={16} color={colors.brand700} />
+                      <Text style={styles.tdsText}>
+                        {`${tdsPercent}% of ${inr(gross)} = ${inr(deduction)} deducted; ${inr(gross - deduction)} payable now.`}
+                      </Text>
+                    </View>
+                  </>
+                ) : null}
+              </>
+            ) : null}
+          </Card>
+        ) : null}
 
         {error ? <Banner tone="danger">{error}</Banner> : null}
 
@@ -391,6 +591,86 @@ export default function Apply() {
   );
 }
 
+/* ------------------------------------------------------------ the list */
+
+const statusTone: Record<SectionStatus, { bg: string; fg: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  done: { bg: colors.success50, fg: colors.success700, icon: 'checkmark-circle' },
+  progress: { bg: colors.warning50, fg: colors.warning700, icon: 'ellipsis-horizontal-circle' },
+  pending: { bg: colors.ink100, fg: colors.ink500, icon: 'ellipse-outline' },
+};
+
+function StatusChip({ status }: { status: SectionStatus }) {
+  const tone = statusTone[status];
+  return (
+    <View style={[styles.statusChip, { backgroundColor: tone.bg }]}>
+      <Ionicons name={tone.icon} size={13} color={tone.fg} />
+      <Text style={[styles.statusText, { color: tone.fg }]}>{statusLabelFor(status)}</Text>
+    </View>
+  );
+}
+
+/**
+ * One line of the application: what the section asks, how far through it the
+ * applicant is, and a way in.
+ */
+function SectionRow({
+  index,
+  section,
+  progress,
+  entries,
+  onPress,
+}: {
+  index: number;
+  section: RegistrationSection;
+  progress: SectionProgress;
+  entries: number;
+  onPress: () => void;
+}) {
+  const tone = statusTone[progress.status];
+  const noun = entryNoun(section).toLowerCase();
+
+  const counted = `${progress.answered} of ${progress.total} answered`;
+  const meta = section.isRepeatable
+    ? `${entries} ${entries === 1 ? noun : `${noun}s`} · ${counted}`
+    : counted;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${section.title}, ${statusLabelFor(progress.status)}`}
+      style={({ pressed }) => [
+        styles.row,
+        progress.wrong > 0 && styles.rowWrong,
+        pressed && styles.rowPressed,
+      ]}
+      onPress={onPress}
+    >
+      <View style={[styles.rowIcon, { backgroundColor: tone.bg }]}>
+        {progress.status === 'done' ? (
+          <Ionicons name="checkmark" size={16} color={tone.fg} />
+        ) : (
+          <Text style={[styles.rowNumber, { color: tone.fg }]}>{index + 1}</Text>
+        )}
+      </View>
+
+      <View style={styles.rowBody}>
+        <Text style={styles.rowTitle}>{section.title}</Text>
+        <Text style={styles.rowMeta}>{meta}</Text>
+        {progress.wrong > 0 ? (
+          <Text style={styles.rowWrongText}>
+            {progress.wrong === 1 ? '1 answer to correct' : `${progress.wrong} answers to correct`}
+          </Text>
+        ) : null}
+      </View>
+
+      <View style={styles.rowEnd}>
+        <StatusChip status={progress.status} />
+        <Ionicons name="chevron-forward" size={18} color={colors.ink400} />
+      </View>
+    </Pressable>
+  );
+}
+
 function FeeLine({
   label,
   amount,
@@ -422,6 +702,51 @@ const styles = StyleSheet.create({
   appliedRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   appliedNo: { fontSize: font.sm, fontWeight: '600', color: colors.ink700 },
   appliedNote: { fontSize: font.sm, color: colors.ink600, lineHeight: 19 },
+
+  stepRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  stepText: { fontSize: font.sm, fontWeight: '600', color: colors.ink600 },
+
+  track: {
+    flexDirection: 'row',
+    height: 6,
+    borderRadius: radius.pill,
+    backgroundColor: colors.ink200,
+    overflow: 'hidden',
+  },
+  trackFill: { backgroundColor: colors.brand600 },
+
+  list: { gap: spacing.sm },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    /* The light ground that sets one section apart from the next, and the
+       whole list apart from the card it sits in. */
+    backgroundColor: colors.brand50,
+    borderWidth: 1,
+    borderColor: colors.brand100,
+    borderRadius: radius.md,
+  },
+  rowPressed: { backgroundColor: colors.brand100 },
+  rowWrong: { borderColor: colors.danger500, backgroundColor: colors.danger50 },
+  rowIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  rowNumber: { fontSize: font.sm, fontWeight: '700' },
+  rowBody: { flex: 1, gap: 2 },
+  rowTitle: { fontSize: font.sm, fontWeight: '700', color: colors.ink900 },
+  rowMeta: { fontSize: font.xs, color: colors.ink500 },
+  rowWrongText: { fontSize: font.xs, fontWeight: '600', color: colors.danger700 },
+  rowEnd: { alignItems: 'flex-end', gap: 4 },
+
+  statusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+  },
+  statusText: { fontSize: font.xs, fontWeight: '700' },
 
   backdrop: {
     flex: 1,

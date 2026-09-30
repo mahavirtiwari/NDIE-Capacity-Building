@@ -22,6 +22,21 @@
         "web"
       ],
       "port": 8081
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "backend/src/Ntms.Api",
+        "--launch-profile",
+        "http",
+        "--",
+        "--urls",
+        "http://localhost:5210"
+      ],
+      "port": 5210
     }
   ]
 }
