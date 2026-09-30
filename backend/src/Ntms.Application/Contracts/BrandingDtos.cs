@@ -17,6 +17,12 @@ public class BrandingDto
     /// <summary>Where the mark goes when clicked. Null means it is not a link.</summary>
     public string? LogoLinkUrl { get; set; }
 
+    /// <summary>The mark drawn for a dark ground, where one has been uploaded.</summary>
+    public bool HasReversedLogo { get; set; }
+    public string? ReversedLogoFileName { get; set; }
+    public string? ReversedLogoUrl { get; set; }
+    public int ReversedLogoVersion { get; set; }
+
     /// <summary>The accrediting or partner body shown beside the main mark.</summary>
     public string? PartnerName { get; set; }
     public bool HasPartnerLogo { get; set; }

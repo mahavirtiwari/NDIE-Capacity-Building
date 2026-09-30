@@ -20,6 +20,17 @@ export interface Branding {
    */
   logoLinkUrl?: string | null;
 
+  /**
+   * The same mark drawn for a dark ground. A full-colour logo goes muddy on
+   * the brand crimson and tinting it white would flatten it to a silhouette,
+   * so the reversed artwork is uploaded rather than derived. Optional: where
+   * it is absent, dark surfaces fall back to the colour mark on white.
+   */
+  hasReversedLogo: boolean;
+  reversedLogoFileName?: string | null;
+  reversedLogoUrl?: string | null;
+  reversedLogoVersion: number;
+
   /** The accrediting or partner body shown beside the main mark, e.g. QCI. */
   partnerName?: string | null;
   hasPartnerLogo: boolean;
@@ -44,4 +55,4 @@ export type BrandingUpdate = Pick<
 >;
 
 /** Which mark an upload or removal targets. */
-export type LogoSlot = 'primary' | 'partner';
+export type LogoSlot = 'primary' | 'reversed' | 'partner';

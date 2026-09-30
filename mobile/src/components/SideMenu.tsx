@@ -47,7 +47,7 @@ const LINKS: MenuLink[] = [
 export function SideMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
   const { signOut } = useAuth();
-  const { branding } = useBranding();
+  const { branding, reversedLogoUri } = useBranding();
   const text = useSiteText();
 
   const slide = useRef(new Animated.Value(-PANEL_WIDTH)).current;
@@ -88,12 +88,14 @@ export function SideMenu({ open, onClose }: { open: boolean; onClose: () => void
 
       <Animated.View style={[styles.panel, { transform: [{ translateX: slide }] }]}>
         <SafeAreaView edges={['top', 'bottom']} style={styles.panelInner}>
-          {/* The mark alone, centred on white. Who is signed in is on the
-              panel the menu opens onto, and the product's own name is on
-              every bar; the logo is a full-colour mark and was muddy on the
-              crimson it used to sit on. */}
-          <View style={styles.head}>
-            <BrandLogo size={46} />
+          {/* The mark alone, centred. Who is signed in is on the panel the
+              menu opens onto, and the product's own name is on every bar.
+
+              Crimson when a reversed mark has been uploaded under Branding,
+              white when it has not: a full-colour logo on the brand crimson
+              goes muddy, and the band is the part we can change. */}
+          <View style={[styles.head, reversedLogoUri ? styles.headDark : null]}>
+            <BrandLogo size={46} reversed={!!reversedLogoUri} />
           </View>
 
           <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
@@ -183,6 +185,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  headDark: { backgroundColor: colors.brand700, borderBottomColor: colors.brand800 },
 
   list: { padding: spacing.md, gap: 2 },
   prompt: {

@@ -40,6 +40,17 @@ public class BrandingSetting : AuditableEntity
 
     public bool HasLogo => LogoData is { Length: > 0 };
 
+    /* The same mark drawn for a dark ground. A full-colour logo laid on the
+       brand crimson goes muddy and a tint would flatten it to a silhouette,
+       so the reversed artwork is uploaded rather than derived. Optional:
+       without it, dark surfaces fall back to the colour mark on white. */
+    public byte[]? ReversedLogoData { get; set; }
+    public string? ReversedLogoFileName { get; set; }
+    public string? ReversedLogoContentType { get; set; }
+    public int ReversedLogoVersion { get; set; }
+
+    public bool HasReversedLogo => ReversedLogoData is { Length: > 0 };
+
     /* A second mark for the accrediting or partner body — QCI alongside NDIE,
        for instance — shown at the opposite end of the sign-in header. */
     public string? PartnerName { get; set; }

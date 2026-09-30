@@ -93,11 +93,14 @@ public class BrandingService(NtmsDbContext db)
         return uri.ToString();
     }
 
-    /// <summary>Which mark is being written: the organisation's, or the partner's.</summary>
+    /// <summary>Which mark is being written.</summary>
     public enum LogoSlot
     {
         Primary,
         Partner,
+
+        /// <summary>The organisation's own mark, drawn for a dark ground.</summary>
+        Reversed,
     }
 
     public async Task<BrandingDto> SetLogoAsync(
@@ -118,20 +121,29 @@ public class BrandingService(NtmsDbContext db)
         var entity = await LoadAsync(ct);
         var name = Path.GetFileName(fileName);
 
-        if (slot == LogoSlot.Primary)
+        switch (slot)
         {
-            entity.LogoData = buffer.ToArray();
-            entity.LogoFileName = name;
-            entity.LogoContentType = type;
-            /* Clients cache the logo by URL, so the version is what busts it. */
-            entity.LogoVersion++;
-        }
-        else
-        {
-            entity.PartnerLogoData = buffer.ToArray();
-            entity.PartnerLogoFileName = name;
-            entity.PartnerLogoContentType = type;
-            entity.PartnerLogoVersion++;
+            case LogoSlot.Primary:
+                entity.LogoData = buffer.ToArray();
+                entity.LogoFileName = name;
+                entity.LogoContentType = type;
+                /* Clients cache the logo by URL, so the version is what busts it. */
+                entity.LogoVersion++;
+                break;
+
+            case LogoSlot.Reversed:
+                entity.ReversedLogoData = buffer.ToArray();
+                entity.ReversedLogoFileName = name;
+                entity.ReversedLogoContentType = type;
+                entity.ReversedLogoVersion++;
+                break;
+
+            default:
+                entity.PartnerLogoData = buffer.ToArray();
+                entity.PartnerLogoFileName = name;
+                entity.PartnerLogoContentType = type;
+                entity.PartnerLogoVersion++;
+                break;
         }
 
         await db.SaveChangesAsync(ct);
@@ -142,19 +154,28 @@ public class BrandingService(NtmsDbContext db)
     {
         var entity = await LoadAsync(ct);
 
-        if (slot == LogoSlot.Primary)
+        switch (slot)
         {
-            entity.LogoData = null;
-            entity.LogoFileName = null;
-            entity.LogoContentType = null;
-            entity.LogoVersion++;
-        }
-        else
-        {
-            entity.PartnerLogoData = null;
-            entity.PartnerLogoFileName = null;
-            entity.PartnerLogoContentType = null;
-            entity.PartnerLogoVersion++;
+            case LogoSlot.Primary:
+                entity.LogoData = null;
+                entity.LogoFileName = null;
+                entity.LogoContentType = null;
+                entity.LogoVersion++;
+                break;
+
+            case LogoSlot.Reversed:
+                entity.ReversedLogoData = null;
+                entity.ReversedLogoFileName = null;
+                entity.ReversedLogoContentType = null;
+                entity.ReversedLogoVersion++;
+                break;
+
+            default:
+                entity.PartnerLogoData = null;
+                entity.PartnerLogoFileName = null;
+                entity.PartnerLogoContentType = null;
+                entity.PartnerLogoVersion++;
+                break;
         }
 
         await db.SaveChangesAsync(ct);
@@ -168,9 +189,12 @@ public class BrandingService(NtmsDbContext db)
         var entity = await db.Branding.AsNoTracking().FirstOrDefaultAsync(b => b.Id == 1, ct);
         if (entity is null) return null;
 
-        var (data, type) = slot == LogoSlot.Primary
-            ? (entity.LogoData, entity.LogoContentType)
-            : (entity.PartnerLogoData, entity.PartnerLogoContentType);
+        var (data, type) = slot switch
+        {
+            LogoSlot.Primary => (entity.LogoData, entity.LogoContentType),
+            LogoSlot.Reversed => (entity.ReversedLogoData, entity.ReversedLogoContentType),
+            _ => (entity.PartnerLogoData, entity.PartnerLogoContentType),
+        };
 
         if (data is not { Length: > 0 }) return null;
         return (data, type ?? "application/octet-stream");
@@ -189,6 +213,12 @@ public class BrandingService(NtmsDbContext db)
         LogoUrl = entity.HasLogo ? $"branding/logo?v={entity.LogoVersion}" : null,
         LogoVersion = entity.LogoVersion,
         LogoLinkUrl = entity.LogoLinkUrl,
+        HasReversedLogo = entity.HasReversedLogo,
+        ReversedLogoFileName = entity.ReversedLogoFileName,
+        ReversedLogoUrl = entity.HasReversedLogo
+            ? $"branding/reversed-logo?v={entity.ReversedLogoVersion}"
+            : null,
+        ReversedLogoVersion = entity.ReversedLogoVersion,
         PartnerName = entity.PartnerName,
         HasPartnerLogo = entity.HasPartnerLogo,
         PartnerLogoFileName = entity.PartnerLogoFileName,

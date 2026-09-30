@@ -19,6 +19,16 @@ export interface Branding {
   /** Relative to the API base, already carrying a cache-busting version. */
   logoUrl?: string | null;
   logoVersion: number;
+
+  /**
+   * The same mark drawn for a dark ground, uploaded separately under
+   * Branding. Optional: without it the crimson surfaces show the colour mark
+   * on white, because tinting a full-colour logo would flatten it.
+   */
+  hasReversedLogo?: boolean;
+  reversedLogoUrl?: string | null;
+  reversedLogoVersion?: number;
+
   updatedOn: string;
 }
 

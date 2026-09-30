@@ -26,6 +26,12 @@ public class BrandingController(BrandingService service) : ApiControllerBase
     public Task<IActionResult> Logo(CancellationToken ct) =>
         SendLogo(BrandingService.LogoSlot.Primary, ct);
 
+    /// <summary>The same mark drawn for a dark ground, where one was uploaded.</summary>
+    [HttpGet("reversed-logo")]
+    [AllowAnonymous]
+    public Task<IActionResult> ReversedLogo(CancellationToken ct) =>
+        SendLogo(BrandingService.LogoSlot.Reversed, ct);
+
     /// <summary>The accrediting or partner body's mark, e.g. QCI beside NDIE.</summary>
     [HttpGet("partner-logo")]
     [AllowAnonymous]
@@ -54,6 +60,13 @@ public class BrandingController(BrandingService service) : ApiControllerBase
         IFormFile file, CancellationToken ct) =>
         Upload(file, BrandingService.LogoSlot.Primary, ct);
 
+    [HttpPost("reversed-logo")]
+    [HasPermission(Permissions.SettingsManage)]
+    [RequestSizeLimit(1_048_576)]
+    public Task<ActionResult<ApiEnvelope<BrandingDto>>> UploadReversedLogo(
+        IFormFile file, CancellationToken ct) =>
+        Upload(file, BrandingService.LogoSlot.Reversed, ct);
+
     [HttpPost("partner-logo")]
     [HasPermission(Permissions.SettingsManage)]
     [RequestSizeLimit(1_048_576)]
@@ -78,6 +91,13 @@ public class BrandingController(BrandingService service) : ApiControllerBase
     public async Task<ActionResult<ApiEnvelope<BrandingDto>>> RemoveLogo(CancellationToken ct) =>
         Envelope(
             await service.RemoveLogoAsync(BrandingService.LogoSlot.Primary, ct), "Logo removed.");
+
+    [HttpDelete("reversed-logo")]
+    [HasPermission(Permissions.SettingsManage)]
+    public async Task<ActionResult<ApiEnvelope<BrandingDto>>> RemoveReversedLogo(
+        CancellationToken ct) =>
+        Envelope(
+            await service.RemoveLogoAsync(BrandingService.LogoSlot.Reversed, ct), "Logo removed.");
 
     [HttpDelete("partner-logo")]
     [HasPermission(Permissions.SettingsManage)]

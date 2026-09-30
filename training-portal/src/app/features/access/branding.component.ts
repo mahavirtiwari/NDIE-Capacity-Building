@@ -39,26 +39,14 @@ const MAX_BYTES = 512 * 1024;
           }
         </div>
         <div class="card__body stack stack-md">
-          <div class="logo-previews">
-            <div class="logo-preview">
-              <span class="logo-preview__label">On white</span>
-              <div class="logo-preview__box">
-                @if (previewSrc(); as src) {
-                  <img [src]="src" alt="Logo preview" />
-                } @else {
-                  <span class="text-sm text-muted">No logo uploaded</span>
-                }
-              </div>
-            </div>
-            <div class="logo-preview">
-              <span class="logo-preview__label">On the sidebar</span>
-              <div class="logo-preview__box logo-preview__box--sidebar">
-                @if (previewSrc(); as src) {
-                  <img [src]="src" alt="Logo preview on the sidebar" />
-                } @else {
-                  <span class="text-sm text-muted">No logo uploaded</span>
-                }
-              </div>
+          <div class="logo-preview">
+            <span class="logo-preview__label">On a light background</span>
+            <div class="logo-preview__box">
+              @if (previewSrc(); as src) {
+                <img [src]="src" alt="Logo preview" />
+              } @else {
+                <span class="text-sm text-muted">No logo uploaded</span>
+              }
             </div>
           </div>
 
@@ -112,6 +100,71 @@ const MAX_BYTES = 512 * 1024;
             >
               <app-icon name="upload" [size]="15" />
               {{ uploading() ? 'Uploading…' : 'Upload logo' }}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__header">
+          <span class="card__title">Logo for dark backgrounds</span>
+          @if (branding.branding().hasReversedLogo) {
+            <span class="chip">{{ branding.branding().reversedLogoFileName }}</span>
+          }
+        </div>
+        <div class="card__body stack stack-md">
+          <div class="logo-preview">
+            <span class="logo-preview__label">On the mobile app's menu</span>
+            <div class="logo-preview__box logo-preview__box--dark">
+              @if (reversedPreviewSrc(); as src) {
+                <img [src]="src" alt="Reversed logo preview" />
+              } @else {
+                <span class="text-sm text-muted">No logo uploaded</span>
+              }
+            </div>
+          </div>
+
+          <p class="text-sm text-muted">
+            A white or single-colour version of the same mark, for the crimson surfaces in
+            the mobile app. Upload the artwork rather than expecting it to be worked out: a
+            full-colour mark tinted white loses everything inside its outline. With nothing
+            here, those surfaces put the colour mark on white instead. The portal itself has
+            no dark surface, so this changes nothing on these screens.
+          </p>
+
+          <div class="field">
+            <label class="field-label" for="brReversedLogo">Replace reversed logo</label>
+            <input
+              id="brReversedLogo"
+              type="file"
+              class="input"
+              [accept]="accept"
+              (change)="pick($event, 'reversed')"
+            />
+            <span class="field-hint">
+              Same limits as above. A transparent PNG or an SVG drawn in white works best —
+              check it against the preview, which uses the real sidebar colour.
+            </span>
+            @if (reversedFileError(); as error) {
+              <span class="field-error">{{ error }}</span>
+            }
+          </div>
+
+          <div class="btn-row btn-row--end">
+            @if (branding.branding().hasReversedLogo) {
+              <button type="button" class="btn btn--ghost" (click)="removeLogo('reversed')">
+                <app-icon name="trash" [size]="15" />
+                Remove
+              </button>
+            }
+            <button
+              type="button"
+              class="btn btn--primary"
+              [disabled]="!reversedSelected() || uploading()"
+              (click)="upload('reversed')"
+            >
+              <app-icon name="upload" [size]="15" />
+              {{ uploading() ? 'Uploading…' : 'Upload reversed logo' }}
             </button>
           </div>
         </div>
@@ -273,11 +326,6 @@ const MAX_BYTES = 512 * 1024;
         align-items: start;
       }
 
-      .logo-previews {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.75rem;
-      }
       .logo-preview { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
       .logo-preview__label { font-size: var(--fs-xs); color: var(--ink-500); }
       .logo-preview__box {
@@ -289,12 +337,11 @@ const MAX_BYTES = 512 * 1024;
         border-radius: var(--radius);
         background: #fff;
       }
-      .logo-preview__box--sidebar { background: var(--sidebar-bg); border-color: var(--sidebar-line); }
+      /* The real crimson the app's menu uses, not the portal's pale sidebar:
+         a mark that reads on one may vanish on the other. */
+      .logo-preview__box--dark { background: var(--brand-700); border-color: var(--brand-800); }
       .logo-preview__box img { max-height: 100%; max-width: 100%; object-fit: contain; }
 
-      @media (max-width: 560px) {
-        .logo-previews { grid-template-columns: 1fr; }
-      }
     `,
   ],
 })
@@ -312,9 +359,12 @@ export class BrandingComponent {
   protected readonly fileError = signal('');
   protected readonly partnerSelected = signal<File | null>(null);
   protected readonly partnerFileError = signal('');
+  protected readonly reversedSelected = signal<File | null>(null);
+  protected readonly reversedFileError = signal('');
   /** Local object URLs for the picked files, so previews update before upload. */
   private readonly localPreview = signal<string | null>(null);
   private readonly partnerLocalPreview = signal<string | null>(null);
+  private readonly reversedLocalPreview = signal<string | null>(null);
 
   protected readonly previewSrc = computed(
     () => this.localPreview() ?? this.branding.logoSrc(),
@@ -322,6 +372,28 @@ export class BrandingComponent {
   protected readonly partnerPreviewSrc = computed(
     () => this.partnerLocalPreview() ?? this.branding.partnerLogoSrc(),
   );
+  /* Falls back to the colour mark, which is what the dark surfaces actually
+     do when no reversed artwork has been uploaded. */
+  protected readonly reversedPreviewSrc = computed(
+    () => this.reversedLocalPreview() ?? this.branding.reversedLogoSrc(),
+  );
+
+  /* Three slots now, so the pairs of ternaries that used to pick between two
+     are lookups. */
+  private chosenFor(slot: LogoSlot) {
+    if (slot === 'partner') return this.partnerSelected;
+    return slot === 'reversed' ? this.reversedSelected : this.selected;
+  }
+
+  private fileErrorFor(slot: LogoSlot) {
+    if (slot === 'partner') return this.partnerFileError;
+    return slot === 'reversed' ? this.reversedFileError : this.fileError;
+  }
+
+  private previewFor(slot: LogoSlot) {
+    if (slot === 'partner') return this.partnerLocalPreview;
+    return slot === 'reversed' ? this.reversedLocalPreview : this.localPreview;
+  }
 
   protected readonly form = this.fb.nonNullable.group({
     organisationName: ['', [Validators.required, Validators.maxLength(200)]],
@@ -399,8 +471,8 @@ export class BrandingComponent {
   protected pick(event: Event, slot: LogoSlot = 'primary'): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0] ?? null;
-    const error = slot === 'partner' ? this.partnerFileError : this.fileError;
-    const chosen = slot === 'partner' ? this.partnerSelected : this.selected;
+    const error = this.fileErrorFor(slot);
+    const chosen = this.chosenFor(slot);
 
     this.clearLocalPreview(slot);
     error.set('');
@@ -420,12 +492,11 @@ export class BrandingComponent {
     }
 
     chosen.set(file);
-    const preview = slot === 'partner' ? this.partnerLocalPreview : this.localPreview;
-    preview.set(URL.createObjectURL(file));
+    this.previewFor(slot).set(URL.createObjectURL(file));
   }
 
   protected upload(slot: LogoSlot = 'primary'): void {
-    const chosen = slot === 'partner' ? this.partnerSelected : this.selected;
+    const chosen = this.chosenFor(slot);
     const file = chosen();
     if (!file) return;
 
@@ -442,19 +513,31 @@ export class BrandingComponent {
   }
 
   protected async removeLogo(slot: LogoSlot = 'primary'): Promise<void> {
+    const asked = {
+      partner: {
+        title: 'Remove the partner logo?',
+        message: 'The sign-in header will show the main mark alone.',
+      },
+      reversed: {
+        title: 'Remove the reversed logo?',
+        message: 'Dark surfaces go back to showing the colour mark on white.',
+      },
+      primary: {
+        title: 'Remove the logo?',
+        message: 'The portal falls back to the text wordmark until a new logo is uploaded.',
+      },
+    }[slot];
+
     const confirmed = await this.confirm.ask({
-      title: slot === 'partner' ? 'Remove the partner logo?' : 'Remove the logo?',
-      message:
-        slot === 'partner'
-          ? 'The sign-in header will show the main mark alone.'
-          : 'The portal falls back to the text wordmark until a new logo is uploaded.',
+      title: asked.title,
+      message: asked.message,
       confirmLabel: 'Remove',
       tone: 'danger',
     });
     if (!confirmed) return;
 
     this.clearLocalPreview(slot);
-    (slot === 'partner' ? this.partnerSelected : this.selected).set(null);
+    this.chosenFor(slot).set(null);
     this.branding.removeLogo(slot).subscribe(() => this.toast.success('Logo removed'));
   }
 
@@ -507,7 +590,7 @@ export class BrandingComponent {
   }
 
   private clearLocalPreview(slot: LogoSlot = 'primary'): void {
-    const preview = slot === 'partner' ? this.partnerLocalPreview : this.localPreview;
+    const preview = this.previewFor(slot);
     const url = preview();
     if (url) URL.revokeObjectURL(url);
     preview.set(null);

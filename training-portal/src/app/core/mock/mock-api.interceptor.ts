@@ -106,6 +106,10 @@ let mockBranding: Branding = {
   logoFileName: null,
   logoUrl: null,
   logoVersion: 0,
+  hasReversedLogo: false,
+  reversedLogoFileName: null,
+  reversedLogoUrl: null,
+  reversedLogoVersion: 0,
   partnerName: null,
   hasPartnerLogo: false,
   partnerLogoFileName: null,
@@ -129,6 +133,17 @@ function brandingRoutes(method: string, rest: string[], body: Record<string, unk
       hasLogo: false,
       logoFileName: null,
       logoUrl: null,
+      updatedOn: new Date().toISOString(),
+    };
+    return mockBranding;
+  }
+
+  if (method === 'DELETE' && rest[0] === 'reversed-logo') {
+    mockBranding = {
+      ...mockBranding,
+      hasReversedLogo: false,
+      reversedLogoFileName: null,
+      reversedLogoUrl: null,
       updatedOn: new Date().toISOString(),
     };
     return mockBranding;

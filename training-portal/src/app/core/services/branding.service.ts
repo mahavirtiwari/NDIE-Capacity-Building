@@ -25,6 +25,9 @@ export class BrandingService {
     hasLogo: false,
     logoUrl: null,
     logoVersion: 0,
+    hasReversedLogo: false,
+    reversedLogoUrl: null,
+    reversedLogoVersion: 0,
     partnerName: null,
     hasPartnerLogo: false,
     partnerLogoUrl: null,
@@ -39,6 +42,10 @@ export class BrandingService {
 
   /** Absolute URL of the uploaded mark, or null when none has been set. */
   readonly logoSrc = computed(() => this.absolute(this.state().logoUrl));
+  /** The mark for a dark ground, falling back to the colour one. */
+  readonly reversedLogoSrc = computed(
+    () => this.absolute(this.state().reversedLogoUrl) ?? this.logoSrc(),
+  );
   /** The partner mark, e.g. QCI alongside NDIE. */
   readonly partnerLogoSrc = computed(() => this.absolute(this.state().partnerLogoUrl));
   readonly partnerName = computed(() => this.state().partnerName ?? '');
@@ -79,5 +86,7 @@ export class BrandingService {
   }
 }
 
-const path = (slot: LogoSlot): string =>
-  slot === 'partner' ? 'branding/partner-logo' : 'branding/logo';
+const path = (slot: LogoSlot): string => {
+  if (slot === 'partner') return 'branding/partner-logo';
+  return slot === 'reversed' ? 'branding/reversed-logo' : 'branding/logo';
+};
