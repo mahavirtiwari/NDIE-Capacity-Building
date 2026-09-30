@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Ntms.Application.Common;
@@ -135,6 +136,84 @@ public class ApplicantAuthService(
     }
 
     /// <summary>Programmes the applicant is eligible to apply for.</summary>
+    /// <summary>
+    /// Pulls the qualification and the years of experience out of an
+    /// accepted profile, using whichever fields the form designer pointed
+    /// at.
+    ///
+    /// Each answer comes back with a flag rather than a default, because
+    /// "they did not say" and "they said none" are different things and
+    /// only the second is a reason to close a program.
+    /// </summary>
+    private async Task<(bool HasQualification, int QualificationRank,
+                        bool HasExperience, decimal ExperienceYears)>
+        ReadEligibilityAsync(ProfileSubmission? accepted, CancellationToken ct)
+    {
+        if (accepted?.ProfileFormId is not { } formId) return (false, 0, false, 0m);
+
+        var mapped = await db.ProfileFields.AsNoTracking()
+            .Where(f => f.Section!.FormId == formId
+                        && f.EligibilityRole != ProfileFieldRole.None)
+            .Select(f => new { f.Key, f.EligibilityRole })
+            .ToListAsync(ct);
+
+        if (mapped.Count == 0) return (false, 0, false, 0m);
+
+        Dictionary<string, JsonElement>? answers;
+        try
+        {
+            answers = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
+                accepted.Responses);
+        }
+        catch (JsonException)
+        {
+            /* A profile whose answers cannot be read must not close every
+               program to somebody. It is left unmeasured. */
+            return (false, 0, false, 0m);
+        }
+
+        if (answers is null) return (false, 0, false, 0m);
+
+        var hasQualification = false;
+        var rank = 0;
+        var hasExperience = false;
+        var years = 0m;
+
+        foreach (var field in mapped)
+        {
+            if (!answers.TryGetValue(field.Key, out var value)) continue;
+
+            var text = value.ValueKind switch
+            {
+                JsonValueKind.String => value.GetString(),
+                JsonValueKind.Number => value.ToString(),
+                _ => null,
+            };
+
+            if (string.IsNullOrWhiteSpace(text)) continue;
+
+            if (field.EligibilityRole == ProfileFieldRole.Qualification)
+            {
+                var found = QualificationLevels.RankOf(text);
+                /* Rank 0 means the catalogue does not know the value, which
+                   is not the same as the lowest rung — treat it as unsaid. */
+                if (found > 0)
+                {
+                    hasQualification = true;
+                    rank = found;
+                }
+            }
+            else if (field.EligibilityRole == ProfileFieldRole.ExperienceYears
+                     && decimal.TryParse(text, out var parsed))
+            {
+                hasExperience = true;
+                years = parsed;
+            }
+        }
+
+        return (hasQualification, rank, hasExperience, years);
+    }
+
     public async Task<List<ApplicantProgramDto>> AvailableProgramsAsync(
         int applicantId, CancellationToken ct)
     {
@@ -149,14 +228,24 @@ public class ApplicantAuthService(
            cannot have yet; the app asks about their profile first and
            sends them to fill it in. An empty list here is the honest
            answer to "what is open to me". */
+        ProfileSubmission? accepted = null;
+
         if (applicant.SubCategory?.RequiresProfileForm ?? true)
         {
-            var cleared = await db.ProfileSubmissions.AsNoTracking()
-                .AnyAsync(s => s.ApplicantId == applicantId
-                               && s.Status == ProfileSubmissionStatus.Approved, ct);
+            accepted = await db.ProfileSubmissions.AsNoTracking()
+                .Where(s => s.ApplicantId == applicantId
+                            && s.Status == ProfileSubmissionStatus.Approved)
+                .OrderByDescending(s => s.AttemptNo)
+                .FirstOrDefaultAsync(ct);
 
-            if (!cleared) return [];
+            if (accepted is null) return [];
         }
+
+        /* What the accepted profile says about their qualification and
+           their experience — but only from fields the form designer
+           nominated. Nothing is inferred from a field's name. */
+        var (hasQualification, qualificationRank, hasExperience, experienceYears) =
+            await ReadEligibilityAsync(accepted, ct);
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
@@ -262,6 +351,33 @@ public class ApplicantAuthService(
                     : failed >= maxTries
                         ? $"You have used all {maxTries} attempts at this program."
                         : null;
+
+                /* ---- do they meet the bar? ----------------------------
+                   Checked only where the form actually nominated a field
+                   to measure against. A program with a minimum and a form
+                   that never said which answer holds it is left open: the
+                   officer who accepted the profile is the one who checked,
+                   and guessing here would hide programs for no reason
+                   anybody could see. */
+                if (closedReason is null
+                    && hasQualification
+                    && !string.IsNullOrWhiteSpace(pt.MinQualification)
+                    && qualificationRank < QualificationLevels.RankOf(pt.MinQualification))
+                {
+                    closedReason =
+                        $"This program needs {QualificationLevels.LabelFor(pt.MinQualification)}. "
+                        + "Your profile says otherwise.";
+                }
+
+                if (closedReason is null
+                    && hasExperience
+                    && pt.MinExperienceYears > 0
+                    && experienceYears < pt.MinExperienceYears)
+                {
+                    closedReason =
+                        $"This program needs {pt.MinExperienceYears} years of experience. "
+                        + $"Your profile says {experienceYears}.";
+                }
 
                 return new ApplicantProgramDto
                 {

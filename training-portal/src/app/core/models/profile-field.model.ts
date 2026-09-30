@@ -70,12 +70,31 @@ export interface ProfileField {
   helpText?: string;
   displayOrder: number;
   colSpan: 1 | 2;
+  /**
+   * What this answer means beyond being a question. Pointed at a
+   * qualification or a number of years, it becomes what a program type's
+   * minimum is measured against.
+   */
+  eligibilityRole?: EligibilityRole;
   options: FieldOption[];
   validation: FieldValidation;
   /** Show this field only when another field holds one of these values. */
   visibleWhenFieldKey?: string | null;
   visibleWhenValues?: string[];
 }
+
+/**
+ * Nothing is inferred from a field's name: a program type states a minimum
+ * qualification and experience, and the designer says which answer holds
+ * each. A field nobody points at is never read this way.
+ */
+export type EligibilityRole = 'None' | 'Qualification' | 'ExperienceYears';
+
+export const ELIGIBILITY_ROLES: { value: EligibilityRole; label: string }[] = [
+  { value: 'None', label: 'Just a question' },
+  { value: 'Qualification', label: "The applicant's highest qualification" },
+  { value: 'ExperienceYears', label: "The applicant's years of experience" },
+];
 
 export interface ProfileSection {
   id: Id;

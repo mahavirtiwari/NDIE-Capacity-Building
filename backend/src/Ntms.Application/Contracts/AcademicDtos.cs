@@ -87,6 +87,12 @@ public class ProfileFieldDto
     public string? HelpText { get; set; }
     public int DisplayOrder { get; set; }
     public int ColSpan { get; set; } = 1;
+
+    /// <summary>
+    /// None, Qualification or ExperienceYears. What a program type's
+    /// minimum is measured against.
+    /// </summary>
+    public string EligibilityRole { get; set; } = "None";
     public List<FieldOptionDto> Options { get; set; } = [];
     public FieldValidationDto Validation { get; set; } = new();
     public string? VisibleWhenFieldKey { get; set; }

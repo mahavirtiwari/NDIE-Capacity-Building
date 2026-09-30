@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
+  ELIGIBILITY_ROLES,
   FIELD_TYPES,
   FieldType,
   LookupItem,
@@ -452,6 +453,33 @@ function blankField(): ProfileField {
               <label class="field-label" for="feHelp">Help text</label>
               <input id="feHelp" class="input" [value]="editor.field.helpText || ''" (input)="editField({ helpText: inputValue($event) })" />
             </div>
+
+            <!-- ----------------------------------------- eligibility ----
+                 A program type states a minimum qualification and
+                 experience. This is how the system knows which answer to
+                 measure against it, rather than guessing from the key. -->
+            <div class="field field--span-2">
+              <label class="field-label" for="feRole">This answer is</label>
+              <select
+                id="feRole"
+                class="select"
+                (change)="editField({ eligibilityRole: $any(inputValue($event)) })"
+              >
+                @for (role of eligibilityRoles; track role.value) {
+                  <option
+                    [value]="role.value"
+                    [selected]="(editor.field.eligibilityRole ?? 'None') === role.value"
+                  >
+                    {{ role.label }}
+                  </option>
+                }
+              </select>
+              <span class="field-hint">
+                Pointed at a qualification or a number of years, this answer decides which
+                programs an applicant is eligible for once their profile is accepted. Only one
+                field can hold each, and neither can sit in a repeating section.
+              </span>
+            </div>
           </div>
 
           @if (editorHasOptions()) {
@@ -798,6 +826,8 @@ export class ProfileFormsComponent {
     const sourceId = this.replicateFrom()?.subCategoryId;
     return this.allSubCategories().filter((sc) => sc.id !== sourceId);
   });
+
+  protected readonly eligibilityRoles = ELIGIBILITY_ROLES;
 
   protected readonly editorHasOptions = computed(() => {
     const editor = this.fieldEditor();

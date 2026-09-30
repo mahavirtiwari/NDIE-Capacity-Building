@@ -277,6 +277,7 @@ public static class DtoMappings
                             HelpText = f.HelpText,
                             DisplayOrder = f.DisplayOrder,
                             ColSpan = f.ColSpan,
+                            EligibilityRole = f.EligibilityRole.ToString(),
                             Options =
                             [
                                 .. f.Options.OrderBy(o => o.DisplayOrder)

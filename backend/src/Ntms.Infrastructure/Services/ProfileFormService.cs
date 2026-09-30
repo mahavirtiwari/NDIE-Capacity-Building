@@ -174,6 +174,7 @@ public class ProfileFormService(NtmsDbContext db)
                     HelpText = field.HelpText,
                     DisplayOrder = field.DisplayOrder,
                     ColSpan = field.ColSpan,
+                    EligibilityRole = field.EligibilityRole,
                     VisibleWhenFieldKey = field.VisibleWhenFieldKey,
                     VisibleWhenValues = field.VisibleWhenValues,
                     Validation = new FieldValidation
@@ -241,6 +242,7 @@ public class ProfileFormService(NtmsDbContext db)
         }
 
         ValidateRepeats(sections, keys);
+        ValidateEligibilityRoles(sections);
 
         /* Which section each field sits in, so a condition can be checked
            against where its trigger lives as well as whether it exists. */
@@ -282,6 +284,50 @@ public class ProfileFormService(NtmsDbContext db)
     /// key has to be usable: present, unique, and not already taken by a
     /// field, whose answers sit at the top level beside it.
     /// </summary>
+    /// <summary>
+    /// At most one field may stand for each thing a program type measures.
+    ///
+    /// Two fields both claiming to be the qualification is not a preference
+    /// the system can resolve — it would pick one and quietly decide
+    /// somebody's eligibility on it — so it is refused where the form is
+    /// designed rather than guessed at where it is read.
+    ///
+    /// A repeating section is refused too: "the applicant's qualification"
+    /// is one answer, and a section that can be added five times does not
+    /// have one.
+    /// </summary>
+    private static void ValidateEligibilityRoles(List<ProfileSectionDto> sections)
+    {
+        var claimed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var section in sections)
+        {
+            foreach (var field in section.Fields)
+            {
+                var role = (field.EligibilityRole ?? "None").Trim();
+                if (role.Length == 0 || role.Equals("None", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (section.IsRepeatable)
+                {
+                    throw new AppException(
+                        $"'{field.Label}' is in a repeating section, so it cannot be the " +
+                        "applicant's qualification or experience — there would be one per entry.");
+                }
+
+                if (claimed.TryGetValue(role, out var already))
+                {
+                    throw new AppException(
+                        $"'{field.Label}' and '{already}' both claim to hold the applicant's " +
+                        $"{(role == "Qualification" ? "qualification" : "experience")}. " +
+                        "Only one field can.");
+                }
+
+                claimed[role] = field.Label;
+            }
+        }
+    }
+
     private static void ValidateRepeats(
         List<ProfileSectionDto> sections, HashSet<string> fieldKeys)
     {
@@ -399,6 +445,8 @@ public class ProfileFormService(NtmsDbContext db)
                     HelpText = fieldDto.HelpText,
                     DisplayOrder = fieldOrder,
                     ColSpan = fieldDto.ColSpan == 2 ? 2 : 1,
+                    EligibilityRole = EnumMaps.ParseEnum(
+                        fieldDto.EligibilityRole, ProfileFieldRole.None),
                     VisibleWhenFieldKey = string.IsNullOrWhiteSpace(fieldDto.VisibleWhenFieldKey)
                         ? null
                         : fieldDto.VisibleWhenFieldKey.Trim(),

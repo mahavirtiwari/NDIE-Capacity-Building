@@ -84,6 +84,16 @@ public class ProfileField : AuditableEntity
     /// <summary>1 = half width, 2 = full width.</summary>
     public int ColSpan { get; set; } = 1;
 
+    /// <summary>
+    /// What this answer means to the rest of the system, if anything.
+    ///
+    /// Left at None the field is just a question. Pointed at a
+    /// qualification or a number of years, it becomes what a program type's
+    /// minimum is measured against — so the eligibility check reads a field
+    /// somebody nominated rather than one it guessed.
+    /// </summary>
+    public ProfileFieldRole EligibilityRole { get; set; } = ProfileFieldRole.None;
+
     public FieldValidation Validation { get; set; } = new();
 
     /// <summary>Show this field only when another answer matches.</summary>

@@ -137,6 +137,27 @@ public enum ApplicationStatus
 /// Deliberately shorter than ApplicationStatus: a profile is accepted or it
 /// is not, and there is no enrolment at the end of it.
 /// </summary>
+/// <summary>
+/// What a profile field means, beyond being a question.
+///
+/// A program type states a minimum qualification and a minimum experience,
+/// but what the applicant has is answered in a field whose key an
+/// administrator chose. Rather than guess at names — and silently hide
+/// programs when the guess is wrong — the designer says which field holds
+/// which, and only a field that has been pointed at is ever read this way.
+/// </summary>
+public enum ProfileFieldRole
+{
+    /// <summary>An ordinary question. The default, and almost everything.</summary>
+    None = 1,
+
+    /// <summary>Holds the applicant's highest qualification, as a catalogue code.</summary>
+    Qualification = 2,
+
+    /// <summary>Holds their years of experience, as a number.</summary>
+    ExperienceYears = 3,
+}
+
 public enum ProfileSubmissionStatus
 {
     Draft = 1,
