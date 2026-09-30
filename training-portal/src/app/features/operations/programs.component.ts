@@ -66,7 +66,7 @@ const COLUMNS: ColumnDef[] = [
     >
       @if (canManage()) {
         <button type="button" class="btn btn--primary" (click)="openForm()">
-          <app-icon name="plus" [size]="15" /> New programme
+          <app-icon name="plus" [size]="15" /> New program
         </button>
       }
     </app-page-header>
