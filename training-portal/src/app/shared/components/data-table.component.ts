@@ -38,24 +38,6 @@ export class CellTemplateDirective {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NgTemplateOutlet, IconComponent, EmptyStateComponent],
   template: `
-    @if (exportName()) {
-      <!-- Directly under the filter row, because what it downloads is what
-           those filters match. At the foot of the table it sat among the
-           pagination, where it read as a control over the page on screen. -->
-      <div class="table-toolbar">
-        <button
-          type="button"
-          class="btn btn--ghost btn--sm"
-          [disabled]="exporting() || total() === 0"
-          (click)="exportExcel()"
-          title="Download every row these filters match"
-        >
-          @if (exporting()) { <span class="spinner"></span> }
-          <app-icon name="download" [size]="14" /> Excel
-        </button>
-      </div>
-    }
-
     <div class="table-wrap">
       <table class="table" [class.table--compact]="compact()" [style.min-width]="minWidth() || null">
         <thead>
@@ -124,6 +106,24 @@ export class CellTemplateDirective {
           }
         </span>
         <div class="row row-sm">
+          @if (exportName()) {
+            <!-- Back in the footer, where it costs no vertical space, with a
+                 filled icon so it reads as an action rather than a label. -->
+            <button
+              type="button"
+              class="btn btn--ghost btn--sm btn--excel"
+              [disabled]="exporting() || total() === 0"
+              (click)="exportExcel()"
+              title="Download every row these filters match"
+            >
+              @if (exporting()) {
+                <span class="spinner"></span>
+              } @else {
+                <span class="btn__badge"><app-icon name="download" [size]="13" /></span>
+              }
+              Excel
+            </button>
+          }
           <select
             class="select"
             style="width: auto; padding: 0.25rem 1.8rem 0.25rem 0.5rem; font-size: var(--fs-sm)"

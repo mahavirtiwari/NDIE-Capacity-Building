@@ -29,31 +29,117 @@ public class ApplicantService(
         .Include(a => a.District)
         .WithinScope(currentUser);
 
+    /* The statuses that make up each standing, named once so the filter and
+       the value shown can never drift apart. */
+    private static readonly ApplicationStatus[] Settled =
+        [ApplicationStatus.Approved, ApplicationStatus.Enrolled];
+
+    private static readonly ApplicationStatus[] InProgress =
+        [ApplicationStatus.Submitted, ApplicationStatus.UnderScrutiny,
+         ApplicationStatus.Clarification];
+
     public async Task<PagedResult<ApplicantDto>> ListAsync(
-        PagedRequest request, int? categoryId, string? state, string? kycStatus,
-        bool? isBlocked, CancellationToken ct)
+        PagedRequest request, int? categoryId, string? state, string? standing,
+        bool? isBlocked, DateTime? registeredFrom, DateTime? registeredTo,
+        CancellationToken ct)
     {
-        var kyc = EnumMaps.ParseEnumOrNull<KycStatus>(kycStatus);
+        var wanted = (standing ?? string.Empty).Trim();
 
         var query = Base
             .WhereIf(categoryId.HasValue, a => a.CategoryId == categoryId)
             .WhereIf(!string.IsNullOrWhiteSpace(state), a => a.State!.Name == state!.ToUpperInvariant())
-            .WhereIf(kyc.HasValue, a => a.KycStatus == kyc)
             .WhereIf(isBlocked.HasValue, a => a.IsBlocked == isBlocked)
+            .WhereIf(registeredFrom.HasValue, a => a.RegisteredOn >= registeredFrom!.Value)
+            /* The end of the chosen day, not its midnight: somebody picking
+               the 30th means everything registered on the 30th. */
+            .WhereIf(registeredTo.HasValue,
+                a => a.RegisteredOn < registeredTo!.Value.Date.AddDays(1))
             .WhereIf(!string.IsNullOrWhiteSpace(request.Search),
                 a => a.FullName.Contains(request.Search!) || a.ApplicantCode.Contains(request.Search!)
-                     || a.Email.Contains(request.Search!) || a.Pan.Contains(request.Search!))
-            .ApplySort(request, db.Model.FindEntityType(typeof(Applicant))!, a => a.RegisteredOn);
+                     || a.Email.Contains(request.Search!) || a.Pan.Contains(request.Search!));
 
-        return await query.ToPagedResultAsync(request, a => a.ToDto(), ct);
+        /* Filtered in SQL rather than after paging, or page two would be
+           missing whatever page one filtered out. */
+        query = wanted switch
+        {
+            "Registered" => query.Where(
+                a => !db.Applications.Any(x => x.ApplicantId == a.Id)),
+
+            "ApplicationReceived" => query.Where(
+                a => db.Applications.Any(x => x.ApplicantId == a.Id && InProgress.Contains(x.Status))
+                     && !db.Applications.Any(x => x.ApplicantId == a.Id && Settled.Contains(x.Status))),
+
+            "Approved" => query.Where(
+                a => db.Applications.Any(x => x.ApplicantId == a.Id && Settled.Contains(x.Status))),
+
+            "Rejected" => query.Where(
+                a => db.Applications.Any(
+                         x => x.ApplicantId == a.Id && x.Status == ApplicationStatus.Rejected)
+                     && !db.Applications.Any(
+                         x => x.ApplicantId == a.Id
+                              && (Settled.Contains(x.Status) || InProgress.Contains(x.Status)))),
+
+            _ => query,
+        };
+
+        var page = await query
+            .ApplySort(request, db.Model.FindEntityType(typeof(Applicant))!, a => a.RegisteredOn)
+            .ToPagedResultAsync(request, a => a.ToDto(), ct);
+
+        await FillStandingAsync(page.Items, ct);
+        return page;
+    }
+
+    /// <summary>
+    /// Works out where each applicant on this page stands, in one query for
+    /// the page rather than one per row.
+    /// </summary>
+    private async Task FillStandingAsync(IReadOnlyList<ApplicantDto> rows, CancellationToken ct)
+    {
+        if (rows.Count == 0) return;
+
+        var ids = rows.Select(r => r.Id).ToList();
+
+        var statuses = await db.Applications.AsNoTracking()
+            .Where(a => ids.Contains(a.ApplicantId))
+            .Select(a => new { a.ApplicantId, a.Status })
+            .ToListAsync(ct);
+
+        var byApplicant = statuses
+            .GroupBy(a => a.ApplicantId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Status).ToList());
+
+        foreach (var row in rows)
+        {
+            row.Standing = Standing(byApplicant.GetValueOrDefault(row.Id) ?? []);
+        }
+    }
+
+    /// <summary>
+    /// The furthest an applicant has got. Approved beats in progress, which
+    /// beats rejected: what somebody has achieved describes them better than
+    /// what they were turned down for.
+    /// </summary>
+    private static string Standing(List<ApplicationStatus> statuses)
+    {
+        if (statuses.Count == 0) return "Registered";
+        if (statuses.Any(Settled.Contains)) return "Approved";
+        if (statuses.Any(InProgress.Contains)) return "ApplicationReceived";
+        if (statuses.Contains(ApplicationStatus.Rejected)) return "Rejected";
+        return "Registered";
     }
 
     /* The answers ride along here and not on the list: a page of applicants
        does not show them, and joining a row per question onto every list read
        would cost the many to serve the one. */
-    public async Task<ApplicantDto> GetAsync(int id, CancellationToken ct) =>
-        (await Base.Include(a => a.Answers).FirstOrDefaultAsync(a => a.Id == id, ct)
-         ?? throw AppException.NotFound("Applicant")).ToDto();
+    public async Task<ApplicantDto> GetAsync(int id, CancellationToken ct)
+    {
+        var dto = (await Base.Include(a => a.Answers).FirstOrDefaultAsync(a => a.Id == id, ct)
+                   ?? throw AppException.NotFound("Applicant")).ToDto();
+
+        await FillStandingAsync([dto], ct);
+        return dto;
+    }
 
     /// <summary>
     /// Basic sign-up from the mobile app. The applicant code is generated here
@@ -327,6 +413,51 @@ public class ApplicationService(
         return [.. rows.Select(a => a.ToDto())];
     }
 
+    /// <summary>
+    /// How many sit at each status, under the same filters as the list.
+    ///
+    /// Counted in the database against the filtered set, not by pulling every
+    /// application to the browser and counting there: a tile that ignores the
+    /// filters is answering a question nobody asked.
+    /// </summary>
+    public async Task<ApplicationCountsDto> CountsAsync(
+        string? status, int? categoryId, int? programTypeId, string? state,
+        string? search, CancellationToken ct)
+    {
+        var statuses = EnumMaps.SplitList(status)
+            .Select(s => EnumMaps.ParseEnumOrNull<ApplicationStatus>(s))
+            .Where(s => s.HasValue).Select(s => s!.Value).ToList();
+
+        var query = Base
+            .WhereIf(statuses.Count > 0, a => statuses.Contains(a.Status))
+            .WhereIf(categoryId.HasValue, a => a.CategoryId == categoryId)
+            .WhereIf(programTypeId.HasValue, a => a.ProgramTypeId == programTypeId)
+            .WhereIf(!string.IsNullOrWhiteSpace(state), a => a.State!.Name == state!.ToUpperInvariant())
+            .WhereIf(!string.IsNullOrWhiteSpace(search),
+                a => a.ApplicationNo.Contains(search!)
+                     || a.Applicant!.FullName.Contains(search!)
+                     || a.Applicant!.Pan.Contains(search!));
+
+        var byStatus = await query
+            .GroupBy(a => a.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+
+        int For(ApplicationStatus wanted) =>
+            byStatus.FirstOrDefault(g => g.Status == wanted)?.Count ?? 0;
+
+        return new ApplicationCountsDto
+        {
+            Submitted = For(ApplicationStatus.Submitted),
+            UnderScrutiny = For(ApplicationStatus.UnderScrutiny),
+            Clarification = For(ApplicationStatus.Clarification),
+            Approved = For(ApplicationStatus.Approved),
+            Enrolled = For(ApplicationStatus.Enrolled),
+            Rejected = For(ApplicationStatus.Rejected),
+            Total = byStatus.Sum(g => g.Count),
+        };
+    }
+
     public async Task<ApplicationDto> GetAsync(int id, CancellationToken ct) =>
         (await Base.Include(a => a.Payments).FirstOrDefaultAsync(a => a.Id == id, ct)
          ?? throw AppException.NotFound("Application")).ToDto();
@@ -454,9 +585,6 @@ public class ApplicationService(
             throw new AppException($"An application that is {entity.Status} cannot be scrutinised again.");
         }
 
-        if (string.IsNullOrWhiteSpace(dto.Remarks))
-            throw new AppException("Scrutiny remarks are required.");
-
         var (status, action) = dto.Decision.Trim().ToLowerInvariant() switch
         {
             "approve" => (ApplicationStatus.Approved, ScrutinyAction.Approved),
@@ -465,6 +593,39 @@ public class ApplicationService(
             _ => throw new AppException("Decision must be Approve, Reject or Clarification."),
         };
 
+        var remarks = (dto.Remarks ?? string.Empty).Trim();
+        string? reasonLabel = null;
+
+        if (status == ApplicationStatus.Rejected)
+        {
+            /* Chosen from the list, not typed: a rejection is counted and
+               reported on, and forty spellings of the same reason cannot be. */
+            var reason = await db.RejectionReasons
+                .FirstOrDefaultAsync(r => r.Id == dto.RejectionReasonId, ct)
+                ?? throw new AppException("Choose a reason for the rejection.");
+
+            if (reason.Status != RecordStatus.Active)
+                throw new AppException($"'{reason.Label}' is no longer available as a reason.");
+
+            if (reason.RequiresNote && remarks.Length == 0)
+            {
+                throw new AppException(
+                    $"'{reason.Label}' needs a note saying what exactly was wrong.");
+            }
+
+            /* Snapshotted, because the master can be reworded or retired and
+               a rejection has to keep reading the way it was given. */
+            reasonLabel = reason.Label;
+            entity.RejectionReasonId = reason.Id;
+            entity.RejectionReasonLabel = reason.Label;
+        }
+        else if (remarks.Length == 0)
+        {
+            /* Approving or asking for more needs words: there is no list
+               standing in for them. */
+            throw new AppException("Scrutiny remarks are required.");
+        }
+
         entity.Status = status;
         entity.History.Add(new ScrutinyEvent
         {
@@ -472,7 +633,8 @@ public class ApplicationService(
             ByUserName = currentUser.DisplayName ?? "Scrutiny Officer",
             ByRole = currentUser.RoleName ?? "Admin",
             On = DateTime.UtcNow,
-            Remarks = dto.Remarks.Trim(),
+            Remarks = remarks.Length == 0 ? null : remarks,
+            RejectionReasonLabel = reasonLabel,
         });
 
         if (dto.DocumentIdsVerified is { Count: > 0 })
@@ -489,9 +651,14 @@ public class ApplicationService(
             .FirstOrDefaultAsync(a => a.Id == entity.ApplicantId, ct);
         if (applicant is not null)
         {
+            /* The applicant is told the reason, not just that it was refused -
+               they are allowed to apply again and need to know what to fix. */
+            var told = reasonLabel is null
+                ? remarks
+                : remarks.Length == 0 ? reasonLabel : $"{reasonLabel} — {remarks}";
+
             await notifications.SendScrutinyOutcomeAsync(
-                entity, applicant.Email, applicant.FullName, status.ToString(),
-                dto.Remarks.Trim(), ct);
+                entity, applicant.Email, applicant.FullName, status.ToString(), told, ct);
         }
 
         return await GetAsync(id, ct);

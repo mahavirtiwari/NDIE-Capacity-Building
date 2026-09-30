@@ -23,6 +23,17 @@ public class ApplicantDto : AuditDto
     public bool EmailVerified { get; set; }
     public bool MobileVerified { get; set; }
     public string KycStatus { get; set; } = "Pending";
+
+    /// <summary>
+    /// Where this person stands, read from their applications rather than
+    /// held on the account: Registered until they apply, then whatever
+    /// scrutiny has made of it.
+    ///
+    /// One of Registered, ApplicationReceived, Approved, Rejected. Somebody
+    /// with applications in more than one category gets the furthest one:
+    /// having been approved somewhere is the more useful fact about them.
+    /// </summary>
+    public string Standing { get; set; } = "Registered";
     public int? StateCode { get; set; }
     public string? State { get; set; }
     public int? DistrictCode { get; set; }
@@ -99,6 +110,8 @@ public class ScrutinyEventDto
     public string ByRole { get; set; } = string.Empty;
     public DateTime On { get; set; }
     public string? Remarks { get; set; }
+    /// <summary>The chosen reason, on a rejection.</summary>
+    public string? RejectionReasonLabel { get; set; }
 }
 
 public class ApplicationDto : AuditDto
@@ -126,6 +139,9 @@ public class ApplicationDto : AuditDto
     public string? Tan { get; set; }
     public string? DeductorName { get; set; }
     public decimal? Score { get; set; }
+
+    /// <summary>Why it was turned down, worded as it was at the time.</summary>
+    public string? RejectionReasonLabel { get; set; }
     public int? StateCode { get; set; }
     public string? State { get; set; }
     public string? City { get; set; }
@@ -165,6 +181,27 @@ public class ScrutinyDecisionDto
     public string Decision { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
     public List<int>? DocumentIdsVerified { get; set; }
+
+    /// <summary>
+    /// Which of the configured reasons applies. Required on a rejection and
+    /// ignored otherwise: a rejection is counted and reported on, so it is
+    /// chosen from the list rather than typed.
+    /// </summary>
+    public int? RejectionReasonId { get; set; }
+}
+
+/// <summary>How many applications sit at each status, under the filters asked for.</summary>
+public class ApplicationCountsDto
+{
+    public int Submitted { get; set; }
+    public int UnderScrutiny { get; set; }
+    public int Clarification { get; set; }
+    public int Approved { get; set; }
+    public int Enrolled { get; set; }
+    public int Rejected { get; set; }
+
+    /// <summary>Everything the filters match, whatever its status.</summary>
+    public int Total { get; set; }
 }
 
 public class AssignApplicationDto

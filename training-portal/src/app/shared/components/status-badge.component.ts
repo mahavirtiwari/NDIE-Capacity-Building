@@ -11,6 +11,9 @@ const TONE_BY_VALUE: Record<string, Tone> = {
   Clarification: 'warning',
   Approved: 'success',
   Rejected: 'danger',
+  /* An applicant's standing, read from their applications. */
+  Registered: 'neutral',
+  ApplicationReceived: 'info',
   Enrolled: 'primary',
   New: 'info',
   PermissionAccepted: 'primary',
@@ -38,6 +41,7 @@ const LABELS: Record<string, string> = {
   New: 'New programme',
   PermissionAccepted: 'Permission accepted',
   CalendarCreated: 'Calendar created',
+  ApplicationReceived: 'Application received',
   PermissionRejected: 'Permission rejected',
   QCRejected: 'QC rejected',
 };

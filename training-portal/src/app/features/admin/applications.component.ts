@@ -1,11 +1,12 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import {
   APPLICATION_STATUSES,
   APPLICATION_STATUS_LABELS,
   Application,
+  ApplicationCounts,
   LookupItem,
 } from '../../core/models';
 import { LookupService } from '../../core/services/masters.service';
@@ -22,11 +23,11 @@ const COLUMNS: ColumnDef[] = [
   { key: 'applicationNo', header: 'Application no.', sortable: true, width: '160px' },
   { key: 'applicant', header: 'Applicant', variant: 'primary' },
   { key: 'programTypeName', header: 'Program type', width: '210px' },
-  { key: 'location', header: 'Location', width: '160px' },
   { key: 'submittedOn', header: 'Submitted', sortable: true, width: '130px' },
   { key: 'assignedToName', header: 'Assigned to', width: '160px', variant: 'muted' },
   { key: 'payment', header: 'Fee', width: '150px' },
   { key: 'status', header: 'Status', width: '150px' },
+  { key: 'rejectionReasonLabel', header: 'Reason', width: '200px', variant: 'muted' },
   { key: 'actions', header: '', width: '110px', align: 'right' },
 ];
 
@@ -148,12 +149,6 @@ const COLUMNS: ColumnDef[] = [
             <span class="cell-muted">{{ $any(row).applicantEmail }} · {{ $any(row).pan }}</span>
           </div>
         </ng-template>
-        <ng-template appCell="location" let-row>
-          <div class="stack stack-xs">
-            <span>{{ $any(row).city }}</span>
-            <span class="cell-muted">{{ $any(row).state }}</span>
-          </div>
-        </ng-template>
         <ng-template appCell="submittedOn" let-row>
           {{ $any(row).submittedOn | date: 'dd MMM yyyy' }}
         </ng-template>
@@ -167,6 +162,15 @@ const COLUMNS: ColumnDef[] = [
         </ng-template>
         <ng-template appCell="status" let-row>
           <app-status-badge [value]="$any(row).status" />
+        </ng-template>
+        <ng-template appCell="rejectionReasonLabel" let-row>
+          <!-- Only a rejection has one, and it is the first thing anybody
+               looking at a rejected row wants to know. -->
+          @if ($any(row).rejectionReasonLabel) {
+            <span class="wrap-text">{{ $any(row).rejectionReasonLabel }}</span>
+          } @else {
+            <span class="cell-muted">&mdash;</span>
+          }
         </ng-template>
         <ng-template appCell="actions" let-row>
           <a class="btn btn--sm btn--secondary" [routerLink]="['/admin/applications', $any(row).id]">
@@ -232,8 +236,10 @@ export class ApplicationsComponent {
   protected readonly programTypes = toSignal(this.lookups.programTypes(null), { initialValue: [] as LookupItem[] });
   protected readonly states = toSignal(this.lookups.states(), { initialValue: [] as LookupItem[] });
 
-  /** Full set, used for the counters above the table. */
-  private readonly all = toSignal(this.service.all(), { initialValue: [] as Application[] });
+  /* The counters, re-read whenever the filters or the search move. Counted
+     in the database against the same filters as the list, rather than by
+     pulling every application here and counting in the browser. */
+  private readonly counts = signal<ApplicationCounts | null>(null);
 
   protected readonly list = new ListState<Application>((request) => this.service.list(request), {
     sortBy: 'submittedOn',
@@ -244,21 +250,46 @@ export class ApplicationsComponent {
     () => (this.list.filters()['status'] as string | undefined) ?? null,
   );
 
-  protected readonly queueTiles = computed(() =>
-    (['Submitted', 'UnderScrutiny', 'Clarification', 'Approved', 'Enrolled', 'Rejected'] as const).map(
-      (status) => ({
-        status,
-        label: APPLICATION_STATUS_LABELS[status],
-        count: this.all().filter((a) => a.status === status).length,
-      }),
-    ),
-  );
+  /**
+   * Three, not six. Under scrutiny and Clarification sought are stages of
+   * the same queue rather than places an application rests, and Enrolled is
+   * the programme's business rather than scrutiny's.
+   */
+  protected readonly queueTiles = computed(() => {
+    const counts = this.counts();
+    return [
+      {
+        status: 'Submitted',
+        label: APPLICATION_STATUS_LABELS['Submitted'],
+        count: counts?.submitted ?? 0,
+      },
+      { status: 'Approved', label: 'Approved', count: counts?.approved ?? 0 },
+      { status: 'Rejected', label: 'Rejected', count: counts?.rejected ?? 0 },
+    ];
+  });
 
   protected term = searchTerm;
   protected value = (event: Event) => (event.target as HTMLSelectElement).value;
 
   constructor() {
     this.list.sortDir.set('desc');
+
+    /* Reading list.rows() ties this to every reload the list does - a filter,
+       a search, a page, or coming back from a decision - so the tiles and the
+       table can never disagree about what is being looked at. */
+    effect(() => {
+      this.list.rows();
+      const filters = this.list.filters();
+      this.service
+        .counts({
+          status: filters['status'] ?? null,
+          categoryId: filters['categoryId'] ?? null,
+          programTypeId: filters['programTypeId'] ?? null,
+          state: filters['state'] ?? null,
+          search: this.list.search(),
+        })
+        .subscribe((counts) => this.counts.set(counts));
+    });
   }
 
   protected filterByStatus(status: string): void {

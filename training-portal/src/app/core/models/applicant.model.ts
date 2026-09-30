@@ -13,6 +13,25 @@ export const APPLICANT_SOCIAL_CATEGORIES: ApplicantSocialCategory[] = ['General'
  * Created from the mobile app during basic sign-up. The system generates the
  * login id once the email OTP is verified.
  */
+export type ApplicantStanding =
+  | 'Registered'
+  | 'ApplicationReceived'
+  | 'Approved'
+  | 'Rejected';
+
+/**
+ * What the Applicants list filters and shows.
+ *
+ * Deliberately the scrutiny vocabulary rather than a second one of its own:
+ * somebody reading both screens should not have to translate between them.
+ */
+export const APPLICANT_STANDINGS: { value: ApplicantStanding; label: string }[] = [
+  { value: 'Registered', label: 'Registered' },
+  { value: 'ApplicationReceived', label: 'Application received' },
+  { value: 'Approved', label: 'Approved' },
+  { value: 'Rejected', label: 'Rejected' },
+];
+
 export interface Applicant extends AuditInfo {
   id: Id;
   applicantCode: string;
@@ -29,6 +48,9 @@ export interface Applicant extends AuditInfo {
   emailVerified: boolean;
   mobileVerified: boolean;
   kycStatus: ApplicantKycStatus;
+
+  /** Where they stand, read from their applications rather than held on the account. */
+  standing: ApplicantStanding;
   state?: string;
   city?: string;
   registeredOn: string;

@@ -129,8 +129,11 @@ public class ApplicantsController(ApplicantService service) : ApiControllerBase
     [HasPermission(Permissions.ApplicationsView)]
     public async Task<ActionResult<ApiEnvelope<PagedResult<ApplicantDto>>>> List(
         [FromQuery] PagedRequest request, [FromQuery] int? categoryId, [FromQuery] string? state,
-        [FromQuery] string? kycStatus, [FromQuery] bool? isBlocked, CancellationToken ct) =>
-        Envelope(await service.ListAsync(request, categoryId, state, kycStatus, isBlocked, ct));
+        [FromQuery] string? standing, [FromQuery] bool? isBlocked,
+        [FromQuery] DateTime? registeredFrom, [FromQuery] DateTime? registeredTo,
+        CancellationToken ct) =>
+        Envelope(await service.ListAsync(
+            request, categoryId, state, standing, isBlocked, registeredFrom, registeredTo, ct));
 
     [HttpGet("{id:int}")]
     [HasPermission(Permissions.ApplicationsView)]
@@ -166,6 +169,19 @@ public class ApplicationsController(ApplicationService service) : ApiControllerB
     public async Task<ActionResult<ApiEnvelope<List<ApplicationDto>>>> All(
         [FromQuery] string? status, CancellationToken ct) =>
         Envelope(await service.AllAsync(status, ct));
+
+    /// <summary>
+    /// The counters above the queue. Takes the same filters as the list, so
+    /// what the tiles say and what the table shows are answers to one
+    /// question.
+    /// </summary>
+    [HttpGet("counts")]
+    [HasPermission(Permissions.ApplicationsView)]
+    public async Task<ActionResult<ApiEnvelope<ApplicationCountsDto>>> Counts(
+        [FromQuery] string? status, [FromQuery] int? categoryId,
+        [FromQuery] int? programTypeId, [FromQuery] string? state,
+        [FromQuery] string? search, CancellationToken ct) =>
+        Envelope(await service.CountsAsync(status, categoryId, programTypeId, state, search, ct));
 
     [HttpGet("{id:int}")]
     [HasPermission(Permissions.ApplicationsView)]

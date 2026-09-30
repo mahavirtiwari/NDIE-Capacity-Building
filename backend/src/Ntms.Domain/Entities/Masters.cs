@@ -256,3 +256,28 @@ public class Qualification : AuditableStatusEntity
     public string Label { get; set; } = string.Empty;
     public int Rank { get; set; }
 }
+
+/// <summary>
+/// One reason an application may be turned down.
+///
+/// A list rather than free text, because a rejection is a decision the
+/// scheme has to be able to count. "Documents not legible" typed forty
+/// different ways cannot be reported on, and an applicant re-applying needs
+/// to be told the same thing every officer means by it.
+///
+/// Editable by a Super Admin, because what a scheme rejects for is the
+/// scheme's business and changes with its rules.
+/// </summary>
+public class RejectionReason : AuditableStatusEntity
+{
+    public string Label { get; set; } = string.Empty;
+
+    public int DisplayOrder { get; set; }
+
+    /// <summary>
+    /// True where the reason is not self-explanatory and the officer has to
+    /// say which document, or what exactly was wrong. "Other" is the obvious
+    /// one; a scheme may want it on more.
+    /// </summary>
+    public bool RequiresNote { get; set; }
+}

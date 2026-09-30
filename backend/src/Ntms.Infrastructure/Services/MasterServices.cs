@@ -748,3 +748,126 @@ public class QualificationService(NtmsDbContext db)
     private static string Shorten(string value, int length) =>
         (value.Length <= length ? value : value[..length]).TrimEnd('_');
 }
+
+/* -------------------------------------------------------- rejection reasons */
+
+/// <summary>
+/// The list an officer picks from when turning an application down.
+///
+/// Small, ordered and editable, because what a scheme rejects for is the
+/// scheme's business. A reason that has been used is never deleted - the
+/// applications that carry it would lose their explanation - only switched
+/// off, which keeps it out of the dropdown and leaves the record intact.
+/// </summary>
+public class RejectionReasonService(NtmsDbContext db)
+{
+    private IQueryable<RejectionReason> Base => db.RejectionReasons.AsNoTracking();
+
+    public async Task<List<RejectionReasonDto>> ListAsync(bool activeOnly, CancellationToken ct)
+    {
+        var rows = await Base
+            .WhereIf(activeOnly, r => r.Status == RecordStatus.Active)
+            .OrderBy(r => r.DisplayOrder).ThenBy(r => r.Label)
+            .ToListAsync(ct);
+
+        var used = await db.Applications.AsNoTracking()
+            .Where(a => a.RejectionReasonId != null)
+            .GroupBy(a => a.RejectionReasonId!.Value)
+            .Select(g => new { Id = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.Id, g => g.Count, ct);
+
+        return [.. rows.Select(r => Map(r, used.GetValueOrDefault(r.Id)))];
+    }
+
+    public async Task<RejectionReasonDto> CreateAsync(
+        RejectionReasonUpsertDto dto, CancellationToken ct)
+    {
+        var label = Validate(dto);
+
+        if (await db.RejectionReasons.AnyAsync(r => r.Label == label, ct))
+            throw AppException.Conflict($"'{label}' is already on the list.");
+
+        var entity = new RejectionReason
+        {
+            Label = label,
+            DisplayOrder = dto.DisplayOrder,
+            RequiresNote = dto.RequiresNote,
+            Status = EnumMaps.ToStatus(dto.Status),
+        };
+
+        db.RejectionReasons.Add(entity);
+        await db.SaveChangesAsync(ct);
+        return Map(entity, 0);
+    }
+
+    public async Task<RejectionReasonDto> UpdateAsync(
+        int id, RejectionReasonUpsertDto dto, CancellationToken ct)
+    {
+        var label = Validate(dto);
+
+        var entity = await db.RejectionReasons.FirstOrDefaultAsync(r => r.Id == id, ct)
+            ?? throw AppException.NotFound("Rejection reason");
+
+        if (await db.RejectionReasons.AnyAsync(r => r.Label == label && r.Id != id, ct))
+            throw AppException.Conflict($"'{label}' is already on the list.");
+
+        entity.Label = label;
+        entity.DisplayOrder = dto.DisplayOrder;
+        entity.RequiresNote = dto.RequiresNote;
+        entity.Status = EnumMaps.ToStatus(dto.Status);
+
+        await db.SaveChangesAsync(ct);
+        return Map(entity, await UsedCountAsync(id, ct));
+    }
+
+    /// <summary>
+    /// Removes a reason nobody has been rejected for. One that has been used
+    /// is switched off instead, so the applications that cite it keep saying
+    /// what they said.
+    /// </summary>
+    public async Task DeleteAsync(int id, CancellationToken ct)
+    {
+        var entity = await db.RejectionReasons.FirstOrDefaultAsync(r => r.Id == id, ct)
+            ?? throw AppException.NotFound("Rejection reason");
+
+        var used = await UsedCountAsync(id, ct);
+        if (used > 0)
+        {
+            throw AppException.Conflict(
+                $"{used} application{(used == 1 ? " has" : "s have")} been rejected for this. " +
+                "Switch it off instead — that keeps it out of the list without rewriting history.");
+        }
+
+        db.RejectionReasons.Remove(entity);
+        await db.SaveChangesAsync(ct);
+    }
+
+    private Task<int> UsedCountAsync(int id, CancellationToken ct) =>
+        db.Applications.CountAsync(a => a.RejectionReasonId == id, ct);
+
+    private static string Validate(RejectionReasonUpsertDto dto)
+    {
+        var label = (dto.Label ?? string.Empty).Trim();
+
+        Guard.Check()
+            .Required(label, "The reason")
+            .When(label.Length > 200, "A reason must be 200 characters or fewer.")
+            .ThrowIfInvalid();
+
+        return label;
+    }
+
+    private static RejectionReasonDto Map(RejectionReason r, int used)
+    {
+        var dto = new RejectionReasonDto
+        {
+            Id = r.Id,
+            Label = r.Label,
+            DisplayOrder = r.DisplayOrder,
+            RequiresNote = r.RequiresNote,
+            Status = r.Status.ToApi(),
+            UsedByCount = used,
+        };
+        return dto;
+    }
+}

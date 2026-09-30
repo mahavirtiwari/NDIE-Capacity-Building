@@ -299,3 +299,28 @@ public class AgencyUpsertDto
     /// </summary>
     public bool CreateLogin { get; set; } = true;
 }
+
+/* ------------------------------------------------------- rejection reasons */
+
+public class RejectionReasonDto : AuditDto
+{
+    public int Id { get; set; }
+    public string Label { get; set; } = string.Empty;
+    public int DisplayOrder { get; set; }
+
+    /// <summary>True where the officer must add a note of their own as well.</summary>
+    public bool RequiresNote { get; set; }
+
+    public string Status { get; set; } = "Active";
+
+    /// <summary>How many applications have been turned down for this.</summary>
+    public int UsedByCount { get; set; }
+}
+
+public class RejectionReasonUpsertDto
+{
+    public string Label { get; set; } = string.Empty;
+    public int DisplayOrder { get; set; }
+    public bool RequiresNote { get; set; }
+    public string Status { get; set; } = "Active";
+}

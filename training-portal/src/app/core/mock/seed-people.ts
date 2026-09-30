@@ -204,6 +204,9 @@ export const APPLICANTS: Applicant[] = Array.from({ length: 48 }, (_, idx) => {
     emailVerified: idx % 9 !== 0,
     mobileVerified: idx % 7 !== 0,
     kycStatus: idx % 5 === 0 ? 'Pending' : idx % 11 === 0 ? 'Rejected' : 'Verified',
+    standing:
+      idx % 7 === 0 ? 'Registered' : idx % 11 === 0 ? 'Rejected'
+        : idx % 3 === 0 ? 'ApplicationReceived' : 'Approved',
     state: placeFor(idx).state,
     city: placeFor(idx).district,
     registeredOn: `2026-0${(idx % 8) + 1}-${String((idx % 27) + 1).padStart(2, '0')}T11:05:00`,

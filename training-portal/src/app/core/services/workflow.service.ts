@@ -2,6 +2,9 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   Application,
+  RejectionReasonUpsert,
+  RejectionReason,
+  ApplicationCounts,
   AttendanceMark,
   Id,
   Program,
@@ -20,6 +23,11 @@ export class ApplicationService extends CrudService<Application> {
       `${this.resource}/${decision.applicationId}/scrutiny`,
       decision,
     );
+  }
+
+  /** The counters over the queue, under the same filters as the list. */
+  counts(query: Record<string, unknown>): Observable<ApplicationCounts> {
+    return this.api.get<ApplicationCounts>(`${this.resource}/counts`, query);
   }
 
   assign(id: Id, userId: Id): Observable<Application> {
@@ -122,5 +130,33 @@ export class DashboardService {
       'dashboard/state-coverage',
       filters as Record<string, unknown>,
     );
+  }
+}
+
+/**
+ * The reasons an application may be turned down.
+ *
+ * Read by anyone who scrutinises, because they pick from it; written from
+ * System Settings, because it is a list the scheme reports against.
+ */
+@Injectable({ providedIn: 'root' })
+export class RejectionReasonService {
+  private readonly api = inject(ApiService);
+  private readonly resource = 'rejection-reasons';
+
+  list(activeOnly = false): Observable<RejectionReason[]> {
+    return this.api.get<RejectionReason[]>(this.resource, { activeOnly });
+  }
+
+  create(payload: RejectionReasonUpsert): Observable<RejectionReason> {
+    return this.api.post<RejectionReason>(this.resource, payload);
+  }
+
+  update(id: Id, payload: RejectionReasonUpsert): Observable<RejectionReason> {
+    return this.api.put<RejectionReason>(`${this.resource}/${id}`, payload);
+  }
+
+  remove(id: Id): Observable<boolean> {
+    return this.api.delete<boolean>(`${this.resource}/${id}`);
   }
 }

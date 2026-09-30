@@ -1,18 +1,20 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { SystemSettings } from '../../core/models';
+import { RejectionReason, SystemSettings } from '../../core/models';
 import { SystemSettingsService } from '../../core/services/system.service';
+import { RejectionReasonService } from '../../core/services/workflow.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { IconComponent } from '../../shared/components/icon.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
+import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
 
 @Component({
   selector: 'app-system-settings',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, PageHeaderComponent, IconComponent],
+  imports: [ReactiveFormsModule, PageHeaderComponent, IconComponent, StatusBadgeComponent],
   template: `
     <app-page-header
       [title]="copy.text('page.systemSettings.title')"
@@ -329,6 +331,115 @@ import { PageHeaderComponent } from '../../shared/components/page-header.compone
         </div>
       </section>
 
+      <!-- ------------------------------------------- rejection reasons -->
+      <section class="card">
+        <div class="card__header">
+          <div class="stack stack-xs">
+            <span class="card__title">Reasons for rejection</span>
+            <span class="card__subtitle">
+              What a scrutiny officer picks from when turning an application down.
+            </span>
+          </div>
+        </div>
+        <div class="card__body">
+          <div class="stack stack-sm">
+            @if (reasons().length === 0) {
+              <p class="text-muted text-sm">
+                Nothing here yet. Until a reason exists, an application cannot be rejected.
+              </p>
+            } @else {
+              <div class="table-wrap">
+                <table class="table table--compact">
+                  <thead>
+                    <tr>
+                      <th style="width: 70px">Order</th>
+                      <th>Reason</th>
+                      <th style="width: 130px">Needs a note</th>
+                      <th style="width: 110px">Used by</th>
+                      <th style="width: 100px">Status</th>
+                      <th style="width: 110px"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (reason of reasons(); track reason.id) {
+                      <tr>
+                        <td class="tabular">{{ reason.displayOrder }}</td>
+                        <td>{{ reason.label }}</td>
+                        <td>{{ reason.requiresNote ? 'Yes' : 'No' }}</td>
+                        <td class="tabular">
+                          {{ reason.usedByCount || '—' }}
+                        </td>
+                        <td><app-status-badge [value]="reason.status" /></td>
+                        <td>
+                          <div class="btn-row btn-row--end">
+                            <button
+                              type="button"
+                              class="btn btn--sm btn--secondary"
+                              (click)="toggleReason(reason)"
+                            >
+                              {{ reason.status === 'Active' ? 'Switch off' : 'Switch on' }}
+                            </button>
+                            @if (!reason.usedByCount) {
+                              <button
+                                type="button"
+                                class="btn btn--icon"
+                                title="Remove"
+                                (click)="removeReason(reason)"
+                              >
+                                <app-icon name="trash" [size]="15" />
+                              </button>
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+
+            <!-- Outside the settings form: this list saves a row at a time,
+                 and it must not be tangled with Save settings. -->
+            <div class="row row-sm row-wrap" style="align-items: flex-end">
+              <div class="field" style="flex: 1 1 320px">
+                <label class="field-label" for="newReason">Add a reason</label>
+                <input
+                  id="newReason"
+                  class="input"
+                  [value]="newReason()"
+                  (input)="newReason.set(inputValue($event))"
+                  placeholder="e.g. Signature on the undertaking is missing"
+                  maxlength="200"
+                />
+              </div>
+              <label class="check" style="padding-bottom: 0.6rem">
+                <input
+                  type="checkbox"
+                  [checked]="newReasonNeedsNote()"
+                  (change)="newReasonNeedsNote.set(checkedValue($event))"
+                />
+                <span>Needs a note</span>
+              </label>
+              <button
+                type="button"
+                class="btn btn--secondary"
+                style="margin-bottom: 0.35rem"
+                [disabled]="!newReason().trim() || savingReason()"
+                (click)="addReason()"
+              >
+                @if (savingReason()) { <span class="spinner"></span> }
+                Add
+              </button>
+            </div>
+
+            <span class="field-hint">
+              A reason that has already been used is switched off rather than removed, so the
+              applications that cite it keep saying what they said.
+            </span>
+          </div>
+        </div>
+      </section>
+
       <div class="btn-row btn-row--end">
         <button type="submit" class="btn btn--primary" [disabled]="saving()">
           @if (saving()) { <span class="spinner"></span> }
@@ -349,6 +460,86 @@ export class SystemSettingsComponent {
   protected readonly saving = signal(false);
   protected readonly replacingKey = signal(false);
   protected readonly replacingPanKey = signal(false);
+
+  /* The rejection list. Saved a row at a time rather than with the rest of
+     the settings, because adding a reason and changing the upload limit are
+     not one decision. */
+  private readonly reasonService = inject(RejectionReasonService);
+  protected readonly reasons = signal<RejectionReason[]>([]);
+  protected readonly newReason = signal('');
+  protected readonly newReasonNeedsNote = signal(false);
+  protected readonly savingReason = signal(false);
+
+  protected inputValue(event: Event): string {
+    return (event.target as HTMLInputElement).value;
+  }
+
+  protected checkedValue(event: Event): boolean {
+    return (event.target as HTMLInputElement).checked;
+  }
+
+  private loadReasons(): void {
+    this.reasonService.list(false).subscribe((rows) => this.reasons.set(rows));
+  }
+
+  protected addReason(): void {
+    const label = this.newReason().trim();
+    if (!label || this.savingReason()) return;
+
+    this.savingReason.set(true);
+    this.reasonService
+      .create({
+        label,
+        /* At the end of the list, ten apart, so one can be slipped between
+           two later without renumbering the rest. */
+        displayOrder: (this.reasons().at(-1)?.displayOrder ?? 0) + 10,
+        requiresNote: this.newReasonNeedsNote(),
+        status: 'Active',
+      })
+      .subscribe({
+        next: () => {
+          this.savingReason.set(false);
+          this.newReason.set('');
+          this.newReasonNeedsNote.set(false);
+          this.toast.success('Reason added', label);
+          this.loadReasons();
+        },
+        error: () => this.savingReason.set(false),
+      });
+  }
+
+  protected toggleReason(reason: RejectionReason): void {
+    const next = reason.status === 'Active' ? 'Inactive' : 'Active';
+    this.reasonService
+      .update(reason.id, {
+        label: reason.label,
+        displayOrder: reason.displayOrder,
+        requiresNote: reason.requiresNote,
+        status: next,
+      })
+      .subscribe(() => {
+        this.toast.success(
+          next === 'Active' ? 'Reason switched on' : 'Reason switched off',
+          reason.label,
+        );
+        this.loadReasons();
+      });
+  }
+
+  protected async removeReason(reason: RejectionReason): Promise<void> {
+    const confirmed = await this.confirm.ask({
+      title: 'Remove this reason?',
+      message: `'${reason.label}' will no longer be offered. Nothing has been rejected for it, so nothing loses its explanation.`,
+      confirmLabel: 'Remove',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    this.reasonService.remove(reason.id).subscribe(() => {
+      this.toast.success('Reason removed', reason.label);
+      this.loadReasons();
+    });
+  }
 
   protected readonly gateways = toSignal(this.service.gateways(), { initialValue: [] });
 
@@ -378,6 +569,7 @@ export class SystemSettingsComponent {
 
   constructor() {
     this.load();
+    this.loadReasons();
   }
 
   private load(): void {

@@ -560,6 +560,7 @@ public static class DtoMappings
             PaymentStatus = e.PaymentStatus.ToApi(),
             FeeAmount = e.FeeAmount,
             TdsPercent = e.TdsPercent,
+            RejectionReasonLabel = e.RejectionReasonLabel,
             Payments = [.. e.Payments
                 .Where(p => p.Status != PaymentAttemptStatus.Initiated
                             && p.Status != PaymentAttemptStatus.Abandoned)
@@ -607,6 +608,7 @@ public static class DtoMappings
                 {
                     Id = h.Id, Action = h.Action.ToApi(), ByUserName = h.ByUserName,
                     ByRole = h.ByRole, On = h.On, Remarks = h.Remarks,
+                    RejectionReasonLabel = h.RejectionReasonLabel,
                 }),
             ],
         };

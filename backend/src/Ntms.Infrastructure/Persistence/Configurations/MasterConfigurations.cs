@@ -62,6 +62,20 @@ public class SubCategoryConfiguration : IEntityTypeConfiguration<SubCategory>
     }
 }
 
+public class RejectionReasonConfiguration : IEntityTypeConfiguration<RejectionReason>
+{
+    public void Configure(EntityTypeBuilder<RejectionReason> b)
+    {
+        b.ToTable("RejectionReasons");
+        b.Property(x => x.Label).HasMaxLength(200).IsRequired();
+
+        /* One wording per reason. Two rows saying the same thing differently
+           is how a countable list stops being countable. */
+        b.HasIndex(x => x.Label).IsUnique();
+        b.HasIndex(x => x.DisplayOrder);
+    }
+}
+
 public class QualificationConfiguration : IEntityTypeConfiguration<Qualification>
 {
     public void Configure(EntityTypeBuilder<Qualification> b)

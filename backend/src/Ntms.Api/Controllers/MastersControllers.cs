@@ -47,6 +47,42 @@ public class CategoriesController(CategoryService service) : ApiControllerBase
         Envelope(await service.SetStatusAsync(id, dto.Status, ct), $"Category {dto.Status.ToLowerInvariant()}.");
 }
 
+/// <summary>
+/// The reasons an application may be turned down.
+///
+/// Read by anybody who scrutinises, because they pick from it; written only
+/// by somebody who may edit masters, because it is a list the scheme reports
+/// against.
+/// </summary>
+[Route("api/rejection-reasons")]
+public class RejectionReasonsController(RejectionReasonService service) : ApiControllerBase
+{
+    [HttpGet]
+    public async Task<ActionResult<ApiEnvelope<List<RejectionReasonDto>>>> List(
+        [FromQuery] bool activeOnly, CancellationToken ct) =>
+        Envelope(await service.ListAsync(activeOnly, ct));
+
+    [HttpPost]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<RejectionReasonDto>>> Create(
+        [FromBody] RejectionReasonUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.CreateAsync(dto, ct), "Reason added.");
+
+    [HttpPut("{id:int}")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<RejectionReasonDto>>> Update(
+        int id, [FromBody] RejectionReasonUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.UpdateAsync(id, dto, ct), "Reason updated.");
+
+    [HttpDelete("{id:int}")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<bool>>> Delete(int id, CancellationToken ct)
+    {
+        await service.DeleteAsync(id, ct);
+        return Envelope(true, "Reason removed.");
+    }
+}
+
 [Route("api/qualifications")]
 public class QualificationsController(QualificationService service) : ApiControllerBase
 {

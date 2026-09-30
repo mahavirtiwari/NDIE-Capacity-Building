@@ -77,6 +77,7 @@ public static class DependencyInjection
         services.AddScoped<CurriculumService>();
         services.AddScoped<RegistrationFormService>();
         services.AddScoped<SignupFormService>();
+        services.AddScoped<RejectionReasonService>();
         services.AddScoped<SiteTextService>();
         services.AddScoped<FeeService>();
         services.AddScoped<ExamPaperService>();

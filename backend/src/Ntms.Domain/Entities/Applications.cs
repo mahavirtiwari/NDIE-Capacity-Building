@@ -46,6 +46,14 @@ public class TrainingApplication : AuditableEntity
     public string? DeductorName { get; set; }
 
     public decimal? Score { get; set; }
+
+    /* Why it was turned down, where it was. The id is the master row; the
+       label is what that row said at the time, because a reason can be
+       reworded or retired afterwards and a rejection has to keep reading the
+       way it was given. */
+    public int? RejectionReasonId { get; set; }
+    public RejectionReason? RejectionReason { get; set; }
+    public string? RejectionReasonLabel { get; set; }
     public int? StateCode { get; set; }
     public LgdState? State { get; set; }
     public int? DistrictCode { get; set; }
@@ -91,4 +99,11 @@ public class ScrutinyEvent : AuditableEntity
     public string ByRole { get; set; } = string.Empty;
     public DateTime On { get; set; } = DateTime.UtcNow;
     public string? Remarks { get; set; }
+
+    /// <summary>
+    /// The chosen reason on a rejection, worded as it was at the time, so
+    /// the history reads on its own without joining back to a master that
+    /// may since have changed.
+    /// </summary>
+    public string? RejectionReasonLabel { get; set; }
 }

@@ -106,3 +106,29 @@
   border-radius: 50%;
   animation: spin 620ms linear infinite;
 }
+
+/* The Excel download in a table footer.
+
+   A ghost button among the pagination is easy to miss, and this is the one
+   control down there that does something rather than moves somewhere. The
+   filled crimson disc is what picks it out, without giving it the weight of
+   a primary button. */
+.btn--excel {
+  font-weight: 600;
+  color: var(--brand-700);
+}
+
+.btn--excel .btn__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--brand-700);
+  color: #fff;
+}
+
+.btn--excel:hover:not(:disabled) { background: var(--brand-50); }
+
+.btn--excel:disabled .btn__badge { background: var(--ink-400); }

@@ -1,14 +1,14 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { Application, LookupItem, RegistrationForm } from '../../core/models';
+import { Application, LookupItem, RegistrationForm, RejectionReason } from '../../core/models';
 import { RegistrationFormService } from '../../core/services/academics.service';
 import { AuthService } from '../../core/services/auth.service';
 import { LookupService } from '../../core/services/masters.service';
 import { ToastService } from '../../core/services/toast.service';
-import { ApplicationService } from '../../core/services/workflow.service';
+import { ApplicationService, RejectionReasonService } from '../../core/services/workflow.service';
 import { DynamicFormComponent } from '../../shared/components/dynamic-form.component';
 import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
@@ -276,8 +276,40 @@ type Tab = 'responses' | 'documents' | 'history';
         (closed)="decision.set(null)"
       >
         <form [formGroup]="decisionForm" id="decision-form" (ngSubmit)="submitDecision()">
+          @if (pending === 'Reject') {
+            <!-- Chosen, not typed. A rejection is something the scheme counts
+                 and reports on, and forty spellings of one reason cannot be.
+                 The list is configured in System Settings. -->
+            <div class="field">
+              <label class="field-label" for="rejectionReason">
+                Reason <span class="req">*</span>
+              </label>
+              <select id="rejectionReason" class="select" formControlName="rejectionReasonId">
+                <option [ngValue]="null">Choose a reason</option>
+                @for (reason of reasons(); track reason.id) {
+                  <option [ngValue]="reason.id">{{ reason.label }}</option>
+                }
+              </select>
+              @if (reasons().length === 0) {
+                <span class="field-hint">
+                  No reasons have been set up yet. A Super Admin adds them under
+                  System Settings.
+                </span>
+              } @else if (chosenReason()?.requiresNote) {
+                <span class="field-hint">
+                  This reason needs a note below saying what exactly was wrong.
+                </span>
+              }
+            </div>
+          }
+
           <div class="field">
-            <label class="field-label" for="remarks">Remarks <span class="req">*</span></label>
+            <label class="field-label" for="remarks">
+              Remarks
+              @if (pending !== 'Reject' || chosenReason()?.requiresNote) {
+                <span class="req">*</span>
+              }
+            </label>
             <textarea
               id="remarks"
               class="textarea"
@@ -395,10 +427,22 @@ export class ApplicationDetailComponent {
     return record ? `APP${String(240000 + record.applicantId)}` : '';
   });
 
+  /* Remarks are not blanket-required any more: a rejection carries a chosen
+     reason, and only a reason that says so needs words as well. Which of
+     those applies is decided in submitDecision, where the reason is known. */
   protected readonly decisionForm = this.fb.group({
-    remarks: ['', [Validators.required, Validators.minLength(5)]],
+    remarks: [''],
     verifyAll: [true],
+    rejectionReasonId: [null as number | null],
   });
+
+  private readonly reasonService = inject(RejectionReasonService);
+
+  /** The form control as a signal, so the hint can follow the choice. */
+  protected readonly chosenReasonId = toSignal(
+    this.decisionForm.controls.rejectionReasonId.valueChanges,
+    { initialValue: null as number | null },
+  );
 
   constructor() {
     effect(() => {
@@ -423,9 +467,24 @@ export class ApplicationDetailComponent {
   }
 
   protected openDecision(kind: Decision): void {
-    this.decisionForm.reset({ remarks: '', verifyAll: kind === 'Approve' });
+    this.decisionForm.reset({
+      remarks: '',
+      verifyAll: kind === 'Approve',
+      rejectionReasonId: null,
+    });
     this.decision.set(kind);
   }
+
+  /* Only the reasons still switched on: a retired one stays on the
+     applications that cite it but must not be handed out again. */
+  protected readonly reasons = toSignal(this.reasonService.list(true), {
+    initialValue: [] as RejectionReason[],
+  });
+
+  protected readonly chosenReason = computed(() => {
+    const id = this.chosenReasonId();
+    return this.reasons().find((r) => r.id === id) ?? null;
+  });
 
   protected submitDecision(): void {
     const record = this.application();
@@ -433,6 +492,33 @@ export class ApplicationDetailComponent {
     if (!record || !kind || this.decisionForm.invalid) {
       this.decisionForm.markAllAsTouched();
       return;
+    }
+
+    /* Enforced here as well as on the server, so the officer is told before
+       the round trip rather than after it. */
+    if (kind !== 'Reject' && (this.decisionForm.value.remarks ?? '').trim().length < 5) {
+      this.toast.error(
+        'Remarks are needed',
+        kind === 'Approve'
+          ? 'Say what was verified.'
+          : 'Tell the applicant exactly what to correct.',
+      );
+      return;
+    }
+
+    if (kind === 'Reject') {
+      const reason = this.chosenReason();
+      if (!reason) {
+        this.toast.error('Choose a reason', 'A rejection has to say what it is for.');
+        return;
+      }
+      if (reason.requiresNote && !(this.decisionForm.value.remarks ?? '').trim()) {
+        this.toast.error(
+          'A note is needed',
+          `'${reason.label}' does not say what exactly was wrong.`,
+        );
+        return;
+      }
     }
     this.saving.set(true);
     const raw = this.decisionForm.getRawValue();
@@ -442,6 +528,7 @@ export class ApplicationDetailComponent {
         decision: kind,
         remarks: raw.remarks ?? '',
         documentIdsVerified: raw.verifyAll ? record.documents.map((d) => d.id) : [],
+        rejectionReasonId: kind === 'Reject' ? raw.rejectionReasonId : null,
       })
       .subscribe({
         next: (updated) => {

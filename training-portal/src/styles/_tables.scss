@@ -64,14 +64,6 @@
   justify-content: flex-end;
 }
 
-/* The bar over a table, holding whatever acts on the whole list rather than
-   on one row - today just the Excel download. */
-.table-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0 0 0.5rem;
-}
-
 .table .cell-primary {
   font-weight: 600;
   color: var(--ink-900);

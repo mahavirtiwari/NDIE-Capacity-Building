@@ -212,6 +212,13 @@ public class ApplicationConfiguration : IEntityTypeConfiguration<TrainingApplica
         b.Property(x => x.Tan).HasMaxLength(10);
         b.Property(x => x.DeductorName).HasMaxLength(200);
         b.Property(x => x.TdsPercent).HasColumnType("decimal(5,2)");
+        b.Property(x => x.RejectionReasonLabel).HasMaxLength(200);
+
+        /* Restrict, not cascade: retiring a reason must never delete the
+           applications that were turned down for it. */
+        b.HasOne(x => x.RejectionReason).WithMany()
+            .HasForeignKey(x => x.RejectionReasonId)
+            .OnDelete(DeleteBehavior.Restrict);
         b.Property(x => x.Score).HasColumnType("decimal(6,2)");
         /* Answers follow the form definition, so they are kept as JSON rather
            than a column per field. SQL Server 2022 can query this with
@@ -264,6 +271,7 @@ public class ScrutinyEventConfiguration : IEntityTypeConfiguration<ScrutinyEvent
         b.Property(x => x.ByUserName).HasMaxLength(160).IsRequired();
         b.Property(x => x.ByRole).HasMaxLength(60).IsRequired();
         b.Property(x => x.Remarks).HasMaxLength(1000);
+        b.Property(x => x.RejectionReasonLabel).HasMaxLength(200);
         b.HasOne(x => x.Application).WithMany(x => x.History).HasForeignKey(x => x.ApplicationId)
             .OnDelete(DeleteBehavior.Cascade);
     }

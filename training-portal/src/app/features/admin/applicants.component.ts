@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { Applicant, LookupItem } from '../../core/models';
+import { APPLICANT_STANDINGS, Applicant, LookupItem } from '../../core/models';
 import { LookupService } from '../../core/services/masters.service';
 import { ApplicantService } from '../../core/services/people.service';
 import { SiteTextService } from '../../core/services/site-text.service';
@@ -21,7 +21,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'pan', header: 'PAN', width: '130px' },
   { key: 'categoryName', header: 'Category', variant: 'muted' },
   { key: 'subCategoryName', header: 'Sub-category', variant: 'muted' },
-  { key: 'verification', header: 'Verification', width: '130px' },
+  { key: 'standing', header: 'Status', width: '150px' },
   { key: 'registeredOn', header: 'Registered', width: '130px' },
   { key: 'actions', header: '', width: '150px', align: 'right' },
 ];
@@ -75,13 +75,35 @@ const COLUMNS: ColumnDef[] = [
             </select>
           </div>
           <div class="field">
-            <label class="field-label" for="apKyc">KYC status</label>
-            <select id="apKyc" class="select" (change)="list.setFilter('kycStatus', value($event))">
+            <label class="field-label" for="apStanding">Status</label>
+            <select id="apStanding" class="select" (change)="list.setFilter('standing', value($event))">
               <option value="">All</option>
-              <option value="Pending">Pending</option>
-              <option value="Verified">Verified</option>
-              <option value="Rejected">Rejected</option>
+              @for (option of standings; track option.value) {
+                <option [value]="option.value">{{ option.label }}</option>
+              }
             </select>
+          </div>
+
+          <!-- Registered between two dates. Either end on its own works: a
+               "from" with no "to" is everything since, and the reverse is
+               everything up to and including that day. -->
+          <div class="field">
+            <label class="field-label" for="apFrom">Registered from</label>
+            <input
+              id="apFrom"
+              class="input"
+              type="date"
+              (change)="list.setFilter('registeredFrom', value($event))"
+            />
+          </div>
+          <div class="field">
+            <label class="field-label" for="apTo">Registered to</label>
+            <input
+              id="apTo"
+              class="input"
+              type="date"
+              (change)="list.setFilter('registeredTo', value($event))"
+            />
           </div>
           <div class="field">
             <label class="field-label" for="apBlocked">Access</label>
@@ -132,8 +154,8 @@ const COLUMNS: ColumnDef[] = [
             <span class="cell-muted">{{ $any(row).mobile }}</span>
           </div>
         </ng-template>
-        <ng-template appCell="verification" let-row>
-          <app-status-badge [value]="$any(row).kycStatus" />
+        <ng-template appCell="standing" let-row>
+          <app-status-badge [value]="$any(row).standing" />
         </ng-template>
         <ng-template appCell="registeredOn" let-row>
           <span class="cell-muted">{{ $any(row).registeredOn | date: 'dd MMM yyyy' }}</span>
@@ -166,59 +188,93 @@ const COLUMNS: ColumnDef[] = [
            beyond the standard particulars is not the same for everybody. The
            list cannot hold a column per question; this is where they are read. -->
       <app-modal [title]="row.fullName" (closed)="detail.set(null)">
-        <div class="stack stack-md">
-          <div class="dl">
-            <div>
-              <div class="dl__term">Applicant ID</div>
-              <div class="dl__value"><code>{{ row.applicantCode }}</code></div>
-            </div>
-            <div>
-              <div class="dl__term">PAN</div>
-              <div class="dl__value">{{ row.pan || '—' }}</div>
-            </div>
-            <div>
-              <div class="dl__term">Email</div>
-              <div class="dl__value">{{ row.email }}</div>
-            </div>
-            <div>
-              <div class="dl__term">Mobile</div>
-              <div class="dl__value">{{ row.mobile }}</div>
-            </div>
-            <div>
-              <div class="dl__term">Category</div>
-              <div class="dl__value">{{ row.categoryName }}</div>
-            </div>
-            <div>
-              <div class="dl__term">Sub-category</div>
-              <div class="dl__value">{{ row.subCategoryName }}</div>
-            </div>
-            <div>
-              <div class="dl__term">Gender</div>
-              <div class="dl__value">{{ row.gender || 'Not stated' }}</div>
-            </div>
-            <div>
-              <div class="dl__term">Social category</div>
-              <div class="dl__value">{{ row.socialCategory || 'Not stated' }}</div>
-            </div>
-            <div>
-              <div class="dl__term">Registered</div>
-              <div class="dl__value">{{ row.registeredOn | date: 'dd MMM yyyy' }}</div>
-            </div>
-            <div>
-              <div class="dl__term">Last signed in</div>
-              <div class="dl__value">
-                {{ row.lastLoginOn ? (row.lastLoginOn | date: 'dd MMM yyyy, HH:mm') : 'Never' }}
+        <div class="stack stack-lg">
+          <!-- Who, at a glance: the ID they sign in with, where they stand,
+               and whether they are locked out. -->
+          <div class="who">
+            <span class="who__avatar">{{ initials(row.fullName) }}</span>
+            <div class="who__text">
+              <strong class="who__name">{{ row.fullName }}</strong>
+              <div class="row row-sm row-wrap">
+                <code class="who__code">{{ row.applicantCode }}</code>
+                <app-status-badge [value]="row.standing" />
+                @if (row.isBlocked) {
+                  <span class="badge badge--danger">Blocked</span>
+                }
               </div>
             </div>
           </div>
 
-          <div class="stack stack-sm">
-            <h4 class="section-title">Sign-up form answers</h4>
-            @if (!row.answers?.length) {
-              <p class="text-muted text-sm">
-                This sub-category's sign-up form asked nothing beyond the particulars above.
-              </p>
-            } @else {
+          <div class="detail-group">
+            <h4 class="section-title">Contact</h4>
+            <div class="dl">
+              <div>
+                <div class="dl__term">Email</div>
+                <div class="dl__value">{{ row.email }}</div>
+              </div>
+              <div>
+                <div class="dl__term">Mobile</div>
+                <div class="dl__value">{{ row.mobile }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="detail-group">
+            <h4 class="section-title">Registration</h4>
+            <div class="dl">
+              <div>
+                <div class="dl__term">PAN</div>
+                <div class="dl__value">{{ row.pan || '—' }}</div>
+              </div>
+              <div>
+                <div class="dl__term">Category</div>
+                <div class="dl__value">{{ row.categoryName }}</div>
+              </div>
+              <div>
+                <div class="dl__term">Sub-category</div>
+                <div class="dl__value">{{ row.subCategoryName }}</div>
+              </div>
+              <div>
+                <div class="dl__term">Gender</div>
+                <div class="dl__value">{{ row.gender || 'Not stated' }}</div>
+              </div>
+              <div>
+                <div class="dl__term">Social category</div>
+                <div class="dl__value">{{ row.socialCategory || 'Not stated' }}</div>
+              </div>
+              @if (row.state || row.city) {
+                <div>
+                  <div class="dl__term">Location</div>
+                  <div class="dl__value">
+                    {{ row.city ? row.city + ', ' + (row.state ?? '') : row.state }}
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="detail-group">
+            <h4 class="section-title">Activity</h4>
+            <div class="dl">
+              <div>
+                <div class="dl__term">Registered</div>
+                <div class="dl__value">{{ row.registeredOn | date: 'dd MMM yyyy' }}</div>
+              </div>
+              <div>
+                <div class="dl__term">Last signed in</div>
+                <div class="dl__value">
+                  {{ row.lastLoginOn ? (row.lastLoginOn | date: 'dd MMM yyyy, HH:mm') : 'Never' }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Only where the form actually asked something. A heading over a
+               sentence saying there is nothing under it is a heading that
+               should not be there. -->
+          @if (row.answers?.length) {
+            <div class="detail-group">
+              <h4 class="section-title">Sign-up form answers</h4>
               <div class="table-wrap">
                 <table class="table table--compact">
                   <thead>
@@ -234,15 +290,46 @@ const COLUMNS: ColumnDef[] = [
                   </tbody>
                 </table>
               </div>
-            }
-          </div>
+            </div>
+          }
         </div>
+
         <div footer>
           <button type="button" class="btn btn--secondary" (click)="detail.set(null)">Close</button>
         </div>
       </app-modal>
     }
   `,
+  styles: [
+    `
+      .who {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        padding-bottom: 0.9rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .who__avatar {
+        display: grid;
+        place-items: center;
+        width: 46px;
+        height: 46px;
+        border-radius: 999px;
+        background: var(--brand-700);
+        color: #fff;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
+      .who__text { display: grid; gap: 0.3rem; }
+      .who__name { font-size: 1.05rem; }
+      .who__code {
+        background: var(--ink-100);
+        border-radius: 4px;
+        padding: 0.05rem 0.35rem;
+      }
+      .detail-group { display: grid; gap: 0.5rem; }
+    `,
+  ],
 })
 export class ApplicantsComponent {
   protected readonly copy = inject(SiteTextService);
@@ -253,6 +340,20 @@ export class ApplicantsComponent {
 
   protected readonly columns = COLUMNS;
   protected readonly detail = signal<Applicant | null>(null);
+  protected readonly standings = APPLICANT_STANDINGS;
+
+  protected initials(name: string): string {
+    return (name ?? '')
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('');
+  }
+
+  protected standingLabel(value: string): string {
+    return APPLICANT_STANDINGS.find((s) => s.value === value)?.label ?? value;
+  }
 
   /* Read fresh rather than taken from the row: the list does not carry the
      sign-up answers, because most of the time nobody is looking at them. */
