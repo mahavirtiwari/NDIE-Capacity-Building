@@ -18,6 +18,7 @@ import type {
   PaymentSummary,
   PaymentTransaction,
   ProfileForm,
+  ProfileStanding,
   SignupForm,
   SocialCategory,
   TrainingMaterial,
@@ -126,6 +127,17 @@ export const me = {
     api.post<boolean>('me/change-password', { currentPassword, newPassword }),
 
   programs: () => api.get<ApplicantProgram[]>('me/programs'),
+
+  /* ------------------------------------------------------ profile form */
+
+  /** Live, not cached: this decides whether anything else is reachable. */
+  profileStanding: () => api.getLive<ProfileStanding>('me/profile-submission'),
+
+  /** The form for this applicant's own sub-category. */
+  profileForm: () => api.get<ProfileForm>('me/profile-form'),
+
+  submitProfile: (responses: Record<string, unknown>) =>
+    api.post<ProfileStanding>('me/profile-submission', { responses }),
 
   form: (programTypeId: number) =>
     api.get<ProfileForm>(`me/programs/${programTypeId}/form`),

@@ -29,6 +29,7 @@ interface MenuLink {
 
 const LINKS: MenuLink[] = [
   { icon: 'grid-outline', label: 'Dashboard', href: '/(tabs)/programs' },
+  { icon: 'id-card-outline', label: 'Your profile', href: '/profile-form' },
   { icon: 'documents-outline', label: 'My applications', href: '/(tabs)/applications' },
   { icon: 'calendar-outline', label: 'Batches', href: '/(tabs)/batches' },
   { icon: 'document-text-outline', label: 'Examinations', href: '/exam' },

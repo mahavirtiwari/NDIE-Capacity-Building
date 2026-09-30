@@ -139,15 +139,36 @@ public class ApplicantAuthService(
         int applicantId, CancellationToken ct)
     {
         var applicant = await db.Applicants.AsNoTracking()
+            .Include(a => a.SubCategory)
             .FirstOrDefaultAsync(a => a.Id == applicantId, ct)
             ?? throw AppException.NotFound("Applicant");
 
+        /* ---- the gate ------------------------------------------------
+           Nothing is visible until the profile form has been read and
+           accepted. The applicant is not shown a list of things they
+           cannot have yet; the app asks about their profile first and
+           sends them to fill it in. An empty list here is the honest
+           answer to "what is open to me". */
+        if (applicant.SubCategory?.RequiresProfileForm ?? true)
+        {
+            var cleared = await db.ProfileSubmissions.AsNoTracking()
+                .AnyAsync(s => s.ApplicantId == applicantId
+                               && s.Status == ProfileSubmissionStatus.Approved, ct);
+
+            if (!cleared) return [];
+        }
+
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
+        /* Scoped to the discipline they registered under, not the whole
+           category. The profile they had accepted was for this
+           sub-category, and it is what the programs beneath it were opened
+           on — a sibling discipline has its own form and its own scrutiny. */
         var programTypes = await db.ProgramTypes.AsNoTracking()
             .Include(p => p.Category)
             .Include(p => p.SubCategory)
-            .Where(p => p.Status == RecordStatus.Active && p.CategoryId == applicant.CategoryId)
+            .Where(p => p.Status == RecordStatus.Active
+                        && p.SubCategoryId == applicant.SubCategoryId)
             .OrderBy(p => p.Name)
             .ToListAsync(ct);
 

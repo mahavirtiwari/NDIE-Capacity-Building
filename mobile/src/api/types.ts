@@ -401,6 +401,37 @@ export interface Enrolment {
   certificateNo?: string | null;
 }
 
+/* --------------------------------------------------------- profile form */
+
+/**
+ * Where the applicant stands with the profile form — the gate in front of
+ * every program. The server answers all of it, so the screen decides
+ * nothing for itself.
+ */
+export interface ProfileStanding {
+  /** False where the sub-category asks for no profile form. */
+  required: boolean;
+  /** True once the programs under the discipline are open. */
+  cleared: boolean;
+  status?: string | null;
+  subCategoryId: number;
+  subCategoryName?: string | null;
+  attemptNo: number;
+  attemptsAllowed: number;
+  attemptsLeft: number;
+  submittedOn?: string | null;
+  decidedOn?: string | null;
+  rejectionReasonLabel?: string | null;
+  remarks?: string | null;
+  /** Set while the discipline is shut to them. */
+  blockedUntil?: string | null;
+  blockReason?: string | null;
+  /** The last answers, so a correction starts from what was said. */
+  responses?: Record<string, unknown> | null;
+  canSubmit: boolean;
+  history: ScrutinyEvent[];
+}
+
 /* ------------------------------------------------------------ examination */
 
 /**

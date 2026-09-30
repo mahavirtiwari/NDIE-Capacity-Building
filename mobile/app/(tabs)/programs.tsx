@@ -13,7 +13,10 @@ import {
   View,
 } from 'react-native';
 import { me } from '../../src/api/endpoints';
-import type { ApplicantProgram } from '../../src/api/types';
+import type {
+  ApplicantProgram,
+  ProfileStanding,
+} from '../../src/api/types';
 import { useResource } from '../../src/api/useResource';
 import { useAuth } from '../../src/auth/AuthContext';
 import { IdentityPanel, QuickTile, QuickTiles, SectionHeading } from '../../src/components/blocks';
@@ -39,6 +42,10 @@ export default function Programs() {
   const [term, setTerm] = useState('');
   const programs = useResource<ApplicantProgram[]>(() => me.programs(), []);
 
+  /* Nothing is open until the profile has been accepted, so an empty list
+     needs explaining rather than apologising for. */
+  const profile = useResource<ProfileStanding>(() => me.profileStanding(), []);
+
   /* Coming back from the apply screen has to show the new standing. Without
      this the card still said Apply until the app was restarted, which is
      what made it look as though nothing had been submitted. The first focus
@@ -51,10 +58,11 @@ export default function Programs() {
         return;
       }
       programs.refresh();
-      /* The resource itself is a fresh object on every render, so depending
-         on it re-ran this effect on every render and refetched in a loop.
-         refresh is stable; that is the whole dependency. */
-    }, [programs.refresh]),
+      profile.refresh();
+      /* The resources themselves are fresh objects on every render, so
+         depending on them re-ran this effect on every render and refetched
+         in a loop. refresh is stable; that is the whole dependency. */
+    }, [programs.refresh, profile.refresh]),
   );
 
   const list = useMemo(() => {
@@ -107,15 +115,19 @@ export default function Programs() {
         </View>
       }
       ListEmptyComponent={
-        <EmptyState
-          icon="layers-outline"
-          title={term ? 'No match' : 'No programs open yet'}
-          message={
-            term
-              ? 'Try a different name or code.'
-              : 'Programs appear here as soon as they open for your category.'
-          }
-        />
+        profile.data && profile.data.required && !profile.data.cleared ? (
+          <ProfileGate standing={profile.data} onOpen={() => router.push('/profile-form')} />
+        ) : (
+          <EmptyState
+            icon="layers-outline"
+            title={term ? 'No match' : 'No programs open yet'}
+            message={
+              term
+                ? 'Try a different name or code.'
+                : 'Programs appear here as soon as they open for your sub-category.'
+            }
+          />
+        )
       }
       renderItem={({ item }) => (
         <ProgramCard
@@ -139,6 +151,72 @@ export default function Programs() {
         </>
       }
     />
+  );
+}
+
+/**
+ * Why there is nothing here yet, and what to do about it.
+ *
+ * An empty list with no explanation reads as a broken app. The profile is
+ * the gate, so the screen it gates says where the applicant stands with it
+ * and offers the way through.
+ */
+function ProfileGate({
+  standing,
+  onOpen,
+}: {
+  standing: ProfileStanding;
+  onOpen: () => void;
+}) {
+  const waiting = standing.status === 'Submitted' || standing.status === 'UnderScrutiny';
+  const blocked = !!standing.blockedUntil;
+
+  return (
+    <Card style={styles.gate}>
+      <View style={styles.gateIcon}>
+        <Ionicons
+          name={blocked ? 'lock-closed-outline' : waiting ? 'hourglass-outline' : 'id-card-outline'}
+          size={26}
+          color={colors.brand700}
+        />
+      </View>
+
+      <Text style={styles.gateTitle}>
+        {blocked
+          ? 'Your profile is closed for now'
+          : waiting
+            ? 'Your profile is with scrutiny'
+            : 'Tell us who you are first'}
+      </Text>
+
+      <Text style={styles.gateBody}>
+        {blocked
+          ? `It was turned down ${standing.attemptsAllowed} times. You can try again after `
+            + `${shortDate(standing.blockedUntil)}.`
+          : waiting
+            ? 'The programs open to you will appear here as soon as it has been accepted.'
+            : `Every program under ${standing.subCategoryName ?? 'your sub-category'} opens once `
+              + 'your profile has been accepted. It is asked once.'}
+      </Text>
+
+      {standing.status === 'Rejected' && standing.rejectionReasonLabel ? (
+        <Banner tone="warning">{standing.rejectionReasonLabel}</Banner>
+      ) : null}
+
+      <Button
+        label={
+          blocked
+            ? 'See your profile'
+            : waiting
+              ? 'See what you sent'
+              : standing.status === 'Rejected'
+                ? 'Correct and send again'
+                : 'Fill in your profile'
+        }
+        icon="arrow-forward"
+        onPress={onOpen}
+      />
+    </Card>
   );
 }
 
@@ -415,6 +493,18 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: font.md, fontWeight: '700', color: colors.ink900, lineHeight: 21 },
   cardBody: { fontSize: font.sm, color: colors.ink600, lineHeight: 19 },
 
+
+  gate: { gap: spacing.md, alignItems: 'center' },
+  gateIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
+    backgroundColor: colors.brand50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gateTitle: { fontSize: font.md, fontWeight: '700', color: colors.ink900, textAlign: 'center' },
+  gateBody: { fontSize: font.sm, color: colors.ink600, lineHeight: 19, textAlign: 'center' },
 
   detailsLink: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 },
   detailsText: { fontSize: font.sm, fontWeight: '600', color: colors.brand700 },
