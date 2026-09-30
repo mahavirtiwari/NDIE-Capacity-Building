@@ -31,6 +31,7 @@ const LINKS: MenuLink[] = [
   { icon: 'grid-outline', label: 'Dashboard', href: '/(tabs)/programs' },
   { icon: 'documents-outline', label: 'My applications', href: '/(tabs)/applications' },
   { icon: 'calendar-outline', label: 'Batches', href: '/(tabs)/batches' },
+  { icon: 'document-text-outline', label: 'Examinations', href: '/exam' },
   { icon: 'card-outline', label: 'Payments', href: '/payments' },
   { icon: 'book-outline', label: 'Training material', href: '/(tabs)/materials' },
   { icon: 'person-outline', label: 'My profile', href: '/(tabs)/profile' },
