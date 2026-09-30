@@ -66,50 +66,77 @@ export function QuickTile({
   label,
   value,
   tone = 'plain',
+  action,
   onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   /** Left out where there is no number worth inventing; the tile is then
-      simply a way through, and says so with an arrow. */
+      simply a way through, and reads as one line. */
   value?: string;
   tone?: 'plain' | 'warn';
+  /**
+   * What the tile is for, on a button at the end of the line. Without one
+   * the way through is a bare arrow, which says where but not why.
+   */
+  action?: string;
   onPress: () => void;
 }) {
+  const badge = (
+    <View style={[styles.tileIcon, tone === 'warn' && styles.tileIconWarn]}>
+      <Ionicons
+        name={icon}
+        size={16}
+        color={tone === 'warn' ? colors.warning700 : colors.brand700}
+      />
+    </View>
+  );
+
+  /* No number to report: the icon, what it is and the way in, along one
+     line. Stacked, it was three rows deep to say a single word. */
+  if (value === undefined) {
+    return (
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={action ? `${label}, ${action}` : label}
+        style={({ pressed }) => [styles.tile, styles.tileRow, pressed && styles.tilePressed]}
+      >
+        {badge}
+
+        <Text style={[styles.tileValue, styles.tileRowLabel]} numberOfLines={1}>
+          {label}
+        </Text>
+
+        {action ? (
+          <View style={styles.tileAction}>
+            <Ionicons name="arrow-forward" size={13} color={colors.white} />
+            <Text style={styles.tileActionText}>{action}</Text>
+          </View>
+        ) : (
+          <Ionicons name="arrow-forward" size={13} color={colors.ink500} />
+        )}
+      </Pressable>
+    );
+  }
+
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
     >
-      <View style={[styles.tileIcon, tone === 'warn' && styles.tileIconWarn]}>
-        <Ionicons
-          name={icon}
-          size={16}
-          color={tone === 'warn' ? colors.warning700 : colors.brand700}
-        />
-      </View>
+      {badge}
 
-      {value === undefined ? (
-        <>
-          <Text style={styles.tileValue} numberOfLines={1}>
-            {label}
-          </Text>
-          <Ionicons name="arrow-forward" size={13} color={colors.ink500} />
-        </>
-      ) : (
-        <>
-          <Text
-            style={[styles.tileValue, tone === 'warn' && styles.tileValueWarn]}
-            numberOfLines={1}
-          >
-            {value}
-          </Text>
-          <Text style={styles.tileLabel} numberOfLines={1}>
-            {label}
-          </Text>
-        </>
-      )}
+      <Text
+        style={[styles.tileValue, tone === 'warn' && styles.tileValueWarn]}
+        numberOfLines={1}
+      >
+        {value}
+      </Text>
+      <Text style={styles.tileLabel} numberOfLines={1}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -161,6 +188,18 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   tilePressed: { backgroundColor: colors.brand50 },
+  tileRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  tileRowLabel: { flex: 1 },
+  tileAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.brand600,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+  },
+  tileActionText: { fontSize: font.sm, fontWeight: '700', color: colors.white },
   tileIcon: {
     width: 28,
     height: 28,

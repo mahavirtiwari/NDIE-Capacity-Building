@@ -20,7 +20,6 @@ import {
   Banner,
   Button,
   Card,
-  Chip,
   EmptyState,
   Loading,
   StatusPill,
@@ -51,7 +50,10 @@ export default function Programs() {
         return;
       }
       programs.refresh();
-    }, [programs]),
+      /* The resource itself is a fresh object on every render, so depending
+         on it re-ran this effect on every render and refetched in a loop.
+         refresh is stable; that is the whole dependency. */
+    }, [programs.refresh]),
   );
 
   const list = useMemo(() => {
@@ -92,6 +94,7 @@ export default function Programs() {
             <QuickTile
               icon="calendar-outline"
               label="Batches"
+              action="Register"
               onPress={() => router.push('/(tabs)/batches')}
             />
           </QuickTiles>
@@ -301,7 +304,6 @@ function ProgramCard({
       <View style={styles.cardTop}>
         <View style={styles.cardTitleWrap}>
           <Text style={styles.cardTitle}>{program.name}</Text>
-          <Text style={styles.cardCode}>{program.code}</Text>
         </View>
         {applied ? <StatusPill value={program.existingApplicationStatus!} /> : null}
       </View>
@@ -310,18 +312,9 @@ function ProgramCard({
         <Text style={styles.cardBody}>{program.shortDescription}</Text>
       ) : null}
 
-      <View style={styles.chips}>
-        <Chip>{`${program.durationDays} days`}</Chip>
-        <Chip>{program.deliveryMode}</Chip>
-        {program.isExamMandatory ? <Chip>Exam</Chip> : null}
-        {program.minExperienceYears > 0 ? (
-          <Chip>{`${program.minExperienceYears}+ yrs experience`}</Chip>
-        ) : null}
-      </View>
-
       <Pressable onPress={onDetails} accessibilityRole="button" style={styles.detailsLink}>
         <Ionicons name="information-circle-outline" size={15} color={colors.brand700} />
-        <Text style={styles.detailsText}>What this program asks for</Text>
+        <Text style={styles.detailsText}>Minimum Eligibility</Text>
       </Pressable>
 
       <View style={styles.cardFoot}>
@@ -375,10 +368,8 @@ const styles = StyleSheet.create({
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   cardTitleWrap: { flex: 1, gap: 2 },
   cardTitle: { fontSize: font.md, fontWeight: '700', color: colors.ink900, lineHeight: 21 },
-  cardCode: { fontSize: font.xs, color: colors.ink500, letterSpacing: 0.4 },
   cardBody: { fontSize: font.sm, color: colors.ink600, lineHeight: 19 },
 
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
 
   detailsLink: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 },
   detailsText: { fontSize: font.sm, fontWeight: '600', color: colors.brand700 },

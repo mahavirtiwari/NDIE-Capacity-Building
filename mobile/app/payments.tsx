@@ -30,7 +30,9 @@ export default function Payments() {
       }
       applications.refresh();
       history.refresh();
-    }, [applications, history]),
+      /* Not the resources themselves: those are new objects on every
+         render, which turned this into a refetch loop. */
+    }, [applications.refresh, history.refresh]),
   );
 
   const { due, outstanding } = useMemo(() => {
