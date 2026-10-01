@@ -247,14 +247,29 @@ public class UserService(
            caller has no business seeing. */
         .VisibleTo(currentUser);
 
+    /// <param name="excludeBaseRoles">
+    /// Tiers to leave out, comma separated. The portal users screen uses it
+    /// to drop the two that have screens of their own: an agency login
+    /// belongs with its agency and a coordinator with its coordinators, and
+    /// listing them a second time here made one register of four different
+    /// kinds of account that nobody could scan.
+    /// </param>
     public async Task<PagedResult<PortalUserDto>> ListAsync(
         PagedRequest request, string? baseRole, int? roleId, int? agencyId,
-        string? state, string? status, CancellationToken ct)
+        string? state, string? status, string? excludeBaseRoles, CancellationToken ct)
     {
         var role = EnumMaps.ParseEnumOrNull<BaseRole>(baseRole);
 
+        var excluded = (excludeBaseRoles ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(EnumMaps.ParseEnumOrNull<BaseRole>)
+            .Where(r => r.HasValue)
+            .Select(r => r!.Value)
+            .ToList();
+
         var query = Base
             .WhereIf(role.HasValue, u => u.BaseRole == role)
+            .WhereIf(excluded.Count > 0, u => !excluded.Contains(u.BaseRole))
             .WhereIf(roleId.HasValue, u => u.RoleId == roleId)
             .WhereIf(agencyId.HasValue, u => u.AgencyId == agencyId)
             .WhereIf(!string.IsNullOrWhiteSpace(state), u => u.State!.Name == state!.ToUpperInvariant())

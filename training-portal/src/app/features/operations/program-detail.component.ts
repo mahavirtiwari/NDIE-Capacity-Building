@@ -69,17 +69,34 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
               <div class="dl__term">Mode</div>
               <div class="dl__value">
                 <div class="row row-sm">
-                  <app-icon [name]="batch.mode === 'Virtual' ? 'monitor' : 'map-pin'" [size]="15" />
+                  <app-icon
+                    [name]="
+                      batch.mode === 'Virtual'
+                        ? 'monitor'
+                        : batch.mode === 'Hybrid'
+                          ? 'layers'
+                          : 'map-pin'
+                    "
+                    [size]="15"
+                  />
                   <span>{{ batch.mode }}</span>
                 </div>
               </div>
             </div>
-            <div>
-              <div class="dl__term">{{ batch.mode === 'Virtual' ? 'Platform' : 'Venue' }}</div>
-              <div class="dl__value">
-                {{ batch.mode === 'Virtual' ? batch.meetingPlatform : batch.venue }}
+            <!-- A hybrid batch is held in a room and joined from a desk, so
+                 it shows both rather than having to pick one. -->
+            @if (batch.mode !== 'Virtual') {
+              <div>
+                <div class="dl__term">Venue</div>
+                <div class="dl__value">{{ batch.venue }}</div>
               </div>
-            </div>
+            }
+            @if (batch.mode !== 'Physical') {
+              <div>
+                <div class="dl__term">Platform</div>
+                <div class="dl__value">{{ batch.meetingPlatform }}</div>
+              </div>
+            }
             <div>
               <div class="dl__term">State/UT</div>
               <div class="dl__value">{{ batch.state }}</div>

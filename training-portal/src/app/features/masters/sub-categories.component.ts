@@ -76,7 +76,10 @@ const COLUMNS: ColumnDef[] = [
           </div>
           <div class="field">
             <label class="field-label" for="catFilter">Category</label>
-            <select id="catFilter" class="select" (change)="list.setFilter('categoryId', value($event))">
+            <select id="catFilter" class="select"
+              [value]="list.stagedValue('categoryId')"
+              (change)="list.stageFilter('categoryId', value($event))"
+            >
               <option value="">All categories</option>
               @for (item of categories(); track item.id) {
                 <option [value]="item.id">{{ item.name }}</option>
@@ -85,17 +88,23 @@ const COLUMNS: ColumnDef[] = [
           </div>
           <div class="field">
             <label class="field-label" for="statusFilter">Status</label>
-            <select id="statusFilter" class="select" (change)="list.setFilter('status', value($event))">
+            <select id="statusFilter" class="select"
+              [value]="list.stagedValue('status')"
+              (change)="list.stageFilter('status', value($event))"
+            >
               <option value="">All</option>
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
           </div>
-          @if (list.hasFilters) {
+          <div class="filter-bar__actions">
+            <button type="button" class="btn btn--primary" (click)="list.applyFilters()">
+              <app-icon name="filter" [size]="15" /> Apply
+            </button>
             <button type="button" class="btn btn--ghost" (click)="list.clearFilters()">
               <app-icon name="refresh" [size]="15" /> Reset
             </button>
-          }
+          </div>
         </div>
       </div>
 

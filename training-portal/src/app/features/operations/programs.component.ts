@@ -64,7 +64,11 @@ const COLUMNS: ColumnDef[] = [
       icon="calendar"
       [breadcrumbs]="[{ label: 'Operations' }, { label: copy.text('page.programmes.title') }]"
     >
-      @if (canManage()) {
+      <!-- Raising a batch is the implementing agency's job and permitting
+           it is the operation manager's, so this is its own permission
+           rather than the one that covers running a batch. Super Admin
+           does not hold it. -->
+      @if (canCreate()) {
         <button type="button" class="btn btn--primary" (click)="openForm()">
           <app-icon name="plus" [size]="15" /> New program
         </button>
@@ -76,7 +80,12 @@ const COLUMNS: ColumnDef[] = [
         <div class="filter-bar filter-bar--two-rows">
           <div class="field">
             <label class="field-label" for="pgState">State/UT</label>
-            <select id="pgState" class="select" (change)="list.setFilter('state', value($event))">
+            <select
+              id="pgState"
+              class="select"
+              [value]="list.stagedValue('state')"
+              (change)="list.stageFilter('state', value($event))"
+            >
               <option value="">All</option>
               @for (state of states(); track state.id) {
                 <option [value]="state.name.toUpperCase()">{{ state.name }}</option>
@@ -85,7 +94,12 @@ const COLUMNS: ColumnDef[] = [
           </div>
           <div class="field">
             <label class="field-label" for="pgType">Type</label>
-            <select id="pgType" class="select" (change)="list.setFilter('mode', value($event))">
+            <select
+              id="pgType"
+              class="select"
+              [value]="list.stagedValue('mode')"
+              (change)="list.stageFilter('mode', value($event))"
+            >
               <option value="">All</option>
               @for (mode of modes; track mode) {
                 <option [value]="mode">{{ mode }}</option>
@@ -94,7 +108,12 @@ const COLUMNS: ColumnDef[] = [
           </div>
           <div class="field">
             <label class="field-label" for="pgAgency">Agency</label>
-            <select id="pgAgency" class="select" (change)="list.setFilter('agencyId', value($event))">
+            <select
+              id="pgAgency"
+              class="select"
+              [value]="list.stagedValue('agencyId')"
+              (change)="list.stageFilter('agencyId', value($event))"
+            >
               <option value="">All</option>
               @for (agency of agencies(); track agency.id) {
                 <option [value]="agency.id">{{ agency.name }}</option>
@@ -109,7 +128,8 @@ const COLUMNS: ColumnDef[] = [
                 type="date"
                 class="input"
                 aria-label="Start date"
-                (change)="list.setFilter('startDate', value($event))"
+                [value]="list.stagedValue('startDate')"
+                (change)="list.stageFilter('startDate', value($event))"
               />
               <span class="field-range__dash">&ndash;</span>
               <input
@@ -117,23 +137,39 @@ const COLUMNS: ColumnDef[] = [
                 type="date"
                 class="input"
                 aria-label="End date"
-                (change)="list.setFilter('endDate', value($event))"
+                [value]="list.stagedValue('endDate')"
+                (change)="list.stageFilter('endDate', value($event))"
               />
             </div>
           </div>
           <div class="field">
             <label class="field-label" for="pgStatus">Status</label>
-            <select id="pgStatus" class="select" (change)="list.setFilter('status', value($event))">
+            <select
+              id="pgStatus"
+              class="select"
+              [value]="list.stagedValue('status')"
+              (change)="list.stageFilter('status', value($event))"
+            >
               <option value="">All</option>
               @for (status of statuses; track status) {
                 <option [value]="status">{{ statusLabels[status] }}</option>
               }
             </select>
           </div>
+          <!-- Applied on the button rather than on every change. Six
+               filters including a date range meant a query per keystroke,
+               and a part-typed year narrowed the list to nothing before
+               anybody had finished choosing. -->
           <div class="filter-bar__actions">
+            <button type="button" class="btn btn--primary" (click)="list.applyFilters()">
+              <app-icon name="search" [size]="15" /> Apply filters
+            </button>
             <button type="button" class="btn btn--ghost" (click)="list.clearFilters()">
               <app-icon name="refresh" [size]="15" /> Reset
             </button>
+            @if (list.dirty()) {
+              <span class="text-muted text-sm">Not applied yet</span>
+            }
           </div>
         </div>
       </div>
@@ -167,7 +203,16 @@ const COLUMNS: ColumnDef[] = [
         </ng-template>
         <ng-template appCell="venue" let-row>
           <div class="row row-sm">
-            <app-icon [name]="$any(row).mode === 'Virtual' ? 'monitor' : 'map-pin'" [size]="14" />
+            <app-icon
+              [name]="
+                $any(row).mode === 'Virtual'
+                  ? 'monitor'
+                  : $any(row).mode === 'Hybrid'
+                    ? 'layers'
+                    : 'map-pin'
+              "
+              [size]="14"
+            />
             <span>{{ $any(row).venue }}</span>
           </div>
         </ng-template>
@@ -283,19 +328,26 @@ const COLUMNS: ColumnDef[] = [
             </select>
           </div>
 
-          @if (form.value.mode === 'Virtual') {
+          <!-- A hybrid batch asks for both: somebody turning up at the door
+               needs an address and somebody joining from their desk needs a
+               link, and a hybrid batch missing either fails half its intake
+               on the day. -->
+          @if (form.value.mode !== 'Virtual') {
+            <div class="field field--span-2">
+              <label class="field-label" for="npVenue">Venue <span class="req">*</span></label>
+              <input id="npVenue" class="input" formControlName="venue" />
+            </div>
+          }
+          @if (form.value.mode !== 'Physical') {
             <div class="field">
-              <label class="field-label" for="npPlatform">Meeting platform</label>
+              <label class="field-label" for="npPlatform">
+                Meeting platform <span class="req">*</span>
+              </label>
               <input id="npPlatform" class="input" formControlName="meetingPlatform" placeholder="Microsoft Teams" />
             </div>
             <div class="field">
               <label class="field-label" for="npLink">Meeting link</label>
               <input id="npLink" class="input" formControlName="meetingLink" placeholder="https://" />
-            </div>
-          } @else {
-            <div class="field field--span-2">
-              <label class="field-label" for="npVenue">Venue <span class="req">*</span></label>
-              <input id="npVenue" class="input" formControlName="venue" />
             </div>
           }
 
@@ -447,6 +499,10 @@ export class ProgramsComponent {
     return this.papers().filter((paper) => paper.programTypeId === programme.programTypeId);
   }
 
+  /** Raise a batch: the agency that will deliver it. */
+  protected readonly canCreate = computed(() => this.auth.hasPermission('programs.create'));
+
+  /** Run one that exists: permission, registrations, exam time, postponement. */
   protected readonly canManage = computed(() => this.auth.hasPermission('programs.manage'));
 
   protected readonly form = this.fb.group({
@@ -509,6 +565,8 @@ export class ProgramsComponent {
            next ZEDTP number in sequence and names the batch from the programme
            type's real duration; the random id and hard-coded "5-Day" this sent
            before could collide and mislabel a ten-day programme. */
+        /* A hybrid batch keeps its real venue; only a purely virtual one
+           has no room to name. */
         venue: raw.mode === 'Virtual' ? 'Virtual' : raw.venue,
         participantCount: 0,
         registrationsOpen: false,

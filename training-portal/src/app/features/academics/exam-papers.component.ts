@@ -76,17 +76,23 @@ const COLUMNS: ColumnDef[] = [
           <app-master-filter [list]="list" programTypeLabel="Program type" #masters />
           <div class="field">
             <label class="field-label" for="examStatus">Status</label>
-            <select id="examStatus" class="select" (change)="list.setFilter('status', value($event))">
+            <select id="examStatus" class="select"
+              [value]="list.stagedValue('status')"
+              (change)="list.stageFilter('status', value($event))"
+            >
               <option value="">All</option>
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
           </div>
-          @if (list.hasFilters) {
+          <div class="filter-bar__actions">
+            <button type="button" class="btn btn--primary" (click)="list.applyFilters()">
+              <app-icon name="filter" [size]="15" /> Apply
+            </button>
             <button type="button" class="btn btn--ghost" (click)="masters.clear(); list.clearFilters()">
               <app-icon name="refresh" [size]="15" /> Reset
             </button>
-          }
+          </div>
         </div>
       </div>
 

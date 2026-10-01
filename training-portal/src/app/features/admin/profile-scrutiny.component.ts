@@ -87,8 +87,9 @@ const COLUMNS: ColumnDef[] = [
             <select
               id="psSub"
               class="select"
-              (change)="list.setFilter('subCategoryId', value($event))"
-            >
+              [value]="list.stagedValue('subCategoryId')"
+              (change)="list.stageFilter('subCategoryId', value($event))"
+              >
               <option value="">All sub-categories</option>
               @for (sub of subCategories(); track sub.id) {
                 <option [value]="sub.id">{{ sub.name }}</option>
@@ -97,7 +98,10 @@ const COLUMNS: ColumnDef[] = [
           </div>
           <div class="field">
             <label class="field-label" for="psStatus">Status</label>
-            <select id="psStatus" class="select" (change)="list.setFilter('status', value($event))">
+            <select id="psStatus" class="select"
+              [value]="list.stagedValue('status')"
+              (change)="list.stageFilter('status', value($event))"
+            >
               <option value="">All statuses</option>
               @for (status of statuses; track status) {
                 <option [value]="status">{{ statusLabels[status] }}</option>
@@ -105,6 +109,9 @@ const COLUMNS: ColumnDef[] = [
             </select>
           </div>
           <div class="filter-bar__actions">
+            <button type="button" class="btn btn--primary" (click)="list.applyFilters()">
+              <app-icon name="filter" [size]="15" /> Apply
+            </button>
             <button type="button" class="btn btn--ghost" (click)="list.clearFilters()">
               <app-icon name="refresh" [size]="15" /> Reset
             </button>

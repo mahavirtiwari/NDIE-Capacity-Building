@@ -92,9 +92,13 @@ public class DbSeeder(
     private static readonly (string Name, string Code, BaseRole Base, string Description, string[] Permissions)[]
         SystemRoles =
         [
+            /* Everything the top of the system actually does. The
+                operational grants it does not hold are listed, with the
+                reasoning, on Permissions.NotForSuperAdmin. */
             ("Super Admin", "SUPER_ADMIN", BaseRole.SuperAdmin,
-                "Owns the masters and the portal itself. Appoints Admins and the Ministry account.",
-                [.. Permissions.All]),
+                "Owns the masters, the roles and the portal itself. Appoints Admins and the "
+                + "Ministry account.",
+                [.. Permissions.All.Except(Permissions.NotForSuperAdmin)]),
             ("Ministry of MSME", "MINISTRY", BaseRole.Ministry,
                 "Oversight for the parent ministry: sees the whole program, changes none of it.",
                 [
@@ -123,13 +127,14 @@ public class DbSeeder(
                     Permissions.CoordinatorsView, Permissions.ReportsView,
                 ]),
             ("Implementing Agency", "AGENCY_ADMIN", BaseRole.AgencyAdmin,
-                "The agency's own login. Adds its coordinators and runs its programs.",
+                "The agency's own login. Raises its programs, adds its coordinators and runs them.",
                 [
                     Permissions.MastersView, Permissions.CurriculumView, Permissions.MaterialsView,
                     Permissions.RolesView,
                     Permissions.UsersView, Permissions.UsersManage, Permissions.UsersStatus,
                     Permissions.CoordinatorsView, Permissions.CoordinatorsManage,
-                    Permissions.ProgramsView, Permissions.ProgramsManage, Permissions.ReportsView,
+                    Permissions.ProgramsView, Permissions.ProgramsCreate, Permissions.ProgramsManage,
+                    Permissions.ReportsView,
                 ]),
             ("Coordinator", "COORDINATOR", BaseRole.Coordinator,
                 "Captures programs conducted physically or virtually and marks attendance.",

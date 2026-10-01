@@ -78,7 +78,10 @@ const COLUMNS: ColumnDef[] = [
           </div>
           <div class="field">
             <label class="field-label" for="apqCategory">Category</label>
-            <select id="apqCategory" class="select" (change)="list.setFilter('categoryId', value($event))">
+            <select id="apqCategory" class="select"
+              [value]="list.stagedValue('categoryId')"
+              (change)="list.stageFilter('categoryId', value($event))"
+            >
               <option value="">All categories</option>
               @for (category of categories(); track category.id) {
                 <option [value]="category.id">{{ category.name }}</option>
@@ -87,7 +90,10 @@ const COLUMNS: ColumnDef[] = [
           </div>
           <div class="field">
             <label class="field-label" for="apqProgramType">Program type</label>
-            <select id="apqProgramType" class="select" (change)="list.setFilter('programTypeId', value($event))">
+            <select id="apqProgramType" class="select"
+              [value]="list.stagedValue('programTypeId')"
+              (change)="list.stageFilter('programTypeId', value($event))"
+            >
               <option value="">All program types</option>
               @for (programType of programTypes(); track programType.id) {
                 <option [value]="programType.id">{{ programType.name }}</option>
@@ -96,7 +102,10 @@ const COLUMNS: ColumnDef[] = [
           </div>
           <div class="field">
             <label class="field-label" for="apqState">State/UT</label>
-            <select id="apqState" class="select" (change)="list.setFilter('state', value($event))">
+            <select id="apqState" class="select"
+              [value]="list.stagedValue('state')"
+              (change)="list.stageFilter('state', value($event))"
+            >
               <option value="">All states/UTs</option>
               @for (state of states(); track state.id) {
                 <option [value]="state.name">{{ state.name }}</option>
@@ -113,6 +122,9 @@ const COLUMNS: ColumnDef[] = [
             </select>
           </div>
           <div class="filter-bar__actions">
+            <button type="button" class="btn btn--primary" (click)="list.applyFilters()">
+              <app-icon name="filter" [size]="15" /> Apply
+            </button>
             <button type="button" class="btn btn--ghost" (click)="list.clearFilters()">
               <app-icon name="refresh" [size]="15" /> Reset
             </button>

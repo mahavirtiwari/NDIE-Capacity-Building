@@ -41,6 +41,22 @@ public static class Permissions
     public const string ApplicationsScrutinise = "applications.scrutinise";
 
     public const string ProgramsView = "programs.view";
+
+    /// <summary>
+    /// Raise a new batch. Held apart from running one, because they are
+    /// different jobs done by different tiers: an implementing agency
+    /// proposes a batch and the operation manager above it decides whether
+    /// it may run. Super Admin owns the masters and the portal and does not
+    /// hold this, so a batch has an agency behind it from the moment it
+    /// exists rather than appearing from the top of the system with nobody
+    /// accountable for delivering it.
+    /// </summary>
+    public const string ProgramsCreate = "programs.create";
+
+    /// <summary>
+    /// Run a batch that exists: accept its permission, close registrations,
+    /// set the exam time, record sessions and attendance, enrol.
+    /// </summary>
     public const string ProgramsManage = "programs.manage";
 
     public const string CoordinatorsView = "coordinators.view";
@@ -69,13 +85,37 @@ public static class Permissions
         UsersView, UsersManage, UsersStatus,
         AgenciesView, AgenciesManage,
         ApplicationsView, ApplicationsScrutinise,
-        ProgramsView, ProgramsManage,
+        ProgramsView, ProgramsCreate, ProgramsManage,
         CoordinatorsView, CoordinatorsManage,
         ReportsView,
         ProfessionalsView,
         TrainersView,
         TrainersManage,
         SettingsManage,
+    ];
+
+    /// <summary>
+    /// What the top of the system does not do itself.
+    ///
+    /// Super Admin owns the masters, the roles and the portal, and appoints
+    /// the tier below it. Everything here belongs to a tier that answers to
+    /// somebody: an operation manager empanels agencies, an agency adds its
+    /// coordinators and raises its programs, an admin and its scrutiny
+    /// officers read applications. Holding all of them at the top made the
+    /// chain of accountability decorative - a record could appear with
+    /// nobody below responsible for it, and an approval could be given by
+    /// the same account that asked for it.
+    ///
+    /// Withheld, not removed: every one of these is still in the catalogue
+    /// and can be granted to a custom role from the roles screen.
+    /// </summary>
+    public static readonly IReadOnlyList<string> NotForSuperAdmin =
+    [
+        AgenciesManage,
+        CoordinatorsManage,
+        ProgramsCreate,
+        ProgramsManage,
+        ApplicationsScrutinise,
     ];
 
     /// <summary>Grouped for the roles screen in the portal.</summary>
@@ -89,7 +129,8 @@ public static class Permissions
         ("Operations",
         [
             AgenciesView, AgenciesManage, ApplicationsView, ApplicationsScrutinise,
-            ProgramsView, ProgramsManage, CoordinatorsView, CoordinatorsManage,
+            ProgramsView, ProgramsCreate, ProgramsManage,
+            CoordinatorsView, CoordinatorsManage,
         ]),
         /* Its own group rather than buried in Operations: these are the
            read-only registers somebody is given without being given the

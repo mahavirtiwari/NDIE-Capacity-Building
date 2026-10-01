@@ -59,10 +59,12 @@ public class UsersController(UserService service) : ApiControllerBase
     [HttpGet]
     [HasPermission(Permissions.UsersView)]
     public async Task<ActionResult<ApiEnvelope<PagedResult<PortalUserDto>>>> List(
-        [FromQuery] PagedRequest request, [FromQuery] string? baseRole, [FromQuery] int? roleId,
+        [FromQuery] PagedRequest request, [FromQuery] string? baseRole,
+        [FromQuery] string? excludeBaseRoles, [FromQuery] int? roleId,
         [FromQuery] int? agencyId, [FromQuery] string? state, [FromQuery] string? status,
         CancellationToken ct) =>
-        Envelope(await service.ListAsync(request, baseRole, roleId, agencyId, state, status, ct));
+        Envelope(await service.ListAsync(
+            request, baseRole, roleId, agencyId, state, status, excludeBaseRoles, ct));
 
     [HttpGet("all")]
     [HasPermission(Permissions.UsersView)]
@@ -254,8 +256,13 @@ public class ProgramsController(ProgrammeService service) : ApiControllerBase
     public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> Get(int id, CancellationToken ct) =>
         Envelope(await service.GetAsync(id, ct));
 
+    /// <summary>
+    /// Raises a batch, which starts New and waits on the operation manager
+    /// for permission. Its own permission, not programs.manage: proposing a
+    /// batch and running one are different jobs held by different tiers.
+    /// </summary>
     [HttpPost]
-    [HasPermission(Permissions.ProgramsManage)]
+    [HasPermission(Permissions.ProgramsCreate)]
     public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> Create(
         [FromBody] ProgrammeUpsertDto dto, CancellationToken ct) =>
         Envelope(await service.CreateAsync(dto, ct), "Program submitted for permission.");

@@ -93,8 +93,9 @@ const STANDINGS: Record<CertificateStanding, { label: string; tone: string }> = 
             <select
               id="qpSubCategory"
               class="select"
-              (change)="list.setFilter('subCategoryId', value($event))"
-            >
+              [value]="list.stagedValue('subCategoryId')"
+              (change)="list.stageFilter('subCategoryId', value($event))"
+              >
               <option value="">All sub-categories</option>
               @for (option of subCategories(); track option.id) {
                 <option [value]="option.id">{{ option.name }}</option>
@@ -106,8 +107,9 @@ const STANDINGS: Record<CertificateStanding, { label: string; tone: string }> = 
             <select
               id="qpType"
               class="select"
-              (change)="list.setFilter('programTypeId', value($event))"
-            >
+              [value]="list.stagedValue('programTypeId')"
+              (change)="list.stageFilter('programTypeId', value($event))"
+              >
               <option value="">All program types</option>
               @for (option of programTypes(); track option.id) {
                 <option [value]="option.id">{{ option.name }}</option>
@@ -117,7 +119,10 @@ const STANDINGS: Record<CertificateStanding, { label: string; tone: string }> = 
 
           <div class="field">
             <label class="field-label" for="qpState">State/UT</label>
-            <select id="qpState" class="select" (change)="list.setFilter('stateCode', value($event))">
+            <select id="qpState" class="select"
+              [value]="list.stagedValue('stateCode')"
+              (change)="list.stageFilter('stateCode', value($event))"
+            >
               <option value="">All states/UTs</option>
               @for (option of states(); track option.id) {
                 <option [value]="option.id">{{ option.name }}</option>
@@ -133,21 +138,26 @@ const STANDINGS: Record<CertificateStanding, { label: string; tone: string }> = 
                 class="input"
                 type="date"
                 aria-label="Qualified from"
-                (change)="list.setFilter('qualifiedFrom', value($event))"
-              />
+                [value]="list.stagedValue('qualifiedFrom')"
+                (change)="list.stageFilter('qualifiedFrom', value($event))"
+                />
               <span class="field-range__dash">&ndash;</span>
               <input
                 id="qpTo"
                 class="input"
                 type="date"
                 aria-label="Qualified to"
-                (change)="list.setFilter('qualifiedTo', value($event))"
-              />
+                [value]="list.stagedValue('qualifiedTo')"
+                (change)="list.stageFilter('qualifiedTo', value($event))"
+                />
             </div>
           </div>
           <div class="field">
             <label class="field-label" for="qpStanding">Standing</label>
-            <select id="qpStanding" class="select" (change)="list.setFilter('standing', value($event))">
+            <select id="qpStanding" class="select"
+              [value]="list.stagedValue('standing')"
+              (change)="list.stageFilter('standing', value($event))"
+            >
               <option value="">All</option>
               <option value="Valid">Valid</option>
               <option value="Expiring">Expiring within 90 days</option>
@@ -157,11 +167,14 @@ const STANDINGS: Record<CertificateStanding, { label: string; tone: string }> = 
             </select>
           </div>
 
-          @if (list.hasFilters) {
+          <div class="filter-bar__actions">
+            <button type="button" class="btn btn--primary" (click)="list.applyFilters()">
+              <app-icon name="filter" [size]="15" /> Apply
+            </button>
             <button type="button" class="btn btn--ghost" (click)="list.clearFilters()">
               <app-icon name="refresh" [size]="15" /> Reset
             </button>
-          }
+          </div>
         </div>
       </div>
 

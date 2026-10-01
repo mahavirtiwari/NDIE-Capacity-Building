@@ -64,9 +64,13 @@
   justify-content: flex-end;
 }
 
+/* The column a row is identified by - a name, a code, a title.
+   Distinguished from the cells around it, not shouted: 600 on the darkest
+   ink made a wall of near-black bold down the left of every table, which
+   read as emphasis on everything and therefore on nothing. */
 .table .cell-primary {
-  font-weight: 600;
-  color: var(--ink-900);
+  font-weight: 500;
+  color: var(--ink-800);
 }
 
 /* The first column of a row, where it opens the record.

@@ -128,13 +128,19 @@ function blankField(): ProfileField {
           </div>
           <div class="field">
             <label class="field-label" for="rfStatus">Status</label>
-            <select id="rfStatus" class="select" (change)="list.setFilter('status', value($event))">
+            <select id="rfStatus" class="select"
+              [value]="list.stagedValue('status')"
+              (change)="list.stageFilter('status', value($event))"
+            >
               <option value="">All</option>
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
           </div>
           <div class="filter-bar__actions">
+            <button type="button" class="btn btn--primary" (click)="list.applyFilters()">
+              <app-icon name="filter" [size]="15" /> Apply
+            </button>
             <button type="button" class="btn btn--ghost" (click)="resetFilters()">
               <app-icon name="refresh" [size]="15" /> Reset
             </button>

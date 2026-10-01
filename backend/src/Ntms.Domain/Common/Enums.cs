@@ -223,10 +223,19 @@ public enum ScrutinyAction
     Comment = 7,
 }
 
+/// <summary>
+/// How a batch is delivered.
+///
+/// Hybrid is both at once rather than a third thing: the room is real and
+/// so is the meeting link, and people attend through whichever suits them.
+/// It therefore carries a venue and a joining link together, which is what
+/// distinguishes it from the other two.
+/// </summary>
 public enum ProgramMode
 {
     Physical = 1,
     Virtual = 2,
+    Hybrid = 3,
 }
 
 /// <summary>Lifecycle of a batch on the programmes register.</summary>

@@ -29,6 +29,10 @@ const COLUMNS: ColumnDef[] = [
   { key: 'name', header: 'Agency', sortable: true, variant: 'primary' },
   { key: 'agencyType', header: 'Type', width: '170px' },
   { key: 'contact', header: 'Contact person', width: '230px' },
+  /* The agency's own login. It used to be findable only in the portal
+     users register, which listed it beside admins and operation managers
+     and made that one list of four unrelated kinds of account. */
+  { key: 'login', header: 'Login', width: '190px' },
   { key: 'location', header: 'Location', width: '190px' },
   { key: 'mapping', header: 'Empanelled for', width: '210px' },
   { key: 'empanelmentValidTill', header: 'Valid till', width: '130px' },
@@ -78,7 +82,10 @@ const COLUMNS: ColumnDef[] = [
           </div>
           <div class="field">
             <label class="field-label" for="agType">Agency type</label>
-            <select id="agType" class="select" (change)="list.setFilter('agencyType', value($event))">
+            <select id="agType" class="select"
+              [value]="list.stagedValue('agencyType')"
+              (change)="list.stageFilter('agencyType', value($event))"
+            >
               <option value="">All types</option>
               @for (type of agencyTypes; track type) {
                 <option [value]="type">{{ type }}</option>
@@ -88,7 +95,10 @@ const COLUMNS: ColumnDef[] = [
           <app-master-filter [list]="list" programTypeLabel="Program type" #masters />
           <div class="field">
             <label class="field-label" for="agState">State/UT</label>
-            <select id="agState" class="select" (change)="list.setFilter('state', value($event))">
+            <select id="agState" class="select"
+              [value]="list.stagedValue('state')"
+              (change)="list.stageFilter('state', value($event))"
+            >
               <option value="">All states/UTs</option>
               @for (state of states(); track state.id) {
                 <option [value]="state.name">{{ state.name }}</option>
@@ -97,13 +107,19 @@ const COLUMNS: ColumnDef[] = [
           </div>
           <div class="field">
             <label class="field-label" for="agStatus">Status</label>
-            <select id="agStatus" class="select" (change)="list.setFilter('status', value($event))">
+            <select id="agStatus" class="select"
+              [value]="list.stagedValue('status')"
+              (change)="list.stageFilter('status', value($event))"
+            >
               <option value="">All</option>
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
           </div>
           <div class="filter-bar__actions">
+            <button type="button" class="btn btn--primary" (click)="list.applyFilters()">
+              <app-icon name="filter" [size]="15" /> Apply
+            </button>
             <button type="button" class="btn btn--ghost" (click)="masters.clear(); list.clearFilters()">
               <app-icon name="refresh" [size]="15" /> Reset
             </button>
@@ -134,6 +150,23 @@ const COLUMNS: ColumnDef[] = [
             <span class="cell-muted">{{ $any(row).email }}</span>
             <span class="cell-muted">{{ $any(row).mobile }}</span>
           </div>
+        </ng-template>
+        <ng-template appCell="login" let-row>
+          @if ($any(row).loginUserCode) {
+            <div class="stack stack-xs">
+              <span class="text-sm">{{ $any(row).loginUserCode }}</span>
+              <app-status-badge [value]="$any(row).loginStatus" />
+              <span class="cell-muted">
+                {{
+                  $any(row).loginLastSeenOn
+                    ? ($any(row).loginLastSeenOn | date: 'dd MMM, HH:mm')
+                    : 'Never signed in'
+                }}
+              </span>
+            </div>
+          } @else {
+            <span class="cell-muted">No login yet</span>
+          }
         </ng-template>
         <ng-template appCell="location" let-row>
           <div class="stack stack-xs">

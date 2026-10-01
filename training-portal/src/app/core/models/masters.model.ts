@@ -250,6 +250,17 @@ export interface ImplementingAgency extends AuditInfo {
   stateCodes: number[];
   empanelledOn: string;
   empanelmentValidTill: string;
+
+  /**
+   * The agency's own login, shown on this screen because this is where
+   * somebody comes looking for it. Absent where the agency is empanelled
+   * but has no login yet.
+   */
+  loginUserCode?: string | null;
+  loginEmail?: string | null;
+  loginStatus?: RecordStatus | null;
+  loginLastSeenOn?: string | null;
+
   status: RecordStatus;
   /**
    * Whether this account may change the record. Decided on the server: an

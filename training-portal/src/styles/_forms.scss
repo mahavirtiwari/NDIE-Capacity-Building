@@ -186,20 +186,43 @@
   .field--span-2 { grid-column: auto; }
 }
 
-.filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: flex-end;
+/*
+ * Every filter bar on every screen, laid out the same way.
+ *
+ * There were three of these - a wrapping flex row, a no-wrap inline row
+ * and a four-column grid - and which one a screen used was down to
+ * whoever built it. The result was a search box that spanned half the
+ * page on one screen and sat in a narrow column on the next, and
+ * dropdowns of four different widths depending on how many filters
+ * happened to be beside them.
+ *
+ * One grid, four columns, every control one cell wide. A screen with
+ * three filters and a screen with seven now agree about how wide a
+ * dropdown is, and a filter never lands in a different place because
+ * the one before it was long. The two modifier classes are kept as
+ * aliases so no template has to be edited to get this.
+ */
+.filter-bar,
+.filter-bar--inline,
+.filter-bar--two-rows {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: end;
+  gap: 0.7rem 0.9rem;
 }
 
-.filter-bar .field { min-width: 180px; }
-.filter-bar .field--search { min-width: 260px; flex: 1; }
+.filter-bar .field { min-width: 0; }
 
-/* A from/to pair is one filter, so it occupies one slot in the bar. Two
-   separate fields wrap independently, which is how a Start date can end up
-   on one row with its End date on the next. */
-.filter-bar .field--range { min-width: 320px; }
+/* Two cells, on every screen. A search box takes a sentence rather than
+   a word - "name, applicant ID, mobile or certificate number" - and one
+   cell truncates the placeholder before the reader learns what is
+   searchable. Two everywhere is still uniform; it is just a wider unit. */
+.filter-bar .field--search { grid-column: span 2; }
+
+/* A from/to pair is one filter but holds two controls, so it takes the
+   same two cells the search box does rather than cramming a date either
+   side of a dash in the width of a dropdown. */
+.filter-bar .field--range { grid-column: span 2; }
 
 .field--range .field-range__inputs {
   display: flex;
@@ -210,68 +233,32 @@
 .field--range .field-range__inputs .input { min-width: 0; flex: 1; }
 .field--range .field-range__dash { color: var(--ink-500); }
 
-/* Those floors are wider than a small phone's content box, so drop them. */
-@media (max-width: 480px) {
-  .filter-bar { gap: 0.6rem; }
-  .filter-bar .field,
-  .filter-bar .field--search { min-width: 0; flex: 1 1 100%; }
-}
-
-/*
- * One line, however many filters there are: each field shares the row equally
- * and the actions take only the width they need. Below the breakpoint it wraps
- * rather than squeezing the controls past legibility.
- */
-.filter-bar--inline {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0.75rem;
-  align-items: flex-end;
-}
-
-.filter-bar--inline .field,
-.filter-bar--inline .field--search {
-  min-width: 0;
-  flex: 1 1 0;
-}
-
-.filter-bar--inline .filter-bar__actions {
-  flex: 0 0 auto;
+/* Apply and Reset, always together and always at the end of the row. */
+.filter-bar__actions {
   display: flex;
   gap: 0.5rem;
   align-items: center;
 }
 
-@media (max-width: 1180px) {
-  .filter-bar--inline { flex-wrap: wrap; }
-  .filter-bar--inline .field,
-  .filter-bar--inline .field--search { flex: 1 1 200px; }
-}
-
-/* Fixed four-column grid so a filter set never spills past two rows. */
-.filter-bar--two-rows {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  align-items: end;
-  gap: 0.7rem 0.9rem;
-}
-
-.filter-bar--two-rows .field { min-width: 0; }
-
-.filter-bar--two-rows .filter-bar__actions {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
+/* Fewer columns as the window narrows, and the wide fields give up their
+   second cell before anything is squeezed past legibility. */
 @media (max-width: 1280px) {
+  .filter-bar,
+  .filter-bar--inline,
   .filter-bar--two-rows { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 820px) {
+  .filter-bar,
+  .filter-bar--inline,
   .filter-bar--two-rows { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 520px) {
+  .filter-bar,
+  .filter-bar--inline,
   .filter-bar--two-rows { grid-template-columns: minmax(0, 1fr); }
+
+  .filter-bar .field--search,
+  .filter-bar .field--range { grid-column: span 1; }
 }

@@ -37,7 +37,7 @@ export type Permission =
   | 'agencies.view' | 'agencies.manage'
   | 'users.view' | 'users.manage' | 'users.status'
   | 'applications.view' | 'applications.scrutinise'
-  | 'programs.view' | 'programs.manage'
+  | 'programs.view' | 'programs.create' | 'programs.manage'
   | 'coordinators.view' | 'coordinators.manage'
   | 'reports.view'
   | 'professionals.view'
@@ -93,7 +93,11 @@ export const PERMISSION_CATALOGUE: PermissionGroup[] = [
       { key: 'applications.view', label: 'View applications' },
       { key: 'applications.scrutinise', label: 'Scrutinise / approve applications' },
       { key: 'programs.view', label: 'View programs' },
-      { key: 'programs.manage', label: 'Manage programs & attendance' },
+      /* Raising a batch is the implementing agency's job; permitting and
+         running it belongs to the tier above. Two permissions, because
+         they are two jobs. */
+      { key: 'programs.create', label: 'Raise a new program' },
+      { key: 'programs.manage', label: 'Permit & run programs, attendance' },
       { key: 'coordinators.view', label: 'View coordinators' },
       { key: 'coordinators.manage', label: 'Manage coordinators' },
     ],

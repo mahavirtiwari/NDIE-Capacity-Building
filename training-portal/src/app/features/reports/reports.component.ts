@@ -91,7 +91,10 @@ const COLUMNS: ColumnDef[] = [
 
           <div class="field">
             <label class="field-label" for="rpType">Program type</label>
-            <select id="rpType" class="select" (change)="list.setFilter('programTypeId', value($event))">
+            <select id="rpType" class="select"
+              [value]="list.stagedValue('programTypeId')"
+              (change)="list.stageFilter('programTypeId', value($event))"
+            >
               <option value="">All program types</option>
               @for (option of programTypes(); track option.id) {
                 <option [value]="option.id">{{ option.name }}</option>
@@ -101,7 +104,10 @@ const COLUMNS: ColumnDef[] = [
 
           <div class="field">
             <label class="field-label" for="rpAgency">Agency</label>
-            <select id="rpAgency" class="select" (change)="list.setFilter('agencyId', value($event))">
+            <select id="rpAgency" class="select"
+              [value]="list.stagedValue('agencyId')"
+              (change)="list.stageFilter('agencyId', value($event))"
+            >
               <option value="">All agencies</option>
               @for (option of agencies(); track option.id) {
                 <option [value]="option.id">{{ option.name }}</option>
@@ -111,7 +117,10 @@ const COLUMNS: ColumnDef[] = [
 
           <div class="field">
             <label class="field-label" for="rpState">State/UT</label>
-            <select id="rpState" class="select" (change)="list.setFilter('stateCode', value($event))">
+            <select id="rpState" class="select"
+              [value]="list.stagedValue('stateCode')"
+              (change)="list.stageFilter('stateCode', value($event))"
+            >
               <option value="">All states/UTs</option>
               @for (option of states(); track option.id) {
                 <option [value]="option.id">{{ option.name }}</option>
@@ -121,19 +130,28 @@ const COLUMNS: ColumnDef[] = [
 
           <div class="field">
             <label class="field-label" for="rpFrom">From</label>
-            <input id="rpFrom" type="date" class="input" (change)="list.setFilter('from', value($event))" />
+            <input id="rpFrom" type="date" class="input"
+              [value]="list.stagedValue('from')"
+              (change)="list.stageFilter('from', value($event))"
+            />
           </div>
 
           <div class="field">
             <label class="field-label" for="rpTo">To</label>
-            <input id="rpTo" type="date" class="input" (change)="list.setFilter('to', value($event))" />
+            <input id="rpTo" type="date" class="input"
+              [value]="list.stagedValue('to')"
+              (change)="list.stageFilter('to', value($event))"
+            />
           </div>
 
-          @if (list.hasFilters) {
+          <div class="filter-bar__actions">
+            <button type="button" class="btn btn--primary" (click)="list.applyFilters()">
+              <app-icon name="filter" [size]="15" /> Apply
+            </button>
             <button type="button" class="btn btn--ghost" (click)="list.clearFilters()">
               <app-icon name="refresh" [size]="15" /> Reset
             </button>
-          }
+          </div>
         </div>
       </div>
 

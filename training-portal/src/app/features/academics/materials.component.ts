@@ -83,7 +83,10 @@ const KIND_ICONS: Record<string, IconName> = {
           </div>
           <div class="field">
             <label class="field-label" for="matKind">Type</label>
-            <select id="matKind" class="select" (change)="list.setFilter('kind', value($event))">
+            <select id="matKind" class="select"
+              [value]="list.stagedValue('kind')"
+              (change)="list.stageFilter('kind', value($event))"
+            >
               <option value="">All types</option>
               @for (kind of kinds; track kind) {
                 <option [value]="kind">{{ kind }}</option>
@@ -92,7 +95,10 @@ const KIND_ICONS: Record<string, IconName> = {
           </div>
           <div class="field">
             <label class="field-label" for="matRole">Visible to role</label>
-            <select id="matRole" class="select" (change)="list.setFilter('visibleToRoles', value($event))">
+            <select id="matRole" class="select"
+              [value]="list.stagedValue('visibleToRoles')"
+              (change)="list.stageFilter('visibleToRoles', value($event))"
+            >
               <option value="">Any role</option>
               @for (role of roleOptions; track role) {
                 <option [value]="role">{{ roleLabels[role] }}</option>
@@ -101,17 +107,23 @@ const KIND_ICONS: Record<string, IconName> = {
           </div>
           <div class="field">
             <label class="field-label" for="matStatus">Status</label>
-            <select id="matStatus" class="select" (change)="list.setFilter('status', value($event))">
+            <select id="matStatus" class="select"
+              [value]="list.stagedValue('status')"
+              (change)="list.stageFilter('status', value($event))"
+            >
               <option value="">All</option>
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
           </div>
-          @if (list.hasFilters) {
+          <div class="filter-bar__actions">
+            <button type="button" class="btn btn--primary" (click)="list.applyFilters()">
+              <app-icon name="filter" [size]="15" /> Apply
+            </button>
             <button type="button" class="btn btn--ghost" (click)="list.clearFilters()">
               <app-icon name="refresh" [size]="15" /> Reset
             </button>
-          }
+          </div>
         </div>
       </div>
 

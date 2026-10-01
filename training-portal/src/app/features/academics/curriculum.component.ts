@@ -107,6 +107,9 @@ const COLUMNS: ColumnDef[] = [
             </div>
           </div>
           <div class="filter-bar__actions">
+            <button type="button" class="btn btn--primary" (click)="list.applyFilters()">
+              <app-icon name="filter" [size]="15" /> Apply
+            </button>
             <button type="button" class="btn btn--ghost" (click)="reset()">
               <app-icon name="refresh" [size]="15" /> Reset
             </button>

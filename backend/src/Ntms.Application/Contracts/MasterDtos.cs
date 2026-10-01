@@ -265,6 +265,19 @@ public class AgencyDto : AuditDto
     public List<int> StateCodes { get; set; } = [];
 
     /// <summary>
+    /// The agency's own login, shown here because this is where somebody
+    /// comes looking for it. It used to appear only in the portal users
+    /// register, alongside admins and operation managers, which made that
+    /// one list of four unrelated kinds of account.
+    ///
+    /// Null where the agency has been empanelled but has no login yet.
+    /// </summary>
+    public string? LoginUserCode { get; set; }
+    public string? LoginEmail { get; set; }
+    public string? LoginStatus { get; set; }
+    public DateTime? LoginLastSeenOn { get; set; }
+
+    /// <summary>
     /// Whether the caller may change this record. Decided on the server and
     /// sent, rather than worked out again in the browser: the two would drift,
     /// and the one that matters is this one. False still allows viewing and

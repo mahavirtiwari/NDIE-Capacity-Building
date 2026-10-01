@@ -67,7 +67,10 @@ const COLUMNS: ColumnDef[] = [
           </div>
           <div class="field">
             <label class="field-label" for="apCategory">Category</label>
-            <select id="apCategory" class="select" (change)="list.setFilter('categoryId', value($event))">
+            <select id="apCategory" class="select"
+              [value]="list.stagedValue('categoryId')"
+              (change)="list.stageFilter('categoryId', value($event))"
+            >
               <option value="">All categories</option>
               @for (category of categories(); track category.id) {
                 <option [value]="category.id">{{ category.name }}</option>
@@ -76,7 +79,10 @@ const COLUMNS: ColumnDef[] = [
           </div>
           <div class="field">
             <label class="field-label" for="apState">State/UT</label>
-            <select id="apState" class="select" (change)="list.setFilter('state', value($event))">
+            <select id="apState" class="select"
+              [value]="list.stagedValue('state')"
+              (change)="list.stageFilter('state', value($event))"
+            >
               <option value="">All states/UTs</option>
               @for (state of states(); track state.id) {
                 <option [value]="state.name">{{ state.name }}</option>
@@ -85,7 +91,10 @@ const COLUMNS: ColumnDef[] = [
           </div>
           <div class="field">
             <label class="field-label" for="apStanding">Status</label>
-            <select id="apStanding" class="select" (change)="list.setFilter('standing', value($event))">
+            <select id="apStanding" class="select"
+              [value]="list.stagedValue('standing')"
+              (change)="list.stageFilter('standing', value($event))"
+            >
               <option value="">All</option>
               @for (option of standings; track option.value) {
                 <option [value]="option.value">{{ option.label }}</option>
@@ -104,27 +113,35 @@ const COLUMNS: ColumnDef[] = [
                 class="input"
                 type="date"
                 aria-label="Registered from"
-                (change)="list.setFilter('registeredFrom', value($event))"
-              />
+                [value]="list.stagedValue('registeredFrom')"
+                (change)="list.stageFilter('registeredFrom', value($event))"
+                />
               <span class="field-range__dash">&ndash;</span>
               <input
                 id="apTo"
                 class="input"
                 type="date"
                 aria-label="Registered to"
-                (change)="list.setFilter('registeredTo', value($event))"
-              />
+                [value]="list.stagedValue('registeredTo')"
+                (change)="list.stageFilter('registeredTo', value($event))"
+                />
             </div>
           </div>
           <div class="field">
             <label class="field-label" for="apBlocked">Access</label>
-            <select id="apBlocked" class="select" (change)="list.setFilter('isBlocked', value($event))">
+            <select id="apBlocked" class="select"
+              [value]="list.stagedValue('isBlocked')"
+              (change)="list.stageFilter('isBlocked', value($event))"
+            >
               <option value="">All</option>
               <option value="false">Active</option>
               <option value="true">Blocked</option>
             </select>
           </div>
           <div class="filter-bar__actions">
+            <button type="button" class="btn btn--primary" (click)="list.applyFilters()">
+              <app-icon name="filter" [size]="15" /> Apply
+            </button>
             <button type="button" class="btn btn--ghost" (click)="list.clearFilters()">
               <app-icon name="refresh" [size]="15" /> Reset
             </button>

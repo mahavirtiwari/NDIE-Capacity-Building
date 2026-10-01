@@ -113,12 +113,15 @@ public class ProgrammeService(
             CoordinatorId = coordinator.Id,
             OperationManagerId = dto.OperationManagerId ?? coordinator.ReportsToUserId,
             Mode = mode,
+            /* A hybrid batch has a room and a link, so it keeps both. Only
+               a purely virtual one has no venue to record, and only a
+               purely physical one has nothing to join. */
             Venue = mode == ProgramMode.Virtual ? "Virtual" : (dto.Venue ?? string.Empty).Trim(),
             City = mode == ProgramMode.Virtual ? null : dto.City,
             StateCode = dto.StateCode,
             DistrictCode = dto.DistrictCode,
-            MeetingPlatform = mode == ProgramMode.Virtual ? dto.MeetingPlatform : null,
-            MeetingLink = mode == ProgramMode.Virtual ? dto.MeetingLink : null,
+            MeetingPlatform = mode == ProgramMode.Physical ? null : dto.MeetingPlatform,
+            MeetingLink = mode == ProgramMode.Physical ? null : dto.MeetingLink,
             StartDate = dto.StartDate,
             EndDate = dto.EndDate,
             MaxParticipants = dto.MaxParticipants,
@@ -152,8 +155,8 @@ public class ProgrammeService(
         entity.City = mode == ProgramMode.Virtual ? null : dto.City;
         entity.StateCode = dto.StateCode;
         entity.DistrictCode = dto.DistrictCode;
-        entity.MeetingPlatform = mode == ProgramMode.Virtual ? dto.MeetingPlatform : null;
-        entity.MeetingLink = mode == ProgramMode.Virtual ? dto.MeetingLink : null;
+        entity.MeetingPlatform = mode == ProgramMode.Physical ? null : dto.MeetingPlatform;
+        entity.MeetingLink = mode == ProgramMode.Physical ? null : dto.MeetingLink;
         entity.StartDate = dto.StartDate;
         entity.EndDate = dto.EndDate;
         entity.MaxParticipants = dto.MaxParticipants;
@@ -413,11 +416,25 @@ public class ProgrammeService(
         if (dto.MaxParticipants <= 0)
             throw new AppException("Seat capacity must be at least one.");
 
+        /* Hybrid is held to both halves, because it is both: somebody
+           turning up at the door needs an address and somebody joining
+           from their desk needs a platform, and a hybrid batch missing
+           either one fails half its intake on the day. */
         var mode = EnumMaps.ParseEnum(dto.Mode, ProgramMode.Physical);
-        if (mode == ProgramMode.Physical && string.IsNullOrWhiteSpace(dto.Venue))
-            throw new AppException("A physical batch needs a venue.");
-        if (mode == ProgramMode.Virtual && string.IsNullOrWhiteSpace(dto.MeetingPlatform))
-            throw new AppException("A virtual batch needs a meeting platform.");
+
+        if (mode != ProgramMode.Virtual && string.IsNullOrWhiteSpace(dto.Venue))
+        {
+            throw new AppException(mode == ProgramMode.Hybrid
+                ? "A hybrid batch needs a venue as well as a meeting platform."
+                : "A physical batch needs a venue.");
+        }
+
+        if (mode != ProgramMode.Physical && string.IsNullOrWhiteSpace(dto.MeetingPlatform))
+        {
+            throw new AppException(mode == ProgramMode.Hybrid
+                ? "A hybrid batch needs a meeting platform as well as a venue."
+                : "A virtual batch needs a meeting platform.");
+        }
     }
 
     private static TimeOnly ParseTime(string? value, TimeOnly fallback) =>

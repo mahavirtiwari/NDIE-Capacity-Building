@@ -117,18 +117,24 @@ const COLUMNS: ColumnDef[] = [
           </div>
           <div class="field">
             <label class="field-label" for="ptMode">Delivery mode</label>
-            <select id="ptMode" class="select" (change)="list.setFilter('deliveryMode', value($event))">
+            <select id="ptMode" class="select"
+              [value]="list.stagedValue('deliveryMode')"
+              (change)="list.stageFilter('deliveryMode', value($event))"
+            >
               <option value="">All modes</option>
               @for (mode of modes; track mode) {
                 <option [value]="mode">{{ mode }}</option>
               }
             </select>
           </div>
-          @if (list.hasFilters) {
+          <div class="filter-bar__actions">
+            <button type="button" class="btn btn--primary" (click)="list.applyFilters()">
+              <app-icon name="filter" [size]="15" /> Apply
+            </button>
             <button type="button" class="btn btn--ghost" (click)="resetFilters()">
               <app-icon name="refresh" [size]="15" /> Reset
             </button>
-          }
+          </div>
         </div>
       </div>
 

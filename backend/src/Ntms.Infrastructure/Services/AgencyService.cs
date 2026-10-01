@@ -56,7 +56,48 @@ public class AgencyService(
                      || a.ContactPerson.Contains(request.Search!) || a.Email.Contains(request.Search!))
             .ApplySort(request, db.Model.FindEntityType(typeof(ImplementingAgency))!, a => a.Name);
 
-        return await query.ToPagedResultAsync(request, Describe, ct);
+        var page = await query.ToPagedResultAsync(request, Describe, ct);
+        await FillLoginsAsync(page.Items, ct);
+        return page;
+    }
+
+    /// <summary>
+    /// Attaches each agency's own login, in one query for the page rather
+    /// than one per row.
+    /// </summary>
+    private async Task FillLoginsAsync(IReadOnlyList<AgencyDto> rows, CancellationToken ct)
+    {
+        if (rows.Count == 0) return;
+
+        var ids = rows.Select(r => r.Id).ToList();
+
+        var logins = await db.Users.AsNoTracking()
+            .Where(u => u.AgencyId != null && ids.Contains(u.AgencyId.Value)
+                        && u.BaseRole == BaseRole.AgencyAdmin)
+            .Select(u => new
+            {
+                AgencyId = u.AgencyId!.Value,
+                u.UserCode,
+                u.Email,
+                u.Status,
+                u.LastLoginOn,
+            })
+            .ToListAsync(ct);
+
+        /* The first by user code where an agency somehow has two. One is
+           the rule; showing one of them beats showing none. */
+        var byAgency = logins
+            .GroupBy(l => l.AgencyId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(l => l.UserCode).First());
+
+        foreach (var row in rows)
+        {
+            if (!byAgency.TryGetValue(row.Id, out var login)) continue;
+            row.LoginUserCode = login.UserCode;
+            row.LoginEmail = login.Email;
+            row.LoginStatus = login.Status.ToApi();
+            row.LoginLastSeenOn = login.LastLoginOn;
+        }
     }
 
     public async Task<List<AgencyDto>> AllAsync(string? status, CancellationToken ct) =>

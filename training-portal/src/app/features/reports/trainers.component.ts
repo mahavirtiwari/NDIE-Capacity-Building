@@ -83,7 +83,10 @@ const COLUMNS: ColumnDef[] = [
 
           <div class="field">
             <label class="field-label" for="trType">Program type</label>
-            <select id="trType" class="select" (change)="list.setFilter('programTypeId', value($event))">
+            <select id="trType" class="select"
+              [value]="list.stagedValue('programTypeId')"
+              (change)="list.stageFilter('programTypeId', value($event))"
+            >
               <option value="">All program types</option>
               @for (option of programTypes(); track option.id) {
                 <option [value]="option.id">{{ option.name }}</option>
@@ -93,7 +96,10 @@ const COLUMNS: ColumnDef[] = [
 
           <div class="field">
             <label class="field-label" for="trAgency">Agency</label>
-            <select id="trAgency" class="select" (change)="list.setFilter('agencyId', value($event))">
+            <select id="trAgency" class="select"
+              [value]="list.stagedValue('agencyId')"
+              (change)="list.stageFilter('agencyId', value($event))"
+            >
               <option value="">All agencies</option>
               @for (option of agencies(); track option.id) {
                 <option [value]="option.id">{{ option.name }}</option>
@@ -103,7 +109,10 @@ const COLUMNS: ColumnDef[] = [
 
           <div class="field">
             <label class="field-label" for="trState">State/UT</label>
-            <select id="trState" class="select" (change)="list.setFilter('stateCode', value($event))">
+            <select id="trState" class="select"
+              [value]="list.stagedValue('stateCode')"
+              (change)="list.stageFilter('stateCode', value($event))"
+            >
               <option value="">All states/UTs</option>
               @for (option of states(); track option.id) {
                 <option [value]="option.id">{{ option.name }}</option>
@@ -111,11 +120,14 @@ const COLUMNS: ColumnDef[] = [
             </select>
           </div>
 
-          @if (list.hasFilters) {
+          <div class="filter-bar__actions">
+            <button type="button" class="btn btn--primary" (click)="list.applyFilters()">
+              <app-icon name="filter" [size]="15" /> Apply
+            </button>
             <button type="button" class="btn btn--ghost" (click)="list.clearFilters()">
               <app-icon name="refresh" [size]="15" /> Reset
             </button>
-          }
+          </div>
         </div>
       </div>
 

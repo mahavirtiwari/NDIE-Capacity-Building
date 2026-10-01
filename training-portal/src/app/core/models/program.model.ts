@@ -1,7 +1,12 @@
 import { AuditInfo, Id } from './common.model';
 
-export type ProgramMode = 'Physical' | 'Virtual';
-export const PROGRAM_MODES: ProgramMode[] = ['Physical', 'Virtual'];
+/**
+ * How a batch is delivered. Hybrid is both at once rather than a third
+ * thing: the room is real and so is the joining link, so a hybrid batch
+ * carries a venue and a meeting link together.
+ */
+export type ProgramMode = 'Physical' | 'Virtual' | 'Hybrid';
+export const PROGRAM_MODES: ProgramMode[] = ['Physical', 'Virtual', 'Hybrid'];
 
 /** Lifecycle of a programme on the register, mirroring the live workflow. */
 export type ProgramStatus =

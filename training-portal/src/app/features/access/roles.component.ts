@@ -92,18 +92,24 @@ const labelFor = (base: string): string => ROLE_LABELS[base as AppRole] ?? base;
           </div>
           <div class="field">
             <label class="field-label" for="roleBase">Base role</label>
-            <select id="roleBase" class="select" (change)="list.setFilter('baseRole', value($event))">
+            <select id="roleBase" class="select"
+              [value]="list.stagedValue('baseRole')"
+              (change)="list.stageFilter('baseRole', value($event))"
+            >
               <option value="">All</option>
               @for (base of baseRoles; track base) {
                 <option [value]="base">{{ label(base) }}</option>
               }
             </select>
           </div>
-          @if (list.hasFilters) {
+          <div class="filter-bar__actions">
+            <button type="button" class="btn btn--primary" (click)="list.applyFilters()">
+              <app-icon name="filter" [size]="15" /> Apply
+            </button>
             <button type="button" class="btn btn--ghost" (click)="list.clearFilters()">
               <app-icon name="refresh" [size]="15" /> Reset
             </button>
-          }
+          </div>
         </div>
       </div>
 

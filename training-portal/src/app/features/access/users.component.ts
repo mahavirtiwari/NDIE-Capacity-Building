@@ -43,7 +43,9 @@ const COLUMNS: ColumnDef[] = [
   { key: 'fullName', header: 'Name', sortable: true, variant: 'primary' },
   { key: 'roleName', header: 'Role', width: '170px' },
   { key: 'contact', header: 'Contact', width: '230px' },
-  { key: 'scope', header: 'Scope', width: '230px' },
+  /* No Scope column. Two chips counting categories and program types told
+     nobody which ones, so the number could only prompt opening the row to
+     find out - which is where the scope is set and shown in full. */
   { key: 'agencyName', header: 'Agency', variant: 'muted' },
   { key: 'lastLoginOn', header: 'Last login', width: '150px' },
   { key: 'status', header: 'Status', width: '110px' },
@@ -126,7 +128,10 @@ const TIER_DEPTH: Record<string, number> = {
           @if (!isCoordinatorView()) {
             <div class="field">
               <label class="field-label" for="usrRole">Role</label>
-              <select id="usrRole" class="select" (change)="list.setFilter('roleId', value($event))">
+              <select id="usrRole" class="select"
+                [value]="list.stagedValue('roleId')"
+                (change)="list.stageFilter('roleId', value($event))"
+              >
                 <option value="">All roles</option>
                 @for (role of roles(); track role.id) {
                   <option [value]="role.id">{{ role.name }}</option>
@@ -136,7 +141,10 @@ const TIER_DEPTH: Record<string, number> = {
           }
           <div class="field">
             <label class="field-label" for="usrAgency">Agency</label>
-            <select id="usrAgency" class="select" (change)="list.setFilter('agencyId', value($event))">
+            <select id="usrAgency" class="select"
+              [value]="list.stagedValue('agencyId')"
+              (change)="list.stageFilter('agencyId', value($event))"
+            >
               <option value="">All agencies</option>
               @for (agency of agencies(); track agency.id) {
                 <option [value]="agency.id">{{ agency.name }}</option>
@@ -145,7 +153,10 @@ const TIER_DEPTH: Record<string, number> = {
           </div>
           <div class="field">
             <label class="field-label" for="usrState">State/UT</label>
-            <select id="usrState" class="select" (change)="list.setFilter('state', value($event))">
+            <select id="usrState" class="select"
+              [value]="list.stagedValue('state')"
+              (change)="list.stageFilter('state', value($event))"
+            >
               <option value="">All states/UTs</option>
               @for (state of states(); track state.id) {
                 <option [value]="state.name">{{ state.name }}</option>
@@ -154,13 +165,19 @@ const TIER_DEPTH: Record<string, number> = {
           </div>
           <div class="field">
             <label class="field-label" for="usrStatus">Status</label>
-            <select id="usrStatus" class="select" (change)="list.setFilter('status', value($event))">
+            <select id="usrStatus" class="select"
+              [value]="list.stagedValue('status')"
+              (change)="list.stageFilter('status', value($event))"
+            >
               <option value="">All</option>
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
           </div>
           <div class="filter-bar__actions">
+            <button type="button" class="btn btn--primary" (click)="list.applyFilters()">
+              <app-icon name="filter" [size]="15" /> Apply
+            </button>
             <button type="button" class="btn btn--ghost" (click)="reset()">
               <app-icon name="refresh" [size]="15" /> Reset
             </button>
@@ -185,25 +202,16 @@ const TIER_DEPTH: Record<string, number> = {
         (pageSizeChange)="list.setPageSize($event)"
         (sortChange)="list.setSort($event)"
       >
+        <!-- Just the name. The initials disc repeated what was written
+             beside it, and the designation under it turned one line into
+             three and set the height of every row in the table. -->
         <ng-template appCell="fullName" let-row>
-          <div class="row row-sm">
-            <span class="avatar avatar--sm">{{ initials($any(row).fullName) }}</span>
-            <span class="stack stack-xs">
-              <strong>{{ $any(row).fullName }}</strong>
-              <span class="cell-muted">{{ $any(row).designation }}</span>
-            </span>
-          </div>
+          {{ $any(row).fullName }}
         </ng-template>
         <ng-template appCell="contact" let-row>
           <div class="stack stack-xs">
             <span>{{ $any(row).email }}</span>
             <span class="cell-muted">{{ $any(row).mobile }}</span>
-          </div>
-        </ng-template>
-        <ng-template appCell="scope" let-row>
-          <div class="row row-sm row-wrap">
-            <span class="chip">{{ $any(row).categoryIds.length }} categories</span>
-            <span class="chip">{{ $any(row).programTypeIds.length }} program types</span>
           </div>
         </ng-template>
         <ng-template appCell="lastLoginOn" let-row>
@@ -784,7 +792,14 @@ export class UsersComponent {
          on its way to writing them, and tracking that read would make this
          effect retrigger on its own write. */
       const coordinatorsOnly = this.isCoordinatorView();
-      untracked(() => this.list.setFilter('baseRole', coordinatorsOnly ? 'Coordinator' : null));
+      untracked(() => {
+        this.list.setFilter('baseRole', coordinatorsOnly ? 'Coordinator' : null);
+        /* Portal users is the staff register: admins, operation managers
+           and the ministry. An agency login is shown with its agency and a
+           coordinator with its coordinators, so neither is listed twice. */
+        this.list.setFilter(
+          'excludeBaseRoles', coordinatorsOnly ? null : 'Coordinator,AgencyAdmin');
+      });
     });
   }
 

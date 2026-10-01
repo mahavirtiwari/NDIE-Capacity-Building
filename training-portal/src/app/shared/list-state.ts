@@ -1,4 +1,4 @@
-import { signal } from '@angular/core';
+import { computed, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BehaviorSubject, Observable, debounceTime, firstValueFrom, switchMap } from 'rxjs';
 import { PagedRequest, PagedResult } from '../core/models';
@@ -19,6 +19,23 @@ export class ListState<T> {
   readonly sortBy = signal<string | null>(null);
   readonly sortDir = signal<'asc' | 'desc'>('asc');
   readonly filters = signal<Record<string, unknown>>({});
+
+  /**
+   * Filter choices made on screen but not yet applied.
+   *
+   * Most screens apply a filter the moment it changes, which is right when
+   * there is one dropdown. A screen with several, and a date range among
+   * them, is a different thing: every half-finished choice fires a query,
+   * and a part-typed date narrows the list to nothing before the year has
+   * been reached. Those screens stage their choices here and commit them
+   * together.
+   */
+  readonly staged = signal<Record<string, unknown>>({});
+
+  /** True where a staged choice has not been applied yet. */
+  readonly dirty = computed(
+    () => JSON.stringify(this.staged()) !== JSON.stringify(this.filters()),
+  );
 
   private readonly trigger = new BehaviorSubject<void>(undefined);
 
@@ -143,11 +160,43 @@ export class ListState<T> {
     this.reload();
   }
 
+  /**
+   * Records a choice without running it. Nothing reloads until
+   * {@link applyFilters} is called, so a screen can collect a whole row of
+   * them and ask once.
+   */
+  stageFilter(key: string, value: unknown): void {
+    const current = this.staged();
+    const clearing = value === null || value === undefined || value === '';
+
+    if (clearing ? !(key in current) : current[key] === value) return;
+
+    const next = { ...current };
+    if (clearing) delete next[key];
+    else next[key] = value;
+
+    this.staged.set(next);
+  }
+
+  /** Runs what was staged. Back to page one: page four of the old list. */
+  applyFilters(): void {
+    this.filters.set({ ...this.staged() });
+    this.page.set(1);
+    this.reload();
+  }
+
   clearFilters(): void {
     this.filters.set({});
+    this.staged.set({});
     this.search.set('');
     this.page.set(1);
     this.reload();
+  }
+
+  /** What a staged control should show, so Reset empties the boxes too. */
+  stagedValue(key: string): string {
+    const held = this.staged()[key];
+    return held === null || held === undefined ? '' : String(held);
   }
 
   get hasFilters(): boolean {
