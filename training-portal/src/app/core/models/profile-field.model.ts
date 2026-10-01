@@ -129,6 +129,8 @@ export interface ProfileForm extends AuditInfo {
   categoryId?: Id;
   categoryName?: string;
   version: string;
+  /** False and a submission is accepted as it arrives, with no queue. */
+  requiresScrutiny?: boolean;
   status: RecordStatus;
   sections: ProfileSection[];
 }

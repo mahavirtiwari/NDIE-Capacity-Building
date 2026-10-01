@@ -218,6 +218,23 @@ function blankField(): ProfileField {
               <label class="field-label" for="rfVersion">Version</label>
               <input id="rfVersion" class="input" formControlName="version" />
             </div>
+            <div class="field field--span-2">
+              <label class="check">
+                <input type="checkbox" formControlName="requiresScrutiny" />
+                <span>Read this profile before the programs open</span>
+              </label>
+              <span class="field-hint">
+                @if (headerForm.controls.requiresScrutiny.value) {
+                  A submission joins the scrutiny queue, and the programs under this
+                  sub-category stay shut until somebody accepts it.
+                } @else {
+                  Accepted as it arrives. The applicant fills the form and goes straight on
+                  to apply — for a discipline that asks only for things nobody verifies, a
+                  queue of submissions to rubber-stamp helps no one.
+                }
+              </span>
+            </div>
+
             <div class="field">
               <label class="field-label" for="rfStatusSel">Status</label>
               <select id="rfStatusSel" class="select" formControlName="status">
@@ -803,6 +820,7 @@ export class ProfileFormsComponent {
 
   protected readonly headerForm = this.fb.group({
     subCategoryId: [null as number | null, Validators.required],
+    requiresScrutiny: [true],
     version: ['v1.0'],
     status: ['Active'],
   });
@@ -1063,6 +1081,7 @@ export class ProfileFormsComponent {
     this.builderTab.set('design');
     this.headerForm.reset({
       subCategoryId: row?.subCategoryId ?? null,
+      requiresScrutiny: row?.requiresScrutiny ?? true,
       version: row?.version ?? 'v1.0',
       status: row?.status ?? 'Active',
     });
@@ -1123,6 +1142,7 @@ export class ProfileFormsComponent {
     const raw = this.headerForm.getRawValue();
     const payload = {
       subCategoryId: raw.subCategoryId,
+      requiresScrutiny: raw.requiresScrutiny,
       version: raw.version,
       status: raw.status,
       sections: this.sections().map((section, si) => ({

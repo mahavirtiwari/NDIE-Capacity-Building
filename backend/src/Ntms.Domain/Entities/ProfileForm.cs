@@ -22,6 +22,22 @@ public class ProfileForm : AuditableStatusEntity
 
     public string Version { get; set; } = "v1.0";
 
+    /// <summary>
+    /// Whether what is declared on this form is read before the programs
+    /// open.
+    ///
+    /// On, a submission joins the scrutiny queue and the discipline stays
+    /// shut until somebody accepts it. Off, it is accepted as it arrives
+    /// and the applicant goes straight on to apply — for a discipline that
+    /// asks only for things nobody needs to verify, a queue of submissions
+    /// to rubber-stamp helps no one.
+    ///
+    /// Everything else holds either way: the form is still filled in, the
+    /// answers are still kept, and the attempt limit still applies to a
+    /// form that is scrutinised and rejected.
+    /// </summary>
+    public bool RequiresScrutiny { get; set; } = true;
+
     public ICollection<ProfileSection> Sections { get; set; } = [];
 }
 

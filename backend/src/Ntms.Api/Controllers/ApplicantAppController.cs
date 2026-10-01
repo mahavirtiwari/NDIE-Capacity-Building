@@ -236,10 +236,17 @@ public class ApplicantAppController(
     /// <summary>Sends the profile for scrutiny, as a fresh attempt.</summary>
     [HttpPost("profile-submission")]
     public async Task<ActionResult<ApiEnvelope<ProfileStandingDto>>> SubmitProfile(
-        [FromBody] ProfileSubmitDto dto, CancellationToken ct) =>
-        Envelope(
-            await profile.SubmitAsync(ApplicantId, dto.Responses, ct),
-            "Your profile has been sent for scrutiny.");
+        [FromBody] ProfileSubmitDto dto, CancellationToken ct)
+    {
+        var standing = await profile.SubmitAsync(ApplicantId, dto.Responses, ct);
+
+        /* The message has to match what actually happened: a form that is
+           not scrutinised is accepted on the spot, and telling that
+           applicant to wait for an outcome would be a lie. */
+        return Envelope(standing, standing.Cleared
+            ? "Your profile is complete. The programs open to you are ready."
+            : "Your profile has been sent for scrutiny.");
+    }
 
     /// <summary>The fee payable for one programme today.</summary>
     [HttpGet("programs/{programTypeId:int}/fee")]

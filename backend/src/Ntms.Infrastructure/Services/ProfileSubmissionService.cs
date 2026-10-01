@@ -148,6 +148,8 @@ public class ProfileSubmissionService(NtmsDbContext db, ProfileFormService forms
                    ?? throw new AppException(
                        "No profile form has been published for your sub-category yet.");
 
+        var now = DateTime.UtcNow;
+
         var submission = new ProfileSubmission
         {
             ApplicantId = applicantId,
@@ -155,8 +157,15 @@ public class ProfileSubmissionService(NtmsDbContext db, ProfileFormService forms
             ProfileFormId = form.Id,
             AttemptNo = (latest?.AttemptNo ?? 0) + 1,
             Responses = JsonSerializer.Serialize(responses),
-            Status = ProfileSubmissionStatus.Submitted,
-            SubmittedOn = DateTime.UtcNow,
+            /* A form nobody reads is accepted as it arrives. Queuing it
+               would be a queue of submissions to rubber-stamp, and the
+               applicant would wait for somebody to do nothing. */
+            Status = form.RequiresScrutiny
+                ? ProfileSubmissionStatus.Submitted
+                : ProfileSubmissionStatus.Approved,
+            SubmittedOn = now,
+            DecidedOn = form.RequiresScrutiny ? null : now,
+            DecidedByUserName = form.RequiresScrutiny ? null : "Not scrutinised",
         };
 
         submission.History.Add(new ProfileScrutinyEvent
@@ -164,8 +173,24 @@ public class ProfileSubmissionService(NtmsDbContext db, ProfileFormService forms
             Action = ScrutinyAction.Submitted,
             ByUserName = applicant.FullName,
             ByRole = "Applicant",
-            On = submission.SubmittedOn.Value,
+            On = now,
         });
+
+        /* Written down rather than left implicit. Somebody reading this a
+           year later needs to see why it was never on a queue, and "the
+           form asks for no scrutiny" is the answer — not an omission by
+           whoever was on it. */
+        if (!form.RequiresScrutiny)
+        {
+            submission.History.Add(new ProfileScrutinyEvent
+            {
+                Action = ScrutinyAction.Approved,
+                ByUserName = "System",
+                ByRole = "System",
+                On = now,
+                Remarks = "This sub-category's profile form is not scrutinised.",
+            });
+        }
 
         db.ProfileSubmissions.Add(submission);
         await db.SaveChangesAsync(ct);

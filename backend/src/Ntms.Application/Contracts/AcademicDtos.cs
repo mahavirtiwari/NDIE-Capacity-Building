@@ -136,6 +136,9 @@ public class ProfileFormDto : AuditDto
     public int? CategoryId { get; set; }
     public string? CategoryName { get; set; }
     public string Version { get; set; } = "v1.0";
+
+    /// <summary>False and a submission is accepted as it arrives.</summary>
+    public bool RequiresScrutiny { get; set; } = true;
     public string Status { get; set; } = "Active";
     public List<ProfileSectionDto> Sections { get; set; } = [];
 }
@@ -144,6 +147,7 @@ public class ProfileFormUpsertDto
 {
     public int SubCategoryId { get; set; }
     public string Version { get; set; } = "v1.0";
+    public bool RequiresScrutiny { get; set; } = true;
     public string Status { get; set; } = "Active";
     public List<ProfileSectionDto> Sections { get; set; } = [];
 }

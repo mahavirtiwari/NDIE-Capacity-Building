@@ -85,6 +85,7 @@ public class ProfileFormService(NtmsDbContext db)
         {
             SubCategoryId = dto.SubCategoryId,
             Version = dto.Version,
+            RequiresScrutiny = dto.RequiresScrutiny,
             Status = EnumMaps.ToStatus(dto.Status),
         };
         BuildSections(entity, dto.Sections);
@@ -106,6 +107,7 @@ public class ProfileFormService(NtmsDbContext db)
         Validate(dto.Sections);
 
         entity.SubCategoryId = dto.SubCategoryId;
+        entity.RequiresScrutiny = dto.RequiresScrutiny;
         entity.Version = dto.Version;
         entity.Status = EnumMaps.ToStatus(dto.Status);
 
@@ -144,6 +146,7 @@ public class ProfileFormService(NtmsDbContext db)
         {
             SubCategoryId = dto.TargetSubCategoryId,
             Version = dto.Version,
+            RequiresScrutiny = source.RequiresScrutiny,
             Status = RecordStatus.Active,
         };
 

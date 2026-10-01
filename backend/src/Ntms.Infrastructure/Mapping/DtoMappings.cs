@@ -249,6 +249,7 @@ public static class DtoMappings
             CategoryId = e.SubCategory?.CategoryId,
             CategoryName = e.SubCategory?.Category?.Name,
             Version = e.Version,
+            RequiresScrutiny = e.RequiresScrutiny,
             Status = e.Status.ToApi(),
             Sections =
             [
