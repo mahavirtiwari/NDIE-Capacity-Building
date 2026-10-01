@@ -106,6 +106,11 @@ public class DbSeeder(
                     Permissions.ExamsView, Permissions.MaterialsView, Permissions.AgenciesView,
                     Permissions.UsersView, Permissions.ApplicationsView, Permissions.ProgramsView,
                     Permissions.CoordinatorsView, Permissions.ReportsView,
+                    /* The two read-only registers. They were added to the
+                       catalogue after this list was written, which is the
+                       only reason an account described as seeing the whole
+                       program could not open either of them. */
+                    Permissions.ProfessionalsView, Permissions.TrainersView,
                 ]),
             ("Admin", "ADMIN", BaseRole.Admin,
                 "Appoints Operation Managers within allocated categories, sub-categories and states.",
@@ -116,6 +121,7 @@ public class DbSeeder(
                     Permissions.UsersView, Permissions.UsersManage, Permissions.UsersStatus,
                     Permissions.ApplicationsView, Permissions.ApplicationsScrutinise,
                     Permissions.ProgramsView, Permissions.CoordinatorsView, Permissions.ReportsView,
+                    Permissions.ProfessionalsView, Permissions.TrainersView,
                 ]),
             ("Operation Manager", "OPS_MANAGER", BaseRole.OperationManager,
                 "Empanels Implementing Agencies within allocated program types and states.",
@@ -125,6 +131,7 @@ public class DbSeeder(
                     Permissions.UsersView, Permissions.UsersStatus, Permissions.ApplicationsView,
                     Permissions.ProgramsView, Permissions.ProgramsManage,
                     Permissions.CoordinatorsView, Permissions.ReportsView,
+                    Permissions.ProfessionalsView, Permissions.TrainersView,
                 ]),
             ("Implementing Agency", "AGENCY_ADMIN", BaseRole.AgencyAdmin,
                 "The agency's own login. Raises its programs, adds its coordinators and runs them.",
