@@ -117,7 +117,9 @@ public class DbSeeder(
                 [
                     Permissions.MastersView, Permissions.CurriculumView, Permissions.FeesView,
                     Permissions.ExamsView, Permissions.MaterialsView, Permissions.AgenciesView,
-                    Permissions.RolesView,
+                    /* No roles.view. What a role is, and what it may do, is
+                       settled by Super Admin; everyone below allocates out
+                       of what they themselves hold. */
                     Permissions.UsersView, Permissions.UsersManage, Permissions.UsersStatus,
                     Permissions.ApplicationsView, Permissions.ApplicationsScrutinise,
                     Permissions.ProgramsView, Permissions.CoordinatorsView, Permissions.ReportsView,
@@ -137,7 +139,6 @@ public class DbSeeder(
                 "The agency's own login. Raises its programs, adds its coordinators and runs them.",
                 [
                     Permissions.MastersView, Permissions.CurriculumView, Permissions.MaterialsView,
-                    Permissions.RolesView,
                     Permissions.UsersView, Permissions.UsersManage, Permissions.UsersStatus,
                     Permissions.CoordinatorsView, Permissions.CoordinatorsManage,
                     Permissions.ProgramsView, Permissions.ProgramsCreate, Permissions.ProgramsManage,

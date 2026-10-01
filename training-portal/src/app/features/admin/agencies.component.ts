@@ -1,8 +1,14 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { AGENCY_TYPES, ImplementingAgency, LookupItem, RecordStatus } from '../../core/models';
+import {
+  AGENCY_TYPES,
+  AllocatableScope,
+  ImplementingAgency,
+  LookupItem,
+  RecordStatus,
+} from '../../core/models';
 import { AgencyService, LookupService } from '../../core/services/masters.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -332,7 +338,7 @@ const COLUMNS: ColumnDef[] = [
             />
             <app-scope-picker
               label="States/UTs"
-              [options]="states()"
+              [options]="scopeStates()"
               [(selected)]="stateCodes"
             />
           </div>
@@ -365,11 +371,26 @@ export class AgenciesComponent {
   protected readonly exportRows = () => this.list.fetchAll();
   protected readonly agencyTypes = AGENCY_TYPES;
 
+  /* The whole masters, for the filter bar and for the agency's own
+     registered address - an office can be anywhere. */
   protected readonly states = toSignal(this.lookups.states(), { initialValue: [] as LookupItem[] });
   protected readonly districts = signal<LookupItem[]>([]);
-  protected readonly categories = toSignal(this.lookups.categories(), { initialValue: [] as LookupItem[] });
-  protected readonly subCategories = toSignal(this.lookups.subCategories(null), { initialValue: [] as LookupItem[] });
-  protected readonly programTypes = toSignal(this.lookups.programTypes(null), { initialValue: [] as LookupItem[] });
+
+  /* What this account may empanel an agency for, which is what it holds
+     itself. An operation manager allocated two program types used to be
+     shown every one in the scheme and refused on Save; the boundary has
+     always been enforced there, and is now visible before anything is
+     ticked. */
+  private readonly allocatable = toSignal(this.lookups.allocatableScope(), {
+    initialValue: {
+      categories: [], subCategories: [], programTypes: [], states: [], districts: [],
+    } as AllocatableScope,
+  });
+
+  protected readonly categories = computed(() => this.allocatable().categories);
+  protected readonly subCategories = computed(() => this.allocatable().subCategories);
+  protected readonly programTypes = computed(() => this.allocatable().programTypes);
+  protected readonly scopeStates = computed(() => this.allocatable().states);
 
   protected readonly list = new ListState<ImplementingAgency>((request) => this.service.list(request), {
     sortBy: 'name',

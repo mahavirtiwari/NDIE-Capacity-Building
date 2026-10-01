@@ -13,6 +13,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
   AdminRole,
+  AllocatableScope,
   LookupItem,
   PortalUser,
   RecordStatus,
@@ -382,7 +383,7 @@ const TIER_DEPTH: Record<string, number> = {
             @if (axes().state) {
               <app-scope-picker
                 label="States/UTs"
-                [options]="states()"
+                [options]="scopeStates()"
                 [(selected)]="stateCodes"
               />
             }
@@ -571,15 +572,27 @@ export class UsersComponent {
   protected readonly agencies = toSignal(this.lookups.agencies(), { initialValue: [] as LookupItem[] });
   protected readonly states = toSignal(this.lookups.states(), { initialValue: [] as LookupItem[] });
   protected readonly districts = signal<LookupItem[]>([]);
-  protected readonly categories = toSignal(this.lookups.categories(), { initialValue: [] as LookupItem[] });
-  /* The whole masters; the pickers narrow each to what the axis above it
-     allows, the way districts have always narrowed to the chosen states. */
-  protected readonly allSubCategories = toSignal(this.lookups.subCategories(null), { initialValue: [] as LookupItem[] });
-  protected readonly allProgramTypes = toSignal(this.lookups.programTypes(null), { initialValue: [] as LookupItem[] });
-  /* The whole district master; the picker narrows it to the chosen states. */
-  protected readonly allDistricts = toSignal(this.lookups.districts(null), {
-    initialValue: [] as LookupItem[],
+  /* The scope pickers read what this account may hand down, not the whole
+     master. An Admin holding one category used to be shown all of them and
+     refused on Save; the boundary is the same either way, but now it is
+     visible before anything is typed. */
+  private readonly allocatable = toSignal(this.lookups.allocatableScope(), {
+    initialValue: {
+      categories: [], subCategories: [], programTypes: [], states: [], districts: [],
+    } as AllocatableScope,
   });
+
+  protected readonly categories = computed(() => this.allocatable().categories);
+  /* Each picker narrows to what the axis above it allows, the way
+     districts have always narrowed to the chosen states - but starting
+     from this account's own allocation rather than from the whole
+     master. */
+  protected readonly allSubCategories = computed(() => this.allocatable().subCategories);
+  protected readonly allProgramTypes = computed(() => this.allocatable().programTypes);
+  protected readonly allDistricts = computed(() => this.allocatable().districts);
+
+  /** Allocatable states, for the scope picker. */
+  protected readonly scopeStates = computed(() => this.allocatable().states);
   protected readonly managers = toSignal(this.lookups.operationManagers(), {
     initialValue: [] as LookupItem[],
   });

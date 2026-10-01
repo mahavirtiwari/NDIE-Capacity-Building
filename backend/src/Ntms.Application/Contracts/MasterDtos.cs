@@ -1,3 +1,5 @@
+using Ntms.Application.Common;
+
 namespace Ntms.Application.Contracts;
 
 public abstract class AuditDto
@@ -233,6 +235,28 @@ public class ProgramTypeUpsertDto
     public EvaluationSchemeDto? Evaluation { get; set; }
 
     public string Status { get; set; } = "Active";
+}
+
+/// <summary>
+/// What the signed-in account may hand down, on every axis at once.
+///
+/// The scope pickers used to be filled from the open master lookups, which
+/// list everything the scheme has. An Admin allocated one category was
+/// therefore shown all three and all thirty-six states, could tick them,
+/// and only found out on Save - the API has always refused scope wider
+/// than the caller's own. Offering a choice and then refusing it is a
+/// worse answer than not offering it.
+///
+/// For an unscoped account this is the whole master, which is the correct
+/// answer for Super Admin rather than a special case.
+/// </summary>
+public class AllocatableScopeDto
+{
+    public List<LookupItemDto> Categories { get; set; } = [];
+    public List<LookupItemDto> SubCategories { get; set; } = [];
+    public List<LookupItemDto> ProgramTypes { get; set; } = [];
+    public List<LookupItemDto> States { get; set; } = [];
+    public List<LookupItemDto> Districts { get; set; } = [];
 }
 
 /* ----------------------------------------------------------------- agency */

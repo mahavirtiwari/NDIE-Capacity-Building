@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, of, shareReplay } from 'rxjs';
 import {
+  AllocatableScope,
   Category,
   CertificateKind,
   EvaluationSkill,
@@ -146,6 +147,15 @@ export class LookupService {
     return this.cached(`districts:${stateCode ?? 'none'}`, () =>
       this.api.get<LookupItem[]>('lookups/districts', { stateCode }),
     );
+  }
+
+  /**
+   * What the signed-in account may allocate to somebody beneath it, on
+   * every axis at once. Not cached: the answer is who you are, and a
+   * cached one would survive a sign-out into the next account.
+   */
+  allocatableScope(): Observable<AllocatableScope> {
+    return this.api.get<AllocatableScope>('lookups/allocatable-scope');
   }
 
   /** Call after a master is created so the next dropdown read is fresh. */

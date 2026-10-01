@@ -12,8 +12,65 @@ namespace Ntms.Infrastructure.Services;
 
 /* ------------------------------------------------------------------ lookups */
 
-public class LookupService(NtmsDbContext db, ICurrentUser currentUser)
+public class LookupService(NtmsDbContext db, ICurrentUser currentUser, DelegationGuard delegation)
 {
+    /// <summary>
+    /// Everything the caller may allocate to somebody beneath them, read
+    /// from the same authority that refuses an allocation on save. One
+    /// call rather than five, because the dialog needs all of them and
+    /// the axes have to agree with each other.
+    /// </summary>
+    public async Task<AllocatableScopeDto> AllocatableScopeAsync(CancellationToken ct)
+    {
+        var categories = await delegation.PermittedAsync(ScopeAxis.Category, ct);
+        var subCategories = await delegation.PermittedAsync(ScopeAxis.SubCategory, ct);
+        var programTypes = await delegation.PermittedAsync(ScopeAxis.ProgramType, ct);
+        var states = await delegation.PermittedAsync(ScopeAxis.State, ct);
+        var districts = await delegation.PermittedAsync(ScopeAxis.District, ct);
+
+        return new AllocatableScopeDto
+        {
+            Categories = await db.Categories.AsNoTracking()
+                .Where(c => c.Status == RecordStatus.Active && categories.Contains(c.Id))
+                .OrderBy(c => c.DisplayOrder)
+                .Select(c => new LookupItemDto { Id = c.Id, Name = c.Name, Code = c.Code })
+                .ToListAsync(ct),
+
+            SubCategories = await db.SubCategories.AsNoTracking()
+                .Where(s => s.Status == RecordStatus.Active && subCategories.Contains(s.Id))
+                .OrderBy(s => s.DisplayOrder)
+                .Select(s => new LookupItemDto
+                {
+                    Id = s.Id, Name = s.Name, Code = s.Code, ParentId = s.CategoryId,
+                })
+                .ToListAsync(ct),
+
+            ProgramTypes = await db.ProgramTypes.AsNoTracking()
+                .Where(p => p.Status == RecordStatus.Active && programTypes.Contains(p.Id))
+                .OrderBy(p => p.Code)
+                .Select(p => new LookupItemDto
+                {
+                    Id = p.Id, Name = p.Name, Code = p.Code, ParentId = p.SubCategoryId,
+                })
+                .ToListAsync(ct),
+
+            States = await db.States.AsNoTracking()
+                .Where(s => states.Contains(s.Code))
+                .OrderBy(s => s.Name)
+                .Select(s => new LookupItemDto { Id = s.Code, Name = s.Name })
+                .ToListAsync(ct),
+
+            Districts = await db.Districts.AsNoTracking()
+                .Where(d => districts.Contains(d.Code))
+                .OrderBy(d => d.Name)
+                .Select(d => new LookupItemDto
+                {
+                    Id = d.Code, Name = d.Name, ParentId = d.StateCode,
+                })
+                .ToListAsync(ct),
+        };
+    }
+
     public Task<List<LookupItemDto>> CategoriesAsync(CancellationToken ct) =>
         db.Categories.AsNoTracking()
             .Where(c => c.Status == RecordStatus.Active)

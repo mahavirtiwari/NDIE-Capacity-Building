@@ -17,8 +17,18 @@ public class RolesController(RoleService service) : ApiControllerBase
         [FromQuery] string? status, CancellationToken ct) =>
         Envelope(await service.ListAsync(request, baseRole, status, ct));
 
+    /// <summary>
+    /// The list behind the role dropdown when somebody creates a user.
+    ///
+    /// Gated on being able to create a user rather than on seeing the
+    /// roles screen. Shaping roles is Super Admin's; choosing which of
+    /// them a new account gets is every tier that appoints anybody, and
+    /// tying the two together meant an Admin needed the roles screen in
+    /// its menu just to fill in a dropdown. What the dropdown may offer
+    /// is still decided per tier, by the delegation rules.
+    /// </summary>
     [HttpGet("all")]
-    [HasPermission(Permissions.RolesView)]
+    [HasPermission(Permissions.UsersManage)]
     public async Task<ActionResult<ApiEnvelope<List<AdminRoleDto>>>> All(
         [FromQuery] string? status, CancellationToken ct) =>
         Envelope(await service.AllAsync(status, ct));
@@ -385,6 +395,15 @@ public class LookupsController(LookupService service) : ApiControllerBase
     public async Task<ActionResult<ApiEnvelope<List<LookupItemDto>>>> ProgramTypes(
         [FromQuery] int? categoryId, [FromQuery] int? subCategoryId, CancellationToken ct) =>
         Envelope(await service.ProgramTypesAsync(categoryId, subCategoryId, ct));
+
+    /// <summary>
+    /// What this account may allocate to somebody beneath it. Not anonymous
+    /// and not cacheable across accounts: the answer is who you are.
+    /// </summary>
+    [HttpGet("allocatable-scope")]
+    public async Task<ActionResult<ApiEnvelope<AllocatableScopeDto>>> AllocatableScope(
+        CancellationToken ct) =>
+        Envelope(await service.AllocatableScopeAsync(ct));
 
     [HttpGet("agencies")]
     public async Task<ActionResult<ApiEnvelope<List<LookupItemDto>>>> Agencies(CancellationToken ct) =>

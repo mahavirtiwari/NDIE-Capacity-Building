@@ -1,4 +1,4 @@
-import { AuditInfo, Id, RecordStatus } from './common.model';
+import { AuditInfo, Id, LookupItem, RecordStatus } from './common.model';
 
 /** Top level grouping, e.g. "ZED Certification", "Lean Manufacturing". */
 export interface Category extends AuditInfo {
@@ -268,6 +268,25 @@ export interface ImplementingAgency extends AuditInfo {
    * added it. False still allows viewing and enabling or disabling.
    */
   canEdit?: boolean;
+}
+
+/**
+ * What the signed-in account may allocate to somebody beneath it.
+ *
+ * The scope pickers read this rather than the open master lookups. An
+ * Admin holding one category was shown all of them, could tick them, and
+ * was refused on Save - the API has always enforced the boundary. Offering
+ * a choice and then refusing it is worse than not offering it.
+ *
+ * For an unscoped account it is the whole master, which is the right
+ * answer for Super Admin rather than a special case.
+ */
+export interface AllocatableScope {
+  categories: LookupItem[];
+  subCategories: LookupItem[];
+  programTypes: LookupItem[];
+  states: LookupItem[];
+  districts: LookupItem[];
 }
 
 /* --------------------------------------------------- issued certificates */
