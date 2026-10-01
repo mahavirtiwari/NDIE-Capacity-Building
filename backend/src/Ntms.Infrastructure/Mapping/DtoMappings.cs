@@ -455,10 +455,27 @@ public static class DtoMappings
             Permissions = [.. e.Permissions.Select(p => p.Permission).Order()],
             UserCount = userCount,
             IsSystemRole = e.IsSystemRole,
+            /* Read from RoleHierarchy, which is the one definition of what
+               a tier is allocated on. */
+            Axes = e.BaseRole.ToAxesDto(),
             Status = e.Status.ToApi(),
         };
         FillAudit(dto, e);
         return dto;
+    }
+
+    /// <summary>The allocation axes of a tier, flattened for the browser.</summary>
+    public static ScopeAxesDto ToAxesDto(this BaseRole role)
+    {
+        var axes = RoleHierarchy.AxesFor(role);
+        return new ScopeAxesDto
+        {
+            Category = axes.HasFlag(ScopeAxis.Category),
+            SubCategory = axes.HasFlag(ScopeAxis.SubCategory),
+            ProgramType = axes.HasFlag(ScopeAxis.ProgramType),
+            State = axes.HasFlag(ScopeAxis.State),
+            District = axes.HasFlag(ScopeAxis.District),
+        };
     }
 
     public static PortalUserDto ToDto(this PortalUser e)

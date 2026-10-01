@@ -99,7 +99,33 @@ public class AdminRoleDto : AuditDto
     public List<string> Permissions { get; set; } = [];
     public int UserCount { get; set; }
     public bool IsSystemRole { get; set; }
+
+    /// <summary>
+    /// Which axes an account on this role is allocated on, so the screen
+    /// that allocates one shows the right pickers.
+    ///
+    /// Sent with the role rather than looked up from a copy of the map in
+    /// the browser. There was such a copy, and it drifted: an Operation
+    /// Manager was given categories and sub-categories on both sides long
+    /// after the role had stopped being allocated on them, and nothing
+    /// could have caught it because the two were never compared.
+    /// </summary>
+    public ScopeAxesDto Axes { get; set; } = new();
+
     public string Status { get; set; } = "Active";
+}
+
+/// <summary>The allocation axes of one tier, as flags a screen can read.</summary>
+public class ScopeAxesDto
+{
+    public bool Category { get; set; }
+    public bool SubCategory { get; set; }
+    public bool ProgramType { get; set; }
+    public bool State { get; set; }
+    public bool District { get; set; }
+
+    /// <summary>True where the tier sees the whole estate and allocates nothing.</summary>
+    public bool None => !Category && !SubCategory && !ProgramType && !State && !District;
 }
 
 public class AdminRoleUpsertDto

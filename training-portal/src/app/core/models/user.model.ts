@@ -11,7 +11,28 @@ export interface AdminRole extends AuditInfo {
   permissions: Permission[];
   userCount?: number;
   isSystemRole: boolean;
+
+  /**
+   * Which axes an account on this role is allocated on, sent by the
+   * server from the one definition it keeps.
+   *
+   * Optional only so an older cached response does not break the screen;
+   * absent means allocate nothing, which is the safe reading.
+   */
+  axes?: ScopeAxes;
+
   status: RecordStatus;
+}
+
+/** The allocation axes of one tier. */
+export interface ScopeAxes {
+  category: boolean;
+  subCategory: boolean;
+  programType: boolean;
+  state: boolean;
+  district: boolean;
+  /** True where the tier sees the whole estate and allocates nothing. */
+  none: boolean;
 }
 
 /**

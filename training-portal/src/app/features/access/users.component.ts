@@ -17,6 +17,7 @@ import {
   LookupItem,
   PortalUser,
   RecordStatus,
+  ScopeAxes,
   UserHistory,
 } from '../../core/models';
 import { AuthService } from '../../core/services/auth.service';
@@ -690,30 +691,34 @@ export class UsersComponent {
    * server; the server is still the authority, this only decides what to show.
    */
   /**
-   * Which allocation axes a tier is given, mirroring RoleHierarchy.Axes on
-   * the server. Kept in step by hand, and the two had drifted: an
-   * Operation Manager is allocated program types and states, which is what
-   * its own description has always said, but both sides also gave it
-   * categories and sub-categories. A manager could then be handed a whole
-   * category and, separately, program types from elsewhere inside it -
-   * two different answers to what that manager covers.
+   * Which allocation axes the chosen role is given, as the server sends
+   * them with the role.
+   *
+   * This used to be a switch over the base role, written out again here -
+   * a second copy of RoleHierarchy.Axes kept in step by hand. The two
+   * drifted: an Operation Manager kept categories and sub-categories on
+   * both sides long after the role had stopped being allocated on them,
+   * and nothing could have caught it, because nothing ever compared them.
+   * There is one definition now and this reads it.
    */
-  protected readonly axes = computed(() => {
-    switch (this.chosenBaseRole()) {
-      case 'Admin':
-        return { category: true, subCategory: true, programType: false, state: true, district: false };
-      case 'OperationManager':
-        return { category: false, subCategory: false, programType: true, state: true, district: false };
-      case 'AgencyAdmin':
-        return { category: false, subCategory: false, programType: true, state: true, district: false };
-      case 'Coordinator':
-        return { category: false, subCategory: false, programType: true, state: true, district: true };
-      default:
-        return { category: false, subCategory: false, programType: false, state: false, district: false };
-    }
+  protected readonly axes = computed<ScopeAxes>(() => {
+    const roleId = this.roleIdSignal();
+    return (
+      this.roles().find((r) => r.id === roleId)?.axes ?? {
+        category: false,
+        subCategory: false,
+        programType: false,
+        state: false,
+        district: false,
+        none: true,
+      }
+    );
   });
 
-  protected readonly anyAxis = computed(() => Object.values(this.axes()).some(Boolean));
+  /* Read off the server's own answer rather than by counting truthy
+     fields on the object: that counted `none` itself, so the one tier
+     the message exists for was the one that would not have seen it. */
+  protected readonly anyAxis = computed(() => !this.axes().none);
 
   protected readonly allocationHint = computed(() =>
     this.anyAxis()
