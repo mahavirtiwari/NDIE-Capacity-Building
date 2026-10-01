@@ -545,7 +545,9 @@ function blankField(): ProfileField {
               >
                 <option value="">This field's own options</option>
                 @for (set of optionSets(); track set.id) {
-                  <option [value]="set.id">{{ set.name }} ({{ set.items.length }})</option>
+                  <option [value]="set.id" [selected]="set.id === editor.field.optionSetId">
+                    {{ set.name }} ({{ set.items.length }})
+                  </option>
                 }
               </select>
               <span class="field-hint">

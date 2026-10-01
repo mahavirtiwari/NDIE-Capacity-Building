@@ -132,7 +132,7 @@ export class CellTemplateDirective {
             aria-label="Rows per page"
           >
             @for (size of pageSizes; track size) {
-              <option [value]="size">{{ size }} / page</option>
+              <option [value]="size" [selected]="size === pageSize()">{{ size }} / page</option>
             }
           </select>
           <div class="pager__controls">

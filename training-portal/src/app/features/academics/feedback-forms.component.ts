@@ -262,7 +262,9 @@ const TYPES: { value: FeedbackQuestionType; label: string }[] = [
                         (change)="patch($index, { type: $any(inputValue($event)) })"
                       >
                         @for (t of types; track t.value) {
-                          <option [value]="t.value">{{ t.label }}</option>
+                          <option [value]="t.value" [selected]="t.value === q.type">
+                            {{ t.label }}
+                          </option>
                         }
                       </select>
                       <button
@@ -277,6 +279,10 @@ const TYPES: { value: FeedbackQuestionType; label: string }[] = [
 
                     @if (q.type === 'Select' || q.type === 'Radio') {
                       <div class="row row-sm">
+                        <!-- Each option says whether it is the chosen one. The
+                             select's own [value] is set before @for has made
+                             any options to match it, so on reopening a saved
+                             form it would fall back to the first one. -->
                         <select
                           class="select"
                           [value]="q.optionSetId ?? ''"
@@ -284,7 +290,7 @@ const TYPES: { value: FeedbackQuestionType; label: string }[] = [
                         >
                           <option value="">Its own choices</option>
                           @for (set of optionSets(); track set.id) {
-                            <option [value]="set.id">
+                            <option [value]="set.id" [selected]="set.id === q.optionSetId">
                               {{ set.name }} ({{ set.items.length }})
                             </option>
                           }

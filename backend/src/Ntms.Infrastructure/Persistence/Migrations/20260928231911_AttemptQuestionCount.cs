@@ -21,12 +21,18 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                best answer available, and from here on it is also the right
                one: a paper that has been sat can no longer have its questions
                changed, so what it holds now is what it held then. */
+            /* EXEC, because the column is added in this same migration and an
+               idempotent script puts the whole migration in one batch: SQL
+               Server resolves column names when it compiles the batch, so a
+               bare statement here fails to parse before the ALTER has run. */
             migrationBuilder.Sql("""
+                EXEC(N'
                 UPDATE a
                 SET a.QuestionCount = (
                     SELECT COUNT(*) FROM ExamQuestions q WHERE q.ExamPaperId = a.ExamPaperId)
                 FROM ExamAttempts a
                 WHERE a.QuestionCount = 0;
+                ');
                 """);
         }
 

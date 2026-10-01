@@ -55,15 +55,19 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                a section key yet and any unique value will do: the row id. The
                next save of each form derives a readable key from the title —
                a key is only kept as it stands once a section repeats. */
+            /* EXEC, because the column is added in this same migration and an
+               idempotent script puts the whole migration in one batch: SQL
+               Server resolves column names when it compiles the batch, so a
+               bare UPDATE here fails to parse before the ALTER has run. */
             migrationBuilder.Sql(
-                "UPDATE RegistrationSections SET [Key] = 's' + CAST(Id AS nvarchar(20)) " +
-                "WHERE [Key] = '' OR [Key] IS NULL;");
+                "EXEC(N'UPDATE RegistrationSections SET [Key] = ''s'' + CAST(Id AS nvarchar(20)) " +
+                "WHERE [Key] = '''' OR [Key] IS NULL;');");
 
             /* One entry, and no more than one, is what a section that does not
                repeat has always meant. */
             migrationBuilder.Sql(
-                "UPDATE RegistrationSections SET MinEntries = 1, MaxEntries = 1 " +
-                "WHERE MaxEntries = 0;");
+                "EXEC(N'UPDATE RegistrationSections SET MinEntries = 1, MaxEntries = 1 " +
+                "WHERE MaxEntries = 0;');");
 
             migrationBuilder.CreateIndex(
                 name: "IX_RegistrationSections_FormId_Key",

@@ -35,13 +35,18 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                two accounts for one person is the real one, and which of two
                sign-up forms everybody should now fill in. A migration that
                picked for itself would be picking in the dark. */
-            migrationBuilder.Sql(@"
-IF EXISTS (SELECT 1 FROM Applicants WHERE Pan <> '' GROUP BY Pan HAVING COUNT(*) > 1)
-    THROW 50000, 'Two or more accounts share a PAN. One account now covers every category, so these have to be merged by hand before this migration can run. SELECT Pan, COUNT(*) FROM Applicants WHERE Pan <> '''' GROUP BY Pan HAVING COUNT(*) > 1 lists them.', 1;
+            /* EXEC, because this touches a column added in the same migration and
+               an idempotent script puts the whole migration in one batch: SQL
+               Server resolves column names when it compiles the batch. */
+            migrationBuilder.Sql("""
+                EXEC(N'
+                IF EXISTS (SELECT 1 FROM Applicants WHERE Pan <> '''' GROUP BY Pan HAVING COUNT(*) > 1)
+                    THROW 50000, ''Two or more accounts share a PAN. One account now covers every category, so these have to be merged by hand before this migration can run. SELECT Pan, COUNT(*) FROM Applicants WHERE Pan <> '''''''' GROUP BY Pan HAVING COUNT(*) > 1 lists them.'', 1;
 
-IF EXISTS (SELECT 1 FROM SignupFields WHERE SubCategoryId IS NOT NULL)
-    THROW 50000, 'A sub-category has its own sign-up form. There is one sign-up form now, so decide which fields belong on it and remove the rest before this migration can run. SELECT * FROM SignupFields WHERE SubCategoryId IS NOT NULL lists them.', 1;
-");
+                IF EXISTS (SELECT 1 FROM SignupFields WHERE SubCategoryId IS NOT NULL)
+                    THROW 50000, ''A sub-category has its own sign-up form. There is one sign-up form now, so decide which fields belong on it and remove the rest before this migration can run. SELECT * FROM SignupFields WHERE SubCategoryId IS NOT NULL lists them.'', 1;
+                ');
+                """);
 
             /* ---- the two pickers leave the sign-up form -----------------
                Removed rather than switched off: the columns behind them are
@@ -102,17 +107,27 @@ DELETE FROM SignupFields WHERE [Key] IN ('categoryId', 'subCategoryId');
                 type: "int",
                 nullable: true);
 
-            migrationBuilder.Sql(@"
-UPDATE s SET s.CategoryId = c.CategoryId
-FROM ProfileSubmissions s
-JOIN SubCategories c ON c.Id = s.SubCategoryId
-WHERE s.CategoryId IS NULL;
-");
+            /* EXEC, because this touches a column added in the same migration and
+               an idempotent script puts the whole migration in one batch: SQL
+               Server resolves column names when it compiles the batch. */
+            migrationBuilder.Sql("""
+                EXEC(N'
+                UPDATE s SET s.CategoryId = c.CategoryId
+                FROM ProfileSubmissions s
+                JOIN SubCategories c ON c.Id = s.SubCategoryId
+                WHERE s.CategoryId IS NULL;
+                ');
+                """);
 
-            migrationBuilder.Sql(@"
-IF EXISTS (SELECT 1 FROM ProfileSubmissions WHERE CategoryId IS NULL)
-    THROW 50000, 'A profile submission names a sub-category that does not exist, so its category cannot be worked out. Fix those rows before this migration can run.', 1;
-");
+            /* EXEC, because this touches a column added in the same migration and
+               an idempotent script puts the whole migration in one batch: SQL
+               Server resolves column names when it compiles the batch. */
+            migrationBuilder.Sql("""
+                EXEC(N'
+                IF EXISTS (SELECT 1 FROM ProfileSubmissions WHERE CategoryId IS NULL)
+                    THROW 50000, ''A profile submission names a sub-category that does not exist, so its category cannot be worked out. Fix those rows before this migration can run.'', 1;
+                ');
+                """);
 
             migrationBuilder.AlterColumn<int>(
                 name: "CategoryId",
@@ -134,14 +149,19 @@ IF EXISTS (SELECT 1 FROM ProfileSubmissions WHERE CategoryId IS NULL)
                 type: "int",
                 nullable: true);
 
-            migrationBuilder.Sql(@"
-UPDATE a SET a.SubCategoryId = p.SubCategoryId
-FROM ProfileAttachments a
-JOIN Applicants p ON p.Id = a.ApplicantId
-WHERE a.SubCategoryId IS NULL AND p.SubCategoryId IS NOT NULL;
+            /* EXEC, because this touches a column added in the same migration and
+               an idempotent script puts the whole migration in one batch: SQL
+               Server resolves column names when it compiles the batch. */
+            migrationBuilder.Sql("""
+                EXEC(N'
+                UPDATE a SET a.SubCategoryId = p.SubCategoryId
+                FROM ProfileAttachments a
+                JOIN Applicants p ON p.Id = a.ApplicantId
+                WHERE a.SubCategoryId IS NULL AND p.SubCategoryId IS NOT NULL;
 
-DELETE FROM ProfileAttachments WHERE SubCategoryId IS NULL;
-");
+                DELETE FROM ProfileAttachments WHERE SubCategoryId IS NULL;
+                ');
+                """);
 
             migrationBuilder.AlterColumn<int>(
                 name: "SubCategoryId",

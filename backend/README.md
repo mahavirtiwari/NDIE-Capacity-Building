@@ -94,6 +94,28 @@ dotnet ef database update --project backend/src/Ntms.Infrastructure --startup-pr
 For an environment where the application account cannot alter schema, hand
 `db/NtmsDb-schema.sql` to the DBA — it is idempotent and safe to re-run.
 
+It must be run with quoted identifiers on, which sqlcmd does not do by
+default. Several tables carry filtered unique indexes, and they cannot be
+created without it:
+
+```bash
+sqlcmd -S <server> -d NtmsDb -i backend/db/NtmsDb-schema.sql -b -I
+```
+
+Regenerate it after adding a migration, or it falls behind what the code
+expects:
+
+```bash
+dotnet ef migrations script --idempotent --project backend/src/Ntms.Infrastructure --startup-project backend/src/Ntms.Api --output backend/db/NtmsDb-schema.sql
+```
+
+Raw SQL in a migration needs care because of this script. `database update`
+sends each operation as its own command, but the script puts a whole
+migration in one batch, and SQL Server resolves column names when it compiles
+a batch. A statement naming a column that an earlier `AddColumn` in the same
+migration adds will not parse. Wrap such statements in `EXEC(N'...')`, as the
+existing ones are.
+
 ## Security
 
 - **JWT bearer** tokens carry one `perm` claim per permission plus the base role.

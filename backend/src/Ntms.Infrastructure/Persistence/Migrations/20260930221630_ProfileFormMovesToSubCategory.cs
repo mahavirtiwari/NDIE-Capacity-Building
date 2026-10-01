@@ -34,11 +34,17 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                 defaultValue: 0);
 
             /* ---- 2. carried across through the program type ------------- */
-            migrationBuilder.Sql(@"
+            /* EXEC, because this touches a column added in the same migration and
+               an idempotent script puts the whole migration in one batch: SQL
+               Server resolves column names when it compiles the batch. */
+            migrationBuilder.Sql("""
+                EXEC(N'
                 UPDATE f
                 SET f.SubCategoryId = pt.SubCategoryId
                 FROM ProfileForms f
-                JOIN ProgramTypes pt ON pt.Id = f.ProgramTypeId;");
+                JOIN ProgramTypes pt ON pt.Id = f.ProgramTypeId;
+                ');
+                """);
 
             /* ---- 3. collisions -------------------------------------------
                Several program types can share a sub-category, and each may
@@ -51,7 +57,11 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                at them — but their version is made unique and their status is
                dropped to inactive, so the sub-category has exactly one form
                in force and nothing is deleted. */
-            migrationBuilder.Sql(@"
+            /* EXEC, because this touches a column added in the same migration and
+               an idempotent script puts the whole migration in one batch: SQL
+               Server resolves column names when it compiles the batch. */
+            migrationBuilder.Sql("""
+                EXEC(N'
                 WITH ranked AS (
                     SELECT Id, SubCategoryId, Version,
                            ROW_NUMBER() OVER (
@@ -59,11 +69,13 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     FROM ProfileForms
                 )
                 UPDATE f
-                SET f.Version = LEFT(f.Version, 12) + '-' + CAST(f.Id AS varchar(6)),
-                    f.Status = 'Inactive'
+                SET f.Version = LEFT(f.Version, 12) + ''-'' + CAST(f.Id AS varchar(6)),
+                    f.Status = ''Inactive''
                 FROM ProfileForms f
                 JOIN ranked r ON r.Id = f.Id
-                WHERE r.rn > 1;");
+                WHERE r.rn > 1;
+                ');
+                """);
 
             /* ---- 4. the flags, opening where the properties open --------- */
             migrationBuilder.AddColumn<bool>(
@@ -85,7 +97,11 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                discipline asks for it. Requiring is the safe direction: it
                keeps scrutiny that was being done, where the other way round
                would quietly stop it. */
-            migrationBuilder.Sql(@"
+            /* EXEC, because this touches a column added in the same migration and
+               an idempotent script puts the whole migration in one batch: SQL
+               Server resolves column names when it compiles the batch. */
+            migrationBuilder.Sql("""
+                EXEC(N'
                 UPDATE sc
                 SET sc.RequiresSignupForm = CASE WHEN EXISTS (
                         SELECT 1 FROM ProgramTypes pt
@@ -96,7 +112,9 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         WHERE pt.SubCategoryId = sc.Id AND pt.RequiresProfileForm = 1)
                     THEN 1 ELSE 0 END
                 FROM SubCategories sc
-                WHERE EXISTS (SELECT 1 FROM ProgramTypes pt WHERE pt.SubCategoryId = sc.Id);");
+                WHERE EXISTS (SELECT 1 FROM ProgramTypes pt WHERE pt.SubCategoryId = sc.Id);
+                ');
+                """);
 
             /* ---- 6. and only now let go of the old shape ---------------- */
             migrationBuilder.DropForeignKey(

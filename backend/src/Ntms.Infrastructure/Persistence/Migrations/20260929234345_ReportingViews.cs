@@ -26,7 +26,11 @@ namespace Ntms.Infrastructure.Persistence.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             /* One registration, with the names behind every code on it. */
+            /* EXEC, because CREATE VIEW has to be the first statement in its
+               batch and an idempotent script wraps every operation in an IF
+               block. Inside EXEC the view is its own batch again. */
             migrationBuilder.Sql("""
+                EXEC(N'
                 CREATE VIEW dbo.vwApplicants AS
                 SELECT
                     a.Id                AS ApplicantId,
@@ -57,13 +61,18 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                 LEFT JOIN dbo.SubCategories sc ON sc.Id = a.SubCategoryId
                 LEFT JOIN dbo.LgdStates     st ON st.Code = a.StateCode
                 LEFT JOIN dbo.LgdDistricts  d  ON d.Code  = a.DistrictCode;
+                ');
                 """);
 
             /* One application, with who made it and what it is for. The
                answers JSON is deliberately left out: it is shaped by whatever
                registration form was in force, so it is not something a report
                can column-map. */
+            /* EXEC, because CREATE VIEW has to be the first statement in its
+               batch and an idempotent script wraps every operation in an IF
+               block. Inside EXEC the view is its own batch again. */
             migrationBuilder.Sql("""
+                EXEC(N'
                 CREATE VIEW dbo.vwApplications AS
                 SELECT
                     ap.Id               AS ApplicationId,
@@ -101,10 +110,15 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                 LEFT JOIN dbo.LgdStates     st ON st.Code = ap.StateCode
                 LEFT JOIN dbo.LgdDistricts  d  ON d.Code  = ap.DistrictCode
                 LEFT JOIN dbo.PortalUsers   u  ON u.Id  = ap.AssignedToUserId;
+                ');
                 """);
 
             /* One programme, with the agency running it and where. */
+            /* EXEC, because CREATE VIEW has to be the first statement in its
+               batch and an idempotent script wraps every operation in an IF
+               block. Inside EXEC the view is its own batch again. */
             migrationBuilder.Sql("""
+                EXEC(N'
                 CREATE VIEW dbo.vwProgrammes AS
                 SELECT
                     p.Id                AS ProgrammeKey,
@@ -140,12 +154,17 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                 LEFT JOIN dbo.ImplementingAgencies ia ON ia.Id = p.AgencyId
                 LEFT JOIN dbo.LgdStates           st ON st.Code = p.StateCode
                 LEFT JOIN dbo.LgdDistricts        d  ON d.Code  = p.DistrictCode;
+                ');
                 """);
 
             /* One person on one programme: attendance, marks, result and the
                certificate if one was issued. This is the grain most of the
                scheme's reporting actually counts on. */
+            /* EXEC, because CREATE VIEW has to be the first statement in its
+               batch and an idempotent script wraps every operation in an IF
+               block. Inside EXEC the view is its own batch again. */
             migrationBuilder.Sql("""
+                EXEC(N'
                 CREATE VIEW dbo.vwParticipants AS
                 SELECT
                     pp.Id               AS ParticipantId,
@@ -186,12 +205,17 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                 LEFT JOIN dbo.LgdStates            st ON st.Code = p.StateCode
                 LEFT JOIN dbo.Certificates         cert ON cert.ParticipantId = pp.Id
                                                        AND cert.RevokedOn IS NULL;
+                ');
                 """);
 
             /* Every attempt to pay a fee, successful or not. No card number
                and no gateway credential has ever been stored, so there is
                none to leave out. */
+            /* EXEC, because CREATE VIEW has to be the first statement in its
+               batch and an idempotent script wraps every operation in an IF
+               block. Inside EXEC the view is its own batch again. */
             migrationBuilder.Sql("""
+                EXEC(N'
                 CREATE VIEW dbo.vwPayments AS
                 SELECT
                     t.Id                AS PaymentId,
@@ -220,6 +244,7 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                 JOIN      dbo.Applications ap ON ap.Id = t.ApplicationId
                 JOIN      dbo.Applicants   a  ON a.Id  = t.ApplicantId
                 LEFT JOIN dbo.ProgramTypes pt ON pt.Id = ap.ProgramTypeId;
+                ');
                 """);
         }
 
