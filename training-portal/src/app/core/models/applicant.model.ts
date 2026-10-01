@@ -115,6 +115,22 @@ export interface ApplicantStatusEvent {
   on: string;
 }
 
+/**
+ * One thing that happened to an applicant, from whichever part of the
+ * system it happened in. The history is these, in order.
+ */
+export interface ApplicantEvent {
+  on: string;
+  /** Account, Profile, Application, Payment, Programme or Certificate. */
+  area: string;
+  title: string;
+  detail?: string | null;
+  /** An application number, a programme, a sub-category. */
+  reference?: string | null;
+  /** Absent where the system did it rather than a person. */
+  by?: string | null;
+}
+
 export interface ApplicantHistory {
   applicantId: Id;
   applicantCode: string;
@@ -126,6 +142,9 @@ export interface ApplicantHistory {
   registeredOn: string;
   lastLoginOn?: string | null;
   events: ApplicantStatusEvent[];
+
+  /** Everything that has happened, oldest first. */
+  timeline?: ApplicantEvent[];
 }
 
 /** One row of the applicants export, with the sign-up answers flattened in. */

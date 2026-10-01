@@ -88,8 +88,44 @@ public class ApplicantStatusEventDto
 }
 
 /// <summary>
+/// One thing that happened to an applicant, whatever part of the system
+/// it happened in.
+///
+/// Flattened on purpose. Somebody asking "what happened to this person"
+/// wants the registration, the profile going for scrutiny, the rejection,
+/// the correction, the application, the fee and the certificate on one
+/// list in order - not six screens each holding a sixth of the answer.
+/// </summary>
+public class ApplicantEventDto
+{
+    public DateTime On { get; set; }
+
+    /// <summary>
+    /// Which part of the system this came from: Account, Profile,
+    /// Application, Payment, Programme, Certificate. The screen groups and
+    /// colours by it; it is not free text.
+    /// </summary>
+    public string Area { get; set; } = string.Empty;
+
+    /// <summary>What happened, in a few words.</summary>
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>The detail worth reading: a reason, an amount, a remark.</summary>
+    public string? Detail { get; set; }
+
+    /// <summary>
+    /// What it happened to - an application number, a programme, a
+    /// sub-category - so a long history stays readable.
+    /// </summary>
+    public string? Reference { get; set; }
+
+    /// <summary>Who did it. Absent where the system did it.</summary>
+    public string? By { get; set; }
+}
+
+/// <summary>
 /// What the history popup shows: who the account belongs to, where it stands
-/// now, and every time that changed.
+/// now, and everything that has happened to them.
 /// </summary>
 public class ApplicantHistoryDto
 {
@@ -102,7 +138,12 @@ public class ApplicantHistoryDto
     public string? BlockReasonLabel { get; set; }
     public DateTime RegisteredOn { get; set; }
     public DateTime? LastLoginOn { get; set; }
+
+    /// <summary>Blocking and unblocking, kept separate for the access panel.</summary>
     public List<ApplicantStatusEventDto> Events { get; set; } = [];
+
+    /// <summary>Everything that has happened, oldest first.</summary>
+    public List<ApplicantEventDto> Timeline { get; set; } = [];
 }
 
 /// <summary>

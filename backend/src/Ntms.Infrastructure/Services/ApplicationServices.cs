@@ -455,7 +455,274 @@ public class ApplicantService(
                         On = e.On,
                     }),
             ],
+            Timeline = await TimelineAsync(entity, ct),
         };
+    }
+
+    /// <summary>
+    /// Everything that has happened to one applicant, from every part of
+    /// the system, oldest first.
+    ///
+    /// Assembled here rather than left to the screen: the pieces live in
+    /// six tables and the only thing that makes them a history is being
+    /// put in order together. Each query is for this one applicant, so
+    /// this is a handful of small reads rather than a join across the
+    /// estate.
+    ///
+    /// Every entry carries the wording as it was at the time - a rejection
+    /// reason, an amount, a programme name - because a history that reads
+    /// back through today's masters is a history that changes when
+    /// somebody renames something.
+    /// </summary>
+    private async Task<List<ApplicantEventDto>> TimelineAsync(
+        Applicant applicant, CancellationToken ct)
+    {
+        var events = new List<ApplicantEventDto>
+        {
+            new()
+            {
+                On = applicant.RegisteredOn,
+                Area = "Account",
+                Title = "Registered",
+                Detail = $"Signed up from the app as {applicant.ApplicantCode}.",
+                Reference = applicant.Email,
+            },
+        };
+
+        /* ---- the profile, and every attempt at it -------------------- */
+
+        var submissions = await db.ProfileSubmissions.AsNoTracking()
+            .Where(s => s.ApplicantId == applicant.Id)
+            .Include(s => s.SubCategory)
+            .Include(s => s.History)
+            .ToListAsync(ct);
+
+        foreach (var submission in submissions)
+        {
+            var where = submission.SubCategory?.Name ?? $"Sub-category {submission.SubCategoryId}";
+
+            if (submission.History.Count > 0)
+            {
+                foreach (var moment in submission.History)
+                {
+                    events.Add(new ApplicantEventDto
+                    {
+                        On = moment.On,
+                        Area = "Profile",
+                        Title = moment.Action switch
+                        {
+                            ScrutinyAction.Submitted when submission.AttemptNo > 1
+                                => $"Profile sent again (attempt {submission.AttemptNo})",
+                            ScrutinyAction.Submitted => "Profile sent for scrutiny",
+                            ScrutinyAction.Approved => "Profile accepted",
+                            ScrutinyAction.Rejected => "Profile turned down",
+                            _ => $"Profile {moment.Action.ToString().ToLowerInvariant()}",
+                        },
+                        Detail = Join(moment.RejectionReasonLabel, moment.Remarks),
+                        Reference = where,
+                        By = moment.ByRole == "Applicant" ? null : moment.ByUserName,
+                    });
+                }
+
+                continue;
+            }
+
+            /* No event rows, so read the submission itself.
+
+               Every profile that existed before the move to per-discipline
+               scrutiny is like this: the migration carried across what was
+               answered and when it was decided, but there was no per-event
+               history to carry. Taking only the event rows would have left
+               those applicants with no profile story at all, which is most
+               of them. */
+            if (submission.SubmittedOn is { } sentOn)
+            {
+                events.Add(new ApplicantEventDto
+                {
+                    On = sentOn,
+                    Area = "Profile",
+                    Title = submission.AttemptNo > 1
+                        ? $"Profile sent again (attempt {submission.AttemptNo})"
+                        : "Profile sent for scrutiny",
+                    Reference = where,
+                });
+            }
+
+            if (submission.DecidedOn is { } decidedOn
+                && submission.Status is ProfileSubmissionStatus.Approved
+                    or ProfileSubmissionStatus.Rejected)
+            {
+                events.Add(new ApplicantEventDto
+                {
+                    On = decidedOn,
+                    Area = "Profile",
+                    Title = submission.Status == ProfileSubmissionStatus.Approved
+                        ? "Profile accepted"
+                        : "Profile turned down",
+                    Detail = Join(submission.RejectionReasonLabel, submission.Remarks),
+                    Reference = where,
+                    By = submission.DecidedByUserName,
+                });
+            }
+        }
+
+        /* ---- applications, and what scrutiny did with them ----------- */
+
+        var applications = await db.Applications.AsNoTracking()
+            .Where(a => a.ApplicantId == applicant.Id)
+            .Include(a => a.ProgramType)
+            .Include(a => a.History)
+            .ToListAsync(ct);
+
+        foreach (var application in applications)
+        {
+            var what = application.ApplicationNo;
+
+            if (application.SubmittedOn is { } submittedOn)
+            {
+                events.Add(new ApplicantEventDto
+                {
+                    On = submittedOn,
+                    Area = "Application",
+                    Title = "Application submitted",
+                    Detail = application.ProgramType?.Name,
+                    Reference = what,
+                });
+            }
+
+            foreach (var moment in application.History)
+            {
+                /* The submission is already above, from the application
+                   itself, which carries the date the applicant saw. */
+                if (moment.Action == ScrutinyAction.Submitted) continue;
+
+                events.Add(new ApplicantEventDto
+                {
+                    On = moment.On,
+                    Area = "Application",
+                    Title = moment.Action switch
+                    {
+                        ScrutinyAction.Approved => "Application approved",
+                        ScrutinyAction.Rejected => "Application rejected",
+                        ScrutinyAction.Enrolled => "Enrolled on a batch",
+                        ScrutinyAction.Comment => "Comment added",
+                        _ => $"Application {moment.Action.ToString().ToLowerInvariant()}",
+                    },
+                    Detail = Join(moment.RejectionReasonLabel, moment.Remarks),
+                    Reference = what,
+                    By = moment.ByUserName,
+                });
+            }
+        }
+
+        /* ---- what was paid, and what failed -------------------------- */
+
+        var payments = await db.PaymentTransactions.AsNoTracking()
+            .Where(p => p.ApplicantId == applicant.Id)
+            .ToListAsync(ct);
+
+        foreach (var payment in payments)
+        {
+            /* An attempt that never left this system says nothing worth
+               recording; one that reached the gateway did something. */
+            if (payment.Status == PaymentAttemptStatus.Initiated) continue;
+
+            events.Add(new ApplicantEventDto
+            {
+                On = payment.CompletedOn ?? payment.InitiatedOn,
+                Area = "Payment",
+                Title = payment.Status switch
+                {
+                    PaymentAttemptStatus.Paid => "Fee paid",
+                    PaymentAttemptStatus.Failed => "Payment failed",
+                    PaymentAttemptStatus.Cancelled => "Payment cancelled at the gateway",
+                    PaymentAttemptStatus.Abandoned => "Payment started and never finished",
+                    _ => $"Payment {payment.Status.ToString().ToLowerInvariant()}",
+                },
+                Detail = $"{payment.Amount:N2}",
+                Reference = payment.OrderId,
+            });
+        }
+
+        /* ---- the programmes they actually sat ------------------------ */
+
+        var participations = await db.ProgrammeParticipants.AsNoTracking()
+            .Where(p => p.ApplicantId == applicant.Id)
+            .Include(p => p.Programme)
+            .ToListAsync(ct);
+
+        foreach (var participation in participations)
+        {
+            var programme = participation.Programme?.ProgrammeName
+                            ?? participation.Programme?.ProgrammeId;
+
+            events.Add(new ApplicantEventDto
+            {
+                On = participation.EnrolledOn.ToDateTime(TimeOnly.MinValue),
+                Area = "Programme",
+                Title = "Enrolled",
+                Reference = programme,
+            });
+
+            if (participation.Result != ParticipantResult.Pending
+                && participation.ResultRecordedOn is { } recordedOn)
+            {
+                events.Add(new ApplicantEventDto
+                {
+                    On = recordedOn,
+                    Area = "Programme",
+                    Title = participation.Result == ParticipantResult.Pass
+                        ? "Passed"
+                        : "Did not pass",
+                    Reference = programme,
+                });
+            }
+        }
+
+        /* ---- and what they hold at the end of it --------------------- */
+
+        var certificates = await db.Certificates.AsNoTracking()
+            .Where(c => c.Participant!.ApplicantId == applicant.Id)
+            .Select(c => new { c.Number, c.IssuedOn, c.ProgrammeName })
+            .ToListAsync(ct);
+
+        foreach (var certificate in certificates)
+        {
+            events.Add(new ApplicantEventDto
+            {
+                On = certificate.IssuedOn.ToDateTime(TimeOnly.MinValue),
+                Area = "Certificate",
+                Title = "Certificate issued",
+                Detail = certificate.ProgrammeName,
+                Reference = certificate.Number,
+            });
+        }
+
+        /* ---- blocked and let back in --------------------------------- */
+
+        foreach (var moment in applicant.StatusEvents)
+        {
+            events.Add(new ApplicantEventDto
+            {
+                On = moment.On,
+                Area = "Account",
+                Title = moment.Blocked ? "Account blocked" : "Account unblocked",
+                Detail = Join(moment.ReasonLabel, moment.Remarks),
+                By = moment.ByUserName,
+            });
+        }
+
+        return [.. events.OrderBy(e => e.On)];
+    }
+
+    /// <summary>A reason and a remark read as one line, where both exist.</summary>
+    private static string? Join(string? reason, string? remarks)
+    {
+        var parts = new[] { reason, remarks }
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .ToList();
+
+        return parts.Count == 0 ? null : string.Join(" - ", parts);
     }
 
     /// <summary>
