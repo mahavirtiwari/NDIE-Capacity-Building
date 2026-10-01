@@ -160,6 +160,26 @@ function ProfileChooser({
     [choices, categoryId],
   );
 
+  const picked = useMemo(
+    () => choices.find((choice) => String(choice.subCategoryId) === subCategoryId) ?? null,
+    [choices, subCategoryId],
+  );
+
+  /* What choosing this one actually means, said before forty answers are
+     typed rather than after they are sent. */
+  const consequence = !picked
+    ? null
+    : !picked.requiresProfileForm
+      ? 'This sub-category asks for no profile form. Its programs are open to you already.'
+      : !picked.formPublished
+        ? 'No profile form has been published for this sub-category yet, so nothing can be '
+          + 'sent. Please check again later.'
+        : picked.requiresScrutiny
+          ? 'The profile for this sub-category is read before its programs open. You will be '
+            + 'told the outcome.'
+          : 'The profile for this sub-category is not scrutinised. Its programs open to you as '
+            + 'soon as you send it.';
+
   if (loading && held.length === 0 && choices.length === 0) {
     return <Loading label="Checking your profiles…" />;
   }
@@ -243,10 +263,16 @@ function ProfileChooser({
             onChange={setSubCategoryId}
           />
 
+          {consequence ? (
+            <Banner tone={picked?.formPublished === false ? 'warning' : 'info'}>
+              {consequence}
+            </Banner>
+          ) : null}
+
           <Button
             label="Continue"
             icon="arrow-forward"
-            disabled={!subCategoryId}
+            disabled={!subCategoryId || picked?.formPublished === false}
             onPress={() => subCategoryId && onPick(Number(subCategoryId))}
           />
         </Card>
@@ -349,6 +375,14 @@ function ProfileFor({
       standing.refresh();
     }, [standing.refresh]),
   );
+
+  /* Whether a submission is read before the programs open. The whole
+     screen speaks differently either way: a form that nobody reads is
+     accepted as it arrives, so telling the applicant to wait for an
+     outcome would be promising something that will never come. Defaults
+     to true, which is the safe reading of a form the server has not
+     answered for yet. */
+  const scrutinised = form.data?.requiresScrutiny ?? true;
 
   const [openId, setOpenId] = useState<number | null>(null);
   const open = useMemo(() => sections.find((s) => s.id === openId) ?? null, [sections, openId]);
@@ -464,9 +498,9 @@ function ProfileFor({
       const sent = await me.submitProfile(subCategoryId, state.payload());
       standing.refresh();
       Alert.alert(
-        'Profile sent',
+        sent.cleared ? 'Profile complete' : 'Profile sent',
         sent.cleared
-          ? 'Your profile is complete. The programs open to you are ready.'
+          ? 'Your profile has been accepted. The programs open to you are ready now.'
           : 'Your profile has gone for scrutiny. You will be told the outcome, and the '
             + 'programs open to you will appear once it is accepted.',
         [{ text: 'OK', onPress: () => router.replace('/(tabs)/programs') }],
@@ -585,8 +619,13 @@ function ProfileFor({
             </>
           ) : (
             <Text style={styles.note}>
-              Tell us who you are. This is asked once for this sub-category, and once it has
-              been accepted every program under it opens to you.
+              {scrutinised
+                ? 'Tell us who you are. This is asked once for this sub-category. It goes to '
+                  + 'scrutiny, and every program under it opens to you once it has been '
+                  + 'accepted.'
+                : 'Tell us who you are. This is asked once for this sub-category, and every '
+                  + 'program under it opens to you as soon as you send it \u2014 there is '
+                  + 'nothing to wait for.'}
             </Text>
           )}
         </Card>
@@ -633,7 +672,16 @@ function ProfileFor({
         {where.canSubmit && form.data && sections.length > 0 ? (
           <>
             <Card style={styles.card}>
-              <Text style={styles.sectionTitle}>The form</Text>
+              <View style={styles.head}>
+                <Text style={styles.sectionTitle}>The form</Text>
+                {scrutinised ? null : (
+                  <View style={[styles.statusChip, { backgroundColor: statusTone.done.bg }]}>
+                    <Text style={[styles.statusText, { color: statusTone.done.fg }]}>
+                      No scrutiny
+                    </Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.muted}>
                 {`${completed} of ${sections.length} sections completed. Open a section to fill `
                   + `it in.`}
@@ -662,8 +710,16 @@ function ProfileFor({
 
             {error ? <Banner tone="danger">{error}</Banner> : null}
 
+            {/* Named for what actually happens. "Send for scrutiny" on a form
+                nobody reads described a queue the submission never joins. */}
             <Button
-              label={submitting ? 'Sending…' : 'Send for scrutiny'}
+              label={
+                submitting
+                  ? 'Sending…'
+                  : scrutinised
+                    ? 'Send for scrutiny'
+                    : 'Submit and open my programs'
+              }
               icon="send"
               onPress={submit}
               loading={submitting}

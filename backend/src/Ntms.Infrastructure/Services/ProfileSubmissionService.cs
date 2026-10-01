@@ -97,24 +97,46 @@ public class ProfileSubmissionService(NtmsDbContext db, ProfileFormService forms
             .Distinct()
             .ToListAsync(ct);
 
-        return
-        [
-            .. await db.SubCategories.AsNoTracking()
-                .Include(s => s.Category)
-                .Where(s => s.Status == RecordStatus.Active
-                            && s.Category!.Status == RecordStatus.Active
-                            && !taken.Contains(s.CategoryId))
-                .OrderBy(s => s.Category!.Name).ThenBy(s => s.Name)
-                .Select(s => new ProfileChoiceDto
-                {
-                    CategoryId = s.CategoryId,
-                    CategoryName = s.Category!.Name,
-                    SubCategoryId = s.Id,
-                    SubCategoryName = s.Name,
-                    RequiresProfileForm = s.RequiresProfileForm,
-                })
-                .ToListAsync(ct),
-        ];
+        /* Whether each discipline's form is read, and whether one exists
+           at all. Read here so the applicant is told before they choose:
+           one sub-category may open its programs the moment the form is
+           sent while its neighbour queues for scrutiny, and that is worth
+           knowing before filling in forty answers. */
+        var published = await db.ProfileForms.AsNoTracking()
+            .Where(f => f.Status == RecordStatus.Active)
+            .Select(f => new { f.SubCategoryId, f.RequiresScrutiny })
+            .ToListAsync(ct);
+
+        var scrutiny = published
+            .GroupBy(f => f.SubCategoryId)
+            .ToDictionary(g => g.Key, g => g.First().RequiresScrutiny);
+
+        var choices = await db.SubCategories.AsNoTracking()
+            .Include(s => s.Category)
+            .Where(s => s.Status == RecordStatus.Active
+                        && s.Category!.Status == RecordStatus.Active
+                        && !taken.Contains(s.CategoryId))
+            .OrderBy(s => s.Category!.Name).ThenBy(s => s.Name)
+            .Select(s => new ProfileChoiceDto
+            {
+                CategoryId = s.CategoryId,
+                CategoryName = s.Category!.Name,
+                SubCategoryId = s.Id,
+                SubCategoryName = s.Name,
+                RequiresProfileForm = s.RequiresProfileForm,
+            })
+            .ToListAsync(ct);
+
+        foreach (var choice in choices)
+        {
+            choice.FormPublished = !choice.RequiresProfileForm
+                                   || scrutiny.ContainsKey(choice.SubCategoryId);
+
+            choice.RequiresScrutiny = choice.RequiresProfileForm
+                                      && scrutiny.GetValueOrDefault(choice.SubCategoryId, true);
+        }
+
+        return choices;
     }
 
     /// <summary>

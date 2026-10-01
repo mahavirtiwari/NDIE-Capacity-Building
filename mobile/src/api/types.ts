@@ -193,9 +193,26 @@ export interface ProfileSection {
 
 export interface ProfileForm {
   id: number;
-  programTypeId: number;
-  programTypeName?: string;
+  /* The form belongs to the sub-category, not to a program type: every
+     program under a discipline asks the same questions, and the applicant
+     answers them once. These were still named for the program type long
+     after that stopped being true. */
+  subCategoryId: number;
+  subCategoryName?: string;
+  categoryId?: number | null;
+  categoryName?: string;
   version: string;
+
+  /**
+   * False and a submission is accepted as it arrives.
+   *
+   * The applicant is told which it is before they start. A form that is
+   * read goes to scrutiny and the programs stay shut until somebody
+   * accepts it; a form that is not opens them the moment it is sent, and
+   * promising an outcome that will never come would be a lie.
+   */
+  requiresScrutiny: boolean;
+
   status: string;
   sections: ProfileSection[];
 }
@@ -449,6 +466,12 @@ export interface ProfileChoice {
   subCategoryId: number;
   subCategoryName: string;
   requiresProfileForm: boolean;
+
+  /** False and the programs open as soon as the profile is sent. */
+  requiresScrutiny: boolean;
+
+  /** False where a form is asked for but none has been published yet. */
+  formPublished: boolean;
 }
 
 export interface ProfileStanding {

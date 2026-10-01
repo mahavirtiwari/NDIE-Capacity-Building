@@ -62,6 +62,24 @@ public class ProfileChoiceDto
     public int SubCategoryId { get; set; }
     public string SubCategoryName { get; set; } = string.Empty;
     public bool RequiresProfileForm { get; set; }
+
+    /// <summary>
+    /// Whether the profile for this discipline is read before its programs
+    /// open, so the applicant knows what they are choosing before they
+    /// start filling it in rather than after they send it.
+    ///
+    /// True where no form is published yet: nothing can be submitted there
+    /// anyway, and a screen that said "no scrutiny" would be promising
+    /// something about a form nobody has written.
+    /// </summary>
+    public bool RequiresScrutiny { get; set; } = true;
+
+    /// <summary>
+    /// False where the discipline asks for a profile form but none has
+    /// been published. Nothing can be sent, so the app says so rather than
+    /// opening an empty form.
+    /// </summary>
+    public bool FormPublished { get; set; }
 }
 
 /// <summary>One profile submission, as the scrutiny queue shows it.</summary>

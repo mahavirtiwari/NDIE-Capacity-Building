@@ -31,11 +31,15 @@ import { StatusToggleComponent } from '../../shared/components/status-toggle.com
 import { ListState, searchTerm } from '../../shared/list-state';
 
 const COLUMNS: ColumnDef[] = [
-  { key: 'subCategoryName', header: 'Program type', sortable: true, variant: 'primary' },
+  { key: 'subCategoryName', header: 'Sub-category', sortable: true, variant: 'primary' },
   { key: 'categoryName', header: 'Category', variant: 'muted' },
-  { key: 'subCategoryName', header: 'Sub-category', variant: 'muted' },
   { key: 'version', header: 'Version', align: 'center', width: '100px' },
   { key: 'summary', header: 'Structure', width: '230px' },
+  /* Whether a submission is read before the programs open. On the list
+     rather than only inside the designer, because it decides what happens
+     to every applicant who fills the form in and is the one setting
+     somebody would otherwise have to open each form to check. */
+  { key: 'scrutiny', header: 'Scrutiny', width: '150px' },
   { key: 'status', header: 'Status', width: '110px' },
   { key: 'actions', header: '', width: '175px', align: 'right' },
 ];
@@ -164,6 +168,13 @@ function blankField(): ProfileField {
             <span class="chip">{{ fieldCount($any(row)) }} fields</span>
             <span class="chip">{{ activeCount($any(row)) }} active</span>
           </div>
+        </ng-template>
+        <ng-template appCell="scrutiny" let-row>
+          @if ($any(row).requiresScrutiny ?? true) {
+            <span class="chip">Read before opening</span>
+          } @else {
+            <span class="chip chip--muted">Accepted as it arrives</span>
+          }
         </ng-template>
         <ng-template appCell="actions" let-row>
           <div class="btn-row btn-row--end">
@@ -428,6 +439,20 @@ function blankField(): ProfileField {
             }
           </div>
         } @else {
+          <!-- What the applicant is told before they start, which depends on
+               the scrutiny setting. Shown here so the preview is a preview of
+               the screen rather than only of its boxes. -->
+          <p class="text-muted text-sm mb-md">
+            @if (headerForm.controls.requiresScrutiny.value) {
+              The applicant is told this is asked once for the sub-category, that it goes
+              to scrutiny, and that the programs open once it has been accepted.
+            } @else {
+              The applicant is told the programs open as soon as they send it, and the
+              button reads &ldquo;Submit and open my programs&rdquo; rather than
+              &ldquo;Send for scrutiny&rdquo;.
+            }
+          </p>
+
           @if (previewDefinition(); as definition) {
             <app-dynamic-form [definition]="definition" [readonly]="false" />
           }

@@ -58,6 +58,14 @@
   padding: 0.12rem 0.4rem;
 }
 
+/* The same chip, said more quietly: for a state that is the absence of
+   something rather than a thing in its own right. */
+.chip--muted {
+  background: transparent;
+  color: var(--ink-500);
+  border: 1px dashed var(--border);
+}
+
 .avatar {
   width: 34px;
   height: 34px;
