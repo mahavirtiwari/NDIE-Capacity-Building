@@ -322,20 +322,34 @@ const COLUMNS: ColumnDef[] = [
 
           <div class="stack stack-sm">
             <app-scope-picker
-              label="Categories"
-              [options]="categories()"
-              [(selected)]="categoryIds"
-            />
-            <app-scope-picker
-              label="Sub-categories"
-              [options]="subCategories()"
-              [(selected)]="subCategoryIds"
-            />
-            <app-scope-picker
               label="Program types"
               [options]="programTypes()"
               [(selected)]="programTypeIds"
             />
+
+            <!-- Not a choice. An agency is empanelled for named program
+                 types, and those sit in a sub-category which sits in a
+                 category; asking for all three separately let an agency be
+                 recorded against a category none of its program types
+                 belonged to. Shown so the consequence of the selection
+                 above is visible while it is being made. -->
+            <div class="field">
+              <span class="field-label">Which comes to</span>
+              @if (impliedCategories().length === 0) {
+                <span class="text-muted text-sm">
+                  Choose a program type and its category appears here.
+                </span>
+              } @else {
+                <div class="row row-sm row-wrap">
+                  @for (name of impliedCategories(); track name) {
+                    <span class="chip">{{ name }}</span>
+                  }
+                  @for (name of impliedSubCategories(); track name) {
+                    <span class="chip chip--muted">{{ name }}</span>
+                  }
+                </div>
+              }
+            </div>
             <app-scope-picker
               label="States/UTs"
               [options]="scopeStates()"
@@ -406,8 +420,33 @@ export class AgenciesComponent {
   protected readonly formOpen = signal(false);
   protected readonly saving = signal(false);
   protected readonly editing = signal<ImplementingAgency | null>(null);
-  protected readonly categoryIds = signal<number[]>([]);
-  protected readonly subCategoryIds = signal<number[]>([]);
+  /* Read off the chosen program types rather than chosen themselves,
+     the same way the server records them. */
+  protected readonly impliedCategories = computed(() => {
+    const chosen = this.programTypeIds();
+    const categories = new Map(this.categories().map((c) => [Number(c.id), c.name]));
+    const subCategories = new Map(this.subCategories().map((c) => [Number(c.id), c]));
+
+    const names = new Set<string>();
+    for (const type of this.programTypes().filter((p) => chosen.includes(Number(p.id)))) {
+      const sub = subCategories.get(Number(type.parentId));
+      const name = sub ? categories.get(Number(sub.parentId)) : undefined;
+      if (name) names.add(name);
+    }
+    return [...names];
+  });
+
+  protected readonly impliedSubCategories = computed(() => {
+    const chosen = this.programTypeIds();
+    const subCategories = new Map(this.subCategories().map((c) => [Number(c.id), c.name]));
+
+    const names = new Set<string>();
+    for (const type of this.programTypes().filter((p) => chosen.includes(Number(p.id)))) {
+      const name = subCategories.get(Number(type.parentId));
+      if (name) names.add(name);
+    }
+    return [...names];
+  });
   protected readonly programTypeIds = signal<number[]>([]);
   protected readonly stateCodes = signal<number[]>([]);
 
@@ -451,8 +490,6 @@ export class AgenciesComponent {
 
   protected openForm(row?: ImplementingAgency): void {
     this.editing.set(row ?? null);
-    this.categoryIds.set(row?.categoryIds ?? []);
-    this.subCategoryIds.set(row?.subCategoryIds ?? []);
     this.programTypeIds.set(row?.programTypeIds ?? []);
     this.stateCodes.set(row?.stateCodes ?? []);
     this.form.reset({
@@ -490,8 +527,10 @@ export class AgenciesComponent {
     this.saving.set(true);
     const payload = {
       ...this.form.getRawValue(),
-      categoryIds: this.categoryIds(),
-      subCategoryIds: this.subCategoryIds(),
+      /* Sent empty: the server reads them off the program types. Kept on
+         the payload because the contract still carries them. */
+      categoryIds: [],
+      subCategoryIds: [],
       programTypeIds: this.programTypeIds(),
       stateCodes: this.stateCodes(),
     };

@@ -304,24 +304,40 @@ public class AgencyService(
     private sealed record Empanelment(
         List<int> Categories, List<int> SubCategories, List<int> ProgramTypes, List<int> States);
 
+    /// <summary>
+    /// What the agency is empanelled for.
+    ///
+    /// Program types and states are chosen and checked against the caller's
+    /// own allocation. The categories and sub-categories are not chosen at
+    /// all: they are read off the program types, because that is what they
+    /// are. You cannot empanel somebody for "ZED Certification" in the
+    /// abstract - you empanel them for named program types, and those sit
+    /// in a sub-category which sits in a category.
+    ///
+    /// They were asked for separately, which let an agency be recorded
+    /// against a category none of its program types belonged to, and meant
+    /// an operation manager had to hold a category it is not allocated on
+    /// just to fill the form in.
+    /// </summary>
     private async Task<Empanelment> ResolveEmpanelmentAsync(
         AgencyUpsertDto dto, CancellationToken ct)
     {
-        /* Categories and sub-categories go through ResolveForRecordAsync rather
-           than ResolveAsync: the Implementing Agency tier is allocated only on
-           program types and states, so asking ResolveAsync about a category
-           would answer "not an axis for this tier" and return nothing - which
-           is how these two came to be written straight from the request with no
-           check at all. */
+        var programTypes = await delegation.ResolveAsync(
+            ScopeAxis.ProgramType, BaseRole.AgencyAdmin, dto.ProgramTypeIds, ct);
+
+        var states = await delegation.ResolveAsync(
+            ScopeAxis.State, BaseRole.AgencyAdmin, dto.StateCodes, ct);
+
+        var pairs = await db.ProgramTypes.AsNoTracking()
+            .Where(p => programTypes.Contains(p.Id))
+            .Select(p => new { p.CategoryId, p.SubCategoryId })
+            .ToListAsync(ct);
+
         return new Empanelment(
-            await delegation.ResolveForRecordAsync(
-                ScopeAxis.Category, "agency", dto.CategoryIds, ct),
-            await delegation.ResolveForRecordAsync(
-                ScopeAxis.SubCategory, "agency", dto.SubCategoryIds, ct),
-            await delegation.ResolveAsync(
-                ScopeAxis.ProgramType, BaseRole.AgencyAdmin, dto.ProgramTypeIds, ct),
-            await delegation.ResolveAsync(
-                ScopeAxis.State, BaseRole.AgencyAdmin, dto.StateCodes, ct));
+            [.. pairs.Select(p => p.CategoryId).Distinct()],
+            [.. pairs.Select(p => p.SubCategoryId).Distinct()],
+            programTypes,
+            states);
     }
 
     private static void ReplaceMappings(ImplementingAgency entity, Empanelment scope)

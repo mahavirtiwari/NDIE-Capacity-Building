@@ -59,8 +59,15 @@ public static class RoleHierarchy
             [BaseRole.SuperAdmin] = ScopeAxis.None,
             [BaseRole.Ministry] = ScopeAxis.None,
             [BaseRole.Admin] = ScopeAxis.Category | ScopeAxis.SubCategory | ScopeAxis.State,
-            [BaseRole.OperationManager] =
-                ScopeAxis.Category | ScopeAxis.SubCategory | ScopeAxis.ProgramType | ScopeAxis.State,
+            /* "Empanels Implementing Agencies within allocated program types
+               and states" - so those are the two it is allocated on. It held
+               categories and sub-categories as well, which let an Admin hand
+               a manager a whole category and then separately hand it program
+               types from somewhere else inside that category, leaving two
+               answers to the question of what the manager covers. The
+               program types are the answer; the category a manager works in
+               is read off them. */
+            [BaseRole.OperationManager] = ScopeAxis.ProgramType | ScopeAxis.State,
             [BaseRole.AgencyAdmin] = ScopeAxis.ProgramType | ScopeAxis.State,
             [BaseRole.Coordinator] = ScopeAxis.ProgramType | ScopeAxis.State | ScopeAxis.District,
             [BaseRole.Applicant] = ScopeAxis.None,

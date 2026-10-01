@@ -689,12 +689,21 @@ export class UsersComponent {
    * Which axes the chosen tier is allocated on. Mirrors RoleHierarchy on the
    * server; the server is still the authority, this only decides what to show.
    */
+  /**
+   * Which allocation axes a tier is given, mirroring RoleHierarchy.Axes on
+   * the server. Kept in step by hand, and the two had drifted: an
+   * Operation Manager is allocated program types and states, which is what
+   * its own description has always said, but both sides also gave it
+   * categories and sub-categories. A manager could then be handed a whole
+   * category and, separately, program types from elsewhere inside it -
+   * two different answers to what that manager covers.
+   */
   protected readonly axes = computed(() => {
     switch (this.chosenBaseRole()) {
       case 'Admin':
         return { category: true, subCategory: true, programType: false, state: true, district: false };
       case 'OperationManager':
-        return { category: true, subCategory: true, programType: true, state: true, district: false };
+        return { category: false, subCategory: false, programType: true, state: true, district: false };
       case 'AgencyAdmin':
         return { category: false, subCategory: false, programType: true, state: true, district: false };
       case 'Coordinator':
