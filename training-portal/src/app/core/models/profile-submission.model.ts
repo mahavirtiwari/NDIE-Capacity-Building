@@ -14,6 +14,13 @@ export interface ProfileSubmission extends AuditInfo {
   applicantId: Id;
   applicantCode?: string | null;
   applicantName?: string | null;
+  /**
+   * The category this profile was submitted under. An applicant holds one
+   * profile per category, so the queue can carry several rows for the same
+   * person and the officer has to see which discipline each one is.
+   */
+  categoryId: Id;
+  categoryName?: string | null;
   subCategoryId: Id;
   subCategoryName?: string | null;
   profileFormId?: Id | null;

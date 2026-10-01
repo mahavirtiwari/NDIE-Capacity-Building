@@ -62,9 +62,15 @@ export interface Applicant {
   pan: string;
   gender?: Gender | null;
   socialCategory?: SocialCategory | null;
-  categoryId: number;
+  /**
+   * The first discipline this person entered, kept for the reports that
+   * group by one. Not the whole truth: an account holds a profile per
+   * category, and these are null until the first one is started. The
+   * profile screen lists what they actually hold.
+   */
+  categoryId?: number | null;
   categoryName?: string;
-  subCategoryId: number;
+  subCategoryId?: number | null;
   subCategoryName?: string;
   emailVerified: boolean;
   mobileVerified: boolean;
@@ -218,11 +224,8 @@ export interface SignupField {
   options: FieldOption[];
 }
 
+/** The sign-up form: the questions everybody answers, in order. */
 export interface SignupForm {
-  subCategoryId?: number | null;
-  subCategoryName?: string | null;
-  /** False when these are the shared defaults rather than this track's own. */
-  isOwnForm: boolean;
   fields: SignupField[];
 }
 
@@ -439,12 +442,23 @@ export interface PhotoStanding {
  * every program. The server answers all of it, so the screen decides
  * nothing for itself.
  */
+/** A sub-category a new profile may still be started in. */
+export interface ProfileChoice {
+  categoryId: number;
+  categoryName: string;
+  subCategoryId: number;
+  subCategoryName: string;
+  requiresProfileForm: boolean;
+}
+
 export interface ProfileStanding {
   /** False where the sub-category asks for no profile form. */
   required: boolean;
   /** True once the programs under the discipline are open. */
   cleared: boolean;
   status?: string | null;
+  categoryId: number;
+  categoryName?: string | null;
   subCategoryId: number;
   subCategoryName?: string | null;
   attemptNo: number;

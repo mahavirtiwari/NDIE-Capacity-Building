@@ -33,8 +33,9 @@ import {
 import { colors, font, labelFor, radius, spacing } from '../../src/theme';
 
 /**
- * Everything the applicant is eligible for, which the API narrows to their
- * category and sub-category. Applying opens the Super Admin designed form.
+ * Everything the applicant is eligible for, which the API narrows to the
+ * disciplines they hold an accepted profile in. Applying opens the Super
+ * Admin designed form.
  */
 export default function Programs() {
   const router = useRouter();
@@ -42,9 +43,11 @@ export default function Programs() {
   const [term, setTerm] = useState('');
   const programs = useResource<ApplicantProgram[]>(() => me.programs(), []);
 
-  /* Nothing is open until the profile has been accepted, so an empty list
-     needs explaining rather than apologising for. */
-  const profile = useResource<ProfileStanding>(() => me.profileStanding(), []);
+  /* Nothing is open until a profile has been accepted, so an empty list
+     needs explaining rather than apologising for. Every profile they hold,
+     because an account can be accepted in one discipline and still waiting
+     in another, and the list below is both at once. */
+  const profiles = useResource<ProfileStanding[]>(() => me.myProfiles(), []);
 
   /* Coming back from the apply screen has to show the new standing. Without
      this the card still said Apply until the app was restarted, which is
@@ -58,11 +61,11 @@ export default function Programs() {
         return;
       }
       programs.refresh();
-      profile.refresh();
+      profiles.refresh();
       /* The resources themselves are fresh objects on every render, so
          depending on them re-ran this effect on every render and refetched
          in a loop. refresh is stable; that is the whole dependency. */
-    }, [programs.refresh, profile.refresh]),
+    }, [programs.refresh, profiles.refresh]),
   );
 
   const list = useMemo(() => {
@@ -81,6 +84,19 @@ export default function Programs() {
      button that reports it. */
   const [details, setDetails] = useState<ApplicantProgram | null>(null);
   const [standing, setStanding] = useState<ApplicantProgram | null>(null);
+
+  /* The profile standing worth reporting: the first one that is asked for
+     and has not been accepted. Programs from the disciplines that have been
+     accepted are in the list regardless, so this only ever explains an
+     empty list. */
+  const waitingOn = useMemo(
+    () => (profiles.data ?? []).find((profile) => profile.required && !profile.cleared) ?? null,
+    [profiles.data],
+  );
+
+  /* Nothing started at all, which is a different sentence: they have not
+     chosen a discipline yet rather than being refused one. */
+  const noProfileYet = profiles.data !== null && profiles.data.length === 0;
 
   if (programs.loading) return <Loading label="Loading programs…" />;
 
@@ -115,8 +131,18 @@ export default function Programs() {
         </View>
       }
       ListEmptyComponent={
-        profile.data && profile.data.required && !profile.data.cleared ? (
-          <ProfileGate standing={profile.data} onOpen={() => router.push('/profile-form')} />
+        waitingOn ? (
+          <ProfileGate
+            standing={waitingOn}
+            onOpen={() =>
+              router.push({
+                pathname: '/profile-form',
+                params: { subCategoryId: String(waitingOn.subCategoryId) },
+              })
+            }
+          />
+        ) : noProfileYet ? (
+          <ProfileGate standing={null} onOpen={() => router.push('/profile-form')} />
         ) : (
           <EmptyState
             icon="layers-outline"
@@ -124,7 +150,7 @@ export default function Programs() {
             message={
               term
                 ? 'Try a different name or code.'
-                : 'Programs appear here as soon as they open for your sub-category.'
+                : 'Programs appear here as soon as they open for your sub-categories.'
             }
           />
         )
@@ -165,53 +191,69 @@ function ProfileGate({
   standing,
   onOpen,
 }: {
-  standing: ProfileStanding;
+  /** Null before any discipline has been chosen. */
+  standing: ProfileStanding | null;
   onOpen: () => void;
 }) {
-  const waiting = standing.status === 'Submitted' || standing.status === 'UnderScrutiny';
-  const blocked = !!standing.blockedUntil;
+  const waiting = standing?.status === 'Submitted' || standing?.status === 'UnderScrutiny';
+  const blocked = !!standing?.blockedUntil;
 
   return (
     <Card style={styles.gate}>
       <View style={styles.gateIcon}>
         <Ionicons
-          name={blocked ? 'lock-closed-outline' : waiting ? 'hourglass-outline' : 'id-card-outline'}
+          name={
+            !standing
+              ? 'layers-outline'
+              : blocked
+                ? 'lock-closed-outline'
+                : waiting
+                  ? 'hourglass-outline'
+                  : 'id-card-outline'
+          }
           size={26}
           color={colors.brand700}
         />
       </View>
 
       <Text style={styles.gateTitle}>
-        {blocked
-          ? 'Your profile is closed for now'
-          : waiting
-            ? 'Your profile is with scrutiny'
-            : 'Tell us who you are first'}
+        {!standing
+          ? 'Choose what you are applying for'
+          : blocked
+            ? 'Your profile is closed for now'
+            : waiting
+              ? 'Your profile is with scrutiny'
+              : 'Tell us who you are first'}
       </Text>
 
       <Text style={styles.gateBody}>
-        {blocked
-          ? `It was turned down ${standing.attemptsAllowed} times. You can try again after `
-            + `${shortDate(standing.blockedUntil)}.`
-          : waiting
-            ? 'The programs open to you will appear here as soon as it has been accepted.'
-            : `Every program under ${standing.subCategoryName ?? 'your sub-category'} opens once `
-              + 'your profile has been accepted. It is asked once.'}
+        {!standing
+          ? 'Pick a category and sub-category, then fill in the profile for it. The programs '
+            + 'under it open to you once it has been accepted.'
+          : blocked
+            ? `It was turned down ${standing.attemptsAllowed} times. You can try again after `
+              + `${shortDate(standing.blockedUntil)}.`
+            : waiting
+              ? 'The programs open to you will appear here as soon as it has been accepted.'
+              : `Every program under ${standing.subCategoryName ?? 'your sub-category'} opens `
+                + 'once your profile has been accepted. It is asked once.'}
       </Text>
 
-      {standing.status === 'Rejected' && standing.rejectionReasonLabel ? (
+      {standing?.status === 'Rejected' && standing.rejectionReasonLabel ? (
         <Banner tone="warning">{standing.rejectionReasonLabel}</Banner>
       ) : null}
 
       <Button
         label={
-          blocked
-            ? 'See your profile'
-            : waiting
-              ? 'See what you sent'
-              : standing.status === 'Rejected'
-                ? 'Correct and send again'
-                : 'Fill in your profile'
+          !standing
+            ? 'Choose a sub-category'
+            : blocked
+              ? 'See your profile'
+              : waiting
+                ? 'See what you sent'
+                : standing.status === 'Rejected'
+                  ? 'Correct and send again'
+                  : 'Fill in your profile'
         }
         icon="arrow-forward"
         onPress={onOpen}

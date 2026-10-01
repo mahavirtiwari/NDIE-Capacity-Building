@@ -29,6 +29,7 @@ import { ListState, searchTerm } from '../../shared/list-state';
 
 const COLUMNS: ColumnDef[] = [
   { key: 'applicant', header: 'Applicant', variant: 'primary' },
+  { key: 'categoryName', header: 'Category', width: '150px' },
   { key: 'subCategoryName', header: 'Sub-category', width: '180px' },
   { key: 'attemptNo', header: 'Attempt', width: '90px', align: 'center' },
   { key: 'submittedOn', header: 'Sent', sortable: true, width: '130px' },
@@ -162,7 +163,8 @@ const COLUMNS: ColumnDef[] = [
       <app-modal
         [title]="row.applicantName ?? 'Profile'"
         [subtitle]="
-          row.subCategoryName + ' · attempt ' + row.attemptNo + ' · ' + row.applicantCode
+          row.categoryName + ' · ' + row.subCategoryName + ' · attempt ' + row.attemptNo
+            + ' · ' + row.applicantCode
         "
         size="lg"
         (closed)="reading.set(null)"

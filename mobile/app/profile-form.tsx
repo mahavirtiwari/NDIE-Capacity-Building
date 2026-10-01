@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -13,15 +13,22 @@ import {
 } from 'react-native';
 import { ApiError } from '../src/api/client';
 import { me } from '../src/api/endpoints';
-import type { ProfileForm, ProfileSection, ProfileStanding } from '../src/api/types';
+import type {
+  ProfileChoice,
+  ProfileForm,
+  ProfileSection,
+  ProfileStanding,
+} from '../src/api/types';
 import { useResource } from '../src/api/useResource';
 import {
   DynamicSectionView,
+  ProfileScope,
   statusLabelFor,
   useDynamicForm,
   type SectionProgress,
   type SectionStatus,
 } from '../src/components/DynamicForm';
+import { Picker } from '../src/components/Picker';
 import {
   Banner,
   Button,
@@ -37,20 +44,284 @@ import { colors, font, radius, spacing } from '../src/theme';
  * The first thing an applicant does, and the gate in front of everything
  * else.
  *
- * They declare who they are once, for the discipline they registered under,
- * and it goes to scrutiny. Until it comes back accepted there are no
- * programs to look at — so this screen has to be able to say, on its own,
- * exactly where they stand: waiting, turned down and why, how many tries
- * are left, or shut out until a date.
+ * They pick the discipline they want to work in, declare who they are for
+ * it, and it goes to scrutiny. Until that comes back accepted there are no
+ * programs under it to look at — so this screen has to be able to say, on
+ * its own, exactly where they stand: waiting, turned down and why, how many
+ * tries are left, or shut out until a date.
+ *
+ * One account, a profile per category. The discipline used to be chosen at
+ * sign-up, which fixed it before the applicant had seen what the programs
+ * were and made a second one a second account. It is chosen here instead,
+ * one sub-category per category, and somebody entering a second category
+ * can copy the answers from a profile they already hold rather than typing
+ * their qualifications out again.
  *
  * The form is the same section-at-a-time flow as applying, because it is
  * the same kind of form and an applicant should not have to learn two.
  */
 export default function ProfileFormScreen() {
+  /* A link from elsewhere can name the discipline — the dashboard sends
+     somebody straight back to the profile that is waiting on them. */
+  const params = useLocalSearchParams<{ subCategoryId?: string }>();
+  const [chosen, setChosen] = useState<number | null>(() =>
+    params.subCategoryId ? Number(params.subCategoryId) : null,
+  );
+
+  const profiles = useResource<ProfileStanding[]>(() => me.myProfiles(), []);
+  const choices = useResource<ProfileChoice[]>(() => me.profileChoices(), []);
+
+  /* Depending on the stable refresh functions rather than on the resource
+     objects: those are a fresh object every render, and this loop refetched
+     until the device gave up. */
+  useFocusEffect(
+    useCallback(() => {
+      profiles.refresh();
+      choices.refresh();
+    }, [profiles.refresh, choices.refresh]),
+  );
+
+  const held = profiles.data ?? [];
+  const open = choices.data ?? [];
+
+  const leave = useCallback(() => {
+    profiles.refresh();
+    choices.refresh();
+    setChosen(null);
+  }, [profiles.refresh, choices.refresh]);
+
+  if (chosen !== null) {
+    return (
+      /* Keyed on the discipline so that switching profiles starts the form,
+         its answers and its attachments over rather than carrying one
+         discipline's state into another. */
+      <ProfileFor
+        key={chosen}
+        subCategoryId={chosen}
+        held={held}
+        onLeave={held.length + open.length > 1 ? leave : null}
+      />
+    );
+  }
+
+  return (
+    <ProfileChooser
+      held={held}
+      choices={open}
+      loading={profiles.loading || choices.loading}
+      error={profiles.error ?? choices.error}
+      onPick={setChosen}
+    />
+  );
+}
+
+/* ------------------------------------------------------ pick a discipline */
+
+/**
+ * The profiles this account holds, and the disciplines a new one may be
+ * started in.
+ *
+ * Categories already entered are not offered: the rule is one sub-category
+ * per category, and a list that offers what cannot be chosen wastes a tap
+ * and then has to explain itself.
+ */
+function ProfileChooser({
+  held,
+  choices,
+  loading,
+  error,
+  onPick,
+}: {
+  held: ProfileStanding[];
+  choices: ProfileChoice[];
+  loading: boolean;
+  error: string | null;
+  onPick: (subCategoryId: number) => void;
+}) {
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [subCategoryId, setSubCategoryId] = useState<string | null>(null);
+
+  const screenOptions = useMemo(() => ({ title: 'Your profile' }), []);
+
+  const categories = useMemo(() => {
+    const seen = new Map<number, string>();
+    for (const choice of choices) seen.set(choice.categoryId, choice.categoryName);
+    return [...seen].map(([value, label]) => ({ value: String(value), label }));
+  }, [choices]);
+
+  const subCategories = useMemo(
+    () =>
+      choices
+        .filter((choice) => String(choice.categoryId) === categoryId)
+        .map((choice) => ({
+          value: String(choice.subCategoryId),
+          label: choice.subCategoryName,
+        })),
+    [choices, categoryId],
+  );
+
+  if (loading && held.length === 0 && choices.length === 0) {
+    return <Loading label="Checking your profiles…" />;
+  }
+
+  if (error && held.length === 0 && choices.length === 0) {
+    return (
+      <EmptyState
+        icon="alert-circle-outline"
+        title="Could not load your profiles"
+        message={error}
+      />
+    );
+  }
+
+  if (held.length === 0 && choices.length === 0) {
+    return (
+      <EmptyState
+        icon="layers-outline"
+        title="Nothing to apply for yet"
+        message="No disciplines are open at the moment. Please check again later."
+      />
+    );
+  }
+
+  return (
+    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <Stack.Screen options={screenOptions} />
+
+      {held.length > 0 ? (
+        <Card style={styles.card}>
+          <Text style={styles.sectionTitle}>Your profiles</Text>
+          <Text style={styles.muted}>
+            One profile for each category you have entered. Open one to see where it stands or
+            to correct it.
+          </Text>
+
+          <View style={styles.list}>
+            {held.map((profile) => (
+              <ProfileRow
+                key={profile.subCategoryId}
+                profile={profile}
+                onPress={() => onPick(profile.subCategoryId)}
+              />
+            ))}
+          </View>
+        </Card>
+      ) : null}
+
+      {choices.length > 0 ? (
+        <Card style={styles.card}>
+          <Text style={styles.sectionTitle}>
+            {held.length > 0 ? 'Enter another category' : 'Choose what you are applying for'}
+          </Text>
+          <Text style={styles.muted}>
+            Pick a category and the sub-category within it. The form for that sub-category is
+            listed below once you continue.
+          </Text>
+
+          <Picker
+            label="Category"
+            required
+            value={categoryId}
+            options={categories}
+            onChange={(next) => {
+              setCategoryId(next);
+              setSubCategoryId(null);
+            }}
+          />
+
+          <Picker
+            label="Sub-category"
+            required
+            value={subCategoryId}
+            options={subCategories}
+            disabled={!categoryId}
+            hint={
+              categoryId
+                ? 'One sub-category for each category, so this cannot be changed afterwards.'
+                : 'Choose a category first.'
+            }
+            onChange={setSubCategoryId}
+          />
+
+          <Button
+            label="Continue"
+            icon="arrow-forward"
+            disabled={!subCategoryId}
+            onPress={() => subCategoryId && onPick(Number(subCategoryId))}
+          />
+        </Card>
+      ) : held.length > 0 ? (
+        <Card style={styles.card}>
+          <Text style={styles.muted}>
+            You have a profile in every category open to you. One category is entered once,
+            under one sub-category.
+          </Text>
+        </Card>
+      ) : null}
+    </ScrollView>
+  );
+}
+
+function ProfileRow({
+  profile,
+  onPress,
+}: {
+  profile: ProfileStanding;
+  onPress: () => void;
+}) {
+  const tone = profile.cleared
+    ? statusTone.done
+    : profile.status === 'Rejected' || profile.blockedUntil
+      ? statusTone.pending
+      : statusTone.progress;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${profile.subCategoryName ?? 'Profile'}, ${profile.status ?? 'not started'}`}
+      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+      onPress={onPress}
+    >
+      <View style={[styles.rowIcon, { backgroundColor: tone.bg }]}>
+        <Ionicons
+          name={profile.cleared ? 'checkmark' : 'document-text-outline'}
+          size={16}
+          color={tone.fg}
+        />
+      </View>
+
+      <View style={styles.rowBody}>
+        <Text style={styles.rowTitle}>{profile.subCategoryName ?? 'Profile'}</Text>
+        {profile.categoryName ? (
+          <Text style={styles.rowMeta}>{profile.categoryName}</Text>
+        ) : null}
+      </View>
+
+      {profile.status ? <StatusPill value={profile.status} /> : null}
+      <Ionicons name="chevron-forward" size={18} color={colors.ink400} />
+    </Pressable>
+  );
+}
+
+/* --------------------------------------------------- one discipline's form */
+
+function ProfileFor({
+  subCategoryId,
+  held,
+  onLeave,
+}: {
+  subCategoryId: number;
+  held: ProfileStanding[];
+  /** Null where there is nothing else to switch to. */
+  onLeave: (() => void) | null;
+}) {
   const router = useRouter();
 
-  const standing = useResource<ProfileStanding>(() => me.profileStanding(), []);
-  const form = useResource<ProfileForm>(() => me.profileForm(), []);
+  const standing = useResource<ProfileStanding>(
+    () => me.profileStanding(subCategoryId),
+    [subCategoryId],
+  );
+  const form = useResource<ProfileForm>(() => me.profileForm(subCategoryId), [subCategoryId]);
 
   const state = useDynamicForm(form.data);
 
@@ -86,29 +357,71 @@ export default function ProfileFormScreen() {
   const [error, setError] = useState<string | null>(null);
   const [sectionError, setSectionError] = useState<string | null>(null);
 
+  /* Other profiles that were accepted, which a new one can start from.
+     Only accepted ones: copying answers that scrutiny turned down would
+     carry the fault into the new discipline, and the API refuses it. */
+  const sources = useMemo(
+    () =>
+      held
+        .filter(
+          (profile) =>
+            profile.subCategoryId !== subCategoryId && profile.status === 'Approved',
+        )
+        .map((profile) => ({
+          value: String(profile.subCategoryId),
+          label: profile.subCategoryName ?? `Sub-category ${profile.subCategoryId}`,
+        })),
+    [held, subCategoryId],
+  );
+
+  const [copyFrom, setCopyFrom] = useState<string | null>(null);
+  const [copying, setCopying] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const copy = async () => {
+    if (!copyFrom) return;
+    setCopying(true);
+    setError(null);
+    try {
+      const answers = await me.fetchProfile(subCategoryId, Number(copyFrom));
+      state.prefill(answers);
+      /* Said out loud, because nothing has been sent: the applicant still
+         has to read every answer and submit it themselves. */
+      setCopied(
+        'Answers copied in. Check every section — nothing has been sent to scrutiny yet.',
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError ? caught.message : 'Could not copy those answers.',
+      );
+    } finally {
+      setCopying(false);
+    }
+  };
+
   const backToSections = useCallback(() => {
     setSectionError(null);
     setOpenId(null);
   }, []);
 
-  const screenOptions = useMemo(
-    () => ({
-      title: open ? open.title : 'Your profile',
-      headerLeft: open
+  const screenOptions = useMemo(() => {
+    const back = open ? backToSections : onLeave;
+    return {
+      title: open ? open.title : (standing.data?.subCategoryName ?? 'Your profile'),
+      headerLeft: back
         ? () => (
             <Pressable
-              onPress={backToSections}
+              onPress={back}
               accessibilityRole="button"
-              accessibilityLabel="Back to sections"
+              accessibilityLabel={open ? 'Back to sections' : 'Back to your profiles'}
               hitSlop={10}
             >
               <Ionicons name="arrow-back" size={24} color={colors.white} />
             </Pressable>
           )
         : undefined,
-    }),
-    [open, backToSections],
-  );
+    };
+  }, [open, backToSections, onLeave, standing.data?.subCategoryName]);
 
   if (standing.loading) return <Loading label="Checking your profile…" />;
 
@@ -129,12 +442,12 @@ export default function ProfileFormScreen() {
 
   /* Nothing to fill in: this discipline asks for no profile form, so the
      programs were never behind it. */
-  if (where && !where.required) {
+  if (!where.required) {
     return (
       <EmptyState
         icon="checkmark-circle-outline"
         title="No profile form needed"
-        message="Your sub-category does not ask for one. The programs open to you are under Dashboard."
+        message={`${where.subCategoryName ?? 'This sub-category'} does not ask for one. The programs open to you are under Dashboard.`}
       />
     );
   }
@@ -148,12 +461,14 @@ export default function ProfileFormScreen() {
     setSubmitting(true);
     setError(null);
     try {
-      await me.submitProfile(state.payload());
+      const sent = await me.submitProfile(subCategoryId, state.payload());
       standing.refresh();
       Alert.alert(
         'Profile sent',
-        'Your profile has gone for scrutiny. You will be told the outcome, and the programs '
-          + 'open to you will appear once it is accepted.',
+        sent.cleared
+          ? 'Your profile is complete. The programs open to you are ready.'
+          : 'Your profile has gone for scrutiny. You will be told the outcome, and the '
+            + 'programs open to you will appear once it is accepted.',
         [{ text: 'OK', onPress: () => router.replace('/(tabs)/programs') }],
       );
     } catch (caught) {
@@ -196,7 +511,9 @@ export default function ProfileFormScreen() {
             <StatusChip status={state.progressOf(open).status} />
           </View>
 
-          <DynamicSectionView section={open} state={state} />
+          <ProfileScope subCategoryId={subCategoryId}>
+            <DynamicSectionView section={open} state={state} />
+          </ProfileScope>
 
           {sectionError ? <Banner tone="danger">{sectionError}</Banner> : null}
 
@@ -214,8 +531,8 @@ export default function ProfileFormScreen() {
   /* ------------------------------------------------------ where they are */
 
   const completed = sections.filter((s) => state.progressOf(s).status === 'done').length;
-  const blocked = !!where?.blockedUntil;
-  const waiting = where?.status === 'Submitted' || where?.status === 'UnderScrutiny';
+  const blocked = !!where.blockedUntil;
+  const waiting = where.status === 'Submitted' || where.status === 'UnderScrutiny';
 
   return (
     <KeyboardAvoidingView
@@ -227,18 +544,22 @@ export default function ProfileFormScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Card style={styles.card}>
           <View style={styles.head}>
-            <Text style={styles.title}>{where?.subCategoryName ?? 'Your profile'}</Text>
-            {where?.status ? <StatusPill value={where.status} /> : null}
+            <Text style={styles.title}>{where.subCategoryName ?? 'Your profile'}</Text>
+            {where.status ? <StatusPill value={where.status} /> : null}
           </View>
+
+          {where.categoryName ? (
+            <Text style={styles.muted}>{where.categoryName}</Text>
+          ) : null}
 
           {blocked ? (
             <>
               <Banner tone="danger">
-                {`Your profile was turned down ${where!.attemptsAllowed} times. You can try `
-                  + `again after ${shortDate(where!.blockedUntil)}.`}
+                {`Your profile was turned down ${where.attemptsAllowed} times. You can try `
+                  + `again after ${shortDate(where.blockedUntil)}.`}
               </Banner>
-              {where!.blockReason ? (
-                <Text style={styles.note}>{`Last reason: ${where!.blockReason}`}</Text>
+              {where.blockReason ? (
+                <Text style={styles.note}>{`Last reason: ${where.blockReason}`}</Text>
               ) : null}
             </>
           ) : waiting ? (
@@ -246,11 +567,11 @@ export default function ProfileFormScreen() {
               Your profile is with scrutiny. You will be told the outcome, and the programs open
               to you will appear here once it is accepted.
             </Banner>
-          ) : where?.cleared ? (
+          ) : where.cleared ? (
             <Banner tone="success">
               Your profile has been accepted. The programs open to you are under Dashboard.
             </Banner>
-          ) : where?.status === 'Rejected' ? (
+          ) : where.status === 'Rejected' ? (
             <>
               <Banner tone="warning">
                 {where.rejectionReasonLabel ?? 'Your profile was turned down.'}
@@ -264,13 +585,13 @@ export default function ProfileFormScreen() {
             </>
           ) : (
             <Text style={styles.note}>
-              Tell us who you are. This is asked once for your sub-category, and once it has been
-              accepted every program under it opens to you.
+              Tell us who you are. This is asked once for this sub-category, and once it has
+              been accepted every program under it opens to you.
             </Text>
           )}
         </Card>
 
-        {where?.cleared || blocked ? (
+        {where.cleared || blocked ? (
           <Button
             label="Back to programs"
             variant="secondary"
@@ -278,7 +599,38 @@ export default function ProfileFormScreen() {
           />
         ) : null}
 
-        {where?.canSubmit && form.data && sections.length > 0 ? (
+        {/* Only while the form can still be sent, and only where there is
+            another profile to copy from. Somebody entering a second
+            category has already typed their qualifications out once. */}
+        {where.canSubmit && sources.length > 0 ? (
+          <Card style={styles.card}>
+            <Text style={styles.sectionTitle}>Start from a profile you already have</Text>
+            <Text style={styles.muted}>
+              The answers are copied into the form for you to check. Only what this form asks
+              is brought across, and nothing is sent until you send it.
+            </Text>
+
+            <Picker
+              label="Copy answers from"
+              value={copyFrom}
+              options={sources}
+              onChange={setCopyFrom}
+            />
+
+            <Button
+              label={copying ? 'Copying…' : 'Copy answers'}
+              icon="copy-outline"
+              variant="secondary"
+              disabled={!copyFrom}
+              loading={copying}
+              onPress={copy}
+            />
+
+            {copied ? <Banner tone="info">{copied}</Banner> : null}
+          </Card>
+        ) : null}
+
+        {where.canSubmit && form.data && sections.length > 0 ? (
           <>
             <Card style={styles.card}>
               <Text style={styles.sectionTitle}>The form</Text>
@@ -319,7 +671,7 @@ export default function ProfileFormScreen() {
           </>
         ) : null}
 
-        {where && where.history.length > 0 ? (
+        {where.history.length > 0 ? (
           <Card style={styles.card}>
             <Text style={styles.sectionTitle}>What happened</Text>
             {where.history.map((event, index) => (
@@ -341,6 +693,10 @@ export default function ProfileFormScreen() {
               </View>
             ))}
           </Card>
+        ) : null}
+
+        {onLeave ? (
+          <Button label="Your other profiles" variant="secondary" onPress={onLeave} />
         ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
@@ -459,6 +815,7 @@ const styles = StyleSheet.create({
   rowNumber: { fontSize: font.sm, fontWeight: '700' },
   rowBody: { flex: 1, gap: 4 },
   rowTitle: { fontSize: font.sm, fontWeight: '700', color: colors.ink900 },
+  rowMeta: { fontSize: font.xs, color: colors.ink500 },
   rowStanding: { flexDirection: 'row', alignItems: 'center' },
 
   statusChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },

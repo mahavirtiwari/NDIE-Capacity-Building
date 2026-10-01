@@ -26,6 +26,17 @@ public class ProfileAttachment : AuditableEntity
     public int ApplicantId { get; set; }
     public Applicant? Applicant { get; set; }
 
+    /// <summary>
+    /// Which discipline's profile this belongs to.
+    ///
+    /// Part of the key, because an applicant can hold a profile per
+    /// category and two forms may name a field the same thing. Without it
+    /// a certificate uploaded under one discipline would appear under the
+    /// other.
+    /// </summary>
+    public int SubCategoryId { get; set; }
+    public SubCategory? SubCategory { get; set; }
+
     /// <summary>The field on the form these belong to.</summary>
     public string FieldKey { get; set; } = string.Empty;
 

@@ -22,9 +22,18 @@ public class Applicant : AuditableEntity
     public Gender? Gender { get; set; }
     public SocialCategory? SocialCategory { get; set; }
 
-    public int CategoryId { get; set; }
+    /// <summary>
+    /// The first discipline this person entered, kept for the reports and
+    /// the lists that group applicants by one.
+    ///
+    /// Not the whole truth any more, and not what anything decides on. An
+    /// applicant holds a profile per category now, and
+    /// <see cref="ProfileSubmissions"/> is the record of which disciplines
+    /// are actually open to them. Null until they make their first.
+    /// </summary>
+    public int? CategoryId { get; set; }
     public Category? Category { get; set; }
-    public int SubCategoryId { get; set; }
+    public int? SubCategoryId { get; set; }
     public SubCategory? SubCategory { get; set; }
 
     public string PasswordHash { get; set; } = string.Empty;
@@ -48,20 +57,16 @@ public class Applicant : AuditableEntity
     public DateTime? BlockedOn { get; set; }
     public string? BlockReasonLabel { get; set; }
 
-    /// <summary>
-    /// Shut out of their sub-category until this passes, because the profile
-    /// form was rejected as many times as System Settings allows.
-    ///
-    /// Separate from IsBlocked, which an administrator sets by hand and which
-    /// stops everything. This one is the system's own answer to repeated
-    /// rejection, it expires on its own, and it stops only the applying.
-    /// </summary>
-    public DateTime? ProfileBlockedUntil { get; set; }
+    /* There is no stored "blocked out of this discipline until" here.
+       It was once a pair of columns on the account, which worked while
+       somebody was in one discipline and stopped working the moment they
+       could be in several - one column cannot hold a block that applies
+       to assessing but not to training. It is read from the submissions
+       themselves instead: the allowance from System Settings against the
+       rejections recorded for that sub-category. Nothing to expire, and
+       nothing to go stale when the allowance is changed. */
 
-    /// <summary>What the applicant is told, and what the officer chose.</summary>
-    public string? ProfileBlockReason { get; set; }
-
-    /// <summary>Their answers to the profile form, one row per attempt.</summary>
+    /// <summary>Their answers to the profile forms, one row per attempt.</summary>
     public ICollection<ProfileSubmission> ProfileSubmissions { get; set; } = [];
 
     /// <summary>Every time this account was blocked or let back in.</summary>

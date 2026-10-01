@@ -21,6 +21,7 @@ import type {
   PaymentTransaction,
   PhotoStanding,
   ProfileForm,
+  ProfileChoice,
   ProfileStanding,
   SignupForm,
   SocialCategory,
@@ -56,10 +57,8 @@ export interface SignUpPayload {
   /** Null where the form does not ask; the scheme reports on both. */
   gender: Gender | null;
   socialCategory: SocialCategory | null;
-  categoryId: number;
-  subCategoryId: number;
 
-  /** Answers to whatever else this sub-category's form asks, keyed by field. */
+  /** Answers to whatever else the form asks, keyed by field. */
   answers: Record<string, string>;
 }
 
@@ -77,11 +76,10 @@ export const batches = {
 
 export const auth = {
   /**
-   * The form this sub-category asks, with the switched-off questions already
-   * left out. Anonymous, because it is drawn before anybody has an account.
+   * The sign-up form, with the switched-off questions already left out.
+   * Anonymous, because it is drawn before anybody has an account.
    */
-  signupForm: (subCategoryId?: number | null) =>
-    api.get<SignupForm>('signup-form/public', { subCategoryId }, true),
+  signupForm: () => api.get<SignupForm>('signup-form/public', undefined, true),
 
   signUp: (payload: SignUpPayload) =>
     api.post<Applicant>('applicants/sign-up', payload, true),
@@ -138,17 +136,32 @@ export const me = {
 
   programs: () => api.get<ApplicantProgram[]>('me/programs'),
 
-  /* ------------------------------------------------------ profile form */
+  /* ------------------------------------------------------ profile form
+     Keyed by sub-category throughout. One account holds a profile in each
+     category it has entered - one per category, never two - so none of
+     this can be addressed by the account alone. */
+
+  /** Every profile held, and where each stands. */
+  myProfiles: () => api.getLive<ProfileStanding[]>('me/profile-submissions'),
+
+  /** The disciplines a new profile may still be started in. */
+  profileChoices: () => api.getLive<ProfileChoice[]>('me/profile-choices'),
 
   /** Live, not cached: this decides whether anything else is reachable. */
-  profileStanding: () => api.getLive<ProfileStanding>('me/profile-submission'),
+  profileStanding: (subCategoryId: number) =>
+    api.getLive<ProfileStanding>(`me/profile-submission/${subCategoryId}`),
 
   /* -------------------------------------------- pictures on a field */
 
-  photoStanding: (fieldKey: string) =>
-    api.getLive<PhotoStanding>(`me/profile-photos/${encodeURIComponent(fieldKey)}`),
+  photoStanding: (subCategoryId: number, fieldKey: string) =>
+    api.getLive<PhotoStanding>(
+      `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}`),
 
-  addPhoto: (fieldKey: string, picture: { uri: string; type: string }) => {
+  addPhoto: (
+    subCategoryId: number,
+    fieldKey: string,
+    picture: { uri: string; type: string },
+  ) => {
     const body = new FormData();
     body.append('picture', {
       uri: picture.uri,
@@ -157,20 +170,25 @@ export const me = {
     } as unknown as Blob);
 
     return api.postForm<PhotoStanding>(
-      `me/profile-photos/${encodeURIComponent(fieldKey)}`, body);
+      `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}`, body);
   },
 
-  removePhoto: (fieldKey: string, displayOrder: number) =>
+  removePhoto: (subCategoryId: number, fieldKey: string, displayOrder: number) =>
     api.delete<PhotoStanding>(
-      `me/profile-photos/${encodeURIComponent(fieldKey)}/${displayOrder}`),
+      `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}/${displayOrder}`),
 
   /* ------------------------------------------------ a file on a field */
 
-  profileFile: (fieldKey: string) =>
-    api.getLive<FileStanding>(`me/profile-files/${encodeURIComponent(fieldKey)}`),
+  profileFile: (subCategoryId: number, fieldKey: string) =>
+    api.getLive<FileStanding>(
+      `me/profile-files/${subCategoryId}/${encodeURIComponent(fieldKey)}`),
 
   /** Replaces whatever the field held, because a file field has one answer. */
-  setProfileFile: (fieldKey: string, file: { uri: string; name: string; type: string }) => {
+  setProfileFile: (
+    subCategoryId: number,
+    fieldKey: string,
+    file: { uri: string; name: string; type: string },
+  ) => {
     const body = new FormData();
     body.append('document', {
       uri: file.uri,
@@ -179,21 +197,34 @@ export const me = {
     } as unknown as Blob);
 
     return api.postForm<FileStanding>(
-      `me/profile-files/${encodeURIComponent(fieldKey)}`, body);
+      `me/profile-files/${subCategoryId}/${encodeURIComponent(fieldKey)}`, body);
   },
 
-  profileFileDownload: (fieldKey: string) =>
-    download(`me/profile-files/${encodeURIComponent(fieldKey)}/download`, fieldKey),
+  profileFileDownload: (subCategoryId: number, fieldKey: string) =>
+    download(
+      `me/profile-files/${subCategoryId}/${encodeURIComponent(fieldKey)}/download`, fieldKey),
 
   /** Every picture for the field, merged, in the order taken. */
-  photoPdf: (fieldKey: string) =>
-    download(`me/profile-photos/${encodeURIComponent(fieldKey)}/pdf`, `${fieldKey}.pdf`),
+  photoPdf: (subCategoryId: number, fieldKey: string) =>
+    download(
+      `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}/pdf`,
+      `${fieldKey}.pdf`),
 
-  /** The form for this applicant's own sub-category. */
-  profileForm: () => api.get<ProfileForm>('me/profile-form'),
+  /** The form one sub-category asks. */
+  profileForm: (subCategoryId: number) =>
+    api.get<ProfileForm>(`me/profile-form/${subCategoryId}`),
 
-  submitProfile: (responses: Record<string, unknown>) =>
-    api.post<ProfileStanding>('me/profile-submission', { responses }),
+  /**
+   * The answers from a profile already held, to start another one from.
+   * Nothing is submitted by this - the applicant reads every answer and
+   * sends it themselves.
+   */
+  fetchProfile: (subCategoryId: number, fromSubCategoryId: number) =>
+    api.getLive<Record<string, unknown>>(
+      `me/profile-form/${subCategoryId}/from/${fromSubCategoryId}`),
+
+  submitProfile: (subCategoryId: number, responses: Record<string, unknown>) =>
+    api.post<ProfileStanding>('me/profile-submission', { subCategoryId, responses }),
 
   form: (programTypeId: number) =>
     api.get<ProfileForm>(`me/programs/${programTypeId}/form`),

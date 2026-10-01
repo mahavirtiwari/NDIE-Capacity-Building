@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { ApiError } from '../../src/api/client';
 import { auth as authApi, lookups, me } from '../../src/api/endpoints';
-import type { LookupItem } from '../../src/api/types';
+import type { LookupItem, ProfileStanding } from '../../src/api/types';
 import { useResource } from '../../src/api/useResource';
 import { useAuth } from '../../src/auth/AuthContext';
 import { useBranding } from '../../src/branding/BrandingContext';
@@ -50,6 +50,11 @@ export default function Profile() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  /* Which disciplines they are in comes from the profiles they hold, not
+     from a pair of columns on the account: one account holds a profile in
+     each category it has entered. */
+  const profiles = useResource<ProfileStanding[]>(() => me.myProfiles(), []);
 
   const states = useResource<LookupItem[]>(() => lookups.states(), []);
   const districts = useResource<LookupItem[]>(
@@ -209,8 +214,6 @@ export default function Profile() {
           <View style={styles.details}>
             <DetailRow label="Applicant ID" value={applicant.applicantCode} />
             <DetailRow label="PAN" value={applicant.pan} />
-            <DetailRow label="Category" value={applicant.categoryName ?? '—'} />
-            <DetailRow label="Sub-category" value={applicant.subCategoryName ?? '—'} />
             <DetailRow
               label="Email verified"
               value={<StatusPill value={applicant.emailVerified ? 'Verified' : 'Pending'} />}
@@ -221,6 +224,39 @@ export default function Profile() {
             Your applicant ID never changes. Updating your email below does not change how you sign
             in.
           </Banner>
+        </Card>
+
+        <Card style={styles.card}>
+          <Text style={styles.sectionTitle}>Your profiles</Text>
+
+          {(profiles.data ?? []).length === 0 ? (
+            <>
+              <Text style={styles.note}>
+                You have not chosen a category yet. One profile is filled in for each category
+                you enter, and the programs under it open once it has been accepted.
+              </Text>
+              <Button
+                label="Choose a sub-category"
+                icon="arrow-forward"
+                variant="secondary"
+                onPress={() => router.push('/profile-form')}
+              />
+            </>
+          ) : (
+            <View style={styles.details}>
+              {(profiles.data ?? []).map((profile) => (
+                <DetailRow
+                  key={profile.subCategoryId}
+                  label={`${profile.categoryName ?? 'Category'} · ${profile.subCategoryName ?? ''}`}
+                  value={
+                    <StatusPill
+                      value={profile.cleared ? 'Approved' : (profile.status ?? 'Draft')}
+                    />
+                  }
+                />
+              ))}
+            </View>
+          )}
         </Card>
 
         <Card style={styles.card}>
@@ -359,6 +395,7 @@ const styles = StyleSheet.create({
   details: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm },
 
   sectionTitle: { fontSize: font.md, fontWeight: '700', color: colors.ink900 },
+  note: { fontSize: font.sm, color: colors.ink600, lineHeight: 19 },
 
   signOut: {
     flexDirection: 'row',

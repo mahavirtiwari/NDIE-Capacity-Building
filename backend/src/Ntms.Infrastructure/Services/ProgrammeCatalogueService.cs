@@ -150,17 +150,34 @@ public class ProgrammeCatalogueService(NtmsDbContext db)
     public async Task<List<ApplicantBatchDto>> ForApplicantAsync(
         int applicantId, CancellationToken ct)
     {
-        var applicant = await db.Applicants.AsNoTracking()
-            .FirstOrDefaultAsync(a => a.Id == applicantId, ct)
-            ?? throw AppException.NotFound("Applicant");
+        if (!await db.Applicants.AsNoTracking().AnyAsync(a => a.Id == applicantId, ct))
+            throw AppException.NotFound("Applicant");
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
+        /* The disciplines this applicant may join a batch in: the ones they
+           hold an accepted profile in, plus any that ask for no profile at
+           all. One account can hold a profile per category, so this is a
+           set rather than the single sub-category it used to be. */
+        var cleared = await db.ProfileSubmissions.AsNoTracking()
+            .Where(s => s.ApplicantId == applicantId
+                        && s.Status == ProfileSubmissionStatus.Approved)
+            .Select(s => s.SubCategoryId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        var openWithoutForm = await db.SubCategories.AsNoTracking()
+            .Where(c => !c.RequiresProfileForm && c.Status == RecordStatus.Active)
+            .Select(c => c.Id)
+            .ToListAsync(ct);
+
+        var mine = cleared.Concat(openWithoutForm).Distinct().ToList();
+        if (mine.Count == 0) return [];
+
         var rows = await Base
             .Where(p => Listable.Contains(p.Status) && p.RegistrationsOpen && p.StartDate >= today)
-            /* The applicant registered under one sub-category; batches outside
-               it are not theirs to join. */
-            .Where(p => p.SubCategoryId == applicant.SubCategoryId)
+            /* Batches outside those disciplines are not theirs to join. */
+            .Where(p => mine.Contains(p.SubCategoryId))
             .OrderBy(p => p.StartDate)
             .ToListAsync(ct);
 

@@ -1,17 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
   FIELD_TYPES,
   FieldType,
-  Id,
   RecordStatus,
   SignupField,
   SignupFieldOption,
   fieldTypeHasOptions,
 } from '../../core/models';
 import { SignupFormService } from '../../core/services/academics.service';
-import { LookupService } from '../../core/services/masters.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
@@ -27,6 +24,12 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
  * Deliberately not a data table. There is one form and the order of its
  * fields is part of what is being edited, so it reads as the form it
  * configures rather than as a register of rows.
+ *
+ * One form for everybody. It used to be possible to give a sub-category its
+ * own, which existed so that a scheme could ask an assessor and a master
+ * trainer different things at sign-up. Sign-up no longer knows which
+ * discipline anybody is in - that is chosen in the app afterwards - so those
+ * questions live on the profile form, which is per sub-category.
  */
 @Component({
   selector: 'app-signup-form',
@@ -54,39 +57,11 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
 
     <section class="card">
       <div class="card__body card__body--tight">
-        <div class="filter-bar">
-          <div class="field">
-            <label class="field-label" for="sfSub">Form for</label>
-            <select id="sfSub" class="select" (change)="choose(subCategoryFrom($event))">
-              <option value="">Default — used by every sub-category without its own</option>
-              @for (option of subCategories(); track option.id) {
-                <option [value]="option.id" [selected]="option.id === subCategoryId()">
-                  {{ option.name }}
-                </option>
-              }
-            </select>
-          </div>
-
-          @if (subCategoryId()) {
-            @if (isOwnForm()) {
-              <button type="button" class="btn btn--ghost" [disabled]="saving()" (click)="resetForm()">
-                <app-icon name="refresh" [size]="15" /> Put back on the default
-              </button>
-            } @else {
-              <button type="button" class="btn btn--secondary" [disabled]="saving()" (click)="adopt()">
-                <app-icon name="plus" [size]="15" /> Give it its own form
-              </button>
-            }
-          }
-        </div>
-
-        @if (subCategoryId() && !isOwnForm()) {
-          <p class="text-muted text-sm">
-            This sub-category uses the default form. Editing below changes the default, and
-            with it every other sub-category that has not been given one of its own — give it
-            its own form first to change this one alone.
-          </p>
-        }
+        <p class="text-muted text-sm">
+          One form, filled in by everybody who creates an account. Which category and
+          sub-category somebody works in is not asked here — they choose that in the app,
+          on the profile form, and one account can hold a profile in each category.
+        </p>
       </div>
 
       <div class="card__header">
@@ -312,13 +287,6 @@ export class SignupFormComponent {
   protected readonly types = FIELD_TYPES;
   protected readonly fields = signal<SignupField[]>([]);
 
-  /** Which form is on screen. Null is the default set. */
-  protected readonly subCategoryId = signal<Id | null>(null);
-  /** False when what is shown is the default, borrowed rather than owned. */
-  protected readonly isOwnForm = signal(false);
-  protected readonly subCategories = toSignal(inject(LookupService).subCategories(), {
-    initialValue: [],
-  });
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly formOpen = signal(false);
@@ -344,80 +312,13 @@ export class SignupFormComponent {
 
   private load(): void {
     this.loading.set(true);
-    const chosen = this.subCategoryId();
 
-    if (chosen === null) {
-      this.service.list().subscribe({
-        next: (fields) => {
-          this.fields.set(fields);
-          this.isOwnForm.set(false);
-          this.loading.set(false);
-        },
-        error: () => this.loading.set(false),
-      });
-      return;
-    }
-
-    this.service.forSubCategory(chosen).subscribe({
-      next: (form) => {
-        this.fields.set(form.fields);
-        this.isOwnForm.set(form.isOwnForm);
+    this.service.list().subscribe({
+      next: (fields) => {
+        this.fields.set(fields);
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
-    });
-  }
-
-  protected subCategoryFrom(event: Event): Id | null {
-    const raw = (event.target as HTMLSelectElement).value;
-    return raw ? Number(raw) : null;
-  }
-
-  protected choose(subCategoryId: Id | null): void {
-    this.subCategoryId.set(subCategoryId);
-    this.load();
-  }
-
-  protected adopt(): void {
-    const chosen = this.subCategoryId();
-    if (!chosen) return;
-
-    this.saving.set(true);
-    this.service.adopt(chosen).subscribe({
-      next: (form) => {
-        this.saving.set(false);
-        this.fields.set(form.fields);
-        this.isOwnForm.set(true);
-        this.toast.success('This sub-category now has its own sign-up form.',
-          'It started as a copy of the default.');
-      },
-      error: () => this.saving.set(false),
-    });
-  }
-
-  protected async resetForm(): Promise<void> {
-    const chosen = this.subCategoryId();
-    if (!chosen) return;
-
-    const ok = await this.confirm.ask({
-      title: 'Put this sub-category back on the default form?',
-      message:
-        'The fields set up for it are removed and it uses the default again. Answers already ' +
-        'given are kept \u2014 they are stored against the field key, not the field.',
-      confirmLabel: 'Use the default',
-      tone: 'danger',
-    });
-    if (!ok) return;
-
-    this.saving.set(true);
-    this.service.reset(chosen).subscribe({
-      next: (form) => {
-        this.saving.set(false);
-        this.fields.set(form.fields);
-        this.isOwnForm.set(form.isOwnForm);
-        this.toast.success('Back on the default form.');
-      },
-      error: () => this.saving.set(false),
     });
   }
 
@@ -479,8 +380,6 @@ export class SignupFormComponent {
     const editing = this.editing();
 
     const body = {
-      /* Added to whichever form is on screen, not always the default. */
-      subCategoryId: this.isOwnForm() ? this.subCategoryId() : null,
       key: raw.key,
       label: raw.label,
       type: raw.type,
@@ -554,7 +453,7 @@ export class SignupFormComponent {
     this.fields.set(list);
 
     this.saving.set(true);
-    this.service.reorder(list.map((f) => f.id), this.subCategoryId()).subscribe({
+    this.service.reorder(list.map((f) => f.id)).subscribe({
       next: (saved) => {
         this.fields.set(saved);
         this.saving.set(false);

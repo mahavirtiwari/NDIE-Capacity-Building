@@ -32,12 +32,13 @@ public class ProfileAttachmentService(NtmsDbContext db, ProfileFormService forms
     public sealed record Standing(string FieldKey, int Count, int Limit);
 
     /// <summary>How many pictures are held for a field, and how many it takes.</summary>
-    public async Task<Standing> StandingAsync(int applicantId, string fieldKey, CancellationToken ct)
+    public async Task<Standing> StandingAsync(int applicantId, int subCategoryId, string fieldKey, CancellationToken ct)
     {
         var count = await db.ProfileAttachments
-            .CountAsync(p => p.ApplicantId == applicantId && p.FieldKey == fieldKey, ct);
+            .CountAsync(p => p.ApplicantId == applicantId && p.SubCategoryId == subCategoryId
+                        && p.FieldKey == fieldKey, ct);
 
-        return new Standing(fieldKey, count, await LimitForAsync(applicantId, fieldKey, ct));
+        return new Standing(fieldKey, count, await LimitForAsync(applicantId, subCategoryId, fieldKey, ct));
     }
 
     /// <summary>
@@ -48,7 +49,7 @@ public class ProfileAttachmentService(NtmsDbContext db, ProfileFormService forms
     /// kept is worse than being told no.
     /// </summary>
     public async Task<Standing> AddAsync(
-        int applicantId, string fieldKey, byte[] content, string? contentType,
+        int applicantId, int subCategoryId, string fieldKey, byte[] content, string? contentType,
         CancellationToken ct)
     {
         if (content.Length == 0) throw new AppException("The picture is empty.");
@@ -59,10 +60,11 @@ public class ProfileAttachmentService(NtmsDbContext db, ProfileFormService forms
         if (!type.StartsWith("image/", StringComparison.Ordinal))
             throw new AppException("Only pictures can be added to this field.");
 
-        var limit = await LimitForAsync(applicantId, fieldKey, ct);
+        var limit = await LimitForAsync(applicantId, subCategoryId, fieldKey, ct);
 
         var existing = await db.ProfileAttachments
-            .Where(p => p.ApplicantId == applicantId && p.FieldKey == fieldKey)
+            .Where(p => p.ApplicantId == applicantId && p.SubCategoryId == subCategoryId
+                        && p.FieldKey == fieldKey)
             .ToListAsync(ct);
 
         if (existing.Count >= limit)
@@ -71,6 +73,7 @@ public class ProfileAttachmentService(NtmsDbContext db, ProfileFormService forms
         db.ProfileAttachments.Add(new ProfileAttachment
         {
             ApplicantId = applicantId,
+            SubCategoryId = subCategoryId,
             FieldKey = fieldKey,
             DisplayOrder = existing.Count == 0 ? 1 : existing.Max(p => p.DisplayOrder) + 1,
             ContentType = type,
@@ -90,10 +93,11 @@ public class ProfileAttachmentService(NtmsDbContext db, ProfileFormService forms
     /// was vacated.
     /// </summary>
     public async Task<Standing> RemoveAsync(
-        int applicantId, string fieldKey, int displayOrder, CancellationToken ct)
+        int applicantId, int subCategoryId, string fieldKey, int displayOrder, CancellationToken ct)
     {
         var photos = await db.ProfileAttachments
-            .Where(p => p.ApplicantId == applicantId && p.FieldKey == fieldKey)
+            .Where(p => p.ApplicantId == applicantId && p.SubCategoryId == subCategoryId
+                        && p.FieldKey == fieldKey)
             .OrderBy(p => p.DisplayOrder)
             .ToListAsync(ct);
 
@@ -110,22 +114,23 @@ public class ProfileAttachmentService(NtmsDbContext db, ProfileFormService forms
 
         await db.SaveChangesAsync(ct);
         return new Standing(fieldKey, photos.Count - 1,
-            await LimitForAsync(applicantId, fieldKey, ct));
+            await LimitForAsync(applicantId, subCategoryId, fieldKey, ct));
     }
 
     /// <summary>Clears a field's set, for an applicant starting it again.</summary>
-    public async Task<Standing> ClearAsync(int applicantId, string fieldKey, CancellationToken ct)
+    public async Task<Standing> ClearAsync(int applicantId, int subCategoryId, string fieldKey, CancellationToken ct)
     {
         await db.ProfileAttachments
-            .Where(p => p.ApplicantId == applicantId && p.FieldKey == fieldKey)
+            .Where(p => p.ApplicantId == applicantId && p.SubCategoryId == subCategoryId
+                        && p.FieldKey == fieldKey)
             .ExecuteDeleteAsync(ct);
 
-        return new Standing(fieldKey, 0, await LimitForAsync(applicantId, fieldKey, ct));
+        return new Standing(fieldKey, 0, await LimitForAsync(applicantId, subCategoryId, fieldKey, ct));
     }
 
     /// <summary>One picture, for a thumbnail.</summary>
     public async Task<(byte[] Content, string ContentType)> OneAsync(
-        int applicantId, string fieldKey, int displayOrder, CancellationToken ct)
+        int applicantId, int subCategoryId, string fieldKey, int displayOrder, CancellationToken ct)
     {
         var photo = await db.ProfileAttachments.AsNoTracking()
             .FirstOrDefaultAsync(p => p.ApplicantId == applicantId
@@ -144,10 +149,11 @@ public class ProfileAttachmentService(NtmsDbContext db, ProfileFormService forms
     /// letterboxing them into a portrait page wastes half the paper and
     /// makes the writing smaller.
     /// </summary>
-    public async Task<byte[]> PdfAsync(int applicantId, string fieldKey, CancellationToken ct)
+    public async Task<byte[]> PdfAsync(int applicantId, int subCategoryId, string fieldKey, CancellationToken ct)
     {
         var photos = await db.ProfileAttachments.AsNoTracking()
-            .Where(p => p.ApplicantId == applicantId && p.FieldKey == fieldKey)
+            .Where(p => p.ApplicantId == applicantId && p.SubCategoryId == subCategoryId
+                        && p.FieldKey == fieldKey)
             .OrderBy(p => p.DisplayOrder)
             .ToListAsync(ct);
 
@@ -197,10 +203,11 @@ public class ProfileAttachmentService(NtmsDbContext db, ProfileFormService forms
 
     /// <summary>What is held for a file field, if anything.</summary>
     public async Task<FileStanding> FileStandingAsync(
-        int applicantId, string fieldKey, CancellationToken ct)
+        int applicantId, int subCategoryId, string fieldKey, CancellationToken ct)
     {
         var held = await db.ProfileAttachments.AsNoTracking()
-            .Where(a => a.ApplicantId == applicantId && a.FieldKey == fieldKey)
+            .Where(a => a.ApplicantId == applicantId && a.SubCategoryId == subCategoryId
+                        && a.FieldKey == fieldKey)
             .Select(a => new { a.FileName, Size = (long)a.Content.Length })
             .FirstOrDefaultAsync(ct);
 
@@ -217,12 +224,12 @@ public class ProfileAttachmentService(NtmsDbContext db, ProfileFormService forms
     /// tightening them is a settings change rather than a release.
     /// </summary>
     public async Task<FileStanding> SetFileAsync(
-        int applicantId, string fieldKey, byte[] content, string? fileName,
+        int applicantId, int subCategoryId, string fieldKey, byte[] content, string? fileName,
         string? contentType, CancellationToken ct)
     {
         if (content.Length == 0) throw new AppException("The file is empty.");
 
-        var field = await FieldForAsync(applicantId, fieldKey, FieldType.File, ct);
+        var field = await FieldForAsync(applicantId, subCategoryId, fieldKey, FieldType.File, ct);
 
         var limitMb = Math.Clamp(field.Validation.MaxFileSizeMb ?? 5, 1, 64);
         if (content.Length > limitMb * 1024L * 1024L)
@@ -250,12 +257,14 @@ public class ProfileAttachmentService(NtmsDbContext db, ProfileFormService forms
         /* Cleared first, so a field that somehow holds several ends up with
            one rather than with the new file behind the old ones. */
         await db.ProfileAttachments
-            .Where(a => a.ApplicantId == applicantId && a.FieldKey == fieldKey)
+            .Where(a => a.ApplicantId == applicantId && a.SubCategoryId == subCategoryId
+                        && a.FieldKey == fieldKey)
             .ExecuteDeleteAsync(ct);
 
         db.ProfileAttachments.Add(new ProfileAttachment
         {
             ApplicantId = applicantId,
+            SubCategoryId = subCategoryId,
             FieldKey = fieldKey,
             DisplayOrder = 1,
             FileName = name,
@@ -272,10 +281,11 @@ public class ProfileAttachmentService(NtmsDbContext db, ProfileFormService forms
 
     /// <summary>The file itself, as it arrived.</summary>
     public async Task<(byte[] Content, string ContentType, string FileName)> FileAsync(
-        int applicantId, string fieldKey, CancellationToken ct)
+        int applicantId, int subCategoryId, string fieldKey, CancellationToken ct)
     {
         var held = await db.ProfileAttachments.AsNoTracking()
-            .FirstOrDefaultAsync(a => a.ApplicantId == applicantId && a.FieldKey == fieldKey, ct)
+            .FirstOrDefaultAsync(a => a.ApplicantId == applicantId && a.SubCategoryId == subCategoryId
+                        && a.FieldKey == fieldKey, ct)
             ?? throw AppException.NotFound("File for this field");
 
         return (held.Content, held.ContentType, held.FileName ?? $"{fieldKey}");
@@ -292,13 +302,8 @@ public class ProfileAttachmentService(NtmsDbContext db, ProfileFormService forms
     /// another, and so a limit an administrator changes applies at once.
     /// </summary>
     private async Task<ProfileField> FieldForAsync(
-        int applicantId, string fieldKey, FieldType expected, CancellationToken ct)
+        int applicantId, int subCategoryId, string fieldKey, FieldType expected, CancellationToken ct)
     {
-        var subCategoryId = await db.Applicants.AsNoTracking()
-            .Where(a => a.Id == applicantId)
-            .Select(a => a.SubCategoryId)
-            .FirstOrDefaultAsync(ct);
-
         var form = await forms.ActiveForAsync(subCategoryId, ct);
 
         var field = form?.Sections
@@ -318,13 +323,14 @@ public class ProfileAttachmentService(NtmsDbContext db, ProfileFormService forms
     /// <summary>
     /// What the form says this field takes.
     ///
-    /// Read from the applicant's own sub-category form, so a limit raised
-    /// or lowered by an administrator applies without anything being
-    /// republished to the device.
+    /// Read from the form of the sub-category this profile is being filled
+    /// in for, so a limit raised or lowered by an administrator applies
+    /// without anything being republished to the device.
     /// </summary>
-    private async Task<int> LimitForAsync(int applicantId, string fieldKey, CancellationToken ct)
+    private async Task<int> LimitForAsync(
+        int applicantId, int subCategoryId, string fieldKey, CancellationToken ct)
     {
-        var field = await FieldForAsync(applicantId, fieldKey, FieldType.Photos, ct);
+        var field = await FieldForAsync(applicantId, subCategoryId, fieldKey, FieldType.Photos, ct);
         return Math.Clamp(field.Validation.MaxPhotos ?? DefaultLimit, 1, 20);
     }
 }

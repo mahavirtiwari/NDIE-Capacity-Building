@@ -10,8 +10,8 @@ import {
   View,
 } from 'react-native';
 import { ApiError } from '../../src/api/client';
-import { auth, lookups } from '../../src/api/endpoints';
-import type { Gender, LookupItem, SignupField, SignupForm, SocialCategory } from '../../src/api/types';
+import { auth } from '../../src/api/endpoints';
+import type { Gender, SignupField, SignupForm, SocialCategory } from '../../src/api/types';
 import { GENDER_OPTIONS, SOCIAL_CATEGORY_OPTIONS } from '../../src/api/types';
 import { CheckboxGroup, Picker, RadioGroup, Switch } from '../../src/components/Picker';
 import { Banner, Button, Card, Field, Subtitle, Title } from '../../src/components/ui';
@@ -21,21 +21,23 @@ import { formatErrorFor, MAX_LENGTHS, UPPERCASE_TYPES } from '../../src/validati
 /**
  * Registration.
  *
- * The boxes on this screen are not written here: they are the sign-up form the
- * sub-category uses, as set up in the portal. A question switched off is not
- * asked, one somebody added is, and the order is theirs — so what an applicant
- * fills in is what the department said it should be, without a new build.
+ * The boxes on this screen are not written here: they are the sign-up form as
+ * set up in the portal. A question switched off is not asked, one somebody
+ * added is, and the order is theirs — so what an applicant fills in is what
+ * the department said it should be, without a new build.
+ *
+ * One form for everybody. Nothing about a discipline is asked: an account is
+ * an account, and which category and sub-category somebody works in is chosen
+ * afterwards, on the profile form, where one account can hold a profile in
+ * each category.
  *
  * The built-in questions still have controls of their own, because their
  * answers go into columns on the applicant record rather than into the answer
- * bag, and two of them — category and sub-category — decide which form the
- * rest of the screen is.
+ * bag.
  */
 export default function SignUp() {
   const router = useRouter();
 
-  const [categories, setCategories] = useState<LookupItem[]>([]);
-  const [subCategories, setSubCategories] = useState<LookupItem[]>([]);
   const [form, setForm] = useState<SignupForm | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -49,40 +51,14 @@ export default function SignUp() {
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const categoryId = values.categoryId ?? '';
-  const subCategoryId = values.subCategoryId ?? '';
-
   const set = (key: string, value: string) =>
     setValues((current) => ({ ...current, [key]: value }));
 
   useEffect(() => {
-    lookups
-      .categories()
-      .then(setCategories)
-      .catch(() => setFailure('Could not load categories. Check your connection.'));
-  }, []);
-
-  /* Sub-categories follow the chosen category. */
-  useEffect(() => {
-    setValues((current) => ({ ...current, subCategoryId: '' }));
-    if (!categoryId) {
-      setSubCategories([]);
-      return;
-    }
-    lookups
-      .subCategories(Number(categoryId))
-      .then(setSubCategories)
-      .catch(() => setSubCategories([]));
-  }, [categoryId]);
-
-  /* And the form follows the chosen sub-category. Before one is picked this is
-     the default set, which is what every sub-category without its own uses —
-     so the screen is never empty and the category boxes are always there. */
-  useEffect(() => {
     let cancelled = false;
     setLoading(true);
     auth
-      .signupForm(subCategoryId ? Number(subCategoryId) : null)
+      .signupForm()
       .then((next) => {
         if (cancelled) return;
         setForm(next);
@@ -90,15 +66,11 @@ export default function SignUp() {
            carried over, so nothing is submitted that was never shown. */
         const keys = new Set(next.fields.map((field) => field.key));
         setValues((current) =>
-          Object.fromEntries(
-            Object.entries(current).filter(
-              ([key]) => keys.has(key) || key === 'categoryId' || key === 'subCategoryId',
-            ),
-          ),
+          Object.fromEntries(Object.entries(current).filter(([key]) => keys.has(key))),
         );
       })
       .catch(() => {
-        if (!cancelled) setFailure('Could not load the profile form. Check your connection.');
+        if (!cancelled) setFailure('Could not load the sign-up form. Check your connection.');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -106,7 +78,7 @@ export default function SignUp() {
     return () => {
       cancelled = true;
     };
-  }, [subCategoryId]);
+  }, []);
 
   const fields = useMemo(
     () => (form?.fields ?? []).filter((field) => field.type !== 'file'),
@@ -149,8 +121,6 @@ export default function SignUp() {
         pan: (values.pan ?? '').trim().toUpperCase(),
         gender: (values.gender || null) as Gender,
         socialCategory: (values.socialCategory || null) as SocialCategory,
-        categoryId: Number(categoryId),
-        subCategoryId: Number(subCategoryId),
         answers,
       });
 
@@ -185,9 +155,6 @@ export default function SignUp() {
                 field={field}
                 value={values[field.key] ?? ''}
                 error={showError(field.key)}
-                categories={categories}
-                subCategories={subCategories}
-                categoryChosen={!!categoryId}
                 onChange={(next) => set(field.key, next)}
                 onBlur={() => setTouched((current) => ({ ...current, [field.key]: true }))}
               />
@@ -216,18 +183,12 @@ function SignupControl({
   field,
   value,
   error,
-  categories,
-  subCategories,
-  categoryChosen,
   onChange,
   onBlur,
 }: {
   field: SignupField;
   value: string;
   error: string | null;
-  categories: LookupItem[];
-  subCategories: LookupItem[];
-  categoryChosen: boolean;
   onChange: (next: string) => void;
   onBlur: () => void;
 }) {
@@ -236,36 +197,10 @@ function SignupControl({
     onBlur();
   };
 
-  /* The two that decide the rest of the form, and the two the scheme reports
-     reach by: their choices come from the system, not from the form. */
+  /* The two the scheme reports reach by: their choices come from the system,
+     not from the form, so a label edited in the portal cannot produce a value
+     the API will not take. */
   switch (field.key) {
-    case 'categoryId':
-      return (
-        <Picker
-          label={field.label}
-          required={field.required}
-          value={value || null}
-          options={categories.map((item) => ({ value: String(item.id), label: item.name }))}
-          hint={field.helpText}
-          error={error}
-          onChange={blurAfter}
-        />
-      );
-
-    case 'subCategoryId':
-      return (
-        <Picker
-          label={field.label}
-          required={field.required}
-          value={value || null}
-          options={subCategories.map((item) => ({ value: String(item.id), label: item.name }))}
-          disabled={!categoryChosen}
-          hint={categoryChosen ? field.helpText : 'Choose a category first.'}
-          error={error}
-          onChange={blurAfter}
-        />
-      );
-
     case 'gender':
     case 'socialCategory': {
       const declared =

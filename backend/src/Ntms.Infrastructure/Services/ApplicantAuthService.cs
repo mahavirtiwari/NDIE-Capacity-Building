@@ -217,48 +217,65 @@ public class ApplicantAuthService(
     public async Task<List<ApplicantProgramDto>> AvailableProgramsAsync(
         int applicantId, CancellationToken ct)
     {
-        var applicant = await db.Applicants.AsNoTracking()
-            .Include(a => a.SubCategory)
-            .FirstOrDefaultAsync(a => a.Id == applicantId, ct)
-            ?? throw AppException.NotFound("Applicant");
+        if (!await db.Applicants.AsNoTracking().AnyAsync(a => a.Id == applicantId, ct))
+            throw AppException.NotFound("Applicant");
 
         /* ---- the gate ------------------------------------------------
-           Nothing is visible until the profile form has been read and
+           Nothing is visible until a profile form has been read and
            accepted. The applicant is not shown a list of things they
            cannot have yet; the app asks about their profile first and
            sends them to fill it in. An empty list here is the honest
-           answer to "what is open to me". */
-        ProfileSubmission? accepted = null;
+           answer to "what is open to me".
 
-        if (applicant.SubCategory?.RequiresProfileForm ?? true)
+           Per discipline, because an account may hold a profile in each
+           category it has entered. Somebody accepted as an assessor sees
+           the assessor programs; if they later enter a second category and
+           that profile is still with scrutiny, the first set stays open
+           and the second has not opened yet. Both are true at once. */
+        var accepted = await db.ProfileSubmissions.AsNoTracking()
+            .Where(s => s.ApplicantId == applicantId
+                        && s.Status == ProfileSubmissionStatus.Approved)
+            .OrderByDescending(s => s.AttemptNo)
+            .ToListAsync(ct);
+
+        var acceptedBySubCategory = accepted
+            .GroupBy(s => s.SubCategoryId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        /* Disciplines that ask for no profile form at all are open to
+           anybody with an account, so they come in alongside. */
+        var openWithoutForm = await db.SubCategories.AsNoTracking()
+            .Where(c => !c.RequiresProfileForm && c.Status == RecordStatus.Active)
+            .Select(c => c.Id)
+            .ToListAsync(ct);
+
+        var visible = acceptedBySubCategory.Keys.Concat(openWithoutForm).Distinct().ToList();
+        if (visible.Count == 0) return [];
+
+        /* What each accepted profile says about qualification and
+           experience — but only from fields the form designer nominated.
+           Nothing is inferred from a field's name. Read per discipline,
+           because the answer that matters for a program is the one on the
+           profile for that program's own sub-category. */
+        var eligibility = new Dictionary<int, (bool HasQualification, int Rank,
+                                               bool HasExperience, decimal Years)>();
+
+        foreach (var (subCategoryId, submission) in acceptedBySubCategory)
         {
-            accepted = await db.ProfileSubmissions.AsNoTracking()
-                .Where(s => s.ApplicantId == applicantId
-                            && s.Status == ProfileSubmissionStatus.Approved)
-                .OrderByDescending(s => s.AttemptNo)
-                .FirstOrDefaultAsync(ct);
-
-            if (accepted is null) return [];
+            eligibility[subCategoryId] = await ReadEligibilityAsync(submission, ct);
         }
-
-        /* What the accepted profile says about their qualification and
-           their experience — but only from fields the form designer
-           nominated. Nothing is inferred from a field's name. */
-        var (hasQualification, qualificationRank, hasExperience, experienceYears) =
-            await ReadEligibilityAsync(accepted, ct);
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-        /* Scoped to the discipline they registered under, not the whole
-           category. The profile they had accepted was for this
-           sub-category, and it is what the programs beneath it were opened
-           on — a sibling discipline has its own form and its own scrutiny. */
+        /* Scoped to the disciplines they hold an accepted profile in, not
+           to whole categories. A sibling discipline has its own form and
+           its own scrutiny, and clearing one does not clear the other. */
         var programTypes = await db.ProgramTypes.AsNoTracking()
             .Include(p => p.Category)
             .Include(p => p.SubCategory)
             .Where(p => p.Status == RecordStatus.Active
-                        && p.SubCategoryId == applicant.SubCategoryId)
-            .OrderBy(p => p.Name)
+                        && visible.Contains(p.SubCategoryId))
+            .OrderBy(p => p.SubCategory!.Name).ThenBy(p => p.Name)
             .ToListAsync(ct);
 
         /* Fees are still per program type: two courses in one discipline
@@ -331,6 +348,11 @@ public class ApplicantAuthService(
 
                 var wantsForm = pt.SubCategory?.RequiresProfileForm ?? true;
                 var accepting = !wantsForm || forms.Contains(pt.SubCategoryId);
+
+                /* Measured against the profile for this program's own
+                   discipline. Nothing is carried over from another one. */
+                var (hasQualification, qualificationRank, hasExperience, experienceYears) =
+                    eligibility.GetValueOrDefault(pt.SubCategoryId);
 
                 /* ---- is this track finished with them? ----------------
                    Passing closes it, because the certificate is the point

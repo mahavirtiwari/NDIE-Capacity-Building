@@ -45,7 +45,15 @@ public class CodeGenerator(NtmsDbContext db) : ICodeGenerator
     public async Task<string> NextApplicantCodeAsync(CancellationToken ct = default)
     {
         const string prefix = "APP";
+
+        /* Only codes with this prefix, the way every other generator here
+           does it. Without the filter a database that also holds sample
+           accounts (SMP...) sorted one of those to the top, parsed a small
+           number out of it, fell back to the floor and minted a code that
+           already existed - which surfaced as "could not be saved" on
+           sign-up and could not be retried past. */
         var last = await db.Applicants
+            .Where(a => a.ApplicantCode.StartsWith(prefix))
             .OrderByDescending(a => a.ApplicantCode)
             .Select(a => a.ApplicantCode)
             .FirstOrDefaultAsync(ct);

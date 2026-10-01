@@ -130,42 +130,76 @@ public class ApplicantAppController(
         Envelope(await forms.GetByProgramTypeAsync(programTypeId, ct));
 
     /* ------------------------------------------------------- profile ----
-       The gate. Everything under "programs" stays shut until the profile
-       form has been read and accepted, so the app asks about this first. */
+       The gate. Everything under "programs" stays shut until a profile
+       form has been read and accepted, so the app asks about this first.
+
+       Keyed by sub-category throughout, because one account may hold a
+       profile in each category it has entered - one per category, never
+       two. Which disciplines are still open to this applicant is what
+       "profile-choices" answers. */
+
+    /// <summary>Every profile this applicant holds, and where each stands.</summary>
+    [HttpGet("profile-submissions")]
+    public async Task<ActionResult<ApiEnvelope<List<ProfileStandingDto>>>> MyProfiles(
+        CancellationToken ct) =>
+        Envelope(await profile.MineAsync(ApplicantId, ct));
 
     /// <summary>
-    /// Where this applicant stands with the profile form: what they sent,
-    /// what scrutiny said, how many tries are left, and whether the
-    /// discipline is shut to them for the moment.
+    /// The sub-categories this applicant may still start a profile in.
+    ///
+    /// A category they are already in is left out entirely rather than
+    /// shown and refused: the rule is one sub-category per category, and a
+    /// list that offers what cannot be chosen is a list that wastes a tap.
     /// </summary>
-    [HttpGet("profile-submission")]
-    public async Task<ActionResult<ApiEnvelope<ProfileStandingDto>>> ProfileStanding(
+    [HttpGet("profile-choices")]
+    public async Task<ActionResult<ApiEnvelope<List<ProfileChoiceDto>>>> ProfileChoices(
         CancellationToken ct) =>
-        Envelope(await profile.StandingAsync(ApplicantId, ct));
+        Envelope(await profile.ChoicesAsync(ApplicantId, ct));
 
-    /// <summary>The profile form this applicant fills, for their sub-category.</summary>
-    [HttpGet("profile-form")]
+    /// <summary>
+    /// Where this applicant stands with one discipline's profile form: what
+    /// they sent, what scrutiny said, how many tries are left, and whether
+    /// the discipline is shut to them for the moment.
+    /// </summary>
+    [HttpGet("profile-submission/{subCategoryId:int}")]
+    public async Task<ActionResult<ApiEnvelope<ProfileStandingDto>>> ProfileStanding(
+        int subCategoryId, CancellationToken ct) =>
+        Envelope(await profile.StandingAsync(ApplicantId, subCategoryId, ct));
+
+    /// <summary>The profile form for one sub-category.</summary>
+    [HttpGet("profile-form/{subCategoryId:int}")]
     public async Task<ActionResult<ApiEnvelope<ProfileFormDto>>> MyProfileForm(
-        CancellationToken ct)
-    {
-        var standing = await profile.StandingAsync(ApplicantId, ct);
-        return Envelope(await forms.GetBySubCategoryAsync(standing.SubCategoryId, ct));
-    }
+        int subCategoryId, CancellationToken ct) =>
+        Envelope(await forms.GetBySubCategoryAsync(subCategoryId, ct));
+
+    /// <summary>
+    /// The answers from a profile this applicant already holds, to start
+    /// another one from.
+    ///
+    /// Somebody entering a second category has already typed their
+    /// qualifications and their experience once. Nothing is submitted by
+    /// this: the answers are handed to the form, and the applicant reads
+    /// every one of them and sends it themselves.
+    /// </summary>
+    [HttpGet("profile-form/{subCategoryId:int}/from/{fromSubCategoryId:int}")]
+    public async Task<ActionResult<ApiEnvelope<Dictionary<string, object?>>>> FetchProfile(
+        int subCategoryId, int fromSubCategoryId, CancellationToken ct) =>
+        Envelope(await profile.FetchAsync(ApplicantId, fromSubCategoryId, ct));
 
     /* --------------------------------------------------- pictures ----
        A field of the profile form can ask for photographs rather than a
        file, because a phone is what the applicant has. They go up one at
        a time and come back as a single PDF. */
 
-    [HttpGet("profile-photos/{fieldKey}")]
+    [HttpGet("profile-photos/{subCategoryId:int}/{fieldKey}")]
     public async Task<ActionResult<ApiEnvelope<ProfileAttachmentService.Standing>>> Photos(
-        string fieldKey, CancellationToken ct) =>
-        Envelope(await photos.StandingAsync(ApplicantId, fieldKey, ct));
+        int subCategoryId, string fieldKey, CancellationToken ct) =>
+        Envelope(await photos.StandingAsync(ApplicantId, subCategoryId, fieldKey, ct));
 
-    [HttpPost("profile-photos/{fieldKey}")]
+    [HttpPost("profile-photos/{subCategoryId:int}/{fieldKey}")]
     [RequestSizeLimit(8_388_608)]
     public async Task<ActionResult<ApiEnvelope<ProfileAttachmentService.Standing>>> AddPhoto(
-        string fieldKey, IFormFile picture, CancellationToken ct)
+        int subCategoryId, string fieldKey, IFormFile picture, CancellationToken ct)
     {
         if (picture is null || picture.Length == 0)
             throw new AppException("Take a picture to add.");
@@ -173,44 +207,46 @@ public class ApplicantAppController(
         using var buffer = new MemoryStream();
         await picture.CopyToAsync(buffer, ct);
 
-        return Envelope(
-            await photos.AddAsync(ApplicantId, fieldKey, buffer.ToArray(), picture.ContentType, ct));
+        return Envelope(await photos.AddAsync(
+            ApplicantId, subCategoryId, fieldKey, buffer.ToArray(), picture.ContentType, ct));
     }
 
-    [HttpDelete("profile-photos/{fieldKey}/{displayOrder:int}")]
+    [HttpDelete("profile-photos/{subCategoryId:int}/{fieldKey}/{displayOrder:int}")]
     public async Task<ActionResult<ApiEnvelope<ProfileAttachmentService.Standing>>> RemovePhoto(
-        string fieldKey, int displayOrder, CancellationToken ct) =>
-        Envelope(await photos.RemoveAsync(ApplicantId, fieldKey, displayOrder, ct));
+        int subCategoryId, string fieldKey, int displayOrder, CancellationToken ct) =>
+        Envelope(await photos.RemoveAsync(ApplicantId, subCategoryId, fieldKey, displayOrder, ct));
 
     /// <summary>One picture, for the thumbnail beside the field.</summary>
-    [HttpGet("profile-photos/{fieldKey}/{displayOrder:int}")]
+    [HttpGet("profile-photos/{subCategoryId:int}/{fieldKey}/{displayOrder:int}")]
     public async Task<IActionResult> Photo(
-        string fieldKey, int displayOrder, CancellationToken ct)
+        int subCategoryId, string fieldKey, int displayOrder, CancellationToken ct)
     {
-        var (content, type) = await photos.OneAsync(ApplicantId, fieldKey, displayOrder, ct);
+        var (content, type) = await photos.OneAsync(
+            ApplicantId, subCategoryId, fieldKey, displayOrder, ct);
         return File(content, type);
     }
 
     /// <summary>Every picture for the field, merged, in the order taken.</summary>
-    [HttpGet("profile-photos/{fieldKey}/pdf")]
-    public async Task<IActionResult> PhotoPdf(string fieldKey, CancellationToken ct) =>
-        File(await photos.PdfAsync(ApplicantId, fieldKey, ct), "application/pdf",
-            $"{fieldKey}.pdf");
+    [HttpGet("profile-photos/{subCategoryId:int}/{fieldKey}/pdf")]
+    public async Task<IActionResult> PhotoPdf(
+        int subCategoryId, string fieldKey, CancellationToken ct) =>
+        File(await photos.PdfAsync(ApplicantId, subCategoryId, fieldKey, ct),
+            "application/pdf", $"{fieldKey}.pdf");
 
     /* ------------------------------------------------------ files ----
        A file field used to record only the name of what the applicant
        chose and throw the document away. It keeps it now. */
 
-    [HttpGet("profile-files/{fieldKey}")]
+    [HttpGet("profile-files/{subCategoryId:int}/{fieldKey}")]
     public async Task<ActionResult<ApiEnvelope<ProfileAttachmentService.FileStanding>>> ProfileFile(
-        string fieldKey, CancellationToken ct) =>
-        Envelope(await photos.FileStandingAsync(ApplicantId, fieldKey, ct));
+        int subCategoryId, string fieldKey, CancellationToken ct) =>
+        Envelope(await photos.FileStandingAsync(ApplicantId, subCategoryId, fieldKey, ct));
 
     /// <summary>Attaches a file, replacing whatever the field held.</summary>
-    [HttpPost("profile-files/{fieldKey}")]
+    [HttpPost("profile-files/{subCategoryId:int}/{fieldKey}")]
     [RequestSizeLimit(68_157_440)]
     public async Task<ActionResult<ApiEnvelope<ProfileAttachmentService.FileStanding>>> SetProfileFile(
-        string fieldKey, IFormFile document, CancellationToken ct)
+        int subCategoryId, string fieldKey, IFormFile document, CancellationToken ct)
     {
         if (document is null || document.Length == 0)
             throw new AppException("Choose a file to attach.");
@@ -220,16 +256,18 @@ public class ApplicantAppController(
 
         return Envelope(
             await photos.SetFileAsync(
-                ApplicantId, fieldKey, buffer.ToArray(),
+                ApplicantId, subCategoryId, fieldKey, buffer.ToArray(),
                 document.FileName, document.ContentType, ct),
             "File attached.");
     }
 
     /// <summary>The file back, as it arrived.</summary>
-    [HttpGet("profile-files/{fieldKey}/download")]
-    public async Task<IActionResult> DownloadProfileFile(string fieldKey, CancellationToken ct)
+    [HttpGet("profile-files/{subCategoryId:int}/{fieldKey}/download")]
+    public async Task<IActionResult> DownloadProfileFile(
+        int subCategoryId, string fieldKey, CancellationToken ct)
     {
-        var (content, type, name) = await photos.FileAsync(ApplicantId, fieldKey, ct);
+        var (content, type, name) = await photos.FileAsync(
+            ApplicantId, subCategoryId, fieldKey, ct);
         return File(content, type, name);
     }
 
@@ -238,7 +276,8 @@ public class ApplicantAppController(
     public async Task<ActionResult<ApiEnvelope<ProfileStandingDto>>> SubmitProfile(
         [FromBody] ProfileSubmitDto dto, CancellationToken ct)
     {
-        var standing = await profile.SubmitAsync(ApplicantId, dto.Responses, ct);
+        var standing = await profile.SubmitAsync(
+            ApplicantId, dto.SubCategoryId, dto.Responses, ct);
 
         /* The message has to match what actually happened: a form that is
            not scrutinised is accepted on the spot, and telling that

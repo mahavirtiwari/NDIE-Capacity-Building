@@ -129,8 +129,20 @@ public static class MasterScopeExtensions
         var states = user.ScopeStateCodes;
         var districts = user.ScopeDistrictCodes;
 
-        if (categories.Count > 0) query = query.Where(a => categories.Contains(a.CategoryId));
-        if (subCategories.Count > 0) query = query.Where(a => subCategories.Contains(a.SubCategoryId));
+        /* Which disciplines an applicant is in comes from the profiles they
+           hold, not from the columns on the account.
+
+           Those columns record the first discipline they entered and are
+           kept for the reports that group by one, but an account may now
+           hold a profile in each category — reading the column would hide
+           somebody from the officer who scrutinises their second profile.
+           Anybody who has started no profile at all is in no category and
+           is correctly outside a scope that names any. */
+        if (categories.Count > 0)
+            query = query.Where(a => a.ProfileSubmissions.Any(s => categories.Contains(s.CategoryId)));
+        if (subCategories.Count > 0)
+            query = query.Where(
+                a => a.ProfileSubmissions.Any(s => subCategories.Contains(s.SubCategoryId)));
         if (states.Count > 0)
             query = query.Where(a => a.StateCode != null && states.Contains(a.StateCode.Value));
         if (districts.Count > 0)

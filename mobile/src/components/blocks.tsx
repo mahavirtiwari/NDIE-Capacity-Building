@@ -41,11 +41,10 @@ export function IdentityPanel({
         </View>
       </View>
 
-      {applicant?.subCategoryName ? (
-        <Text style={styles.track} numberOfLines={2}>
-          {applicant.categoryName} · {applicant.subCategoryName}
-        </Text>
-      ) : null}
+      {/* The one discipline that used to be named here was the one chosen
+          at sign-up. An account can now hold a profile in each category, so
+          a single line under the name would be true of only one of them.
+          They are listed, with where each stands, on the profile screen. */}
 
       {children}
     </View>
@@ -166,7 +165,6 @@ const styles = StyleSheet.create({
   greeting: { fontSize: font.xs, color: colors.onBrandMuted, letterSpacing: 0.5 },
   name: { fontSize: font.lg, fontWeight: '700', color: colors.white },
   code: { fontSize: font.xs, color: colors.white, opacity: 0.9, letterSpacing: 0.5 },
-  track: { fontSize: font.sm, color: colors.onBrandMuted, lineHeight: 18 },
 
   heading: {
     fontSize: font.xs,

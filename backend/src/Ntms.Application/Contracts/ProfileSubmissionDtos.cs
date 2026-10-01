@@ -18,6 +18,8 @@ public class ProfileStandingDto
     /// <summary>Null before the first attempt.</summary>
     public string? Status { get; set; }
 
+    public int CategoryId { get; set; }
+    public string? CategoryName { get; set; }
     public int SubCategoryId { get; set; }
     public string? SubCategoryName { get; set; }
 
@@ -47,7 +49,19 @@ public class ProfileStandingDto
 
 public class ProfileSubmitDto
 {
+    /// <summary>Which discipline this profile is for.</summary>
+    public int SubCategoryId { get; set; }
     public Dictionary<string, object?> Responses { get; set; } = [];
+}
+
+/// <summary>A sub-category an applicant may still start a profile in.</summary>
+public class ProfileChoiceDto
+{
+    public int CategoryId { get; set; }
+    public string CategoryName { get; set; } = string.Empty;
+    public int SubCategoryId { get; set; }
+    public string SubCategoryName { get; set; } = string.Empty;
+    public bool RequiresProfileForm { get; set; }
 }
 
 /// <summary>One profile submission, as the scrutiny queue shows it.</summary>
@@ -57,6 +71,8 @@ public class ProfileSubmissionDto
     public int ApplicantId { get; set; }
     public string? ApplicantCode { get; set; }
     public string? ApplicantName { get; set; }
+    public int CategoryId { get; set; }
+    public string? CategoryName { get; set; }
     public int SubCategoryId { get; set; }
     public string? SubCategoryName { get; set; }
     public int? ProfileFormId { get; set; }

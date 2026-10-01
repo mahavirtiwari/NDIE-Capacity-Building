@@ -25,8 +25,11 @@ const COLUMNS: ColumnDef[] = [
   { key: 'fullName', header: 'Applicant', sortable: true, variant: 'primary' },
   { key: 'contact', header: 'Contact', width: '250px' },
   { key: 'pan', header: 'PAN', width: '130px' },
-  { key: 'categoryName', header: 'Category', variant: 'muted' },
-  { key: 'subCategoryName', header: 'Sub-category', variant: 'muted' },
+  /* The first discipline they entered. An account holds a profile per
+     category now, so this is one of possibly several - the whole set is on
+     the profile scrutiny queue, which carries a row per submission. */
+  { key: 'categoryName', header: 'First category', variant: 'muted' },
+  { key: 'subCategoryName', header: 'First sub-category', variant: 'muted' },
   { key: 'standing', header: 'Status', width: '150px' },
   { key: 'registeredOn', header: 'Registered', width: '130px' },
   { key: 'actions', header: '', width: '150px', align: 'right' },
@@ -243,12 +246,12 @@ const COLUMNS: ColumnDef[] = [
                 <div class="dl__value">{{ row.pan || '—' }}</div>
               </div>
               <div>
-                <div class="dl__term">Category</div>
-                <div class="dl__value">{{ row.categoryName }}</div>
+                <div class="dl__term">First category</div>
+                <div class="dl__value">{{ row.categoryName || 'Not chosen yet' }}</div>
               </div>
               <div>
-                <div class="dl__term">Sub-category</div>
-                <div class="dl__value">{{ row.subCategoryName }}</div>
+                <div class="dl__term">First sub-category</div>
+                <div class="dl__value">{{ row.subCategoryName || 'Not chosen yet' }}</div>
               </div>
               <div>
                 <div class="dl__term">Gender</div>

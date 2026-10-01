@@ -81,8 +81,10 @@ export const APPLICATIONS: Application[] = APPLICANTS.slice(0, 44).map((applican
     applicantEmail: applicant.email,
     applicantMobile: applicant.mobile,
     pan: applicant.pan,
-    categoryId: applicant.categoryId,
-    subCategoryId: applicant.subCategoryId,
+    /* From the sub-category the application is for, not from the account:
+       an applicant's own category is only the first one they entered. */
+    categoryId: sub.categoryId,
+    subCategoryId: sub.id,
     programTypeId: pt.id,
     status,
     submittedOn,

@@ -10,8 +10,6 @@ import { FieldType } from './profile-field.model';
  */
 export interface SignupField {
   id: Id;
-  /** Which form it belongs to. Null is the default set. */
-  subCategoryId?: Id | null;
   /** What the answer is stored against. Fixed once the field exists. */
   key: string;
   label: string;
@@ -51,14 +49,7 @@ export interface SignupFieldUpsert {
   options: SignupFieldOption[];
 }
 
-/**
- * One sub-category's sign-up form, and whether it is its own or the default it
- * falls back to. The screen has to say which, or an administrator edits what
- * they think is one sub-category's form and changes everybody's.
- */
+/** The sign-up form: the questions everybody answers, in order. */
 export interface SignupForm {
-  subCategoryId?: Id | null;
-  subCategoryName?: string | null;
-  isOwnForm: boolean;
   fields: SignupField[];
 }

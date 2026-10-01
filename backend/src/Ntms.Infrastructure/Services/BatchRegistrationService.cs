@@ -56,19 +56,30 @@ public class BatchRegistrationService(
 
         /* ---- the gate, again -------------------------------------------
            Checked here as well as on the listing. The list is a view and
-           can be stale; this is where a seat is actually taken. */
-        if (applicant.SubCategory?.RequiresProfileForm ?? true)
+           can be stale; this is where a seat is actually taken.
+
+           The profile that has to be accepted is the one for this batch's
+           own discipline. An account may hold several, and clearing
+           scrutiny as an assessor says nothing about a master trainer's
+           batch — so this cannot be a check for any accepted profile. */
+        var subCategory = await db.SubCategories.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == programType.SubCategoryId, ct)
+            ?? throw new AppException("This batch's sub-category is missing.");
+
+        if (subCategory.RequiresProfileForm)
         {
             var cleared = await db.ProfileSubmissions.AsNoTracking()
                 .AnyAsync(s => s.ApplicantId == applicantId
+                               && s.SubCategoryId == programType.SubCategoryId
                                && s.Status == ProfileSubmissionStatus.Approved, ct);
 
             if (!cleared)
-                throw new AppException("Your profile has to be accepted before you can register.");
+            {
+                throw new AppException(
+                    $"Your {subCategory.Name} profile has to be accepted before you can " +
+                    "register for this batch.");
+            }
         }
-
-        if (programType.SubCategoryId != applicant.SubCategoryId)
-            throw new AppException("This batch is not in your sub-category.");
 
         await GuardProgramTypeAsync(applicantId, programType, ct);
 

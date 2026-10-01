@@ -217,7 +217,7 @@ public class DbSeeder(
     /// <summary>
     /// The fields an applicant fills in to create an account.
     ///
-    /// These eight exist as columns on the applicant record whether or not
+    /// These six exist as columns on the applicant record whether or not
     /// there is a row here, so seeding them is not creating the form - it is
     /// making the form that already exists editable. Only the ones missing are
     /// added, so a label somebody changed is never quietly put back.
@@ -233,8 +233,6 @@ public class DbSeeder(
             ("pan", "PAN", "ABCDE1234F", FieldType.Pan, true, false),
             ("gender", "Gender", "Select a gender", FieldType.Select, true, false),
             ("socialCategory", "Social category", "Select a social category", FieldType.Select, true, false),
-            ("categoryId", "Category", "Select a category", FieldType.Select, true, true),
-            ("subCategoryId", "Sub-category", "Select a sub-category", FieldType.Select, true, true),
         };
 
         var existing = await db.SignupFields.Select(f => f.Key).ToListAsync(ct);

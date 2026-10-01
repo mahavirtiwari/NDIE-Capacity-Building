@@ -1,7 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ProfileField, ProfileForm, ProfileSection } from '../api/types';
 import { colors, font, radius, spacing } from '../theme';
@@ -13,6 +20,39 @@ import { CheckboxGroup, Picker, RadioGroup, Switch } from './Picker';
 
 export type FormValue = string | string[] | boolean | null;
 export type FormValues = Record<string, FormValue>;
+
+/**
+ * Which discipline's profile the form on screen belongs to.
+ *
+ * An account holds a profile in each category it has entered, so a picture
+ * or a document is only identified by the sub-category as well as the field
+ * - two forms may name a field the same thing. Carried as context rather
+ * than threaded through four layers of props, because it is ambient to the
+ * whole form and only the two fields that attach something need it.
+ */
+const SubCategoryContext = createContext<number | null>(null);
+
+export function ProfileScope({
+  subCategoryId,
+  children,
+}: {
+  subCategoryId: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <SubCategoryContext.Provider value={subCategoryId}>{children}</SubCategoryContext.Provider>
+  );
+}
+
+function useSubCategoryId(): number {
+  const held = useContext(SubCategoryContext);
+  /* Loud rather than silently posting to sub-category zero, which the API
+     would refuse in a way nobody could trace back to here. */
+  if (held === null) {
+    throw new Error('A file or picture field needs <ProfileScope> around the form.');
+  }
+  return held;
+}
 
 /**
  * How far through one section the applicant is.
@@ -821,6 +861,7 @@ function FileField({
   error?: string;
   onChange: (value: string) => void;
 }) {
+  const subCategoryId = useSubCategoryId();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -832,7 +873,7 @@ function FileField({
     let cancelled = false;
     (async () => {
       try {
-        const held = await me.profileFile(field.key);
+        const held = await me.profileFile(subCategoryId, field.key);
         if (!cancelled && held.fileName) onChange(held.fileName);
       } catch {
         /* Offline, or nothing attached yet. What is in the form stands. */
@@ -842,7 +883,7 @@ function FileField({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [field.key]);
+  }, [subCategoryId, field.key]);
 
   const pick = async () => {
     setFailure(null);
@@ -862,7 +903,7 @@ function FileField({
        looked like it had worked and had not. */
     setBusy(true);
     try {
-      const held = await me.setProfileFile(field.key, {
+      const held = await me.setProfileFile(subCategoryId, field.key, {
         uri: asset.uri,
         name: asset.name,
         type: asset.mimeType ?? 'application/octet-stream',
@@ -879,7 +920,8 @@ function FileField({
     setBusy(true);
     setFailure(null);
     try {
-      await saveAndShare(await me.profileFileDownload(field.key), field.label);
+      await saveAndShare(
+        await me.profileFileDownload(subCategoryId, field.key), field.label);
     } catch (caught) {
       setFailure(caught instanceof Error ? caught.message : 'Could not open the file.');
     } finally {
@@ -961,6 +1003,7 @@ function PhotosField({
 }) {
   const limit = Math.min(Math.max(field.validation.maxPhotos ?? 5, 1), 20);
 
+  const subCategoryId = useSubCategoryId();
   const [count, setCount] = useState(() => Number(value) || 0);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -972,7 +1015,7 @@ function PhotosField({
     let cancelled = false;
     (async () => {
       try {
-        const standing = await me.photoStanding(field.key);
+        const standing = await me.photoStanding(subCategoryId, field.key);
         if (cancelled) return;
         setCount(standing.count);
         onChange(String(standing.count));
@@ -984,7 +1027,7 @@ function PhotosField({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [field.key]);
+  }, [subCategoryId, field.key]);
 
   const take = async () => {
     setFailure(null);
@@ -1001,7 +1044,7 @@ function PhotosField({
     setBusy(true);
     try {
       const asset = shot.assets[0];
-      const standing = await me.addPhoto(field.key, {
+      const standing = await me.addPhoto(subCategoryId, field.key, {
         uri: asset.uri,
         type: asset.mimeType ?? 'image/jpeg',
       });
@@ -1019,7 +1062,7 @@ function PhotosField({
     setBusy(true);
     setFailure(null);
     try {
-      const standing = await me.removePhoto(field.key, count);
+      const standing = await me.removePhoto(subCategoryId, field.key, count);
       setCount(standing.count);
       onChange(String(standing.count));
     } catch (caught) {
@@ -1033,7 +1076,7 @@ function PhotosField({
     setBusy(true);
     setFailure(null);
     try {
-      await saveAndShare(await me.photoPdf(field.key), field.label);
+      await saveAndShare(await me.photoPdf(subCategoryId, field.key), field.label);
     } catch (caught) {
       setFailure(caught instanceof Error ? caught.message : 'Could not open the pictures.');
     } finally {

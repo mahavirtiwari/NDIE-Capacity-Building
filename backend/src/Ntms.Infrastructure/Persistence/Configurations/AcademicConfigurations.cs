@@ -68,10 +68,12 @@ public class ProfileSubmissionConfiguration : IEntityTypeConfiguration<ProfileSu
         b.Property(x => x.RejectionReasonLabel).HasMaxLength(200);
         b.Property(x => x.Remarks).HasMaxLength(1000);
 
-        /* One attempt per number per applicant: a retry is a new row, and
+        /* One attempt per number per discipline: a retry is a new row, and
            two rows claiming to be the same attempt would make the count the
-           block is calculated from meaningless. */
-        b.HasIndex(x => new { x.ApplicantId, x.AttemptNo }).IsUnique();
+           block is calculated from meaningless. Keyed on the sub-category
+           too, because an applicant holds one profile per category and
+           their attempts at each are counted separately. */
+        b.HasIndex(x => new { x.ApplicantId, x.SubCategoryId, x.AttemptNo }).IsUnique();
         b.HasIndex(x => new { x.Status, x.SubmittedOn });
 
         b.HasOne(x => x.Applicant).WithMany(a => a.ProfileSubmissions)
@@ -80,6 +82,10 @@ public class ProfileSubmissionConfiguration : IEntityTypeConfiguration<ProfileSu
 
         b.HasOne(x => x.SubCategory).WithMany()
             .HasForeignKey(x => x.SubCategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        b.HasOne(x => x.Category).WithMany()
+            .HasForeignKey(x => x.CategoryId)
             .OnDelete(DeleteBehavior.Restrict);
 
         b.HasOne(x => x.ProfileForm).WithMany()
@@ -102,14 +108,19 @@ public class ProfileAttachmentConfiguration : IEntityTypeConfiguration<ProfileAt
         b.Property(x => x.FileName).HasMaxLength(260);
         b.Property(x => x.ContentType).HasMaxLength(100).IsRequired();
 
-        /* One per position per field, so a set of pictures has no gaps and
-           no duplicates and the PDF's page order is the stored order. A
-           file field only ever uses position one. */
-        b.HasIndex(x => new { x.ApplicantId, x.FieldKey, x.DisplayOrder }).IsUnique();
+        /* One per position per field per discipline, so a set of pictures
+           has no gaps and no duplicates and the PDF's page order is the
+           stored order. A file field only ever uses position one. */
+        b.HasIndex(x => new { x.ApplicantId, x.SubCategoryId, x.FieldKey, x.DisplayOrder })
+            .IsUnique();
 
         b.HasOne(x => x.Applicant).WithMany()
             .HasForeignKey(x => x.ApplicantId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        b.HasOne(x => x.SubCategory).WithMany()
+            .HasForeignKey(x => x.SubCategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -356,15 +367,8 @@ public class SignupFieldConfiguration : IEntityTypeConfiguration<SignupField>
            sub-categories is two different forms asking the same question,
            which is the point.
 
-           HasFilter(null) undoes the filter EF adds for a nullable column. Left
-           in place it reads "unique where SubCategoryId is not null", which
-           exempts the default set from the very rule this index exists for.
-           SQL Server compares nulls as equal here, so the default set is held
-           to it like any other. */
-        b.HasIndex(x => new { x.SubCategoryId, x.Key }).IsUnique().HasFilter(null);
-
-        b.HasOne(x => x.SubCategory).WithMany().HasForeignKey(x => x.SubCategoryId)
-            .OnDelete(DeleteBehavior.Restrict);
+           There is one sign-up form now, so a key appears once in it. */
+        b.HasIndex(x => x.Key).IsUnique();
     }
 }
 

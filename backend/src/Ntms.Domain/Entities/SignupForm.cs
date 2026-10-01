@@ -23,17 +23,6 @@ namespace Ntms.Domain.Entities;
 /// </summary>
 public class SignupField : AuditableStatusEntity
 {
-    /// <summary>
-    /// The sub-category this field belongs to, or null for the default set.
-    ///
-    /// A scheme does not ask an assessor and a master trainer the same
-    /// questions, so the form is per sub-category. Null is the set used by a
-    /// sub-category that has not been given one of its own, which is every
-    /// sub-category until somebody says otherwise — so the form that existed
-    /// before this went on carrying on.
-    /// </summary>
-    public int? SubCategoryId { get; set; }
-    public SubCategory? SubCategory { get; set; }
 
     /// <summary>
     /// What the answer is stored against. For a built-in field this matches

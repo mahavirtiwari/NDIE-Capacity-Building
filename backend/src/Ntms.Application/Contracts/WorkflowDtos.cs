@@ -16,9 +16,13 @@ public class ApplicantDto : AuditDto
     /// <summary>Self-declared; null where the applicant predates the question.</summary>
     public string? Gender { get; set; }
     public string? SocialCategory { get; set; }
-    public int CategoryId { get; set; }
+    /// <summary>
+    /// The first discipline they entered, and null until they start one.
+    /// What is actually open to them is the profiles they hold.
+    /// </summary>
+    public int? CategoryId { get; set; }
     public string? CategoryName { get; set; }
-    public int SubCategoryId { get; set; }
+    public int? SubCategoryId { get; set; }
     public string? SubCategoryName { get; set; }
     public bool EmailVerified { get; set; }
     public bool MobileVerified { get; set; }
@@ -160,13 +164,11 @@ public class ApplicantSignUpDto
     public string Pan { get; set; } = string.Empty;
     public string? Gender { get; set; }
     public string? SocialCategory { get; set; }
-    public int CategoryId { get; set; }
-    public int SubCategoryId { get; set; }
 
     /// <summary>
-    /// Answers to whatever else this sub-category's sign-up form asks, keyed
-    /// by field key. The built-in questions keep their own properties above,
-    /// because they land in columns rather than in answer rows.
+    /// Answers to whatever else the sign-up form asks, keyed by field key.
+    /// The built-in questions keep their own properties above, because they
+    /// land in columns rather than in answer rows.
     /// </summary>
     public Dictionary<string, string?> Answers { get; set; } = [];
 }

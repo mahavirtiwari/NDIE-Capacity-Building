@@ -343,10 +343,6 @@ public class SignupFieldOptionDto
 public class SignupFieldDto
 {
     public int Id { get; set; }
-
-    /// <summary>The sub-category this field belongs to; null is the default set.</summary>
-    public int? SubCategoryId { get; set; }
-
     public string Key { get; set; } = string.Empty;
     public string Label { get; set; } = string.Empty;
     public string? Placeholder { get; set; }
@@ -367,9 +363,6 @@ public class SignupFieldDto
 
 public class SignupFieldUpsertDto
 {
-    /// <summary>Which form this belongs to. Null is the default set.</summary>
-    public int? SubCategoryId { get; set; }
-
     /// <summary>Ignored on update: the key is what answers are stored against.</summary>
     public string Key { get; set; } = string.Empty;
     public string Label { get; set; } = string.Empty;
@@ -387,19 +380,9 @@ public class ReorderDto
     public List<int> Ids { get; set; } = [];
 }
 
-/// <summary>
-/// One sub-category's sign-up form, and whether it is its own or the default
-/// it falls back to. The screen has to say which, or an administrator edits
-/// what they think is one sub-category's form and changes everybody's.
-/// </summary>
+/// <summary>The sign-up form: the questions everybody answers, in order.</summary>
 public class SignupFormDto
 {
-    public int? SubCategoryId { get; set; }
-    public string? SubCategoryName { get; set; }
-
-    /// <summary>False when these fields are the shared default, not this sub-category's own.</summary>
-    public bool IsOwnForm { get; set; }
-
     public List<SignupFieldDto> Fields { get; set; } = [];
 }
 

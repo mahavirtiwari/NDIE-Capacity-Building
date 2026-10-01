@@ -171,15 +171,19 @@ public class ApplicantConfiguration : IEntityTypeConfiguration<Applicant>
         b.HasIndex(x => x.ApplicantCode).IsUnique();
         b.HasIndex(x => x.Email);
 
-        /* One registration per person per category, where the person is their
-           PAN. Not unique on PAN alone: the same person may train under more
-           than one category, and each of those is a registration of its own
-           with its own applicant ID. What they may not do is hold two within
-           one category — a category is entered once, under one sub-category.
+        /* One account per person, where the person is their PAN.
+
+           It was once unique on (Pan, CategoryId), because a category was
+           chosen at sign-up and training under a second one meant a second
+           applicant ID. One account now holds a profile in each category, so
+           a second row for the same PAN is a duplicate of a person.
+
+           Filtered, because the form may be configured not to ask for a PAN,
+           and a rule keyed on one cannot be applied to a row without it.
 
            The service says so in words; this is what makes it true even if two
            sign-ups arrive at the same moment. */
-        b.HasIndex(x => new { x.Pan, x.CategoryId }).IsUnique().HasFilter("[Pan] <> ''");
+        b.HasIndex(x => x.Pan).IsUnique().HasFilter("[Pan] <> ''");
 
         b.HasOne(x => x.Category).WithMany().HasForeignKey(x => x.CategoryId)
             .OnDelete(DeleteBehavior.Restrict);

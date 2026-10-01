@@ -41,9 +41,14 @@ export interface Applicant extends AuditInfo {
   pan: string;
   gender?: ApplicantGender;
   socialCategory?: ApplicantSocialCategory;
-  categoryId: Id;
+  /**
+   * The first discipline this person entered, kept for the reports that
+   * group by one. Not the whole truth: an account holds a profile per
+   * category, and null until the first one is started.
+   */
+  categoryId?: Id | null;
   categoryName?: string;
-  subCategoryId: Id;
+  subCategoryId?: Id | null;
   subCategoryName?: string;
   emailVerified: boolean;
   mobileVerified: boolean;

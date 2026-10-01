@@ -46,7 +46,10 @@ public class ApplicantService(
         var wanted = (standing ?? string.Empty).Trim();
 
         var query = Base
-            .WhereIf(categoryId.HasValue, a => a.CategoryId == categoryId)
+            /* On any profile they hold, not on the account's own column:
+               the column is only the first discipline they entered. */
+            .WhereIf(categoryId.HasValue,
+                a => a.ProfileSubmissions.Any(s => s.CategoryId == categoryId))
             .WhereIf(!string.IsNullOrWhiteSpace(state), a => a.State!.Name == state!.ToUpperInvariant())
             .WhereIf(isBlocked.HasValue, a => a.IsBlocked == isBlocked)
             .WhereIf(registeredFrom.HasValue, a => a.RegisteredOn >= registeredFrom!.Value)
@@ -147,24 +150,18 @@ public class ApplicantService(
     /// </summary>
     public async Task<ApplicantDto> SignUpAsync(ApplicantSignUpDto dto, CancellationToken ct)
     {
-        Guard.Check()
-            .When(dto.CategoryId <= 0, "Select a category.")
-            .When(dto.SubCategoryId <= 0, "Select a sub-category.")
-            .ThrowIfInvalid();
+        /* The form as the app shows it, so that what is demanded here is
+           exactly what was asked there. A question switched off in the portal
+           is not asked by the app and is not insisted on here either; one
+           somebody added is asked, and its answer is kept.
 
-        /* The pair has to exist and belong together. Without this a mismatched
-           sub-category reaches the database and comes back as a foreign key
-           violation, which says nothing to the person who picked it. */
-        var pairIsReal = await db.SubCategories.AsNoTracking().AnyAsync(
-            c => c.Id == dto.SubCategoryId && c.CategoryId == dto.CategoryId, ct);
-        if (!pairIsReal)
-            throw new AppException("That sub-category does not belong to the chosen category.");
-
-        /* The form this sub-category actually shows, so that what is demanded
-           here is exactly what was asked there. A question switched off in the
-           portal is not asked by the app and is not insisted on here either;
-           one somebody added is asked, and its answer is kept. */
-        var form = await signupForms.FormAsync(dto.SubCategoryId, activeOnly: true, ct);
+           Nothing about a discipline is asked at this point. An account is an
+           account: which category and sub-category somebody works in is
+           chosen in the app afterwards, on the profile form, and one account
+           may hold a profile in each category. Asking here would have fixed
+           that choice at the moment of signing up, before the applicant had
+           seen what the programs are. */
+        var form = await signupForms.FormAsync(activeOnly: true, ct);
         var asked = form.Fields
             .ToDictionary(f => f.Key, f => f, StringComparer.OrdinalIgnoreCase);
 
@@ -193,31 +190,27 @@ public class ApplicantService(
         var answers = ValidateSignupAnswers(form, dto.Answers, guard);
         guard.ThrowIfInvalid();
 
-        /* One registration per person per category, the person being their PAN.
-           A category is entered once, under one sub-category — somebody
-           already registered for Bronze cannot also register for Silver. The
-           same PAN under a different category is a separate registration and
-           is allowed, which is why this is not a check on PAN alone.
+        /* One account per person, the person being their PAN.
 
-           The database enforces the same rule on (Pan, CategoryId); this is
-           here to say it in words rather than as an index violation. */
-        var already = string.IsNullOrEmpty(pan)
-            ? null
-            : await db.Applicants.AsNoTracking()
-                .Where(a => a.Pan == pan && a.CategoryId == dto.CategoryId)
-                .Select(a => new { Category = a.Category!.Name, SubCategory = a.SubCategory!.Name })
-                .FirstOrDefaultAsync(ct);
+           It used to be one per PAN per category, because a category was
+           chosen at sign-up and entering a second one meant a second account.
+           It does not any more: one account holds a profile in each category
+           the applicant enters, so a second account for the same PAN is a
+           duplicate of a person rather than a separate registration.
 
-        if (already is not null)
+           The database enforces the same rule on Pan; this is here to say it
+           in words rather than as an index violation. */
+        var already = !string.IsNullOrEmpty(pan)
+                      && await db.Applicants.AsNoTracking().AnyAsync(a => a.Pan == pan, ct);
+
+        if (already)
         {
-            /* The sub-category is named because it is what makes the refusal
-               actionable. The applicant ID they already hold is not: this
-               endpoint is anonymous, and that ID is what they sign in with. */
+            /* The ID they already hold is not named: this endpoint is
+               anonymous, and that ID is what they sign in with. */
             throw AppException.Conflict(
-                $"This PAN is already registered under {already.Category}, for " +
-                $"{already.SubCategory}. A category can only be entered once, so the same PAN " +
-                "can be registered under a different category but not under another " +
-                $"sub-category of {already.Category}.");
+                "This PAN is already registered. Sign in with the applicant ID you were sent, " +
+                "or use 'forgot applicant ID' to have it sent to you again. One account covers " +
+                "every category - the category is chosen in the app, not here.");
         }
 
         var entity = new Applicant
@@ -234,8 +227,6 @@ public class ApplicantService(
             Pan = pan ?? string.Empty,
             Gender = EnumMaps.ParseDeclared<Gender>(dto.Gender),
             SocialCategory = EnumMaps.ParseDeclared<SocialCategory>(dto.SocialCategory),
-            CategoryId = dto.CategoryId,
-            SubCategoryId = dto.SubCategoryId,
             RegisteredOn = DateTime.UtcNow,
         };
 
@@ -270,7 +261,7 @@ public class ApplicantService(
     ///
     /// Only what the form asks is read: a key that is not on it is dropped
     /// rather than stored, so a stale app cannot write answers to questions
-    /// this sub-category no longer has.
+    /// the form no longer has.
     /// </summary>
     private static List<ApplicantAnswer> ValidateSignupAnswers(
         SignupFormDto form, Dictionary<string, string?> supplied, Guard.Collector guard)

@@ -523,7 +523,7 @@ public class ProfileSubmissionsController(ProfileSubmissionService service) : Ap
     {
         var submission = await service.GetAsync(id, ct);
         return File(
-            await photos.PdfAsync(submission.ApplicantId, fieldKey, ct),
+            await photos.PdfAsync(submission.ApplicantId, submission.SubCategoryId, fieldKey, ct),
             "application/pdf",
             $"{submission.ApplicantCode}-{fieldKey}.pdf");
     }
@@ -537,7 +537,8 @@ public class ProfileSubmissionsController(ProfileSubmissionService service) : Ap
     {
         var submission = await service.GetAsync(id, ct);
         var (content, type, name) =
-            await attachments.FileAsync(submission.ApplicantId, fieldKey, ct);
+            await attachments.FileAsync(
+                submission.ApplicantId, submission.SubCategoryId, fieldKey, ct);
 
         return File(content, type, $"{submission.ApplicantCode}-{name}");
     }

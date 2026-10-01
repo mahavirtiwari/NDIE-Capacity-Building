@@ -23,10 +23,17 @@ public class ProfileSubmission : AuditableEntity
     public Applicant? Applicant { get; set; }
 
     /// <summary>
-    /// The discipline this was submitted under. An applicant belongs to one,
-    /// but it is written down here too: a submission is a record of what was
-    /// asked at the time, and the applicant's own field can be corrected.
+    /// The discipline this was submitted under, chosen by the applicant
+    /// when they started it.
+    ///
+    /// An applicant may hold one profile per category, so this pair is what
+    /// identifies a profile rather than the applicant alone. Written down
+    /// here rather than read through the sub-category, because a submission
+    /// is a record of what was asked at the time.
     /// </summary>
+    public int CategoryId { get; set; }
+    public Category? Category { get; set; }
+
     public int SubCategoryId { get; set; }
     public SubCategory? SubCategory { get; set; }
 
@@ -34,7 +41,7 @@ public class ProfileSubmission : AuditableEntity
     public int? ProfileFormId { get; set; }
     public ProfileForm? ProfileForm { get; set; }
 
-    /// <summary>Which try this is, counting from one.</summary>
+    /// <summary>Which try this is at this discipline, counting from one.</summary>
     public int AttemptNo { get; set; } = 1;
 
     /// <summary>Answers as JSON, shaped by the form that was in force.</summary>
