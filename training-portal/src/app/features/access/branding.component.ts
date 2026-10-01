@@ -336,11 +336,28 @@ const MAX_BYTES = 512 * 1024;
         border: 1px dashed var(--border-strong);
         border-radius: var(--radius);
         background: #fff;
+        /* Whatever is uploaded, it stays in the box. Without this a mark
+           larger than the frame printed itself over the fields below. */
+        overflow: hidden;
       }
       /* The real crimson the app's menu uses, not the portal's pale sidebar:
          a mark that reads on one may vanish on the other. */
       .logo-preview__box--dark { background: var(--brand-700); border-color: var(--brand-800); }
-      .logo-preview__box img { max-height: 100%; max-width: 100%; object-fit: contain; }
+      /* min-*: 0 is the part that matters. A grid item's min-height is
+         auto, which means "no smaller than the content" - so a 1200x360
+         logo kept its own height and max-height: 100% was ignored. It
+         overflowed by a few pixels on a wide mark and by most of its
+         height on a tall one, printing over the label and input below. */
+      .logo-preview__box img {
+        display: block;
+        max-height: 100%;
+        max-width: 100%;
+        width: auto;
+        height: auto;
+        min-width: 0;
+        min-height: 0;
+        object-fit: contain;
+      }
 
     `,
   ],

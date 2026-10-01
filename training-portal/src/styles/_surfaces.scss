@@ -79,6 +79,12 @@
 }
 
 .tab {
+  /* inline-flex and a gap so a tab can carry an icon beside its label.
+     The mail screen had its own tab style for exactly that and nothing
+     else, which left two tab looks in one portal. */
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font: inherit;
   font-size: var(--fs-base);
   font-weight: 500;

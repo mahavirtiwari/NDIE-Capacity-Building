@@ -32,742 +32,761 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
       ]"
     />
 
+    <div class="tabs">
+      <button type="button" class="tab" [class.is-active]="tab() === 'portal'" (click)="tab.set('portal')">
+        <app-icon name="settings" [size]="15" /> Portal
+      </button>
+      <button type="button" class="tab" [class.is-active]="tab() === 'applicants'" (click)="tab.set('applicants')">
+        <app-icon name="users" [size]="15" /> Applicants
+      </button>
+      <button type="button" class="tab" [class.is-active]="tab() === 'payments'" (click)="tab.set('payments')">
+        <app-icon name="rupee" [size]="15" /> Payments
+      </button>
+      <button type="button" class="tab" [class.is-active]="tab() === 'reasons'" (click)="tab.set('reasons')">
+        <app-icon name="form" [size]="15" /> Reasons
+      </button>
+    </div>
+
     <form [formGroup]="form" class="stack stack-lg" (ngSubmit)="save()">
-      <!-- ---------------------------------------------- maintenance -->
-      <section class="card">
-        <div class="card__header">
-          <div class="stack stack-xs">
-            <span class="card__title">Maintenance</span>
-            <span class="card__subtitle">
-              Closes the portal and both apps to everybody but a Super Admin.
-            </span>
-          </div>
-          @if (current()?.maintenanceMode) {
-            <span class="chip chip--danger">The site is closed</span>
-          }
-        </div>
-
-        <div class="card__body">
-          <div class="form-grid">
-            <div class="field field--span-2">
-              <label class="check">
-                <input type="checkbox" formControlName="maintenanceMode" />
-                <span>Close the site for maintenance</span>
-              </label>
-              <span class="field-hint">
-                You keep working — a Super Admin is let through. Everybody else, signed in or
-                not, is turned away with the message below until you switch this off.
+      @if (tab() === 'portal') {
+        <!-- ---------------------------------------------- maintenance -->
+        <section class="card">
+          <div class="card__header">
+            <div class="stack stack-xs">
+              <span class="card__title">Maintenance</span>
+              <span class="card__subtitle">
+                Closes the portal and both apps to everybody but a Super Admin.
               </span>
             </div>
+            @if (current()?.maintenanceMode) {
+              <span class="chip chip--danger">The site is closed</span>
+            }
+          </div>
 
-            <div class="field field--span-2">
-              <label class="field-label" for="maintMessage">What to tell them</label>
-              <textarea
-                id="maintMessage"
-                class="textarea"
-                maxlength="500"
-                formControlName="maintenanceMessage"
-                placeholder="The portal is closed for maintenance. Please try again shortly."
-              ></textarea>
-              <span class="field-hint">Left blank, that placeholder is what is shown.</span>
+          <div class="card__body">
+            <div class="form-grid">
+              <div class="field field--span-2">
+                <label class="check">
+                  <input type="checkbox" formControlName="maintenanceMode" />
+                  <span>Close the site for maintenance</span>
+                </label>
+                <span class="field-hint">
+                  You keep working — a Super Admin is let through. Everybody else, signed in or
+                  not, is turned away with the message below until you switch this off.
+                </span>
+              </div>
+
+              <div class="field field--span-2">
+                <label class="field-label" for="maintMessage">What to tell them</label>
+                <textarea
+                  id="maintMessage"
+                  class="textarea"
+                  maxlength="500"
+                  formControlName="maintenanceMessage"
+                  placeholder="The portal is closed for maintenance. Please try again shortly."
+                ></textarea>
+                <span class="field-hint">Left blank, that placeholder is what is shown.</span>
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="maintUntil">Expected back</label>
+                <input id="maintUntil" type="datetime-local" class="input" formControlName="maintenanceUntil" />
+                <span class="field-hint">
+                  Shown to whoever is turned away. Nothing reopens on its own — an overrun that
+                  let the public back in mid-migration would be worse than a long outage.
+                </span>
+              </div>
             </div>
+          </div>
+        </section>
 
-            <div class="field">
-              <label class="field-label" for="maintUntil">Expected back</label>
-              <input id="maintUntil" type="datetime-local" class="input" formControlName="maintenanceUntil" />
-              <span class="field-hint">
-                Shown to whoever is turned away. Nothing reopens on its own — an overrun that
-                let the public back in mid-migration would be worse than a long outage.
+        <!-- ------------------------------------------------- uploads -->
+        <section class="card">
+          <div class="card__header">
+            <div class="stack stack-xs">
+              <span class="card__title">Uploads</span>
+              <span class="card__subtitle">
+                How large a file may be published as training material.
               </span>
             </div>
           </div>
-        </div>
-      </section>
-
-      <!-- ------------------------------------------ payment gateway -->
-      <section class="card">
-        <div class="card__header">
-          <div class="stack stack-xs">
-            <span class="card__title">Payment gateway</span>
-            <span class="card__subtitle">
-              Where the programme fee is collected. Configuration only — nothing is charged
-              until the integration is switched on.
-            </span>
+          <div class="card__body">
+            <div class="form-grid">
+              <div class="field">
+                <label class="field-label" for="maxUploadMb">Largest file (MB)</label>
+                <input
+                  id="maxUploadMb"
+                  class="input"
+                  type="number"
+                  min="1"
+                  max="512"
+                  formControlName="maxUploadMb"
+                />
+                <span class="field-hint">
+                  Between 1 and 512. A video much larger than this belongs on a hosting service,
+                  published here as a link.
+                </span>
+              </div>
+            </div>
           </div>
-          @if (current()?.paymentEnabled) {
-            <span class="chip">{{ current()?.paymentTestMode ? 'Test mode' : 'Live' }}</span>
-          }
-        </div>
+        </section>
+      }
+      @if (tab() === 'applicants') {
+        <!-- ------------------------------------------ PAN verification -->
+        <section class="card">
+          <div class="card__header">
+            <div class="stack stack-xs">
+              <span class="card__title">PAN verification</span>
+              <span class="card__subtitle">
+                The service an applicant's PAN is checked against at registration.
+              </span>
+            </div>
+          </div>
+          <div class="card__body">
+            <div class="form-grid">
+              <div class="field">
+                <label class="field-label" for="panProvider">Provider</label>
+                <input
+                  id="panProvider"
+                  class="input"
+                  formControlName="panProvider"
+                  placeholder="Who the service belongs to"
+                />
+              </div>
 
-        <div class="card__body">
-          <div class="form-grid">
-            <div class="field">
-              <label class="field-label" for="gateway">Gateway</label>
-              <select id="gateway" class="select" formControlName="paymentGateway">
-                <option value="">Not chosen</option>
-                @for (name of gateways(); track name) {
-                  <option [value]="name">{{ name }}</option>
+              <div class="field">
+                <label class="field-label" for="panEndpoint">Endpoint</label>
+                <input
+                  id="panEndpoint"
+                  class="input"
+                  formControlName="panEndpoint"
+                  placeholder="https://…"
+                />
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="panApiKey">API key</label>
+                @if (current()?.hasPanApiKey && !replacingPanKey()) {
+                  <div class="row row-sm">
+                    <span class="badge badge--success">Stored</span>
+                    <button type="button" class="btn btn--sm btn--secondary" (click)="replacePanKey()">
+                      Replace
+                    </button>
+                    <button type="button" class="btn btn--sm btn--subtle-danger" (click)="clearPanKey()">
+                      Remove
+                    </button>
+                  </div>
+                  <span class="field-hint">
+                    Held but never sent back, so this screen cannot disclose it.
+                  </span>
+                } @else {
+                  <input
+                    id="panApiKey"
+                    class="input"
+                    type="password"
+                    autocomplete="new-password"
+                    formControlName="panApiKey"
+                    placeholder="Paste the key from the provider"
+                  />
                 }
-              </select>
-            </div>
+              </div>
 
-            <div class="field">
-              <label class="field-label" for="mode">Mode</label>
-              <select id="mode" class="select" formControlName="paymentTestMode">
-                <option [value]="true">Test</option>
-                <option [value]="false">Live</option>
-              </select>
-              <span class="field-hint">Test credentials move no money.</span>
-            </div>
+              <div class="field">
+                <label class="field-label" for="panApiKeyHeader">Key header</label>
+                <input id="panApiKeyHeader" class="input" formControlName="panApiKeyHeader" />
+                <span class="field-hint">The header the key is sent in.</span>
+              </div>
 
-            <div class="field">
-              <label class="field-label" for="merchantId">Merchant ID</label>
-              <input id="merchantId" class="input" formControlName="merchantId" autocomplete="off" />
-            </div>
-
-            <div class="field">
-              <label class="field-label" for="accessCode">Access code</label>
-              <input id="accessCode" class="input" formControlName="accessCode" autocomplete="off" />
-            </div>
-
-            <div class="field field--span-2">
-              <label class="field-label" for="workingKey">Working key</label>
-              @if (current()?.hasWorkingKey && !replacingKey()) {
-                <div class="row row-sm">
-                  <span class="chip"><app-icon name="shield" [size]="14" /> A key is stored</span>
-                  <button type="button" class="btn btn--secondary btn--sm" (click)="replaceKey()">
-                    Replace it
-                  </button>
-                  <button type="button" class="btn btn--ghost btn--sm" (click)="clearKey()">
-                    Remove it
-                  </button>
-                </div>
+              <div class="field">
+                <label class="field-label" for="panValidPath">Answer field</label>
+                <input id="panValidPath" class="input" formControlName="panValidPath" />
                 <span class="field-hint">
-                  It is never sent back to this screen, so it cannot be read here or leak in a
-                  screenshot. Replacing it is the only way to change it.
+                  Where "is it valid" sits in the reply, as a dotted path — so a change of
+                  provider is a setting rather than a release.
                 </span>
-              } @else {
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="panNamePath">Name field</label>
+                <input id="panNamePath" class="input" formControlName="panNamePath" />
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="panTimeoutSeconds">Timeout (seconds)</label>
                 <input
-                  id="workingKey"
-                  type="password"
+                  id="panTimeoutSeconds"
                   class="input"
-                  formControlName="workingKey"
-                  autocomplete="new-password"
-                  placeholder="Paste the key from the gateway's dashboard"
+                  type="number"
+                  min="3"
+                  max="60"
+                  formControlName="panTimeoutSeconds"
                 />
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="panRefuse">When the service is down</label>
+                <select id="panRefuse" class="select" formControlName="panRefuseWhenUnavailable">
+                  <option [ngValue]="false">Let the registration through, PAN unverified</option>
+                  <option [ngValue]="true">Refuse the registration</option>
+                </select>
                 <span class="field-hint">
-                  Stored write-only. Leave blank to keep whatever is already there.
+                  An outage at a third party should not close the scheme to new applicants
+                  unless a verified PAN is a hard requirement.
                 </span>
-              }
-            </div>
+              </div>
 
-            <div class="field">
-              <label class="field-label" for="returnUrl">Return URL</label>
-              <input id="returnUrl" class="input" formControlName="returnUrl" placeholder="https://…" />
-            </div>
-
-            <div class="field">
-              <label class="field-label" for="cancelUrl">Cancel URL</label>
-              <input id="cancelUrl" class="input" formControlName="cancelUrl" placeholder="https://…" />
-            </div>
-
-            <div class="field field--span-2">
-              <label class="check">
-                <input type="checkbox" formControlName="paymentEnabled" />
-                <span>Take payments through this gateway</span>
-              </label>
-              @if (!current()?.paymentConfigured) {
-                <span class="field-hint">
-                  Everything above has to be filled in first — an applicant told a fee is due
-                  and sent to a page that cannot take it is worse than no gateway at all.
-                </span>
-              }
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ------------------------------------------------- uploads -->
-      <section class="card">
-        <div class="card__header">
-          <div class="stack stack-xs">
-            <span class="card__title">Uploads</span>
-            <span class="card__subtitle">
-              How large a file may be published as training material.
-            </span>
-          </div>
-        </div>
-        <div class="card__body">
-          <div class="form-grid">
-            <div class="field">
-              <label class="field-label" for="maxUploadMb">Largest file (MB)</label>
-              <input
-                id="maxUploadMb"
-                class="input"
-                type="number"
-                min="1"
-                max="512"
-                formControlName="maxUploadMb"
-              />
-              <span class="field-hint">
-                Between 1 and 512. A video much larger than this belongs on a hosting service,
-                published here as a link.
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ------------------------------------------ PAN verification -->
-      <section class="card">
-        <div class="card__header">
-          <div class="stack stack-xs">
-            <span class="card__title">PAN verification</span>
-            <span class="card__subtitle">
-              The service an applicant's PAN is checked against at registration.
-            </span>
-          </div>
-        </div>
-        <div class="card__body">
-          <div class="form-grid">
-            <div class="field">
-              <label class="field-label" for="panProvider">Provider</label>
-              <input
-                id="panProvider"
-                class="input"
-                formControlName="panProvider"
-                placeholder="Who the service belongs to"
-              />
-            </div>
-
-            <div class="field">
-              <label class="field-label" for="panEndpoint">Endpoint</label>
-              <input
-                id="panEndpoint"
-                class="input"
-                formControlName="panEndpoint"
-                placeholder="https://…"
-              />
-            </div>
-
-            <div class="field">
-              <label class="field-label" for="panApiKey">API key</label>
-              @if (current()?.hasPanApiKey && !replacingPanKey()) {
-                <div class="row row-sm">
-                  <span class="badge badge--success">Stored</span>
-                  <button type="button" class="btn btn--sm btn--secondary" (click)="replacePanKey()">
-                    Replace
-                  </button>
-                  <button type="button" class="btn btn--sm btn--subtle-danger" (click)="clearPanKey()">
-                    Remove
-                  </button>
-                </div>
-                <span class="field-hint">
-                  Held but never sent back, so this screen cannot disclose it.
-                </span>
-              } @else {
-                <input
-                  id="panApiKey"
-                  class="input"
-                  type="password"
-                  autocomplete="new-password"
-                  formControlName="panApiKey"
-                  placeholder="Paste the key from the provider"
-                />
-              }
-            </div>
-
-            <div class="field">
-              <label class="field-label" for="panApiKeyHeader">Key header</label>
-              <input id="panApiKeyHeader" class="input" formControlName="panApiKeyHeader" />
-              <span class="field-hint">The header the key is sent in.</span>
-            </div>
-
-            <div class="field">
-              <label class="field-label" for="panValidPath">Answer field</label>
-              <input id="panValidPath" class="input" formControlName="panValidPath" />
-              <span class="field-hint">
-                Where "is it valid" sits in the reply, as a dotted path — so a change of
-                provider is a setting rather than a release.
-              </span>
-            </div>
-
-            <div class="field">
-              <label class="field-label" for="panNamePath">Name field</label>
-              <input id="panNamePath" class="input" formControlName="panNamePath" />
-            </div>
-
-            <div class="field">
-              <label class="field-label" for="panTimeoutSeconds">Timeout (seconds)</label>
-              <input
-                id="panTimeoutSeconds"
-                class="input"
-                type="number"
-                min="3"
-                max="60"
-                formControlName="panTimeoutSeconds"
-              />
-            </div>
-
-            <div class="field">
-              <label class="field-label" for="panRefuse">When the service is down</label>
-              <select id="panRefuse" class="select" formControlName="panRefuseWhenUnavailable">
-                <option [ngValue]="false">Let the registration through, PAN unverified</option>
-                <option [ngValue]="true">Refuse the registration</option>
-              </select>
-              <span class="field-hint">
-                An outage at a third party should not close the scheme to new applicants
-                unless a verified PAN is a hard requirement.
-              </span>
-            </div>
-
-            <div class="field field--span-2">
-              <label class="check">
-                <input type="checkbox" formControlName="panVerificationEnabled" />
-                <span>Check every PAN against this service</span>
-              </label>
-              @if (!current()?.panConfigured) {
-                <span class="field-hint">
-                  The endpoint and the key have to be in place first — switched on without
-                  them, every registration fails a check that never ran.
-                </span>
-              }
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- --------------------------------------------- the profile gate -->
-      <section class="card">
-        <div class="card__header">
-          <div class="stack stack-xs">
-            <span class="card__title">Profile form and attempts</span>
-            <span class="card__subtitle">
-              How many times an applicant may have their profile turned down, and what
-              happens when they run out.
-            </span>
-          </div>
-        </div>
-        <div class="card__body">
-          <div class="form-grid">
-            <div class="field">
-              <label class="field-label" for="profileAttempts">Attempts at the profile form</label>
-              <input
-                id="profileAttempts"
-                class="input"
-                type="number"
-                min="1"
-                max="10"
-                formControlName="profileMaxAttempts"
-              />
-              <span class="field-hint">
-                Rejections, not submissions — a draft somebody abandoned costs them nothing.
-              </span>
-            </div>
-
-            <div class="field">
-              <label class="field-label" for="profileBlock">Then closed for (months)</label>
-              <input
-                id="profileBlock"
-                class="input"
-                type="number"
-                min="1"
-                max="60"
-                formControlName="profileBlockMonths"
-              />
-              <span class="field-hint">
-                The sub-category shuts to them for this long. It expires on its own; nobody
-                has to remember to lift it.
-              </span>
-            </div>
-
-            <div class="field field--span-2">
-              <label class="field-label" for="programAttempts">
-                Attempts at clearing a program type
-              </label>
-              <input
-                id="programAttempts"
-                class="input"
-                type="number"
-                min="1"
-                max="10"
-                formControlName="programTypeMaxAttempts"
-              />
-              <span class="field-hint">
-                How many times somebody may fail a program type before it closes to them.
-                Passing closes it too, for the happier reason.
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ------------------------------------------------ ERP invoicing -->
-      <section class="card">
-        <div class="card__header">
-          <div class="stack stack-xs">
-            <span class="card__title">Invoicing (ERP)</span>
-            <span class="card__subtitle">
-              The invoice for a paid fee is raised in the ERP and sent to the applicant from
-              there. These settings are how a copy is fetched for them to open in the app.
-            </span>
-          </div>
-          @if (current()?.erpInvoiceEnabled) {
-            <span class="chip">Fetching invoices</span>
-          }
-        </div>
-        <div class="card__body">
-          <div class="form-grid">
-            <div class="field">
-              <label class="field-label" for="erpProvider">ERP</label>
-              <input
-                id="erpProvider"
-                class="input"
-                formControlName="erpProvider"
-                placeholder="Whose system it is"
-              />
-            </div>
-
-            <div class="field">
-              <label class="field-label" for="erpInvoiceEndpoint">Endpoint</label>
-              <input
-                id="erpInvoiceEndpoint"
-                class="input"
-                formControlName="erpInvoiceEndpoint"
-                placeholder="https://…/invoices/&#123;reference&#125;"
-              />
-              <span class="field-hint">
-                &#123;reference&#125; anywhere in the address is replaced by whichever
-                identifier is chosen below.
-              </span>
-            </div>
-
-            <div class="field">
-              <label class="field-label" for="erpApiKey">API key</label>
-              @if (current()?.hasErpApiKey && !replacingErpKey()) {
-                <div class="row row-sm">
-                  <span class="badge badge--success">Stored</span>
-                  <button type="button" class="btn btn--sm btn--secondary" (click)="replaceErpKey()">
-                    Replace
-                  </button>
-                  <button type="button" class="btn btn--sm btn--subtle-danger" (click)="clearErpKey()">
-                    Remove
-                  </button>
-                </div>
-                <span class="field-hint">
-                  Held but never sent back, so this screen cannot disclose it.
-                </span>
-              } @else {
-                <input
-                  id="erpApiKey"
-                  class="input"
-                  type="password"
-                  autocomplete="new-password"
-                  formControlName="erpApiKey"
-                  placeholder="Paste the key from the ERP team"
-                />
-              }
-            </div>
-
-            <div class="field">
-              <label class="field-label" for="erpApiKeyHeader">Key header</label>
-              <input id="erpApiKeyHeader" class="input" formControlName="erpApiKeyHeader" />
-              <span class="field-hint">The header the key is sent in.</span>
-            </div>
-
-            <div class="field">
-              <label class="field-label" for="erpInvoiceReference">Invoice is looked up by</label>
-              <select id="erpInvoiceReference" class="select" formControlName="erpInvoiceReference">
-                @for (option of current()?.erpInvoiceReferences ?? []; track option) {
-                  <option [value]="option">{{ referenceLabel(option) }}</option>
+              <div class="field field--span-2">
+                <label class="check">
+                  <input type="checkbox" formControlName="panVerificationEnabled" />
+                  <span>Check every PAN against this service</span>
+                </label>
+                @if (!current()?.panConfigured) {
+                  <span class="field-hint">
+                    The endpoint and the key have to be in place first — switched on without
+                    them, every registration fails a check that never ran.
+                  </span>
                 }
-              </select>
-              <span class="field-hint">
-                Whichever of our identifiers the two systems agreed the ERP would key an
-                invoice on.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- --------------------------------------------- the profile gate -->
+        <section class="card">
+          <div class="card__header">
+            <div class="stack stack-xs">
+              <span class="card__title">Profile form and attempts</span>
+              <span class="card__subtitle">
+                How many times an applicant may have their profile turned down, and what
+                happens when they run out.
               </span>
             </div>
-
-            <div class="field">
-              <label class="field-label" for="erpTimeoutSeconds">Timeout (seconds)</label>
-              <input
-                id="erpTimeoutSeconds"
-                class="input"
-                type="number"
-                min="3"
-                max="120"
-                formControlName="erpTimeoutSeconds"
-              />
-            </div>
-
-            <div class="field">
-              <label class="field-label" for="erpInvoicePdfPath">PDF field</label>
-              <input id="erpInvoicePdfPath" class="input" formControlName="erpInvoicePdfPath" />
-              <span class="field-hint">
-                Where the document sits in the reply, as a dotted path. Left blank when the
-                endpoint returns the PDF itself rather than JSON describing it.
-              </span>
-            </div>
-
-            <div class="field">
-              <label class="field-label" for="erpInvoiceNumberPath">Invoice number field</label>
-              <input
-                id="erpInvoiceNumberPath"
-                class="input"
-                formControlName="erpInvoiceNumberPath"
-              />
-            </div>
-
-            <div class="field field--span-2">
-              <label class="field-label" for="erpStoreCopy">Once fetched</label>
-              <select id="erpStoreCopy" class="select" formControlName="erpStoreInvoiceCopy">
-                <option [ngValue]="true">Keep a copy here</option>
-                <option [ngValue]="false">Fetch it again every time</option>
-              </select>
-              <span class="field-hint">
-                A copy lets an applicant open their invoice while the ERP is down, and
-                outlives the ERP's own retention. Fetching every time keeps nothing here but
-                shows nothing when the ERP cannot be reached.
-              </span>
-            </div>
-
-            <div class="field field--span-2">
-              <label class="check">
-                <input type="checkbox" formControlName="erpInvoiceEnabled" />
-                <span>Offer applicants their invoice</span>
-              </label>
-              @if (!current()?.erpConfigured) {
+          </div>
+          <div class="card__body">
+            <div class="form-grid">
+              <div class="field">
+                <label class="field-label" for="profileAttempts">Attempts at the profile form</label>
+                <input
+                  id="profileAttempts"
+                  class="input"
+                  type="number"
+                  min="1"
+                  max="10"
+                  formControlName="profileMaxAttempts"
+                />
                 <span class="field-hint">
-                  The endpoint and the key have to be in place first — switched on without
-                  them, every applicant who opens their invoice is shown a failure.
+                  Rejections, not submissions — a draft somebody abandoned costs them nothing.
                 </span>
-              }
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="profileBlock">Then closed for (months)</label>
+                <input
+                  id="profileBlock"
+                  class="input"
+                  type="number"
+                  min="1"
+                  max="60"
+                  formControlName="profileBlockMonths"
+                />
+                <span class="field-hint">
+                  The sub-category shuts to them for this long. It expires on its own; nobody
+                  has to remember to lift it.
+                </span>
+              </div>
+
+              <div class="field field--span-2">
+                <label class="field-label" for="programAttempts">
+                  Attempts at clearing a program type
+                </label>
+                <input
+                  id="programAttempts"
+                  class="input"
+                  type="number"
+                  min="1"
+                  max="10"
+                  formControlName="programTypeMaxAttempts"
+                />
+                <span class="field-hint">
+                  How many times somebody may fail a program type before it closes to them.
+                  Passing closes it too, for the happier reason.
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      <!-- ------------------------------------------- rejection reasons -->
-      <section class="card">
-        <div class="card__header">
-          <div class="stack stack-xs">
-            <span class="card__title">Reasons for rejection</span>
-            <span class="card__subtitle">
-              What a scrutiny officer picks from when turning an application down.
-            </span>
+        </section>
+      }
+      @if (tab() === 'payments') {
+        <!-- ------------------------------------------ payment gateway -->
+        <section class="card">
+          <div class="card__header">
+            <div class="stack stack-xs">
+              <span class="card__title">Payment gateway</span>
+              <span class="card__subtitle">
+                Where the programme fee is collected. Configuration only — nothing is charged
+                until the integration is switched on.
+              </span>
+            </div>
+            @if (current()?.paymentEnabled) {
+              <span class="chip">{{ current()?.paymentTestMode ? 'Test mode' : 'Live' }}</span>
+            }
           </div>
-        </div>
-        <div class="card__body">
-          <div class="stack stack-sm">
-            @if (reasons().length === 0) {
-              <p class="text-muted text-sm">
-                Nothing here yet. Until a reason exists, an application cannot be rejected.
-              </p>
-            } @else {
-              <div class="table-wrap">
-                <table class="table table--compact">
-                  <thead>
-                    <tr>
-                      <th style="width: 70px">Order</th>
-                      <th>Reason</th>
-                      <th style="width: 130px">Needs a note</th>
-                      <th style="width: 110px">Used by</th>
-                      <th style="width: 100px">Status</th>
-                      <th style="width: 110px"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (reason of reasons(); track reason.id) {
+
+          <div class="card__body">
+            <div class="form-grid">
+              <div class="field">
+                <label class="field-label" for="gateway">Gateway</label>
+                <select id="gateway" class="select" formControlName="paymentGateway">
+                  <option value="">Not chosen</option>
+                  @for (name of gateways(); track name) {
+                    <option [value]="name">{{ name }}</option>
+                  }
+                </select>
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="mode">Mode</label>
+                <select id="mode" class="select" formControlName="paymentTestMode">
+                  <option [value]="true">Test</option>
+                  <option [value]="false">Live</option>
+                </select>
+                <span class="field-hint">Test credentials move no money.</span>
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="merchantId">Merchant ID</label>
+                <input id="merchantId" class="input" formControlName="merchantId" autocomplete="off" />
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="accessCode">Access code</label>
+                <input id="accessCode" class="input" formControlName="accessCode" autocomplete="off" />
+              </div>
+
+              <div class="field field--span-2">
+                <label class="field-label" for="workingKey">Working key</label>
+                @if (current()?.hasWorkingKey && !replacingKey()) {
+                  <div class="row row-sm">
+                    <span class="chip"><app-icon name="shield" [size]="14" /> A key is stored</span>
+                    <button type="button" class="btn btn--secondary btn--sm" (click)="replaceKey()">
+                      Replace it
+                    </button>
+                    <button type="button" class="btn btn--ghost btn--sm" (click)="clearKey()">
+                      Remove it
+                    </button>
+                  </div>
+                  <span class="field-hint">
+                    It is never sent back to this screen, so it cannot be read here or leak in a
+                    screenshot. Replacing it is the only way to change it.
+                  </span>
+                } @else {
+                  <input
+                    id="workingKey"
+                    type="password"
+                    class="input"
+                    formControlName="workingKey"
+                    autocomplete="new-password"
+                    placeholder="Paste the key from the gateway's dashboard"
+                  />
+                  <span class="field-hint">
+                    Stored write-only. Leave blank to keep whatever is already there.
+                  </span>
+                }
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="returnUrl">Return URL</label>
+                <input id="returnUrl" class="input" formControlName="returnUrl" placeholder="https://…" />
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="cancelUrl">Cancel URL</label>
+                <input id="cancelUrl" class="input" formControlName="cancelUrl" placeholder="https://…" />
+              </div>
+
+              <div class="field field--span-2">
+                <label class="check">
+                  <input type="checkbox" formControlName="paymentEnabled" />
+                  <span>Take payments through this gateway</span>
+                </label>
+                @if (!current()?.paymentConfigured) {
+                  <span class="field-hint">
+                    Everything above has to be filled in first — an applicant told a fee is due
+                    and sent to a page that cannot take it is worse than no gateway at all.
+                  </span>
+                }
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ------------------------------------------------ ERP invoicing -->
+        <section class="card">
+          <div class="card__header">
+            <div class="stack stack-xs">
+              <span class="card__title">Invoicing (ERP)</span>
+              <span class="card__subtitle">
+                The invoice for a paid fee is raised in the ERP and sent to the applicant from
+                there. These settings are how a copy is fetched for them to open in the app.
+              </span>
+            </div>
+            @if (current()?.erpInvoiceEnabled) {
+              <span class="chip">Fetching invoices</span>
+            }
+          </div>
+          <div class="card__body">
+            <div class="form-grid">
+              <div class="field">
+                <label class="field-label" for="erpProvider">ERP</label>
+                <input
+                  id="erpProvider"
+                  class="input"
+                  formControlName="erpProvider"
+                  placeholder="Whose system it is"
+                />
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="erpInvoiceEndpoint">Endpoint</label>
+                <input
+                  id="erpInvoiceEndpoint"
+                  class="input"
+                  formControlName="erpInvoiceEndpoint"
+                  placeholder="https://…/invoices/&#123;reference&#125;"
+                />
+                <span class="field-hint">
+                  &#123;reference&#125; anywhere in the address is replaced by whichever
+                  identifier is chosen below.
+                </span>
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="erpApiKey">API key</label>
+                @if (current()?.hasErpApiKey && !replacingErpKey()) {
+                  <div class="row row-sm">
+                    <span class="badge badge--success">Stored</span>
+                    <button type="button" class="btn btn--sm btn--secondary" (click)="replaceErpKey()">
+                      Replace
+                    </button>
+                    <button type="button" class="btn btn--sm btn--subtle-danger" (click)="clearErpKey()">
+                      Remove
+                    </button>
+                  </div>
+                  <span class="field-hint">
+                    Held but never sent back, so this screen cannot disclose it.
+                  </span>
+                } @else {
+                  <input
+                    id="erpApiKey"
+                    class="input"
+                    type="password"
+                    autocomplete="new-password"
+                    formControlName="erpApiKey"
+                    placeholder="Paste the key from the ERP team"
+                  />
+                }
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="erpApiKeyHeader">Key header</label>
+                <input id="erpApiKeyHeader" class="input" formControlName="erpApiKeyHeader" />
+                <span class="field-hint">The header the key is sent in.</span>
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="erpInvoiceReference">Invoice is looked up by</label>
+                <select id="erpInvoiceReference" class="select" formControlName="erpInvoiceReference">
+                  @for (option of current()?.erpInvoiceReferences ?? []; track option) {
+                    <option [value]="option">{{ referenceLabel(option) }}</option>
+                  }
+                </select>
+                <span class="field-hint">
+                  Whichever of our identifiers the two systems agreed the ERP would key an
+                  invoice on.
+                </span>
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="erpTimeoutSeconds">Timeout (seconds)</label>
+                <input
+                  id="erpTimeoutSeconds"
+                  class="input"
+                  type="number"
+                  min="3"
+                  max="120"
+                  formControlName="erpTimeoutSeconds"
+                />
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="erpInvoicePdfPath">PDF field</label>
+                <input id="erpInvoicePdfPath" class="input" formControlName="erpInvoicePdfPath" />
+                <span class="field-hint">
+                  Where the document sits in the reply, as a dotted path. Left blank when the
+                  endpoint returns the PDF itself rather than JSON describing it.
+                </span>
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="erpInvoiceNumberPath">Invoice number field</label>
+                <input
+                  id="erpInvoiceNumberPath"
+                  class="input"
+                  formControlName="erpInvoiceNumberPath"
+                />
+              </div>
+
+              <div class="field field--span-2">
+                <label class="field-label" for="erpStoreCopy">Once fetched</label>
+                <select id="erpStoreCopy" class="select" formControlName="erpStoreInvoiceCopy">
+                  <option [ngValue]="true">Keep a copy here</option>
+                  <option [ngValue]="false">Fetch it again every time</option>
+                </select>
+                <span class="field-hint">
+                  A copy lets an applicant open their invoice while the ERP is down, and
+                  outlives the ERP's own retention. Fetching every time keeps nothing here but
+                  shows nothing when the ERP cannot be reached.
+                </span>
+              </div>
+
+              <div class="field field--span-2">
+                <label class="check">
+                  <input type="checkbox" formControlName="erpInvoiceEnabled" />
+                  <span>Offer applicants their invoice</span>
+                </label>
+                @if (!current()?.erpConfigured) {
+                  <span class="field-hint">
+                    The endpoint and the key have to be in place first — switched on without
+                    them, every applicant who opens their invoice is shown a failure.
+                  </span>
+                }
+              </div>
+            </div>
+          </div>
+        </section>
+      }
+      @if (tab() === 'reasons') {
+        <!-- ------------------------------------------- rejection reasons -->
+        <section class="card">
+          <div class="card__header">
+            <div class="stack stack-xs">
+              <span class="card__title">Reasons for rejection</span>
+              <span class="card__subtitle">
+                What a scrutiny officer picks from when turning an application down.
+              </span>
+            </div>
+          </div>
+          <div class="card__body">
+            <div class="stack stack-sm">
+              @if (reasons().length === 0) {
+                <p class="text-muted text-sm">
+                  Nothing here yet. Until a reason exists, an application cannot be rejected.
+                </p>
+              } @else {
+                <div class="table-wrap">
+                  <table class="table table--compact">
+                    <thead>
                       <tr>
-                        <td class="tabular">{{ reason.displayOrder }}</td>
-                        <td>{{ reason.label }}</td>
-                        <td>{{ reason.requiresNote ? 'Yes' : 'No' }}</td>
-                        <td class="tabular">
-                          {{ reason.usedByCount || '—' }}
-                        </td>
-                        <td><app-status-badge [value]="reason.status" /></td>
-                        <td>
-                          <div class="btn-row btn-row--end">
-                            <button
-                              type="button"
-                              class="btn btn--sm btn--secondary"
-                              (click)="toggleReason(reason)"
-                            >
-                              {{ reason.status === 'Active' ? 'Switch off' : 'Switch on' }}
-                            </button>
-                            @if (!reason.usedByCount) {
+                        <th style="width: 70px">Order</th>
+                        <th>Reason</th>
+                        <th style="width: 130px">Needs a note</th>
+                        <th style="width: 110px">Used by</th>
+                        <th style="width: 100px">Status</th>
+                        <th style="width: 110px"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (reason of reasons(); track reason.id) {
+                        <tr>
+                          <td class="tabular">{{ reason.displayOrder }}</td>
+                          <td>{{ reason.label }}</td>
+                          <td>{{ reason.requiresNote ? 'Yes' : 'No' }}</td>
+                          <td class="tabular">
+                            {{ reason.usedByCount || '—' }}
+                          </td>
+                          <td><app-status-badge [value]="reason.status" /></td>
+                          <td>
+                            <div class="btn-row btn-row--end">
                               <button
                                 type="button"
-                                class="btn btn--icon"
-                                title="Remove"
-                                (click)="removeReason(reason)"
+                                class="btn btn--sm btn--secondary"
+                                (click)="toggleReason(reason)"
                               >
-                                <app-icon name="trash" [size]="15" />
+                                {{ reason.status === 'Active' ? 'Switch off' : 'Switch on' }}
                               </button>
-                            }
-                          </div>
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            }
-
-            <!-- Outside the settings form: this list saves a row at a time,
-                 and it must not be tangled with Save settings. -->
-            <div class="row row-sm row-wrap" style="align-items: flex-end">
-              <div class="field" style="flex: 1 1 320px">
-                <label class="field-label" for="newReason">Add a reason</label>
-                <input
-                  id="newReason"
-                  class="input"
-                  [value]="newReason()"
-                  (input)="newReason.set(inputValue($event))"
-                  placeholder="e.g. Signature on the undertaking is missing"
-                  maxlength="200"
-                />
-              </div>
-              <label class="check" style="padding-bottom: 0.6rem">
-                <input
-                  type="checkbox"
-                  [checked]="newReasonNeedsNote()"
-                  (change)="newReasonNeedsNote.set(checkedValue($event))"
-                />
-                <span>Needs a note</span>
-              </label>
-              <button
-                type="button"
-                class="btn btn--secondary"
-                style="margin-bottom: 0.35rem"
-                [disabled]="!newReason().trim() || savingReason()"
-                (click)="addReason()"
-              >
-                @if (savingReason()) { <span class="spinner"></span> }
-                Add
-              </button>
-            </div>
-
-            <span class="field-hint">
-              A reason that has already been used is switched off rather than removed, so the
-              applications that cite it keep saying what they said.
-            </span>
-          </div>
-        </div>
-      </section>
-
-      <!-- ------------------------------------------- account access -->
-      <section class="card">
-        <div class="card__header">
-          <div class="stack stack-xs">
-            <span class="card__title">Reasons for blocking and unblocking</span>
-            <span class="card__subtitle">
-              What an administrator picks from when locking an applicant out, and when
-              letting them back in. Both are recorded and e-mailed to the applicant.
-            </span>
-          </div>
-        </div>
-        <div class="card__body">
-          <div class="stack stack-lg">
-            @for (group of accessGroups; track group.kind) {
-              <div class="stack stack-sm">
-                <h4 class="section-title">{{ group.title }}</h4>
-
-                @if (reasonsOfKind(group.kind).length === 0) {
-                  <p class="text-muted text-sm">{{ group.empty }}</p>
-                } @else {
-                  <div class="table-wrap">
-                    <table class="table table--compact">
-                      <thead>
-                        <tr>
-                          <th style="width: 70px">Order</th>
-                          <th>Reason</th>
-                          <th style="width: 130px">Needs a note</th>
-                          <th style="width: 110px">Used by</th>
-                          <th style="width: 100px">Status</th>
-                          <th style="width: 110px"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        @for (reason of reasonsOfKind(group.kind); track reason.id) {
-                          <tr>
-                            <td class="tabular">{{ reason.displayOrder }}</td>
-                            <td>{{ reason.label }}</td>
-                            <td>{{ reason.requiresNote ? 'Yes' : 'No' }}</td>
-                            <td class="tabular">{{ reason.usedByCount || '—' }}</td>
-                            <td><app-status-badge [value]="reason.status" /></td>
-                            <td>
-                              <div class="btn-row btn-row--end">
+                              @if (!reason.usedByCount) {
                                 <button
                                   type="button"
-                                  class="btn btn--sm btn--secondary"
-                                  (click)="toggleBlockReason(reason)"
+                                  class="btn btn--icon"
+                                  title="Remove"
+                                  (click)="removeReason(reason)"
                                 >
-                                  {{ reason.status === 'Active' ? 'Switch off' : 'Switch on' }}
+                                  <app-icon name="trash" [size]="15" />
                                 </button>
-                                @if (!reason.usedByCount) {
+                              }
+                            </div>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+
+              <!-- Outside the settings form: this list saves a row at a time,
+                   and it must not be tangled with Save settings. -->
+              <div class="row row-sm row-wrap" style="align-items: flex-end">
+                <div class="field" style="flex: 1 1 320px">
+                  <label class="field-label" for="newReason">Add a reason</label>
+                  <input
+                    id="newReason"
+                    class="input"
+                    [value]="newReason()"
+                    (input)="newReason.set(inputValue($event))"
+                    placeholder="e.g. Signature on the undertaking is missing"
+                    maxlength="200"
+                  />
+                </div>
+                <label class="check" style="padding-bottom: 0.6rem">
+                  <input
+                    type="checkbox"
+                    [checked]="newReasonNeedsNote()"
+                    (change)="newReasonNeedsNote.set(checkedValue($event))"
+                  />
+                  <span>Needs a note</span>
+                </label>
+                <button
+                  type="button"
+                  class="btn btn--secondary"
+                  style="margin-bottom: 0.35rem"
+                  [disabled]="!newReason().trim() || savingReason()"
+                  (click)="addReason()"
+                >
+                  @if (savingReason()) { <span class="spinner"></span> }
+                  Add
+                </button>
+              </div>
+
+              <span class="field-hint">
+                A reason that has already been used is switched off rather than removed, so the
+                applications that cite it keep saying what they said.
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ------------------------------------------- account access -->
+        <section class="card">
+          <div class="card__header">
+            <div class="stack stack-xs">
+              <span class="card__title">Reasons for blocking and unblocking</span>
+              <span class="card__subtitle">
+                What an administrator picks from when locking an applicant out, and when
+                letting them back in. Both are recorded and e-mailed to the applicant.
+              </span>
+            </div>
+          </div>
+          <div class="card__body">
+            <div class="stack stack-lg">
+              @for (group of accessGroups; track group.kind) {
+                <div class="stack stack-sm">
+                  <h4 class="section-title">{{ group.title }}</h4>
+
+                  @if (reasonsOfKind(group.kind).length === 0) {
+                    <p class="text-muted text-sm">{{ group.empty }}</p>
+                  } @else {
+                    <div class="table-wrap">
+                      <table class="table table--compact">
+                        <thead>
+                          <tr>
+                            <th style="width: 70px">Order</th>
+                            <th>Reason</th>
+                            <th style="width: 130px">Needs a note</th>
+                            <th style="width: 110px">Used by</th>
+                            <th style="width: 100px">Status</th>
+                            <th style="width: 110px"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (reason of reasonsOfKind(group.kind); track reason.id) {
+                            <tr>
+                              <td class="tabular">{{ reason.displayOrder }}</td>
+                              <td>{{ reason.label }}</td>
+                              <td>{{ reason.requiresNote ? 'Yes' : 'No' }}</td>
+                              <td class="tabular">{{ reason.usedByCount || '—' }}</td>
+                              <td><app-status-badge [value]="reason.status" /></td>
+                              <td>
+                                <div class="btn-row btn-row--end">
                                   <button
                                     type="button"
-                                    class="btn btn--icon"
-                                    title="Remove"
-                                    (click)="removeBlockReason(reason)"
+                                    class="btn btn--sm btn--secondary"
+                                    (click)="toggleBlockReason(reason)"
                                   >
-                                    <app-icon name="trash" [size]="15" />
+                                    {{ reason.status === 'Active' ? 'Switch off' : 'Switch on' }}
                                   </button>
-                                }
-                              </div>
-                            </td>
-                          </tr>
-                        }
-                      </tbody>
-                    </table>
-                  </div>
-                }
+                                  @if (!reason.usedByCount) {
+                                    <button
+                                      type="button"
+                                      class="btn btn--icon"
+                                      title="Remove"
+                                      (click)="removeBlockReason(reason)"
+                                    >
+                                      <app-icon name="trash" [size]="15" />
+                                    </button>
+                                  }
+                                </div>
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  }
 
-                <div class="row row-sm row-wrap" style="align-items: flex-end">
-                  <div class="field" style="flex: 1 1 320px">
-                    <label class="field-label" [attr.for]="'newAccess' + group.kind">
-                      {{ group.addLabel }}
+                  <div class="row row-sm row-wrap" style="align-items: flex-end">
+                    <div class="field" style="flex: 1 1 320px">
+                      <label class="field-label" [attr.for]="'newAccess' + group.kind">
+                        {{ group.addLabel }}
+                      </label>
+                      <input
+                        [id]="'newAccess' + group.kind"
+                        class="input"
+                        [value]="newAccessReason()[group.kind]"
+                        (input)="setNewAccessReason(group.kind, inputValue($event))"
+                        [placeholder]="group.placeholder"
+                        maxlength="200"
+                      />
+                    </div>
+                    <label class="check" style="padding-bottom: 0.6rem">
+                      <input
+                        type="checkbox"
+                        [checked]="newAccessNeedsNote()[group.kind]"
+                        (change)="setNewAccessNeedsNote(group.kind, checkedValue($event))"
+                      />
+                      <span>Needs a note</span>
                     </label>
-                    <input
-                      [id]="'newAccess' + group.kind"
-                      class="input"
-                      [value]="newAccessReason()[group.kind]"
-                      (input)="setNewAccessReason(group.kind, inputValue($event))"
-                      [placeholder]="group.placeholder"
-                      maxlength="200"
-                    />
+                    <button
+                      type="button"
+                      class="btn btn--secondary"
+                      style="margin-bottom: 0.35rem"
+                      [disabled]="!newAccessReason()[group.kind].trim() || savingBlockReason()"
+                      (click)="addAccessReason(group.kind)"
+                    >
+                      @if (savingBlockReason()) { <span class="spinner"></span> }
+                      Add
+                    </button>
                   </div>
-                  <label class="check" style="padding-bottom: 0.6rem">
-                    <input
-                      type="checkbox"
-                      [checked]="newAccessNeedsNote()[group.kind]"
-                      (change)="setNewAccessNeedsNote(group.kind, checkedValue($event))"
-                    />
-                    <span>Needs a note</span>
-                  </label>
-                  <button
-                    type="button"
-                    class="btn btn--secondary"
-                    style="margin-bottom: 0.35rem"
-                    [disabled]="!newAccessReason()[group.kind].trim() || savingBlockReason()"
-                    (click)="addAccessReason(group.kind)"
-                  >
-                    @if (savingBlockReason()) { <span class="spinner"></span> }
-                    Add
-                  </button>
                 </div>
-              </div>
-            }
+              }
 
-            <span class="field-hint">
-              A reason that has already been used is switched off rather than removed, so the
-              history keeps its wording.
-            </span>
+              <span class="field-hint">
+                A reason that has already been used is switched off rather than removed, so the
+                history keeps its wording.
+              </span>
+            </div>
           </div>
-        </div>
-      </section>
-
+        </section>
+      }
       <div class="btn-row btn-row--end">
         <button type="submit" class="btn btn--primary" [disabled]="saving()">
           @if (saving()) { <span class="spinner"></span> }
@@ -785,6 +804,13 @@ export class SystemSettingsComponent {
   private readonly fb = inject(FormBuilder);
 
   protected readonly current = signal<SystemSettings | null>(null);
+  /* Which group is showing. Eight cards in one column was a very long
+     scroll for a screen somebody opens to change one thing, so they are
+     grouped the way the Email screen groups its three. The form is still
+     one form and one Save: a tab that is not showing keeps its values,
+     because the controls live on the component rather than in the DOM. */
+  protected readonly tab = signal<'portal' | 'applicants' | 'payments' | 'reasons'>('portal');
+
   protected readonly saving = signal(false);
   protected readonly replacingKey = signal(false);
   protected readonly replacingPanKey = signal(false);

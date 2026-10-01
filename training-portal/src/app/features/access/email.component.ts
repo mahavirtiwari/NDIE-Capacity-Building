@@ -39,14 +39,14 @@ type Tab = 'sender' | 'templates' | 'log';
     />
 
     <div class="tabs">
-      <button type="button" class="tabs__item" [class.is-on]="tab() === 'sender'" (click)="tab.set('sender')">
+      <button type="button" class="tab" [class.is-active]="tab() === 'sender'" (click)="tab.set('sender')">
         <app-icon name="settings" [size]="15" /> Sender &amp; SMTP
       </button>
-      <button type="button" class="tabs__item" [class.is-on]="tab() === 'templates'" (click)="tab.set('templates')">
+      <button type="button" class="tab" [class.is-active]="tab() === 'templates'" (click)="tab.set('templates')">
         <app-icon name="form" [size]="15" /> Templates
         @if (templates().length) { <span class="chip">{{ templates().length }}</span> }
       </button>
-      <button type="button" class="tabs__item" [class.is-on]="tab() === 'log'" (click)="showLog()">
+      <button type="button" class="tab" [class.is-active]="tab() === 'log'" (click)="showLog()">
         <app-icon name="clock" [size]="15" /> Delivery log
       </button>
     </div>
@@ -371,28 +371,6 @@ type Tab = 'sender' | 'templates' | 'log';
   `,
   styles: [
     `
-      .tabs {
-        display: flex;
-        gap: 0.35rem;
-        margin-bottom: 1rem;
-        border-bottom: 1px solid var(--border);
-      }
-      .tabs__item {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        padding: 0.55rem 0.9rem;
-        border: 0;
-        background: none;
-        cursor: pointer;
-        font: inherit;
-        font-size: var(--fs-base);
-        color: var(--ink-600);
-        border-bottom: 2px solid transparent;
-        margin-bottom: -1px;
-      }
-      .tabs__item.is-on { color: var(--brand-700); border-bottom-color: var(--brand-600); font-weight: 500; }
-
       .mail-grid,
       .tpl-grid {
         display: grid;
