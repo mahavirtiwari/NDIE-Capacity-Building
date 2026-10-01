@@ -4,6 +4,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
   AGENCY_TYPES,
+  AgencyHistory,
   AllocatableScope,
   ImplementingAgency,
   LookupItem,
@@ -20,6 +21,7 @@ import { MasterFilterComponent } from '../../shared/components/master-filter.com
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
+import { TimelineComponent } from '../../shared/components/timeline.component';
 import { StatusToggleComponent } from '../../shared/components/status-toggle.component';
 import { ScopePickerComponent } from '../../shared/components/scope-picker.component';
 import {
@@ -58,6 +60,7 @@ const COLUMNS: ColumnDef[] = [
     DataTableComponent,
     CellTemplateDirective,
     StatusBadgeComponent,
+    TimelineComponent,
     StatusToggleComponent,
     ScopePickerComponent,
     ModalComponent,
@@ -201,6 +204,10 @@ const COLUMNS: ColumnDef[] = [
                 <app-icon name="edit" [size]="15" />
               </button>
             }
+            <button type="button" class="btn btn--icon" title="History"
+              (click)="openHistory($any(row))">
+              <app-icon name="clock" [size]="15" />
+            </button>
             <app-status-toggle [status]="$any(row).status" (toggled)="setStatus($any(row), $event)" />
           </div>
         </ng-template>
@@ -366,6 +373,23 @@ const COLUMNS: ColumnDef[] = [
         </div>
       </app-modal>
     }
+
+    @if (history(); as record) {
+      <app-modal
+        [title]="record.name"
+        [subtitle]="record.code + ' · empanelled ' + (record.empanelledOn | date: 'dd MMM yyyy')"
+        size="lg"
+        (closed)="history.set(null)"
+      >
+        <app-timeline
+          [events]="record.timeline"
+          emptyMessage="Nothing has been recorded against this agency yet."
+        />
+        <div footer>
+          <button type="button" class="btn btn--secondary" (click)="history.set(null)">Close</button>
+        </div>
+      </app-modal>
+    }
   `,
 })
 export class AgenciesComponent {
@@ -417,6 +441,12 @@ export class AgenciesComponent {
     sortBy: 'name',
   });
 
+  protected readonly history = signal<AgencyHistory | null>(null);
+
+  /** The empanelment, the login, the coordinators and the batches. */
+  protected openHistory(row: ImplementingAgency): void {
+    this.service.history(row.id).subscribe((record) => this.history.set(record));
+  }
   protected readonly formOpen = signal(false);
   protected readonly saving = signal(false);
   protected readonly editing = signal<ImplementingAgency | null>(null);

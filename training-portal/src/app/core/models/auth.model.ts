@@ -1,3 +1,4 @@
+import { TimelineEvent } from './applicant.model';
 import { Id, RecordStatus } from './common.model';
 
 /**
@@ -187,4 +188,7 @@ export interface UserHistory {
   status: RecordStatus;
   lastLoginOn?: string | null;
   events: UserStatusEvent[];
+
+  /** Everything that has happened to this account, oldest first. */
+  timeline?: TimelineEvent[];
 }

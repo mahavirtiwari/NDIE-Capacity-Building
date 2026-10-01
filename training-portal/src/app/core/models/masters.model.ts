@@ -1,3 +1,4 @@
+import { TimelineEvent } from './applicant.model';
 import { AuditInfo, Id, LookupItem, RecordStatus } from './common.model';
 
 /** Top level grouping, e.g. "ZED Certification", "Lean Manufacturing". */
@@ -287,6 +288,17 @@ export interface AllocatableScope {
   programTypes: LookupItem[];
   states: LookupItem[];
   districts: LookupItem[];
+}
+
+/** What happened to one agency: empanelment, login, coordinators, batches. */
+export interface AgencyHistory {
+  agencyId: Id;
+  code: string;
+  name: string;
+  status: RecordStatus;
+  empanelledOn: string;
+  empanelmentValidTill?: string | null;
+  timeline: TimelineEvent[];
 }
 
 /* --------------------------------------------------- issued certificates */

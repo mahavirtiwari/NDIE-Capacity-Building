@@ -474,10 +474,10 @@ public class ApplicantService(
     /// back through today's masters is a history that changes when
     /// somebody renames something.
     /// </summary>
-    private async Task<List<ApplicantEventDto>> TimelineAsync(
+    private async Task<List<TimelineEventDto>> TimelineAsync(
         Applicant applicant, CancellationToken ct)
     {
-        var events = new List<ApplicantEventDto>
+        var events = new List<TimelineEventDto>
         {
             new()
             {
@@ -505,7 +505,7 @@ public class ApplicantService(
             {
                 foreach (var moment in submission.History)
                 {
-                    events.Add(new ApplicantEventDto
+                    events.Add(new TimelineEventDto
                     {
                         On = moment.On,
                         Area = "Profile",
@@ -537,7 +537,7 @@ public class ApplicantService(
                of them. */
             if (submission.SubmittedOn is { } sentOn)
             {
-                events.Add(new ApplicantEventDto
+                events.Add(new TimelineEventDto
                 {
                     On = sentOn,
                     Area = "Profile",
@@ -552,7 +552,7 @@ public class ApplicantService(
                 && submission.Status is ProfileSubmissionStatus.Approved
                     or ProfileSubmissionStatus.Rejected)
             {
-                events.Add(new ApplicantEventDto
+                events.Add(new TimelineEventDto
                 {
                     On = decidedOn,
                     Area = "Profile",
@@ -580,7 +580,7 @@ public class ApplicantService(
 
             if (application.SubmittedOn is { } submittedOn)
             {
-                events.Add(new ApplicantEventDto
+                events.Add(new TimelineEventDto
                 {
                     On = submittedOn,
                     Area = "Application",
@@ -596,7 +596,7 @@ public class ApplicantService(
                    itself, which carries the date the applicant saw. */
                 if (moment.Action == ScrutinyAction.Submitted) continue;
 
-                events.Add(new ApplicantEventDto
+                events.Add(new TimelineEventDto
                 {
                     On = moment.On,
                     Area = "Application",
@@ -627,7 +627,7 @@ public class ApplicantService(
                recording; one that reached the gateway did something. */
             if (payment.Status == PaymentAttemptStatus.Initiated) continue;
 
-            events.Add(new ApplicantEventDto
+            events.Add(new TimelineEventDto
             {
                 On = payment.CompletedOn ?? payment.InitiatedOn,
                 Area = "Payment",
@@ -656,7 +656,7 @@ public class ApplicantService(
             var programme = participation.Programme?.ProgrammeName
                             ?? participation.Programme?.ProgrammeId;
 
-            events.Add(new ApplicantEventDto
+            events.Add(new TimelineEventDto
             {
                 On = participation.EnrolledOn.ToDateTime(TimeOnly.MinValue),
                 Area = "Programme",
@@ -667,7 +667,7 @@ public class ApplicantService(
             if (participation.Result != ParticipantResult.Pending
                 && participation.ResultRecordedOn is { } recordedOn)
             {
-                events.Add(new ApplicantEventDto
+                events.Add(new TimelineEventDto
                 {
                     On = recordedOn,
                     Area = "Programme",
@@ -688,7 +688,7 @@ public class ApplicantService(
 
         foreach (var certificate in certificates)
         {
-            events.Add(new ApplicantEventDto
+            events.Add(new TimelineEventDto
             {
                 On = certificate.IssuedOn.ToDateTime(TimeOnly.MinValue),
                 Area = "Certificate",
@@ -702,7 +702,7 @@ public class ApplicantService(
 
         foreach (var moment in applicant.StatusEvents)
         {
-            events.Add(new ApplicantEventDto
+            events.Add(new TimelineEventDto
             {
                 On = moment.On,
                 Area = "Account",

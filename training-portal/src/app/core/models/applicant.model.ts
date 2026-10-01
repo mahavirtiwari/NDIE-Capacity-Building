@@ -116,10 +116,11 @@ export interface ApplicantStatusEvent {
 }
 
 /**
- * One thing that happened to an applicant, from whichever part of the
- * system it happened in. The history is these, in order.
+ * One thing that happened, from whichever part of the system it happened
+ * in. Shared by the applicant, the portal user and the agency, because
+ * the three answer the same question and should read the same way.
  */
-export interface ApplicantEvent {
+export interface TimelineEvent {
   on: string;
   /** Account, Profile, Application, Payment, Programme or Certificate. */
   area: string;
@@ -144,7 +145,7 @@ export interface ApplicantHistory {
   events: ApplicantStatusEvent[];
 
   /** Everything that has happened, oldest first. */
-  timeline?: ApplicantEvent[];
+  timeline?: TimelineEvent[];
 }
 
 /** One row of the applicants export, with the sign-up answers flattened in. */

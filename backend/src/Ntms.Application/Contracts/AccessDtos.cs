@@ -228,5 +228,25 @@ public class UserHistoryDto
     public string Status { get; set; } = string.Empty;
     public DateTime? LastLoginOn { get; set; }
 
+    /// <summary>Switching on and off, kept for the panel that explains it.</summary>
     public List<UserStatusEventDto> Events { get; set; } = [];
+
+    /// <summary>Everything that has happened to this account, oldest first.</summary>
+    public List<TimelineEventDto> Timeline { get; set; } = [];
+}
+
+/// <summary>
+/// What the agency history popup shows: the empanelment, the login, the
+/// coordinators it added and the batches it ran.
+/// </summary>
+public class AgencyHistoryDto
+{
+    public int AgencyId { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public DateOnly EmpanelledOn { get; set; }
+    public DateOnly? EmpanelmentValidTill { get; set; }
+
+    public List<TimelineEventDto> Timeline { get; set; } = [];
 }

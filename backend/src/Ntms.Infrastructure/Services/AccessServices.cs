@@ -483,7 +483,57 @@ public class UserService(
             Status = user.Status.ToApi(),
             LastLoginOn = user.LastLoginOn,
             Events = events,
+            Timeline = Timeline(user, events),
         };
+    }
+
+    /// <summary>
+    /// Everything that has happened to one portal account, oldest first.
+    ///
+    /// Shorter than an applicant's, because an account has a shorter life:
+    /// it is appointed, it is switched off and on again, and it signs in.
+    /// What the person behind it did sits against the records they
+    /// touched, each of which names them.
+    /// </summary>
+    private static List<TimelineEventDto> Timeline(
+        PortalUser user, List<UserStatusEventDto> events)
+    {
+        var timeline = new List<TimelineEventDto>
+        {
+            new()
+            {
+                On = user.CreatedOn,
+                Area = "Account",
+                Title = "Account created",
+                Detail = $"Appointed as {user.Role?.Name ?? user.BaseRole.ToString()}, "
+                         + $"signing in as {user.UserCode}.",
+                Reference = user.Email,
+                By = user.CreatedBy,
+            },
+        };
+
+        timeline.AddRange(events.Select(e => new TimelineEventDto
+        {
+            On = e.On,
+            Area = "Account",
+            Title = e.ToStatus == "Active" ? "Switched back on" : "Switched off",
+            Detail = e.Reason,
+            By = e.ByUserName,
+        }));
+
+        /* One entry, not a history: only the latest sign-in is kept. Said
+           plainly rather than dressed as an event that happened once. */
+        if (user.LastLoginOn is { } lastSeen)
+        {
+            timeline.Add(new TimelineEventDto
+            {
+                On = lastSeen,
+                Area = "Account",
+                Title = "Last signed in",
+            });
+        }
+
+        return [.. timeline.OrderBy(e => e.On)];
     }
 
     public async Task<GeneratedCredentialsDto> ResetPasswordAsync(int id, CancellationToken ct)

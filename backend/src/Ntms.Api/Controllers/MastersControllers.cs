@@ -346,6 +346,16 @@ public class AgenciesController(AgencyService service) : ApiControllerBase
     public async Task<ActionResult<ApiEnvelope<AgencyDto>>> Get(int id, CancellationToken ct) =>
         Envelope(await service.GetAsync(id, ct));
 
+    /// <summary>
+    /// Everything that has happened to this agency: the empanelment, its
+    /// login, the coordinators it added and the batches it ran.
+    /// </summary>
+    [HttpGet("{id:int}/history")]
+    [HasPermission(Permissions.AgenciesView)]
+    public async Task<ActionResult<ApiEnvelope<AgencyHistoryDto>>> History(
+        int id, CancellationToken ct) =>
+        Envelope(await service.HistoryAsync(id, ct));
+
     [HttpPost]
     [HasPermission(Permissions.AgenciesManage)]
     public async Task<ActionResult<ApiEnvelope<AgencyDto>>> Create(

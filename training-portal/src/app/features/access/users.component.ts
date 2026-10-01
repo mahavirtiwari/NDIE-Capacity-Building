@@ -34,6 +34,7 @@ import { PageHeaderComponent } from '../../shared/components/page-header.compone
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
 import { StatusToggleComponent } from '../../shared/components/status-toggle.component';
 import { ScopePickerComponent } from '../../shared/components/scope-picker.component';
+import { TimelineComponent } from '../../shared/components/timeline.component';
 import { describeError, requiredFormat } from '../../core/validation/formats';
 import { ListState, searchTerm } from '../../shared/list-state';
 
@@ -96,6 +97,7 @@ const TIER_DEPTH: Record<string, number> = {
     StatusBadgeComponent,
     StatusToggleComponent,
     ScopePickerComponent,
+    TimelineComponent,
     ModalComponent,
     IconComponent,
   ],
@@ -244,7 +246,7 @@ const TIER_DEPTH: Record<string, number> = {
             <button
               type="button"
               class="btn btn--icon"
-              title="Status history"
+              title="History"
               (click)="openHistory($any(row))"
             >
               <app-icon name="clock" [size]="15" />
@@ -516,29 +518,16 @@ const TIER_DEPTH: Record<string, number> = {
             </div>
           </div>
 
-          @if (record.events.length === 0) {
-            <p class="text-muted text-sm">
-              This account has not been switched on or off since it was created.
-            </p>
-          } @else {
-            <div class="table-wrap">
-              <table class="table table--compact">
-                <thead>
-                  <tr><th>When</th><th>Change</th><th>Reason</th><th>By</th></tr>
-                </thead>
-                <tbody>
-                  @for (event of record.events; track event.id) {
-                    <tr>
-                      <td class="tabular">{{ event.on | date: 'dd MMM yyyy, HH:mm' }}</td>
-                      <td>{{ event.fromStatus }} &rarr; {{ event.toStatus }}</td>
-                      <td>{{ event.reason }}</td>
-                      <td>{{ event.byUserName }}<br /><span class="text-xs text-muted">{{ event.byUserCode }}</span></td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          }
+          <!-- The whole life of the account rather than only the times
+               it was switched on and off, and the same shape the applicant
+               and agency histories use. -->
+          <div>
+            <h4 class="section-title">History</h4>
+            <app-timeline
+              [events]="record.timeline ?? []"
+              emptyMessage="Nothing has happened to this account yet."
+            />
+          </div>
         </div>
         <div footer>
           <button type="button" class="btn btn--secondary" (click)="history.set(null)">Close</button>

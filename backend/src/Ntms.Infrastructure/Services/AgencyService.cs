@@ -122,6 +122,121 @@ public class AgencyService(
         return dto;
     }
 
+    /// <summary>
+    /// Everything that has happened to one agency, oldest first: the
+    /// empanelment, the login it was given, the coordinators it added and
+    /// the batches it ran.
+    ///
+    /// An agency has no event log of its own - there was never anywhere to
+    /// write one - so this is read from the dated records it left behind.
+    /// That is honest about what is known: it can say when a batch was
+    /// raised and when it ran, and cannot say who permitted it, because
+    /// nothing wrote that down.
+    /// </summary>
+    public async Task<AgencyHistoryDto> HistoryAsync(int id, CancellationToken ct)
+    {
+        var agency = await Base.FirstOrDefaultAsync(a => a.Id == id, ct)
+                     ?? throw AppException.NotFound("Implementing agency");
+
+        var timeline = new List<TimelineEventDto>
+        {
+            new()
+            {
+                On = agency.EmpanelledOn.ToDateTime(TimeOnly.MinValue),
+                Area = "Empanelment",
+                Title = "Empanelled",
+                Detail = agency.EmpanelmentValidTill is { } till
+                    ? $"Valid till {till:dd MMM yyyy}."
+                    : "No end date recorded.",
+                Reference = agency.Code,
+                By = agency.CreatedBy,
+            },
+        };
+
+        /* Only once it has actually passed. A date in the future is a term,
+           not something that has happened. */
+        if (agency.EmpanelmentValidTill is { } expiry
+            && expiry < DateOnly.FromDateTime(DateTime.UtcNow))
+        {
+            timeline.Add(new TimelineEventDto
+            {
+                On = expiry.ToDateTime(TimeOnly.MinValue),
+                Area = "Empanelment",
+                Title = "Empanelment lapsed",
+                Reference = agency.Code,
+            });
+        }
+
+        var people = await db.Users.AsNoTracking()
+            .Where(u => u.AgencyId == id)
+            .Select(u => new
+            {
+                u.UserCode, u.FullName, u.BaseRole, u.CreatedOn, u.CreatedBy, u.Status,
+            })
+            .ToListAsync(ct);
+
+        foreach (var person in people)
+        {
+            timeline.Add(new TimelineEventDto
+            {
+                On = person.CreatedOn,
+                Area = person.BaseRole == BaseRole.AgencyAdmin ? "Login" : "Coordinator",
+                Title = person.BaseRole == BaseRole.AgencyAdmin
+                    ? "Agency login created"
+                    : "Coordinator added",
+                Detail = person.FullName,
+                Reference = person.UserCode,
+                By = person.CreatedBy,
+            });
+        }
+
+        var batches = await db.Programmes.AsNoTracking()
+            .Where(p => p.AgencyId == id)
+            .Select(p => new
+            {
+                p.ProgrammeId, p.ProgrammeName, p.Status, p.CreatedOn, p.StartDate, p.EndDate,
+            })
+            .ToListAsync(ct);
+
+        foreach (var batch in batches)
+        {
+            timeline.Add(new TimelineEventDto
+            {
+                On = batch.CreatedOn,
+                Area = "Programme",
+                Title = "Batch raised",
+                Detail = batch.ProgrammeName,
+                Reference = batch.ProgrammeId,
+            });
+
+            /* Where it stands is known; when it got there is not, because
+               no event was written. So the standing is reported against
+               the batch's own dates rather than invented. */
+            if (batch.Status == ProgramStatus.Conducted)
+            {
+                timeline.Add(new TimelineEventDto
+                {
+                    On = batch.EndDate.ToDateTime(TimeOnly.MinValue),
+                    Area = "Programme",
+                    Title = "Batch conducted",
+                    Detail = batch.ProgrammeName,
+                    Reference = batch.ProgrammeId,
+                });
+            }
+        }
+
+        return new AgencyHistoryDto
+        {
+            AgencyId = agency.Id,
+            Code = agency.Code,
+            Name = agency.Name,
+            Status = agency.Status.ToApi(),
+            EmpanelledOn = agency.EmpanelledOn,
+            EmpanelmentValidTill = agency.EmpanelmentValidTill,
+            Timeline = [.. timeline.OrderBy(e => e.On)],
+        };
+    }
+
     public async Task<AgencyDto> CreateAsync(AgencyUpsertDto dto, CancellationToken ct)
     {
         Validate(dto);

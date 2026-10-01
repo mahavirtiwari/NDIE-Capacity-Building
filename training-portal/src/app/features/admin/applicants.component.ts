@@ -18,6 +18,7 @@ import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
+import { TimelineComponent } from '../../shared/components/timeline.component';
 import { ListState, searchTerm } from '../../shared/list-state';
 
 const COLUMNS: ColumnDef[] = [
@@ -44,6 +45,7 @@ const COLUMNS: ColumnDef[] = [
     DataTableComponent,
     CellTemplateDirective,
     StatusBadgeComponent,
+    TimelineComponent,
     IconComponent,
     ModalComponent,
   ],
@@ -461,35 +463,10 @@ const COLUMNS: ColumnDef[] = [
           <div class="detail-group">
             <h4 class="section-title">History</h4>
 
-            @if (!record.timeline || record.timeline.length === 0) {
-              <p class="text-muted text-sm">Nothing has happened on this account yet.</p>
-            } @else {
-              <ol class="timeline">
-                @for (event of record.timeline; track $index) {
-                  <li class="timeline__item">
-                    <span class="timeline__dot" [class]="'timeline__dot--' + event.area.toLowerCase()"></span>
-                    <div class="timeline__body">
-                      <div class="timeline__head">
-                        <span class="timeline__title">{{ event.title }}</span>
-                        <span class="chip chip--muted">{{ event.area }}</span>
-                      </div>
-                      <div class="timeline__when tabular">
-                        {{ event.on | date: 'dd MMM yyyy, HH:mm' }}
-                      </div>
-                      @if (event.reference) {
-                        <div class="timeline__ref">{{ event.reference }}</div>
-                      }
-                      @if (event.detail) {
-                        <div class="timeline__detail">{{ event.detail }}</div>
-                      }
-                      @if (event.by) {
-                        <div class="timeline__by">by {{ event.by }}</div>
-                      }
-                    </div>
-                  </li>
-                }
-              </ol>
-            }
+            <app-timeline
+              [events]="record.timeline ?? []"
+              emptyMessage="Nothing has happened on this account yet."
+            />
           </div>
         </div>
         <div footer>
@@ -500,69 +477,6 @@ const COLUMNS: ColumnDef[] = [
   `,
   styles: [
     `
-      /* The history. A rail down the left so a long life reads as one
-         sequence, and a coloured dot per area so somebody scanning for
-         the money or the rejections finds them without reading. */
-      .timeline { list-style: none; margin: 0; padding: 0; }
-
-      .timeline__item {
-        position: relative;
-        display: flex;
-        gap: 0.75rem;
-        padding: 0 0 0.9rem 0;
-      }
-
-      .timeline__item::before {
-        content: '';
-        position: absolute;
-        left: 5px;
-        top: 1.1rem;
-        bottom: 0;
-        width: 1px;
-        background: var(--border);
-      }
-
-      .timeline__item:last-child::before { display: none; }
-
-      .timeline__dot {
-        flex: 0 0 auto;
-        width: 11px;
-        height: 11px;
-        margin-top: 0.3rem;
-        border-radius: 50%;
-        background: var(--ink-400);
-        z-index: 1;
-      }
-
-      .timeline__dot--account { background: var(--ink-500); }
-      .timeline__dot--profile { background: var(--brand-600); }
-      .timeline__dot--application { background: var(--info-600, #2563eb); }
-      .timeline__dot--payment { background: var(--success-600, #16a34a); }
-      .timeline__dot--programme { background: var(--warning-600, #d97706); }
-      .timeline__dot--certificate { background: var(--brand-700); }
-
-      .timeline__body { flex: 1; min-width: 0; }
-
-      .timeline__head {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-      }
-
-      .timeline__title { font-weight: 600; color: var(--ink-800); }
-      .timeline__when { font-size: var(--fs-xs); color: var(--ink-500); }
-      .timeline__ref { font-size: var(--fs-xs); color: var(--ink-600); }
-
-      .timeline__detail {
-        font-size: var(--fs-sm);
-        color: var(--ink-600);
-        line-height: 1.45;
-        margin-top: 0.15rem;
-      }
-
-      .timeline__by { font-size: var(--fs-xs); color: var(--ink-500); margin-top: 0.1rem; }
-
       .who {
         display: flex;
         align-items: center;

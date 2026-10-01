@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, of, shareReplay } from 'rxjs';
 import {
+  AgencyHistory,
   AllocatableScope,
   Category,
   CertificateKind,
@@ -82,6 +83,11 @@ export class EvaluationSkillService extends CrudService<EvaluationSkill> {
 @Injectable({ providedIn: 'root' })
 export class AgencyService extends CrudService<ImplementingAgency> {
   protected readonly resource = 'agencies';
+
+  /** The empanelment, the login, the coordinators and the batches. */
+  history(id: Id): Observable<AgencyHistory> {
+    return this.api.get<AgencyHistory>(`${this.resource}/${id}/history`);
+  }
 }
 
 /**

@@ -88,15 +88,15 @@ public class ApplicantStatusEventDto
 }
 
 /// <summary>
-/// One thing that happened to an applicant, whatever part of the system
-/// it happened in.
+/// One thing that happened to somebody or something, whatever part of
+/// the system it happened in.
 ///
-/// Flattened on purpose. Somebody asking "what happened to this person"
-/// wants the registration, the profile going for scrutiny, the rejection,
-/// the correction, the application, the fee and the certificate on one
-/// list in order - not six screens each holding a sixth of the answer.
+/// Flattened on purpose, and shared by the applicant, the portal user
+/// and the implementing agency. Whoever is asking "what happened to
+/// this" wants one list in order, not six screens each holding a sixth
+/// of the answer - and the three histories should read the same way.
 /// </summary>
-public class ApplicantEventDto
+public class TimelineEventDto
 {
     public DateTime On { get; set; }
 
@@ -143,7 +143,7 @@ public class ApplicantHistoryDto
     public List<ApplicantStatusEventDto> Events { get; set; } = [];
 
     /// <summary>Everything that has happened, oldest first.</summary>
-    public List<ApplicantEventDto> Timeline { get; set; } = [];
+    public List<TimelineEventDto> Timeline { get; set; } = [];
 }
 
 /// <summary>
