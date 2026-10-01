@@ -397,6 +397,21 @@ public class LookupsController(LookupService service) : ApiControllerBase
         Envelope(await service.ProgramTypesAsync(categoryId, subCategoryId, ct));
 
     /// <summary>
+    /// The LGD masters for a postal address, which are not narrowed to the
+    /// caller: where somebody lives is a fact about them rather than a
+    /// slice of the estate.
+    /// </summary>
+    [HttpGet("address/states")]
+    public async Task<ActionResult<ApiEnvelope<List<LookupItemDto>>>> AddressStates(
+        CancellationToken ct) =>
+        Envelope(await service.AddressStatesAsync(ct));
+
+    [HttpGet("address/districts")]
+    public async Task<ActionResult<ApiEnvelope<List<LookupItemDto>>>> AddressDistricts(
+        [FromQuery] int? stateCode, CancellationToken ct) =>
+        Envelope(await service.AddressDistrictsAsync(stateCode, ct));
+
+    /// <summary>
     /// What this account may allocate to somebody beneath it. Not anonymous
     /// and not cacheable across accounts: the answer is who you are.
     /// </summary>

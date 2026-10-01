@@ -71,16 +71,32 @@ public class LookupService(NtmsDbContext db, ICurrentUser currentUser, Delegatio
         };
     }
 
-    public Task<List<LookupItemDto>> CategoriesAsync(CancellationToken ct) =>
-        db.Categories.AsNoTracking()
+    /// <summary>
+    /// The categories this account can see. Narrowed like every other
+    /// read: a filter offering a category somebody holds nothing in can
+    /// only ever return an empty list, and invites them to wonder whether
+    /// the data is missing.
+    /// </summary>
+    public async Task<List<LookupItemDto>> CategoriesAsync(CancellationToken ct)
+    {
+        var visible = await VisibleCategoriesAsync(ct);
+
+        return await db.Categories.AsNoTracking()
             .Where(c => c.Status == RecordStatus.Active)
+            .WhereIf(visible is not null, c => visible!.Contains(c.Id))
             .OrderBy(c => c.DisplayOrder)
             .Select(c => new LookupItemDto { Id = c.Id, Name = c.Name, Code = c.Code })
             .ToListAsync(ct);
+    }
 
-    public Task<List<LookupItemDto>> SubCategoriesAsync(int? categoryId, CancellationToken ct) =>
-        db.SubCategories.AsNoTracking()
+    public async Task<List<LookupItemDto>> SubCategoriesAsync(
+        int? categoryId, CancellationToken ct)
+    {
+        var visible = await VisibleSubCategoriesAsync(ct);
+
+        return await db.SubCategories.AsNoTracking()
             .Where(s => s.Status == RecordStatus.Active)
+            .WhereIf(visible is not null, s => visible!.Contains(s.Id))
             .WhereIf(categoryId.HasValue, s => s.CategoryId == categoryId)
             .OrderBy(s => s.DisplayOrder)
             .Select(s => new LookupItemDto
@@ -88,11 +104,16 @@ public class LookupService(NtmsDbContext db, ICurrentUser currentUser, Delegatio
                 Id = s.Id, Name = s.Name, Code = s.Code, ParentId = s.CategoryId,
             })
             .ToListAsync(ct);
+    }
 
-    public Task<List<LookupItemDto>> ProgramTypesAsync(
-        int? categoryId, int? subCategoryId, CancellationToken ct) =>
-        db.ProgramTypes.AsNoTracking()
+    public async Task<List<LookupItemDto>> ProgramTypesAsync(
+        int? categoryId, int? subCategoryId, CancellationToken ct)
+    {
+        var visible = await VisibleProgramTypesAsync(ct);
+
+        return await db.ProgramTypes.AsNoTracking()
             .Where(p => p.Status == RecordStatus.Active)
+            .WhereIf(visible is not null, p => visible!.Contains(p.Id))
             .WhereIf(categoryId.HasValue, p => p.CategoryId == categoryId)
             .WhereIf(subCategoryId.HasValue, p => p.SubCategoryId == subCategoryId)
             .OrderBy(p => p.Code)
@@ -101,6 +122,116 @@ public class LookupService(NtmsDbContext db, ICurrentUser currentUser, Delegatio
                 Id = p.Id, Name = p.Name, Code = p.Code, ParentId = p.SubCategoryId,
             })
             .ToListAsync(ct);
+    }
+
+    /* ------------------------------------------------- what is visible
+
+       An allocation names one or two axes and the rest follow from it.
+       An Admin given categories can see the sub-categories inside them;
+       an agency given program types can see the category those sit in.
+       So this derives in both directions, which is what makes it
+       different from what may be *allocated* — you can pass down a
+       sub-category of a category you hold, but holding a program type
+       inside a category has never let you hand out the category itself.
+
+       Null means no narrowing at all: Super Admin, the Ministry, and the
+       anonymous reads the applicant app makes before anybody signs in. */
+
+    private async Task<List<int>?> VisibleCategoriesAsync(CancellationToken ct)
+    {
+        if (!currentUser.IsMasterScoped) return null;
+
+        if (currentUser.ScopeCategoryIds.Count > 0) return [.. currentUser.ScopeCategoryIds];
+
+        if (currentUser.ScopeSubCategoryIds.Count > 0)
+        {
+            var subs = currentUser.ScopeSubCategoryIds;
+            return await db.SubCategories.AsNoTracking()
+                .Where(s => subs.Contains(s.Id))
+                .Select(s => s.CategoryId).Distinct().ToListAsync(ct);
+        }
+
+        var types = currentUser.ScopeProgramTypeIds;
+        if (types.Count == 0) return [];
+
+        return await db.ProgramTypes.AsNoTracking()
+            .Where(p => types.Contains(p.Id))
+            .Select(p => p.CategoryId).Distinct().ToListAsync(ct);
+    }
+
+    private async Task<List<int>?> VisibleSubCategoriesAsync(CancellationToken ct)
+    {
+        if (!currentUser.IsMasterScoped) return null;
+
+        if (currentUser.ScopeSubCategoryIds.Count > 0)
+            return [.. currentUser.ScopeSubCategoryIds];
+
+        if (currentUser.ScopeCategoryIds.Count > 0)
+        {
+            var categories = currentUser.ScopeCategoryIds;
+            return await db.SubCategories.AsNoTracking()
+                .Where(s => categories.Contains(s.CategoryId))
+                .Select(s => s.Id).ToListAsync(ct);
+        }
+
+        var types = currentUser.ScopeProgramTypeIds;
+        if (types.Count == 0) return [];
+
+        return await db.ProgramTypes.AsNoTracking()
+            .Where(p => types.Contains(p.Id))
+            .Select(p => p.SubCategoryId).Distinct().ToListAsync(ct);
+    }
+
+    private async Task<List<int>?> VisibleProgramTypesAsync(CancellationToken ct)
+    {
+        if (!currentUser.IsMasterScoped) return null;
+
+        if (currentUser.ScopeProgramTypeIds.Count > 0)
+            return [.. currentUser.ScopeProgramTypeIds];
+
+        if (currentUser.ScopeSubCategoryIds.Count > 0)
+        {
+            var subs = currentUser.ScopeSubCategoryIds;
+            return await db.ProgramTypes.AsNoTracking()
+                .Where(p => subs.Contains(p.SubCategoryId))
+                .Select(p => p.Id).ToListAsync(ct);
+        }
+
+        var categories = currentUser.ScopeCategoryIds;
+        if (categories.Count == 0) return [];
+
+        return await db.ProgramTypes.AsNoTracking()
+            .Where(p => categories.Contains(p.CategoryId))
+            .Select(p => p.Id).ToListAsync(ct);
+    }
+
+    private async Task<List<int>?> VisibleStatesAsync(CancellationToken ct)
+    {
+        if (!currentUser.IsMasterScoped) return null;
+
+        if (currentUser.ScopeStateCodes.Count > 0) return [.. currentUser.ScopeStateCodes];
+
+        var districts = currentUser.ScopeDistrictCodes;
+        if (districts.Count == 0) return [];
+
+        return await db.Districts.AsNoTracking()
+            .Where(d => districts.Contains(d.Code))
+            .Select(d => d.StateCode).Distinct().ToListAsync(ct);
+    }
+
+    private async Task<List<int>?> VisibleDistrictsAsync(CancellationToken ct)
+    {
+        if (!currentUser.IsMasterScoped) return null;
+
+        if (currentUser.ScopeDistrictCodes.Count > 0) return [.. currentUser.ScopeDistrictCodes];
+
+        var states = currentUser.ScopeStateCodes;
+        if (states.Count == 0) return [];
+
+        return await db.Districts.AsNoTracking()
+            .Where(d => states.Contains(d.StateCode))
+            .Select(d => d.Code).ToListAsync(ct);
+    }
 
     public Task<List<LookupItemDto>> AgenciesAsync(CancellationToken ct) =>
         db.Agencies.AsNoTracking()
@@ -150,8 +281,51 @@ public class LookupService(NtmsDbContext db, ICurrentUser currentUser, Delegatio
             .Select(r => new LookupItemDto { Id = r.Id, Name = r.Name, Code = r.Code })
             .ToListAsync(ct);
 
-    /// <summary>LGD state master. The lookup id is the LGD state code.</summary>
-    public Task<List<LookupItemDto>> StatesAsync(CancellationToken ct) =>
+    /// <summary>
+    /// The states this account can see, for filters and for anywhere a
+    /// state narrows what is listed.
+    /// </summary>
+    public async Task<List<LookupItemDto>> StatesAsync(CancellationToken ct)
+    {
+        var visible = await VisibleStatesAsync(ct);
+
+        return await db.States.AsNoTracking()
+            .WhereIf(visible is not null, s => visible!.Contains(s.Code))
+            .OrderBy(s => s.Name)
+            .Select(s => new LookupItemDto
+            {
+                Id = s.Code, Name = s.Name, Code = s.Code.ToString(),
+            })
+            .ToListAsync(ct);
+    }
+
+    /// <summary>LGD district master for one state, narrowed the same way.</summary>
+    public async Task<List<LookupItemDto>> DistrictsAsync(
+        int? stateCode, string? state, CancellationToken ct)
+    {
+        var visible = await VisibleDistrictsAsync(ct);
+
+        return await db.Districts.AsNoTracking()
+            .WhereIf(visible is not null, d => visible!.Contains(d.Code))
+            .WhereIf(stateCode.HasValue, d => d.StateCode == stateCode)
+            .WhereIf(!string.IsNullOrWhiteSpace(state),
+                d => d.State!.Name == state!.ToUpperInvariant())
+            .OrderBy(d => d.Name)
+            .Select(d => new LookupItemDto
+            {
+                Id = d.Code, Name = d.Name, Code = d.Code.ToString(), ParentId = d.StateCode,
+            })
+            .ToListAsync(ct);
+    }
+
+    /* --------------------------------------------- the postal address
+
+       Where somebody lives, or where an agency's office is, is a fact
+       about them rather than a slice of the estate. An Admin working two
+       states may well appoint a manager who lives in a third, so these
+       two stay the whole LGD master however narrow the caller is. */
+
+    public Task<List<LookupItemDto>> AddressStatesAsync(CancellationToken ct) =>
         db.States.AsNoTracking()
             .OrderBy(s => s.Name)
             .Select(s => new LookupItemDto
@@ -160,11 +334,10 @@ public class LookupService(NtmsDbContext db, ICurrentUser currentUser, Delegatio
             })
             .ToListAsync(ct);
 
-    /// <summary>LGD district master for one state.</summary>
-    public Task<List<LookupItemDto>> DistrictsAsync(int? stateCode, string? state, CancellationToken ct) =>
+    public Task<List<LookupItemDto>> AddressDistrictsAsync(
+        int? stateCode, CancellationToken ct) =>
         db.Districts.AsNoTracking()
             .WhereIf(stateCode.HasValue, d => d.StateCode == stateCode)
-            .WhereIf(!string.IsNullOrWhiteSpace(state), d => d.State!.Name == state!.ToUpperInvariant())
             .OrderBy(d => d.Name)
             .Select(d => new LookupItemDto
             {

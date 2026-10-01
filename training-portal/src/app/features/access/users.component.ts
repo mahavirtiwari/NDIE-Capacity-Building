@@ -323,7 +323,7 @@ const TIER_DEPTH: Record<string, number> = {
               <label class="field-label" for="uState">State/UT</label>
               <select id="uState" class="select" formControlName="stateCode" (change)="onStateChange()">
                 <option [ngValue]="null">Select</option>
-                @for (state of states(); track state.id) {
+                @for (state of addressStates(); track state.id) {
                   <option [ngValue]="state.id">{{ state.name }}</option>
                 }
               </select>
@@ -571,6 +571,13 @@ export class UsersComponent {
   protected readonly roles = toSignal(this.roleService.all(), { initialValue: [] as AdminRole[] });
   protected readonly agencies = toSignal(this.lookups.agencies(), { initialValue: [] as LookupItem[] });
   protected readonly states = toSignal(this.lookups.states(), { initialValue: [] as LookupItem[] });
+
+  /* The whole LGD master, for the postal address. Not narrowed:
+     where somebody lives is a fact about them, not a slice of the
+     estate, and the person appointed may well live outside it. */
+  protected readonly addressStates = toSignal(this.lookups.addressStates(), {
+    initialValue: [] as LookupItem[],
+  });
   protected readonly districts = signal<LookupItem[]>([]);
   /* The scope pickers read what this account may hand down, not the whole
      master. An Admin holding one category used to be shown all of them and
@@ -820,7 +827,7 @@ export class UsersComponent {
   protected onStateChange(): void {
     const stateCode = this.form.value.stateCode ?? null;
     this.form.patchValue({ districtCode: null }, { emitEvent: false });
-    this.lookups.districts(stateCode).subscribe((items) => this.districts.set(items));
+    this.lookups.addressDistricts(stateCode).subscribe((items) => this.districts.set(items));
   }
 
   protected initials(name: string): string {
@@ -857,7 +864,7 @@ export class UsersComponent {
       city: row?.city ?? '',
       status: row?.status ?? 'Active',
     });
-    this.lookups.districts(row?.stateCode ?? null).subscribe((items) => this.districts.set(items));
+    this.lookups.addressDistricts(row?.stateCode ?? null).subscribe((items) => this.districts.set(items));
     this.formOpen.set(true);
   }
 

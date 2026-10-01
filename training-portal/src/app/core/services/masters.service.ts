@@ -150,6 +150,25 @@ export class LookupService {
   }
 
   /**
+   * The LGD masters for a postal address, which are deliberately not
+   * narrowed to the caller. Where somebody lives, or where an agency's
+   * office is, is a fact about them rather than a slice of the estate -
+   * an Admin working two states may appoint a manager who lives in a
+   * third.
+   */
+  addressStates(): Observable<LookupItem[]> {
+    return this.cached('address-states', () =>
+      this.api.get<LookupItem[]>('lookups/address/states'),
+    );
+  }
+
+  addressDistricts(stateCode?: Id | null): Observable<LookupItem[]> {
+    return this.cached(`address-districts:${stateCode ?? 'none'}`, () =>
+      this.api.get<LookupItem[]>('lookups/address/districts', { stateCode }),
+    );
+  }
+
+  /**
    * What the signed-in account may allocate to somebody beneath it, on
    * every axis at once. Not cached: the answer is who you are, and a
    * cached one would survive a sign-out into the next account.

@@ -275,7 +275,7 @@ const COLUMNS: ColumnDef[] = [
               <label class="field-label" for="agStateSel">State/UT <span class="req">*</span></label>
               <select id="agStateSel" class="select" formControlName="stateCode" (change)="onStateChange()">
                 <option [ngValue]="null">Select</option>
-                @for (state of states(); track state.id) {
+                @for (state of addressStates(); track state.id) {
                   <option [ngValue]="state.id">{{ state.name }}</option>
                 }
               </select>
@@ -374,6 +374,13 @@ export class AgenciesComponent {
   /* The whole masters, for the filter bar and for the agency's own
      registered address - an office can be anywhere. */
   protected readonly states = toSignal(this.lookups.states(), { initialValue: [] as LookupItem[] });
+
+  /* The whole LGD master, for the postal address. Not narrowed:
+     where somebody lives is a fact about them, not a slice of the
+     estate, and the person appointed may well live outside it. */
+  protected readonly addressStates = toSignal(this.lookups.addressStates(), {
+    initialValue: [] as LookupItem[],
+  });
   protected readonly districts = signal<LookupItem[]>([]);
 
   /* What this account may empanel an agency for, which is what it holds
@@ -439,7 +446,7 @@ export class AgenciesComponent {
   protected onStateChange(): void {
     const stateCode = this.form.value.stateCode ?? null;
     this.form.patchValue({ districtCode: null }, { emitEvent: false });
-    this.lookups.districts(stateCode).subscribe((items) => this.districts.set(items));
+    this.lookups.addressDistricts(stateCode).subscribe((items) => this.districts.set(items));
   }
 
   protected openForm(row?: ImplementingAgency): void {
@@ -466,7 +473,7 @@ export class AgenciesComponent {
       empanelmentValidTill: row?.empanelmentValidTill ?? '',
       status: row?.status ?? 'Active',
     });
-    this.lookups.districts(row?.stateCode ?? null).subscribe((items) => this.districts.set(items));
+    this.lookups.addressDistricts(row?.stateCode ?? null).subscribe((items) => this.districts.set(items));
     this.formOpen.set(true);
   }
 
