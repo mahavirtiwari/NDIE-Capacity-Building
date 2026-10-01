@@ -82,6 +82,15 @@ public class FieldOptionDto
 public class ProfileFieldDto
 {
     public int Id { get; set; }
+
+    /// <summary>
+    /// The shared list this field takes its choices from, if any. The
+    /// designer shows it; everyone else can ignore it, because Options is
+    /// already filled in from the list when there is one.
+    /// </summary>
+    public int? OptionSetId { get; set; }
+    public string? OptionSetName { get; set; }
+
     public string Key { get; set; } = string.Empty;
     public string Label { get; set; } = string.Empty;
     public string Type { get; set; } = "text";

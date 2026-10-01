@@ -14,9 +14,10 @@ import {
   cloneProfileForm,
   fieldTypeHasOptions,
   profileFieldCount,
+  OptionSet,
 } from '../../core/models';
 import { ProfileFormService } from '../../core/services/academics.service';
-import { LookupService } from '../../core/services/masters.service';
+import { LookupService, OptionSetService } from '../../core/services/masters.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
@@ -531,17 +532,53 @@ function blankField(): ProfileField {
           </div>
 
           @if (editorHasOptions()) {
+            <!-- Either this field owns its choices, or it reads a shared
+                 list. Not both: a copy of a list is a second answer to
+                 the same question, and the stale one wins. -->
             <div class="field">
-              <label class="field-label" for="feOptions">Options</label>
-              <textarea
-                id="feOptions"
-                class="textarea"
-                [value]="optionText()"
-                placeholder="One option per line"
-                (input)="setOptions(inputValue($event))"
-              ></textarea>
-              <span class="field-hint">One option per line. The stored value is derived from the label.</span>
+              <label class="field-label" for="feOptionSet">Where the choices come from</label>
+              <select
+                id="feOptionSet"
+                class="select"
+                [value]="editor.field.optionSetId ?? ''"
+                (change)="setOptionSet(inputValue($event))"
+              >
+                <option value="">This field's own options</option>
+                @for (set of optionSets(); track set.id) {
+                  <option [value]="set.id">{{ set.name }} ({{ set.items.length }})</option>
+                }
+              </select>
+              <span class="field-hint">
+                A shared list is kept under Masters &rsaquo; Choice lists and used by every
+                field that points at it. Change it once and every form follows.
+              </span>
             </div>
+
+            @if (editor.field.optionSetId) {
+              <div class="field">
+                <span class="field-label">What it offers</span>
+                <div class="row row-sm row-wrap">
+                  @for (item of chosenSetItems(); track item.value) {
+                    <span class="chip">{{ item.label }}</span>
+                  }
+                </div>
+                <span class="field-hint">
+                  Edited under Choice lists, not here.
+                </span>
+              </div>
+            } @else {
+              <div class="field">
+                <label class="field-label" for="feOptions">Options</label>
+                <textarea
+                  id="feOptions"
+                  class="textarea"
+                  [value]="optionText()"
+                  placeholder="One option per line"
+                  (input)="setOptions(inputValue($event))"
+                ></textarea>
+                <span class="field-hint">One option per line. The stored value is derived from the label.</span>
+              </div>
+            }
           }
 
           <div class="divider"></div>
@@ -1079,6 +1116,25 @@ export class ProfileFormsComponent {
     const editor = this.fieldEditor();
     if (!editor) return;
     this.patchValidation(editor.sectionIndex, editor.fieldIndex, patch);
+  }
+
+  /** Every shared list, for the picker. */
+  protected readonly optionSets = toSignal(inject(OptionSetService).all(), {
+    initialValue: [] as OptionSet[],
+  });
+
+  /** What the chosen list offers, shown so the designer can see it. */
+  protected readonly chosenSetItems = computed(() => {
+    const id = this.fieldEditor()?.field.optionSetId;
+    if (!id) return [];
+    return this.optionSets().find((s) => s.id === id)?.items.filter((i) => i.status === 'Active') ?? [];
+  });
+
+  protected setOptionSet(value: string): void {
+    const id = value ? Number(value) : null;
+    /* Clearing the field's own options when it joins a list, so nothing
+       stale is left to be served if it ever leaves again. */
+    this.editField(id ? { optionSetId: id, options: [] } : { optionSetId: null });
   }
 
   protected setOptions(text: string): void {

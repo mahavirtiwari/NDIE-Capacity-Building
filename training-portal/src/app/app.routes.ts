@@ -89,6 +89,15 @@ export const routes: Routes = [
               ),
           },
           {
+            path: 'option-sets',
+            title: 'Choice lists · CBMS',
+            canActivate: [permissionGuard('masters.view')],
+            loadComponent: () =>
+              import('./features/masters/option-sets.component').then(
+                (m) => m.OptionSetsComponent,
+              ),
+          },
+          {
             path: 'qualifications',
             title: 'Qualifications · CBMS',
             loadComponent: () =>

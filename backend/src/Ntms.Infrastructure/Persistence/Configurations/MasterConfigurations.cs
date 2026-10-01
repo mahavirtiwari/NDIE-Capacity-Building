@@ -91,6 +91,36 @@ public class RejectionReasonConfiguration : IEntityTypeConfiguration<RejectionRe
     }
 }
 
+public class OptionSetConfiguration : IEntityTypeConfiguration<OptionSet>
+{
+    public void Configure(EntityTypeBuilder<OptionSet> b)
+    {
+        b.ToTable("OptionSets");
+        b.Property(x => x.Code).HasMaxLength(40).IsRequired();
+        b.Property(x => x.Name).HasMaxLength(120).IsRequired();
+        b.Property(x => x.Description).HasMaxLength(400);
+        b.HasIndex(x => x.Code).IsUnique();
+    }
+}
+
+public class OptionSetItemConfiguration : IEntityTypeConfiguration<OptionSetItem>
+{
+    public void Configure(EntityTypeBuilder<OptionSetItem> b)
+    {
+        b.ToTable("OptionSetItems");
+        b.Property(x => x.Value).HasMaxLength(120).IsRequired();
+        b.Property(x => x.Label).HasMaxLength(200).IsRequired();
+
+        /* A value appears once in a list. Two items answering to the same
+           stored value would make an answer ambiguous to read back. */
+        b.HasIndex(x => new { x.OptionSetId, x.Value }).IsUnique();
+
+        b.HasOne(x => x.OptionSet).WithMany(x => x.Items)
+            .HasForeignKey(x => x.OptionSetId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 public class QualificationConfiguration : IEntityTypeConfiguration<Qualification>
 {
     public void Configure(EntityTypeBuilder<Qualification> b)

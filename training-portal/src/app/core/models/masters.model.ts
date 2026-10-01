@@ -290,6 +290,34 @@ export interface AllocatableScope {
   districts: LookupItem[];
 }
 
+/**
+ * A named list of choices, used by any number of form fields.
+ *
+ * Kept once so the same question asked on three forms offers the same
+ * three answers, and so a report grouping by one of them has a single set
+ * of words to group by.
+ */
+export interface OptionSet extends AuditInfo {
+  id: Id;
+  code: string;
+  name: string;
+  description?: string | null;
+  status: RecordStatus;
+  /** How many fields point at this list, across every form. */
+  usedByFieldCount: number;
+  items: OptionSetItem[];
+}
+
+export interface OptionSetItem {
+  id: Id;
+  /** What is stored against an answer. Fixed once answers exist. */
+  value: string;
+  label: string;
+  displayOrder: number;
+  /** Withdrawn rather than deleted, so old answers keep reading. */
+  status: RecordStatus;
+}
+
 /** What happened to one agency: empanelment, login, coordinators, batches. */
 export interface AgencyHistory {
   agencyId: Id;

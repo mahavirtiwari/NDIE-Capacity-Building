@@ -322,6 +322,57 @@ public class EvaluationSkillsController(EvaluationSkillService service) : ApiCon
         Envelope(await service.SetStatusAsync(id, dto.Status, ct));
 }
 
+/// <summary>
+/// The shared choice lists a form field can point at instead of holding
+/// its own options.
+/// </summary>
+[Route("api/option-sets")]
+public class OptionSetsController(OptionSetService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.MastersView)]
+    public async Task<ActionResult<ApiEnvelope<PagedResult<OptionSetDto>>>> List(
+        [FromQuery] PagedRequest request, [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.ListAsync(request, status, ct));
+
+    /// <summary>Every active list, for the picker in the form designer.</summary>
+    [HttpGet("all")]
+    [HasPermission(Permissions.CurriculumView)]
+    public async Task<ActionResult<ApiEnvelope<List<OptionSetDto>>>> All(CancellationToken ct) =>
+        Envelope(await service.AllAsync(ct));
+
+    [HttpGet("{id:int}")]
+    [HasPermission(Permissions.MastersView)]
+    public async Task<ActionResult<ApiEnvelope<OptionSetDto>>> Get(int id, CancellationToken ct) =>
+        Envelope(await service.GetAsync(id, ct));
+
+    [HttpPost]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<OptionSetDto>>> Create(
+        [FromBody] OptionSetUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.CreateAsync(dto, ct), "List created.");
+
+    [HttpPut("{id:int}")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<OptionSetDto>>> Update(
+        int id, [FromBody] OptionSetUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.UpdateAsync(id, dto, ct), "List updated.");
+
+    [HttpPatch("{id:int}/status")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<OptionSetDto>>> SetStatus(
+        int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
+        Envelope(await service.SetStatusAsync(id, dto.Status, ct));
+
+    [HttpDelete("{id:int}")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<bool>>> Delete(int id, CancellationToken ct)
+    {
+        await service.DeleteAsync(id, ct);
+        return Envelope(true, "List removed.");
+    }
+}
+
 [Route("api/agencies")]
 public class AgenciesController(AgencyService service) : ApiControllerBase
 {

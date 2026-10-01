@@ -279,11 +279,28 @@ public static class DtoMappings
                             DisplayOrder = f.DisplayOrder,
                             ColSpan = f.ColSpan,
                             EligibilityRole = f.EligibilityRole.ToString(),
-                            Options =
-                            [
-                                .. f.Options.OrderBy(o => o.DisplayOrder)
-                                    .Select(o => new FieldOptionDto { Value = o.Value, Label = o.Label }),
-                            ],
+                            /* A field pointing at a shared list is served
+                               that list's choices, so a reader of the form
+                               sees ordinary options and needs to know
+                               nothing about where they came from. Only the
+                               ones still switched on: a choice withdrawn
+                               stops being offered while the answers that
+                               already name it keep reading. */
+                            OptionSetId = f.OptionSetId,
+                            OptionSetName = f.OptionSet?.Name,
+                            Options = f.OptionSetId is null
+                                ?
+                                [
+                                    .. f.Options.OrderBy(o => o.DisplayOrder)
+                                        .Select(o => new FieldOptionDto { Value = o.Value, Label = o.Label }),
+                                ]
+                                :
+                                [
+                                    .. (f.OptionSet?.Items ?? [])
+                                        .Where(i => i.Status == RecordStatus.Active)
+                                        .OrderBy(i => i.DisplayOrder).ThenBy(i => i.Id)
+                                        .Select(i => new FieldOptionDto { Value = i.Value, Label = i.Label }),
+                                ],
                             Validation = new FieldValidationDto
                             {
                                 Required = f.Validation.Required,

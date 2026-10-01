@@ -12,7 +12,11 @@ public class ProfileFormService(NtmsDbContext db)
 {
     private IQueryable<ProfileForm> Base => db.ProfileForms.AsNoTracking()
         .Include(f => f.SubCategory)!.ThenInclude(s => s!.Category)
-        .Include(f => f.Sections).ThenInclude(s => s.Fields).ThenInclude(x => x.Options);
+        .Include(f => f.Sections).ThenInclude(s => s.Fields).ThenInclude(x => x.Options)
+        /* The shared list behind a field that uses one, so the form can be
+           served with its choices already resolved. */
+        .Include(f => f.Sections).ThenInclude(s => s.Fields)
+            .ThenInclude(x => x.OptionSet!).ThenInclude(o => o.Items);
 
     public async Task<PagedResult<ProfileFormDto>> ListAsync(
         PagedRequest request, int? categoryId, int? subCategoryId,
@@ -451,6 +455,9 @@ public class ProfileFormService(NtmsDbContext db)
                     ColSpan = fieldDto.ColSpan == 2 ? 2 : 1,
                     EligibilityRole = EnumMaps.ParseEnum(
                         fieldDto.EligibilityRole, ProfileFieldRole.None),
+                    /* Zero and null both mean "this field keeps its own
+                       options": the browser sends 0 for an empty select. */
+                    OptionSetId = fieldDto.OptionSetId is > 0 ? fieldDto.OptionSetId : null,
                     VisibleWhenFieldKey = string.IsNullOrWhiteSpace(fieldDto.VisibleWhenFieldKey)
                         ? null
                         : fieldDto.VisibleWhenFieldKey.Trim(),
@@ -469,8 +476,12 @@ public class ProfileFormService(NtmsDbContext db)
                     },
                 };
 
+                /* A field on a shared list holds no options of its own.
+                   Storing a copy would be a second answer to the same
+                   question, and the stale one would win whenever the
+                   list changed. */
                 var optionOrder = 0;
-                foreach (var option in fieldDto.Options)
+                foreach (var option in field.OptionSetId is null ? fieldDto.Options : [])
                 {
                     optionOrder++;
                     field.Options.Add(new ProfileFieldOption

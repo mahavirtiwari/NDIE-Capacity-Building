@@ -259,6 +259,54 @@ public class Qualification : AuditableStatusEntity
 }
 
 /// <summary>
+/// A named list of choices, kept once and used by any number of fields.
+///
+/// A dropdown on a form could always have its own options typed into it,
+/// and for a one-off question that is the right thing. It stops being the
+/// right thing the moment the same list appears on three forms: the three
+/// drift, somebody adds a sector to one of them, and a report that groups
+/// by sector has to reconcile answers that were never the same set of
+/// words.
+///
+/// A field that points at one of these has no options of its own. Changing
+/// the list here changes every form that uses it, which is the point, and
+/// is why an item is switched off rather than deleted once answers exist
+/// against it - the history has to keep reading.
+/// </summary>
+public class OptionSet : AuditableStatusEntity
+{
+    /// <summary>Short stable handle, e.g. SECTORS. Not shown to applicants.</summary>
+    public string Code { get; set; } = string.Empty;
+
+    /// <summary>What a form designer picks from the list, e.g. "Sectors".</summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>What it is for, so a designer picks the right one.</summary>
+    public string? Description { get; set; }
+
+    public ICollection<OptionSetItem> Items { get; set; } = [];
+}
+
+/// <summary>One choice in a shared list.</summary>
+public class OptionSetItem : AuditableStatusEntity
+{
+    public int OptionSetId { get; set; }
+    public OptionSet? OptionSet { get; set; }
+
+    /// <summary>
+    /// What is stored against an answer. Fixed once answers exist: the
+    /// label can be reworded, this cannot, or the answers already given
+    /// stop meaning anything.
+    /// </summary>
+    public string Value { get; set; } = string.Empty;
+
+    /// <summary>What the applicant reads.</summary>
+    public string Label { get; set; } = string.Empty;
+
+    public int DisplayOrder { get; set; }
+}
+
+/// <summary>
 /// One reason an application may be turned down.
 ///
 /// A list rather than free text, because a rejection is a decision the

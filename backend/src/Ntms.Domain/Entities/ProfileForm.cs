@@ -117,6 +117,19 @@ public class ProfileField : AuditableEntity
     /// <summary>Comma separated list of values that reveal the field.</summary>
     public string? VisibleWhenValues { get; set; }
 
+    /// <summary>
+    /// A shared list this field takes its choices from, instead of holding
+    /// its own.
+    ///
+    /// Null and the field owns its options, which is right for a question
+    /// asked in one place. Set and <see cref="Options"/> is ignored: the
+    /// list is resolved when the form is served, so an app or a portal
+    /// reading the form sees ordinary options and needs to know nothing
+    /// about where they came from.
+    /// </summary>
+    public int? OptionSetId { get; set; }
+    public OptionSet? OptionSet { get; set; }
+
     public ICollection<ProfileFieldOption> Options { get; set; } = [];
 }
 

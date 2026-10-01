@@ -3,6 +3,7 @@ import { Observable, catchError, of, shareReplay } from 'rxjs';
 import {
   AgencyHistory,
   AllocatableScope,
+  OptionSet,
   Category,
   CertificateKind,
   EvaluationSkill,
@@ -78,6 +79,12 @@ export class EvaluationSkillService extends CrudService<EvaluationSkill> {
   byProgramType(programTypeId?: Id | null, status?: string): Observable<EvaluationSkill[]> {
     return this.api.get<EvaluationSkill[]>(this.resource, { programTypeId, status });
   }
+}
+
+/** The shared choice lists a form field can point at. */
+@Injectable({ providedIn: 'root' })
+export class OptionSetService extends CrudService<OptionSet> {
+  protected readonly resource = 'option-sets';
 }
 
 @Injectable({ providedIn: 'root' })

@@ -26,6 +26,8 @@ public class NtmsDbContext(DbContextOptions<NtmsDbContext> options, ICurrentUser
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<SubCategory> SubCategories => Set<SubCategory>();
     public DbSet<Qualification> Qualifications => Set<Qualification>();
+    public DbSet<OptionSet> OptionSets => Set<OptionSet>();
+    public DbSet<OptionSetItem> OptionSetItems => Set<OptionSetItem>();
     public DbSet<RejectionReason> RejectionReasons => Set<RejectionReason>();
     public DbSet<BlockReason> BlockReasons => Set<BlockReason>();
     public DbSet<ApplicantStatusEvent> ApplicantStatusEvents => Set<ApplicantStatusEvent>();

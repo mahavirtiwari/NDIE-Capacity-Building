@@ -170,6 +170,13 @@ public class ProfileFieldConfiguration : IEntityTypeConfiguration<ProfileField>
         b.Property(x => x.VisibleWhenFieldKey).HasMaxLength(80);
         b.Property(x => x.VisibleWhenValues).HasMaxLength(500);
 
+        /* Restrict, not cascade: a list in use must not be deletable out
+           from under the forms that read it. The screen says which forms
+           hold it so somebody can unpick that deliberately. */
+        b.HasOne(x => x.OptionSet).WithMany()
+            .HasForeignKey(x => x.OptionSetId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         b.OwnsOne(x => x.Validation, v =>
         {
             v.Property(p => p.Required).HasColumnName("Validation_Required");

@@ -80,6 +80,15 @@ export interface ProfileField {
    * minimum is measured against.
    */
   eligibilityRole?: EligibilityRole;
+  /**
+   * A shared choice list this field reads instead of holding its own
+   * options. When set, `options` is what that list currently offers —
+   * resolved by the server, so anything rendering the form needs to know
+   * nothing about where the choices came from.
+   */
+  optionSetId?: Id | null;
+  optionSetName?: string | null;
+
   options: FieldOption[];
   validation: FieldValidation;
   /** Show this field only when another field holds one of these values. */

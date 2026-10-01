@@ -259,6 +259,54 @@ public class AllocatableScopeDto
     public List<LookupItemDto> Districts { get; set; } = [];
 }
 
+/* ----------------------------------------------------- shared choice lists */
+
+/// <summary>
+/// A named list of choices, used by any number of form fields.
+///
+/// Kept once so the same question asked on three forms offers the same
+/// three answers, and so a report that groups by one of them has a single
+/// set of words to group by.
+/// </summary>
+public class OptionSetDto : AuditDto
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string Status { get; set; } = "Active";
+
+    /// <summary>How many fields point at this list, across every form.</summary>
+    public int UsedByFieldCount { get; set; }
+
+    public List<OptionSetItemDto> Items { get; set; } = [];
+}
+
+public class OptionSetItemDto
+{
+    public int Id { get; set; }
+
+    /// <summary>What is stored against an answer. Fixed once answers exist.</summary>
+    public string Value { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public int DisplayOrder { get; set; }
+
+    /// <summary>
+    /// Switched off rather than removed where answers already name it, so
+    /// the history keeps reading while the choice stops being offered.
+    /// </summary>
+    public string Status { get; set; } = "Active";
+}
+
+public class OptionSetUpsertDto
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string Status { get; set; } = "Active";
+    public List<OptionSetItemDto> Items { get; set; } = [];
+}
+
 /* ----------------------------------------------------------------- agency */
 
 public class AgencyDto : AuditDto

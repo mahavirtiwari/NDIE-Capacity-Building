@@ -54,6 +54,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Sign-up form', route: '/academics/signup-form', icon: 'form', permissions: ['masters.view'] },
       { label: 'Profile forms', route: '/academics/profile-forms', icon: 'form', permissions: ['masters.view'] },
       { label: 'Fee structures', route: '/academics/fees', icon: 'rupee', permissions: ['fees.view'] },
+      { label: 'Choice lists', route: '/masters/option-sets', icon: 'form', permissions: ['masters.view'] },
       { label: 'Qualifications', route: '/masters/qualifications', icon: 'book', permissions: ['masters.view'] },
       { label: 'Evaluation Skills', route: '/masters/evaluation-skills', icon: 'clipboard', permissions: ['masters.view'] },
       { label: 'Curriculum', route: '/academics/curriculum', icon: 'book', permissions: ['curriculum.view'] },
