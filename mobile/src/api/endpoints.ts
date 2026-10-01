@@ -21,6 +21,8 @@ import type {
   PaymentTransaction,
   PhotoStanding,
   ProfileForm,
+  FeedbackForm,
+  FeedbackInvitation,
   ProfileChoice,
   ProfileStanding,
   SignupForm,
@@ -232,6 +234,19 @@ export const me = {
 
   submitProfile: (subCategoryId: number, responses: Record<string, unknown>) =>
     api.post<ProfileStanding>('me/profile-submission', { subCategoryId, responses }),
+
+  /* ---------------------------------------------------------- feedback
+     Asked once a batch has been conducted. What is written is stored
+     against the batch and not against the person who wrote it, so there
+     is no route to read an answer back - only to know it was given. */
+
+  feedbackInvitations: () => api.getLive<FeedbackInvitation[]>('me/feedback'),
+
+  feedbackForm: (participantId: number) =>
+    api.get<FeedbackForm>(`me/feedback/${participantId}`),
+
+  submitFeedback: (participantId: number, answers: Record<string, unknown>) =>
+    api.post<boolean>(`me/feedback/${participantId}`, { answers }),
 
   form: (programTypeId: number) =>
     api.get<ProfileForm>(`me/programs/${programTypeId}/form`),

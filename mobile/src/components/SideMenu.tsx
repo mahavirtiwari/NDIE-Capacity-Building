@@ -33,6 +33,7 @@ const LINKS: MenuLink[] = [
   { icon: 'documents-outline', label: 'My applications', href: '/(tabs)/applications' },
   { icon: 'calendar-outline', label: 'Batches', href: '/(tabs)/batches' },
   { icon: 'document-text-outline', label: 'Examinations', href: '/exam' },
+  { icon: 'chatbox-ellipses-outline', label: 'Feedback', href: '/feedback' },
   { icon: 'card-outline', label: 'Payments', href: '/payments' },
   { icon: 'document-attach-outline', label: 'Invoices', href: '/invoices' },
   { icon: 'book-outline', label: 'Training material', href: '/(tabs)/materials' },

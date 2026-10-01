@@ -3,6 +3,8 @@ import { Observable, catchError, of, shareReplay } from 'rxjs';
 import {
   AgencyHistory,
   AllocatableScope,
+  FeedbackForm,
+  FeedbackSummary,
   OptionSet,
   Category,
   CertificateKind,
@@ -78,6 +80,19 @@ export class EvaluationSkillService extends CrudService<EvaluationSkill> {
 
   byProgramType(programTypeId?: Id | null, status?: string): Observable<EvaluationSkill[]> {
     return this.api.get<EvaluationSkill[]>(this.resource, { programTypeId, status });
+  }
+}
+
+/** What a program type asks its participants once a batch is over. */
+@Injectable({ providedIn: 'root' })
+export class FeedbackFormService extends CrudService<FeedbackForm> {
+  protected readonly resource = 'feedback-forms';
+
+  /** Counts, averages and comments. Nothing attributable. */
+  summary(programTypeId: Id, programmeId?: Id | null): Observable<FeedbackSummary> {
+    return this.api.get<FeedbackSummary>(`${this.resource}/summary/${programTypeId}`, {
+      programmeId,
+    });
   }
 }
 

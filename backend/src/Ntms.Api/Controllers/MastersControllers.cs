@@ -323,6 +323,63 @@ public class EvaluationSkillsController(EvaluationSkillService service) : ApiCon
 }
 
 /// <summary>
+/// What a programme type asks its participants once a batch is over, and
+/// what came back.
+///
+/// The answers are anonymous by construction - a response row carries the
+/// batch and no person - so the reporting route can only ever count.
+/// </summary>
+[Route("api/feedback-forms")]
+public class FeedbackFormsController(FeedbackService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.CurriculumView)]
+    public async Task<ActionResult<ApiEnvelope<PagedResult<FeedbackFormDto>>>> List(
+        [FromQuery] PagedRequest request, [FromQuery] int? programTypeId,
+        [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.ListAsync(request, programTypeId, status, ct));
+
+    [HttpGet("{id:int}")]
+    [HasPermission(Permissions.CurriculumView)]
+    public async Task<ActionResult<ApiEnvelope<FeedbackFormDto>>> Get(
+        int id, CancellationToken ct) =>
+        Envelope(await service.GetAsync(id, ct));
+
+    /// <summary>Counts, averages and the comments. Nothing attributable.</summary>
+    [HttpGet("summary/{programTypeId:int}")]
+    [HasPermission(Permissions.ReportsView)]
+    public async Task<ActionResult<ApiEnvelope<FeedbackSummaryDto>>> Summary(
+        int programTypeId, [FromQuery] int? programmeId, CancellationToken ct) =>
+        Envelope(await service.SummaryAsync(programTypeId, programmeId, ct));
+
+    [HttpPost]
+    [HasPermission(Permissions.CurriculumManage)]
+    public async Task<ActionResult<ApiEnvelope<FeedbackFormDto>>> Create(
+        [FromBody] FeedbackFormUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.CreateAsync(dto, ct), "Feedback form created.");
+
+    [HttpPut("{id:int}")]
+    [HasPermission(Permissions.CurriculumManage)]
+    public async Task<ActionResult<ApiEnvelope<FeedbackFormDto>>> Update(
+        int id, [FromBody] FeedbackFormUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.UpdateAsync(id, dto, ct), "Feedback form updated.");
+
+    [HttpPatch("{id:int}/status")]
+    [HasPermission(Permissions.CurriculumManage)]
+    public async Task<ActionResult<ApiEnvelope<FeedbackFormDto>>> SetStatus(
+        int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
+        Envelope(await service.SetStatusAsync(id, dto.Status, ct));
+
+    [HttpDelete("{id:int}")]
+    [HasPermission(Permissions.CurriculumManage)]
+    public async Task<ActionResult<ApiEnvelope<bool>>> Delete(int id, CancellationToken ct)
+    {
+        await service.DeleteAsync(id, ct);
+        return Envelope(true, "Feedback form removed.");
+    }
+}
+
+/// <summary>
 /// The shared choice lists a form field can point at instead of holding
 /// its own options.
 /// </summary>

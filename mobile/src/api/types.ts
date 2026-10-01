@@ -500,6 +500,43 @@ export interface ProfileStanding {
   history: ScrutinyEvent[];
 }
 
+/* -------------------------------------------------------------- feedback */
+
+export type FeedbackQuestionType = 'Rating' | 'Text' | 'Select' | 'Radio' | 'YesNo';
+
+/** A batch that is over and is waiting on this participant's feedback. */
+export interface FeedbackInvitation {
+  participantId: number;
+  programmeId: number;
+  programmeName: string;
+  programmeCode: string;
+  programTypeName: string;
+  endedOn: string;
+  /** True once given. There is no route to read it back: it is anonymous. */
+  given: boolean;
+  givenOn?: string | null;
+}
+
+export interface FeedbackQuestion {
+  id: number;
+  key: string;
+  text: string;
+  helpText?: string | null;
+  type: FeedbackQuestionType;
+  required: boolean;
+  displayOrder: number;
+  maxRating: number;
+  options: FieldOption[];
+}
+
+export interface FeedbackForm {
+  id: number;
+  programTypeName?: string | null;
+  title: string;
+  intro?: string | null;
+  questions: FeedbackQuestion[];
+}
+
 /* ------------------------------------------------------------ examination */
 
 /**

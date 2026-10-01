@@ -62,7 +62,8 @@ public class ApplicantAppController(
     InvoiceService invoices,
     ProfileSubmissionService profile,
     BatchRegistrationService registration,
-    ProfileAttachmentService photos) : ApiControllerBase
+    ProfileAttachmentService photos,
+    FeedbackService feedback) : ApiControllerBase
 {
     private int ApplicantId =>
         CurrentUser.ApplicantId
@@ -297,6 +298,37 @@ public class ApplicantAppController(
         return Envelope(standing, standing.Cleared
             ? "Your profile is complete. The programs open to you are ready."
             : "Your profile has been sent for scrutiny.");
+    }
+
+    /* ------------------------------------------------------ feedback ----
+       Asked once a batch has been conducted, and answered anonymously:
+       what is written is stored against the batch with no applicant on
+       it, and the fact that this participant answered is stored
+       separately with no answers on it. */
+
+    /// <summary>Batches that are over and are waiting on their feedback.</summary>
+    [HttpGet("feedback")]
+    public async Task<ActionResult<ApiEnvelope<List<FeedbackInvitationDto>>>> Feedback(
+        CancellationToken ct) =>
+        Envelope(await feedback.MineAsync(ApplicantId, ct));
+
+    /// <summary>The questions for one of them.</summary>
+    [HttpGet("feedback/{participantId:int}")]
+    public async Task<ActionResult<ApiEnvelope<FeedbackFormDto>>> FeedbackForm(
+        int participantId, CancellationToken ct) =>
+        Envelope(await feedback.FormForAsync(ApplicantId, participantId, ct));
+
+    /// <summary>
+    /// Sends the answers. Nothing comes back but the acknowledgement:
+    /// there is no route to read them again, because they are not kept
+    /// against the person who wrote them.
+    /// </summary>
+    [HttpPost("feedback/{participantId:int}")]
+    public async Task<ActionResult<ApiEnvelope<bool>>> SubmitFeedback(
+        int participantId, [FromBody] FeedbackSubmitDto dto, CancellationToken ct)
+    {
+        await feedback.SubmitAsync(ApplicantId, participantId, dto.Answers, ct);
+        return Envelope(true, "Thank you - your feedback has been recorded anonymously.");
     }
 
     /// <summary>The fee payable for one programme today.</summary>

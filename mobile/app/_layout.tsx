@@ -89,6 +89,8 @@ function Routes() {
           name="payment/status/[orderId]"
           options={{ title: 'Payment', headerBackVisible: false, gestureEnabled: false }}
         />
+        <Stack.Screen name="feedback/index" options={{ title: 'Feedback' }} />
+        <Stack.Screen name="feedback/[participantId]" options={{ title: 'Your feedback' }} />
         <Stack.Screen name="exam/index" options={{ title: 'Examinations' }} />
         <Stack.Screen name="exam/[participantId]" options={{ title: 'Examination' }} />
         {/* No back arrow: a paper is left through the submit button or the

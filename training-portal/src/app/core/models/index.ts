@@ -13,6 +13,7 @@ export * from './exam.model';
 export * from './material.model';
 export * from './user.model';
 export * from './applicant.model';
+export * from './feedback.model';
 export * from './application.model';
 export * from './profile-submission.model';
 export * from './program.model';

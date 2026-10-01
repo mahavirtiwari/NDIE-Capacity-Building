@@ -156,6 +156,15 @@ export const routes: Routes = [
               ),
           },
           {
+            path: 'feedback-forms',
+            title: 'Feedback forms · CBMS',
+            canActivate: [permissionGuard('curriculum.view')],
+            loadComponent: () =>
+              import('./features/academics/feedback-forms.component').then(
+                (m) => m.FeedbackFormsComponent,
+              ),
+          },
+          {
             path: 'fees',
             title: 'Fee structures · CBMS',
             canActivate: [permissionGuard('fees.view')],

@@ -26,6 +26,11 @@ public class NtmsDbContext(DbContextOptions<NtmsDbContext> options, ICurrentUser
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<SubCategory> SubCategories => Set<SubCategory>();
     public DbSet<Qualification> Qualifications => Set<Qualification>();
+    public DbSet<FeedbackForm> FeedbackForms => Set<FeedbackForm>();
+    public DbSet<FeedbackQuestion> FeedbackQuestions => Set<FeedbackQuestion>();
+    public DbSet<FeedbackQuestionOption> FeedbackQuestionOptions => Set<FeedbackQuestionOption>();
+    public DbSet<FeedbackResponse> FeedbackResponses => Set<FeedbackResponse>();
+    public DbSet<FeedbackReceipt> FeedbackReceipts => Set<FeedbackReceipt>();
     public DbSet<OptionSet> OptionSets => Set<OptionSet>();
     public DbSet<OptionSetItem> OptionSetItems => Set<OptionSetItem>();
     public DbSet<RejectionReason> RejectionReasons => Set<RejectionReason>();

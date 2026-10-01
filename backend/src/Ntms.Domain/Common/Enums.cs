@@ -231,6 +231,24 @@ public enum ScrutinyAction
 /// It therefore carries a venue and a joining link together, which is what
 /// distinguishes it from the other two.
 /// </summary>
+/// <summary>What a feedback question asks for.</summary>
+public enum FeedbackQuestionType
+{
+    /// <summary>A score out of the question's own maximum, five by default.</summary>
+    Rating = 1,
+
+    /// <summary>Whatever they want to say.</summary>
+    Text = 2,
+
+    /// <summary>One of a list, shown as a dropdown.</summary>
+    Select = 3,
+
+    /// <summary>One of a list, shown as buttons. The same data, fewer taps.</summary>
+    Radio = 4,
+
+    YesNo = 5,
+}
+
 public enum ProgramMode
 {
     Physical = 1,
