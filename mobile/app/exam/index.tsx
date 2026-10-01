@@ -69,6 +69,19 @@ export default function Examinations() {
 
   if (enrolments.loading) return <Loading label="Loading your examinations…" />;
 
+  /* A failed load is not an empty register. "No examinations yet" told
+     somebody whose session had expired that nothing had been scheduled
+     for them, which is a different and much worse thing to be told. */
+  if (enrolments.error && !enrolments.data) {
+    return (
+      <EmptyState
+        icon="alert-circle-outline"
+        title="Could not load your examinations"
+        message={enrolments.error}
+      />
+    );
+  }
+
   if (upcoming.length === 0 && sat.length === 0) {
     return (
       <EmptyState

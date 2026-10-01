@@ -61,7 +61,9 @@ export default function Payments() {
     >
       {applications.error ? <Banner tone="danger">{applications.error}</Banner> : null}
 
-      {due.length === 0 && receipts.length === 0 ? (
+      {/* Only when the load succeeded. Showing "nothing to pay" beneath
+          an error banner told the reader two different things at once. */}
+      {!applications.error && due.length === 0 && receipts.length === 0 ? (
         <EmptyState
           icon="card"
           title="Nothing to pay"

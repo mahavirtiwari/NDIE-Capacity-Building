@@ -73,6 +73,19 @@ export default function Invoices() {
 
   if (payments.loading) return <Loading label="Loading your invoices…" />;
 
+  /* Could not load is not the same as nothing to show. Telling somebody
+     they have no invoices when the request failed is telling them their
+     receipts are gone. */
+  if (payments.error && !payments.data) {
+    return (
+      <EmptyState
+        icon="alert-circle-outline"
+        title="Could not load your invoices"
+        message={payments.error}
+      />
+    );
+  }
+
   if (paid.length === 0) {
     return (
       <EmptyState

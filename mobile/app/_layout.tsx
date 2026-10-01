@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Redirect, Stack, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -42,9 +42,19 @@ export default function RootLayout() {
  * nothing used to link straight into it.
  */
 function Routes() {
-  const { loading } = useAuth();
+  const { loading, applicant } = useAuth();
+  const segments = useSegments();
 
   if (loading) return <Loading />;
+
+  /* Signed out, and not on one of the screens that exists to sign you
+     in. The tab group has always redirected; the screens outside it did
+     not, so an expired session left somebody sitting on Invoices or
+     Examinations with no way to understand why it was empty. A 401
+     already clears the session - this is what acts on it. */
+  const first = segments[0] as string | undefined;
+  const onAuthScreen = !first || first === '(auth)';
+  if (!applicant && !onAuthScreen) return <Redirect href="/(auth)/sign-in" />;
 
   return (
     <View style={{ flex: 1 }}>
