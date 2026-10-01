@@ -347,7 +347,12 @@ function ProfileFor({
     () => me.profileStanding(subCategoryId),
     [subCategoryId],
   );
-  const form = useResource<ProfileForm>(() => me.profileForm(subCategoryId), [subCategoryId]);
+  /* Null where the discipline has no published form, which an
+     accepted profile can legitimately be in. */
+  const form = useResource<ProfileForm | null>(
+    () => me.profileForm(subCategoryId),
+    [subCategoryId],
+  );
 
   const state = useDynamicForm(form.data);
 

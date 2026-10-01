@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Ntms.Application.Common;
 using Ntms.Application.Contracts;
+using Ntms.Infrastructure.Mapping;
 using Ntms.Infrastructure.Services;
 
 namespace Ntms.Api.Controllers;
@@ -166,11 +167,22 @@ public class ApplicantAppController(
         int subCategoryId, CancellationToken ct) =>
         Envelope(await profile.StandingAsync(ApplicantId, subCategoryId, ct));
 
-    /// <summary>The profile form for one sub-category.</summary>
+    /// <summary>
+    /// The profile form for one sub-category, or nothing where none has
+    /// been published.
+    ///
+    /// Null rather than a 404, because an applicant can legitimately hold
+    /// an accepted profile in a discipline that has no form on it today:
+    /// the profiles carried over from the old per-application scrutiny
+    /// were written for whatever their applications were under, and a
+    /// form was never published for every one of those. The screen reads
+    /// the standing for what it shows and only needs the form to fill one
+    /// in, so an absent form is an answer rather than a failure.
+    /// </summary>
     [HttpGet("profile-form/{subCategoryId:int}")]
-    public async Task<ActionResult<ApiEnvelope<ProfileFormDto>>> MyProfileForm(
+    public async Task<ActionResult<ApiEnvelope<ProfileFormDto?>>> MyProfileForm(
         int subCategoryId, CancellationToken ct) =>
-        Envelope(await forms.GetBySubCategoryAsync(subCategoryId, ct));
+        Envelope((await forms.ActiveForAsync(subCategoryId, ct))?.ToDto());
 
     /// <summary>
     /// The answers from a profile this applicant already holds, to start

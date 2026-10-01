@@ -211,8 +211,15 @@ export const me = {
       `${fieldKey}.pdf`),
 
   /** The form one sub-category asks. */
+  /**
+   * Null where no form has been published for the discipline. That is a
+   * real state rather than a fault: a profile carried over from the old
+   * per-application scrutiny can be accepted in a sub-category that has
+   * no form on it today. The screen reads the standing for what it shows
+   * and only needs the form to fill one in.
+   */
   profileForm: (subCategoryId: number) =>
-    api.get<ProfileForm>(`me/profile-form/${subCategoryId}`),
+    api.get<ProfileForm | null>(`me/profile-form/${subCategoryId}`),
 
   /**
    * The answers from a profile already held, to start another one from.
