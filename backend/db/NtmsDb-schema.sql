@@ -5810,3 +5810,62 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261002021121_OneScrutinyOnTheProfile'
+)
+BEGIN
+    INSERT INTO ScrutinyEvents
+        (ApplicationId, Action, ByUserName, ByRole, [On], Remarks, CreatedOn)
+    SELECT a.Id, 'Approved', 'System', 'Applicant', GETUTCDATE(),
+           'Approved on submission: scrutiny of applications was withdrawn. The '
+           + 'profile for this discipline had already been scrutinised and accepted.',
+           GETUTCDATE()
+    FROM Applications a
+    WHERE a.Status IN ('Submitted', 'UnderScrutiny', 'Clarification');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261002021121_OneScrutinyOnTheProfile'
+)
+BEGIN
+    UPDATE Applications
+    SET Status = 'Approved'
+    WHERE Status IN ('Submitted', 'UnderScrutiny', 'Clarification');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261002021121_OneScrutinyOnTheProfile'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261002021121_OneScrutinyOnTheProfile', N'10.0.12');
+END;
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261003023038_PortalUserPincode'
+)
+BEGIN
+    ALTER TABLE [PortalUsers] ADD [Pincode] nvarchar(6) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261003023038_PortalUserPincode'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261003023038_PortalUserPincode', N'10.0.12');
+END;
+
+COMMIT;
+GO
+

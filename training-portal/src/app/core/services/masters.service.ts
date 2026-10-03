@@ -110,6 +110,16 @@ export class AgencyService extends CrudService<ImplementingAgency> {
   history(id: Id): Observable<AgencyHistory> {
     return this.api.get<AgencyHistory>(`${this.resource}/${id}/history`);
   }
+
+  /** A login for an agency that ended up without one. */
+  issueLogin(id: Id): Observable<ImplementingAgency> {
+    return this.api.post<ImplementingAgency>(`${this.resource}/${id}/login`, {});
+  }
+
+  /** A fresh first-time password, e-mailed to the agency. */
+  resendLoginPassword(id: Id): Observable<ImplementingAgency> {
+    return this.api.post<ImplementingAgency>(`${this.resource}/${id}/login/resend-password`, {});
+  }
 }
 
 /**

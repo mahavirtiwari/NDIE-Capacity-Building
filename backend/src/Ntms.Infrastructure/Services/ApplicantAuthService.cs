@@ -267,6 +267,24 @@ public class ApplicantAuthService(
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
+        /* ---- a track is only offered once a batch exists to join -------
+           A program type is a description of a course; it is not something
+           anybody can attend until an implementing agency raises a batch
+           under it and the operation manager permits that batch. Listing a
+           type with nothing running behind it invites an application that
+           has nowhere to go.
+
+           Agency authorship needs no clause of its own: a batch is raised
+           by an agency and carries its AgencyId, and the permission is the
+           tier above saying yes — an agency cannot accept its own. */
+        var offerable = await db.Programmes.AsNoTracking()
+            .OpenForRegistration(today)
+            .Select(p => p.ProgramTypeId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        if (offerable.Count == 0) return [];
+
         /* Scoped to the disciplines they hold an accepted profile in, not
            to whole categories. A sibling discipline has its own form and
            its own scrutiny, and clearing one does not clear the other. */
@@ -274,7 +292,8 @@ public class ApplicantAuthService(
             .Include(p => p.Category)
             .Include(p => p.SubCategory)
             .Where(p => p.Status == RecordStatus.Active
-                        && visible.Contains(p.SubCategoryId))
+                        && visible.Contains(p.SubCategoryId)
+                        && offerable.Contains(p.Id))
             .OrderBy(p => p.SubCategory!.Name).ThenBy(p => p.Name)
             .ToListAsync(ct);
 

@@ -66,6 +66,7 @@ export interface PortalUser extends AuditInfo {
   districtCode?: number | null;
   district?: string;
   city?: string;
+  pincode?: string;
   lastLoginOn?: string | null;
   status: RecordStatus;
 }

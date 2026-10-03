@@ -40,6 +40,7 @@ public class PortalUserConfiguration : IEntityTypeConfiguration<PortalUser>
         b.Property(x => x.Designation).HasMaxLength(120);
         b.Property(x => x.PasswordHash).HasMaxLength(400).IsRequired();
         b.Property(x => x.City).HasMaxLength(120);
+        b.Property(x => x.Pincode).HasMaxLength(6);
 
         /* Identity is the generated user code. Email is profile data the user
            can change, so it is indexed for lookup but never made unique. */

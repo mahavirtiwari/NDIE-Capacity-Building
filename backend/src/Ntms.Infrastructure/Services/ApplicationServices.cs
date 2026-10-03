@@ -993,11 +993,15 @@ public class ApplicationService(
             ProgramTypeId = programType.Id,
             ProfileFormId = form?.Id,
 
-            /* Scrutiny is the reading of what was declared on the registration
-               form. Where the track asks for no form, there is nothing to
-               read, so the application is approved as it arrives rather than
-               joining a queue nobody can act on. */
-            Status = form is null ? ApplicationStatus.Approved : ApplicationStatus.Submitted,
+            /* There is one scrutiny, and it has already happened.
+
+               What an application declares is the profile, and the profile
+               is read and accepted per discipline before any track in it is
+               offered at all. Reading it a second time when somebody picks a
+               batch asks the same question of the same answers, and leaves
+               an approved person waiting in a queue to be approved again.
+               So an application is accepted as it arrives. */
+            Status = ApplicationStatus.Approved,
             SubmittedOn = now,
             PaymentStatus = programType.IsFeeApplicable ? PaymentStatus.Pending : PaymentStatus.NotApplicable,
             FeeAmount = fee?.Totals.Gross ?? 0m,
@@ -1025,21 +1029,19 @@ public class ApplicationService(
 
         /* Recorded as its own event rather than left implicit. Somebody
            reading the history a year later needs to see why this application
-           was never scrutinised, and "the track asked for no form" is the
-           answer — not an omission by whoever was on the queue. */
-        if (form is null)
+           was never scrutinised, and the answer is a decision the scheme
+           made — not an omission by whoever was on the queue. */
+        entity.History.Add(new ScrutinyEvent
         {
-            entity.History.Add(new ScrutinyEvent
-            {
-                Action = ScrutinyAction.Approved,
-                ByUserName = "System",
-                ByRole = BaseRole.Applicant.ToString(),
-                On = now,
-                Remarks =
-                    $"Approved without scrutiny: {programType.Name} does not require a "
-                    + "profile form.",
-            });
-        }
+            Action = ScrutinyAction.Approved,
+            ByUserName = "System",
+            ByRole = BaseRole.Applicant.ToString(),
+            On = now,
+            Remarks = form is null
+                ? $"Approved on submission: {programType.Name} does not require a profile form."
+                : "Approved on submission: the profile for this discipline has already been "
+                  + "scrutinised and accepted.",
+        });
 
         db.Applications.Add(entity);
         await db.SaveChangesAsync(ct);
@@ -1048,98 +1050,6 @@ public class ApplicationService(
             entity, applicant.Email, applicant.FullName, ct);
 
         return await GetAsync(entity.Id, ct);
-    }
-
-    public async Task<ApplicationDto> DecideAsync(int id, ScrutinyDecisionDto dto, CancellationToken ct)
-    {
-        var entity = await db.Applications
-            .Include(a => a.Documents).Include(a => a.History)
-            .FirstOrDefaultAsync(a => a.Id == id, ct)
-            ?? throw AppException.NotFound("Application");
-
-        if (entity.Status is not (ApplicationStatus.Submitted or ApplicationStatus.UnderScrutiny
-            or ApplicationStatus.Clarification))
-        {
-            throw new AppException($"An application that is {entity.Status} cannot be scrutinised again.");
-        }
-
-        var (status, action) = dto.Decision.Trim().ToLowerInvariant() switch
-        {
-            "approve" => (ApplicationStatus.Approved, ScrutinyAction.Approved),
-            "reject" => (ApplicationStatus.Rejected, ScrutinyAction.Rejected),
-            "clarification" => (ApplicationStatus.Clarification, ScrutinyAction.Clarification),
-            _ => throw new AppException("Decision must be Approve, Reject or Clarification."),
-        };
-
-        var remarks = (dto.Remarks ?? string.Empty).Trim();
-        string? reasonLabel = null;
-
-        if (status == ApplicationStatus.Rejected)
-        {
-            /* Chosen from the list, not typed: a rejection is counted and
-               reported on, and forty spellings of the same reason cannot be. */
-            var reason = await db.RejectionReasons
-                .FirstOrDefaultAsync(r => r.Id == dto.RejectionReasonId, ct)
-                ?? throw new AppException("Choose a reason for the rejection.");
-
-            if (reason.Status != RecordStatus.Active)
-                throw new AppException($"'{reason.Label}' is no longer available as a reason.");
-
-            if (reason.RequiresNote && remarks.Length == 0)
-            {
-                throw new AppException(
-                    $"'{reason.Label}' needs a note saying what exactly was wrong.");
-            }
-
-            /* Snapshotted, because the master can be reworded or retired and
-               a rejection has to keep reading the way it was given. */
-            reasonLabel = reason.Label;
-            entity.RejectionReasonId = reason.Id;
-            entity.RejectionReasonLabel = reason.Label;
-        }
-        else if (remarks.Length == 0)
-        {
-            /* Approving or asking for more needs words: there is no list
-               standing in for them. */
-            throw new AppException("Scrutiny remarks are required.");
-        }
-
-        entity.Status = status;
-        entity.History.Add(new ScrutinyEvent
-        {
-            Action = action,
-            ByUserName = currentUser.DisplayName ?? "Scrutiny Officer",
-            ByRole = currentUser.RoleName ?? "Admin",
-            On = DateTime.UtcNow,
-            Remarks = remarks.Length == 0 ? null : remarks,
-            RejectionReasonLabel = reasonLabel,
-        });
-
-        if (dto.DocumentIdsVerified is { Count: > 0 })
-        {
-            foreach (var document in entity.Documents.Where(d => dto.DocumentIdsVerified.Contains(d.Id)))
-            {
-                document.Verified = true;
-            }
-        }
-
-        await db.SaveChangesAsync(ct);
-
-        var applicant = await db.Applicants
-            .FirstOrDefaultAsync(a => a.Id == entity.ApplicantId, ct);
-        if (applicant is not null)
-        {
-            /* The applicant is told the reason, not just that it was refused -
-               they are allowed to apply again and need to know what to fix. */
-            var told = reasonLabel is null
-                ? remarks
-                : remarks.Length == 0 ? reasonLabel : $"{reasonLabel} — {remarks}";
-
-            await notifications.SendScrutinyOutcomeAsync(
-                entity, applicant.Email, applicant.FullName, status.ToString(), told, ct);
-        }
-
-        return await GetAsync(id, ct);
     }
 
     public async Task<ApplicationDto> AssignAsync(int id, int userId, CancellationToken ct)
@@ -1151,9 +1061,9 @@ public class ApplicationService(
         var officer = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct)
                       ?? throw AppException.NotFound("User");
 
+        /* Assigning an owner no longer moves the application anywhere. It
+           arrives approved, and there is no queue for it to enter. */
         entity.AssignedToUserId = officer.Id;
-        if (entity.Status == ApplicationStatus.Submitted)
-            entity.Status = ApplicationStatus.UnderScrutiny;
 
         entity.History.Add(new ScrutinyEvent
         {

@@ -53,12 +53,6 @@ const COLUMNS: ColumnDef[] = [
 
     <section class="card">
       <div class="card__body card__body--tight">
-        <p class="text-muted text-sm">
-          One row per delivery: a trainer who took three workshops appears three times, because
-          each row is that programme's own record of who turned up. Coordinators add them from
-          the app on the day; you can add or correct one here.
-        </p>
-
         <div class="filter-bar">
           <div class="field field--search">
             <div class="input-group">

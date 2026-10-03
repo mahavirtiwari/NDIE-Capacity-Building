@@ -56,12 +56,6 @@ const STANDINGS: Record<CertificateStanding, { label: string; tone: string }> = 
 
     <section class="card">
       <div class="card__body card__body--tight">
-        <p class="text-muted text-sm">
-          One row per qualification: somebody who has passed two programmes appears twice,
-          because they hold two. A qualification is recorded when the marks are in, and the
-          certificate follows — so a professional can be qualified and not yet certified.
-        </p>
-
         <div class="filter-bar">
           <div class="field field--search">
             <div class="input-group">

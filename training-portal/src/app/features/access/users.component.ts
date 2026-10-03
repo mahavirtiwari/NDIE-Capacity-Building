@@ -35,7 +35,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
 import { StatusToggleComponent } from '../../shared/components/status-toggle.component';
 import { ScopePickerComponent } from '../../shared/components/scope-picker.component';
 import { TimelineComponent } from '../../shared/components/timeline.component';
-import { describeError, requiredFormat } from '../../core/validation/formats';
+import { describeError, formatValidator, requiredFormat } from '../../core/validation/formats';
 import { ListState, searchTerm } from '../../shared/list-state';
 
 /** The same screen serves "Portal users" and the coordinator-only view. */
@@ -137,36 +137,42 @@ const TIER_DEPTH: Record<string, number> = {
                 (change)="list.stageFilter('roleId', value($event))"
               >
                 <option value="">All roles</option>
-                @for (role of roles(); track role.id) {
+                @for (role of filterRoles(); track role.id) {
                   <option [value]="role.id">{{ role.name }}</option>
                 }
               </select>
             </div>
           }
-          <div class="field">
-            <label class="field-label" for="usrAgency">Agency</label>
-            <select id="usrAgency" class="select"
-              [value]="list.stagedValue('agencyId')"
-              (change)="list.stageFilter('agencyId', value($event))"
-            >
-              <option value="">All agencies</option>
-              @for (agency of agencies(); track agency.id) {
-                <option [value]="agency.id">{{ agency.name }}</option>
-              }
-            </select>
-          </div>
-          <div class="field">
-            <label class="field-label" for="usrState">State/UT</label>
-            <select id="usrState" class="select"
-              [value]="list.stagedValue('state')"
-              (change)="list.stageFilter('state', value($event))"
-            >
-              <option value="">All states/UTs</option>
-              @for (state of states(); track state.id) {
-                <option [value]="state.name">{{ state.name }}</option>
-              }
-            </select>
-          </div>
+          <!-- Agency and State/UT only where they say something. A staff
+               account belongs to no agency, so the column and both filters
+               were a column of dashes and two pickers that matched
+               everything. -->
+          @if (isCoordinatorView()) {
+            <div class="field">
+              <label class="field-label" for="usrAgency">Agency</label>
+              <select id="usrAgency" class="select"
+                [value]="list.stagedValue('agencyId')"
+                (change)="list.stageFilter('agencyId', value($event))"
+              >
+                <option value="">All agencies</option>
+                @for (agency of agencies(); track agency.id) {
+                  <option [value]="agency.id">{{ agency.name }}</option>
+                }
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="usrState">State/UT</label>
+              <select id="usrState" class="select"
+                [value]="list.stagedValue('state')"
+                (change)="list.stageFilter('state', value($event))"
+              >
+                <option value="">All states/UTs</option>
+                @for (state of states(); track state.id) {
+                  <option [value]="state.name">{{ state.name }}</option>
+                }
+              </select>
+            </div>
+          }
           <div class="field">
             <label class="field-label" for="usrStatus">Status</label>
             <select id="usrStatus" class="select"
@@ -192,7 +198,7 @@ const TIER_DEPTH: Record<string, number> = {
       <app-data-table
         exportName="Portal users"
         [exportRows]="exportRows"
-        [columns]="columns"
+        [columns]="columns()"
         [rows]="list.rows()"
         [total]="list.total()"
         [page]="list.page()"
@@ -226,6 +232,10 @@ const TIER_DEPTH: Record<string, number> = {
         </ng-template>
         <ng-template appCell="actions" let-row>
           <div class="btn-row btn-row--end">
+            <button type="button" class="btn btn--icon" title="View details"
+              (click)="details.set($any(row))">
+              <app-icon name="eye" [size]="15" />
+            </button>
             @if (canResetPassword($any(row))) {
               <button
                 type="button"
@@ -256,6 +266,58 @@ const TIER_DEPTH: Record<string, number> = {
         </ng-template>
       </app-data-table>
     </section>
+
+    @if (details(); as row) {
+      <app-modal
+        [title]="row.fullName"
+        [subtitle]="row.userCode + ' · ' + row.roleName"
+        size="md"
+        (closed)="details.set(null)"
+      >
+        <div class="dl">
+          <div>
+            <dt>Email</dt>
+            <dd>{{ row.email }}</dd>
+          </div>
+          <div>
+            <dt>Mobile</dt>
+            <dd>{{ row.mobile || '—' }}</dd>
+          </div>
+          @if (row.designation) {
+            <div>
+              <dt>Designation</dt>
+              <dd>{{ row.designation }}</dd>
+            </div>
+          }
+          @if (row.agencyName) {
+            <div>
+              <dt>Implementing agency</dt>
+              <dd>{{ row.agencyName }}</dd>
+            </div>
+          }
+          <div>
+            <dt>Location</dt>
+            <dd>
+              {{ row.city || '—' }}@if (row.state) {, {{ row.state }}}
+            </dd>
+          </div>
+          <div>
+            <dt>Last login</dt>
+            <dd>
+              {{ row.lastLoginOn ? (row.lastLoginOn | date: 'dd MMM yyyy, HH:mm') : 'Never signed in' }}
+            </dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd><app-status-badge [value]="row.status" /></dd>
+          </div>
+        </div>
+
+        <div modal-footer>
+          <button type="button" class="btn btn--secondary" (click)="details.set(null)">Close</button>
+        </div>
+      </app-modal>
+    }
 
     @if (formOpen()) {
       <app-modal
@@ -345,6 +407,12 @@ const TIER_DEPTH: Record<string, number> = {
               <input id="uCity" class="input" formControlName="city" />
             </div>
             <div class="field">
+              <label class="field-label" for="uPin">Pincode</label>
+              <input id="uPin" class="input" formControlName="pincode" maxlength="6" inputmode="numeric"
+                [class.is-invalid]="invalid('pincode')" />
+              @if (invalid('pincode')) { <span class="field-error">{{ errorFor('pincode', 'Pincode') }}</span> }
+            </div>
+            <div class="field">
               <label class="field-label" for="uStatus">Status</label>
               <select id="uStatus" class="select" formControlName="status">
                 <option value="Active">Active</option>
@@ -380,8 +448,24 @@ const TIER_DEPTH: Record<string, number> = {
                 label="Program types"
                 [options]="programTypeOptions()"
                 [(selected)]="programTypeIds"
-                emptyMessage="Select at least one sub-category first."
+                emptyMessage="Nothing has been allocated to you to pass on."
               />
+              <!-- Shown, not chosen. Granting the category separately would
+                   leave two answers to what this account covers; the program
+                   types are the answer and the rest is read off them. -->
+              @if (impliedScope().categories.length) {
+                <div class="field">
+                  <span class="field-label">This covers</span>
+                  <div class="row row-sm row-wrap">
+                    @for (name of impliedScope().categories; track name) {
+                      <span class="chip">{{ name }}</span>
+                    }
+                    @for (name of impliedScope().subCategories; track name) {
+                      <span class="chip chip--muted">{{ name }}</span>
+                    }
+                  </div>
+                </div>
+              }
             }
             @if (axes().state) {
               <app-scope-picker
@@ -549,7 +633,9 @@ export class UsersComponent {
   /** Bound from route data. */
   readonly scope = input<UserScope>('all');
 
-  protected readonly columns = COLUMNS;
+  protected readonly columns = computed(() =>
+    this.isCoordinatorView() ? COLUMNS : COLUMNS.filter((c) => c.key !== 'agencyName'),
+  );
 
   /* Held rather than written inline: an arrow in the template is a new
 
@@ -559,6 +645,20 @@ export class UsersComponent {
   protected readonly isCoordinatorView = computed(() => this.scope() === 'coordinators');
 
   protected readonly roles = toSignal(this.roleService.all(), { initialValue: [] as AdminRole[] });
+
+  /* The role filter offers only what the list can hold. Coordinators and
+     agency logins have registers of their own, and the Super Admin is not
+     listed at all — so offering any of the three is a filter that can only
+     ever return nothing. */
+  protected readonly filterRoles = computed(() =>
+    this.isCoordinatorView()
+      ? this.roles().filter((r) => r.baseRole === 'Coordinator')
+      : this.roles().filter(
+          (r) => r.baseRole !== 'Coordinator'
+            && r.baseRole !== 'AgencyAdmin'
+            && r.baseRole !== 'SuperAdmin',
+        ),
+  );
   protected readonly agencies = toSignal(this.lookups.agencies(), { initialValue: [] as LookupItem[] });
   protected readonly states = toSignal(this.lookups.states(), { initialValue: [] as LookupItem[] });
 
@@ -723,9 +823,46 @@ export class UsersComponent {
   });
 
   /** Program types offered are limited to the sub-categories chosen above them. */
+  /*
+   * Program types offered, cascaded only where sub-categories are themselves
+   * being allocated.
+   *
+   * An Operation Manager is allocated on program types and states; the
+   * category it works in is read off the types rather than granted
+   * separately. So its form has no sub-category picker — and this list, which
+   * filtered by the chosen sub-categories, could only ever come back empty.
+   * The picker said "0 of 0, select at least one sub-category first" about a
+   * control that was not on the screen, and no Operation Manager could be
+   * created at all.
+   *
+   * Everything here is already narrowed to what the creator holds, so an
+   * Admin offers exactly the program types the Super Admin gave it.
+   */
   protected readonly programTypeOptions = computed(() => {
+    if (!this.axes().subCategory) return this.allProgramTypes();
     const chosen = this.subCategoryIds();
     return this.allProgramTypes().filter((p) => chosen.includes(Number(p.parentId)));
+  });
+
+  /* The category and sub-category each chosen program type belongs to. Shown
+     rather than chosen: granting them separately would leave two answers to
+     the question of what this account covers, and the program types are the
+     answer. */
+  protected readonly impliedScope = computed(() => {
+    const chosen = this.programTypeIds().map(Number);
+    const subs = new Map(this.allSubCategories().map((s) => [Number(s.id), s]));
+    const cats = new Map(this.allocatable().categories.map((c) => [Number(c.id), c.name]));
+
+    const subNames = new Set<string>();
+    const catNames = new Set<string>();
+    for (const type of this.allProgramTypes().filter((p) => chosen.includes(Number(p.id)))) {
+      const sub = subs.get(Number(type.parentId));
+      if (!sub) continue;
+      subNames.add(sub.name);
+      const cat = cats.get(Number(sub.parentId));
+      if (cat) catNames.add(cat);
+    }
+    return { categories: [...catNames], subCategories: [...subNames] };
   });
 
   /** Districts offered are limited to the states chosen above them. */
@@ -748,6 +885,7 @@ export class UsersComponent {
     stateCode: [null as number | null],
     districtCode: [null as number | null],
     city: [''],
+    pincode: ['', formatValidator('pincode')],
     status: ['Active'],
   });
 
@@ -821,7 +959,7 @@ export class UsersComponent {
            and the ministry. An agency login is shown with its agency and a
            coordinator with its coordinators, so neither is listed twice. */
         this.list.setFilter(
-          'excludeBaseRoles', coordinatorsOnly ? null : 'Coordinator,AgencyAdmin');
+          'excludeBaseRoles', coordinatorsOnly ? null : 'Coordinator,AgencyAdmin,SuperAdmin');
       });
     });
   }
@@ -865,6 +1003,7 @@ export class UsersComponent {
       stateCode: row?.stateCode ?? null,
       districtCode: row?.districtCode ?? null,
       city: row?.city ?? '',
+      pincode: row?.pincode ?? '',
       status: row?.status ?? 'Active',
     });
     this.lookups.addressDistricts(row?.stateCode ?? null).subscribe((items) => this.districts.set(items));
@@ -984,6 +1123,9 @@ export class UsersComponent {
   protected readonly statusReason = signal('');
   protected readonly savingStatus = signal(false);
   protected readonly history = signal<UserHistory | null>(null);
+
+  /** The account whose details are on screen, or null. */
+  protected readonly details = signal<PortalUser | null>(null);
 
   protected textValue(event: Event): string {
     return (event.target as HTMLTextAreaElement).value;

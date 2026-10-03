@@ -167,6 +167,7 @@ public class PortalUserDto : AuditDto
     public int? DistrictCode { get; set; }
     public string? District { get; set; }
     public string? City { get; set; }
+    public string? Pincode { get; set; }
     public DateTime? LastLoginOn { get; set; }
     public string Status { get; set; } = "Active";
 }
@@ -191,6 +192,7 @@ public class PortalUserUpsertDto
     public int? StateCode { get; set; }
     public int? DistrictCode { get; set; }
     public string? City { get; set; }
+    public string? Pincode { get; set; }
     public string Status { get; set; } = "Active";
 }
 

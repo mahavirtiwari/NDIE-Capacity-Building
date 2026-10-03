@@ -63,7 +63,7 @@ export const routes: Routes = [
       /* ---------------- Programme setup (Super Admin) ---------------- */
       {
         path: 'masters',
-        canActivate: [permissionGuard('masters.view')],
+        canActivate: [permissionGuard('masters.manage')],
         children: [
           { path: '', pathMatch: 'full', redirectTo: 'categories' },
           {
@@ -124,14 +124,14 @@ export const routes: Routes = [
           {
             path: 'curriculum',
             title: 'Curriculum · CBMS',
-            canActivate: [permissionGuard('curriculum.view')],
+            canActivate: [permissionGuard('curriculum.manage')],
             loadComponent: () =>
               import('./features/academics/curriculum.component').then((m) => m.CurriculumComponent),
           },
           {
             path: 'curriculum/:id',
             title: 'Curriculum sessions · CBMS',
-            canActivate: [permissionGuard('curriculum.view')],
+            canActivate: [permissionGuard('curriculum.manage')],
             loadComponent: () =>
               import('./features/academics/curriculum-sessions.component').then(
                 (m) => m.CurriculumSessionsComponent,
@@ -140,7 +140,7 @@ export const routes: Routes = [
           {
             path: 'profile-forms',
             title: 'Profile forms · CBMS',
-            canActivate: [permissionGuard('masters.view')],
+            canActivate: [permissionGuard('masters.manage')],
             loadComponent: () =>
               import('./features/academics/profile-forms.component').then(
                 (m) => m.ProfileFormsComponent,
@@ -149,7 +149,7 @@ export const routes: Routes = [
           {
             path: 'signup-form',
             title: 'Applicant sign-up form · CBMS',
-            canActivate: [permissionGuard('masters.view')],
+            canActivate: [permissionGuard('masters.manage')],
             loadComponent: () =>
               import('./features/academics/signup-form.component').then(
                 (m) => m.SignupFormComponent,
@@ -158,7 +158,7 @@ export const routes: Routes = [
           {
             path: 'feedback-forms',
             title: 'Feedback forms · CBMS',
-            canActivate: [permissionGuard('curriculum.view')],
+            canActivate: [permissionGuard('curriculum.manage')],
             loadComponent: () =>
               import('./features/academics/feedback-forms.component').then(
                 (m) => m.FeedbackFormsComponent,
@@ -273,7 +273,7 @@ export const routes: Routes = [
           },
           {
             path: 'applications',
-            title: 'Application scrutiny · CBMS',
+            title: 'Applications · CBMS',
             canActivate: [permissionGuard('applications.view')],
             loadComponent: () =>
               import('./features/admin/applications.component').then((m) => m.ApplicationsComponent),

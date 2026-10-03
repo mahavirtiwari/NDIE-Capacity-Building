@@ -61,12 +61,6 @@ const COLUMNS: ColumnDef[] = [
 
     <section class="card">
       <div class="card__body card__body--tight">
-        <p class="text-muted text-sm">
-          Pick a program type to see its programmes, then open a report. Reports are put
-          together when you ask for one and are not stored — what you see is the record as it
-          stands now. Save it as a PDF from the print dialog, or download the page itself.
-        </p>
-
         <div class="filter-bar">
           <div class="field field--search">
             <div class="input-group">

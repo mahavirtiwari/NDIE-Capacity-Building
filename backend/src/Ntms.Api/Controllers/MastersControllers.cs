@@ -481,4 +481,18 @@ public class AgenciesController(AgencyService service) : ApiControllerBase
     public async Task<ActionResult<ApiEnvelope<AgencyDto>>> SetStatus(
         int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
         Envelope(await service.SetStatusAsync(id, dto.Status, ct));
+
+    /// <summary>A login for an agency that ended up without one.</summary>
+    [HttpPost("{id:int}/login")]
+    [HasPermission(Permissions.AgenciesManage)]
+    public async Task<ActionResult<ApiEnvelope<AgencyDto>>> IssueLogin(
+        int id, CancellationToken ct) =>
+        Envelope(await service.IssueLoginAsync(id, ct), "Login created and e-mailed to the agency.");
+
+    /// <summary>A fresh first-time password, e-mailed to the agency.</summary>
+    [HttpPost("{id:int}/login/resend-password")]
+    [HasPermission(Permissions.AgenciesManage)]
+    public async Task<ActionResult<ApiEnvelope<AgencyDto>>> ResendLoginPassword(
+        int id, CancellationToken ct) =>
+        Envelope(await service.ResendLoginPasswordAsync(id, ct), "New password e-mailed to the agency.");
 }

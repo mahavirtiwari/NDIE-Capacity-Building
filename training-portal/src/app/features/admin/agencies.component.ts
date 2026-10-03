@@ -41,8 +41,7 @@ const COLUMNS: ColumnDef[] = [
      users register, which listed it beside admins and operation managers
      and made that one list of four unrelated kinds of account. */
   { key: 'login', header: 'Login', width: '190px' },
-  { key: 'location', header: 'Location', width: '190px' },
-  { key: 'mapping', header: 'Empanelled for', width: '210px' },
+  { key: 'mapping', header: 'Empanelled for', width: '260px' },
   { key: 'empanelmentValidTill', header: 'Valid till', width: '130px' },
   { key: 'status', header: 'Status', width: '110px' },
   { key: 'actions', header: '', width: '110px', align: 'right' },
@@ -161,33 +160,41 @@ const COLUMNS: ColumnDef[] = [
           </div>
         </ng-template>
         <ng-template appCell="login" let-row>
+          <!-- The user ID alone. Whether the login is enabled and when it
+               was last used are on the agency's own row, and repeating them
+               here made one column three lines tall. -->
           @if ($any(row).loginUserCode) {
-            <div class="stack stack-xs">
-              <span class="text-sm">{{ $any(row).loginUserCode }}</span>
-              <app-status-badge [value]="$any(row).loginStatus" />
-              <span class="cell-muted">
-                {{
-                  $any(row).loginLastSeenOn
-                    ? ($any(row).loginLastSeenOn | date: 'dd MMM, HH:mm')
-                    : 'Never signed in'
-                }}
-              </span>
-            </div>
+            <span class="text-sm">{{ $any(row).loginUserCode }}</span>
           } @else {
             <span class="cell-muted">No login yet</span>
           }
         </ng-template>
-        <ng-template appCell="location" let-row>
-          <div class="stack stack-xs">
-            <span>{{ $any(row).city }}</span>
-            <span class="cell-muted">{{ $any(row).state }} — {{ $any(row).pincode }}</span>
-          </div>
-        </ng-template>
+        <!-- Named, not counted. "1 categories" said an agency was
+             empanelled for something without saying what, and the only way
+             to find out was to open the row. -->
         <ng-template appCell="mapping" let-row>
-          <div class="row row-sm row-wrap">
-            <span class="chip">{{ $any(row).categoryIds.length }} categories</span>
-            <span class="chip">{{ $any(row).programTypeIds.length }} program types</span>
-          </div>
+          @if ($any(row).programTypeNames.length || $any(row).categoryNames.length) {
+            <div class="stack stack-xs">
+              @if ($any(row).categoryNames.length) {
+                <span class="cell-muted">{{ $any(row).categoryNames.join(', ') }}</span>
+              }
+              <div class="row row-sm row-wrap" [title]="$any(row).programTypeNames.join(', ')">
+                @for (name of $any(row).programTypeNames.slice(0, 2); track name) {
+                  <span class="chip">{{ name }}</span>
+                }
+                <!-- Two, then a count. An agency empanelled for a dozen
+                     tracks would otherwise be a dozen lines tall; the rest
+                     are on hover, and all of them are in the row. -->
+                @if ($any(row).programTypeNames.length > 2) {
+                  <span class="chip chip--muted">
+                    +{{ $any(row).programTypeNames.length - 2 }} more
+                  </span>
+                }
+              </div>
+            </div>
+          } @else {
+            <span class="cell-muted">—</span>
+          }
         </ng-template>
         <ng-template appCell="empanelmentValidTill" let-row>
           {{ $any(row).empanelmentValidTill | date: 'dd MMM yyyy' }}
@@ -197,11 +204,30 @@ const COLUMNS: ColumnDef[] = [
         </ng-template>
         <ng-template appCell="actions" let-row>
           <div class="btn-row btn-row--end">
+            <button type="button" class="btn btn--icon" title="View details"
+              (click)="details.set($any(row))">
+              <app-icon name="eye" [size]="15" />
+            </button>
             <!-- Withheld rather than shown and refused: an agency is edited
-                 by the tier that appointed it, or by whoever added it. -->
+                 by the tier that appointed it, and empanelling is not the
+                 Super Admin's to do even for a record it added itself. -->
             @if ($any(row).canEdit !== false) {
-              <button type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
+              <button *appCan="'agencies.manage'" type="button" class="btn btn--icon"
+                title="Edit" (click)="openForm($any(row))">
                 <app-icon name="edit" [size]="15" />
+              </button>
+            }
+            <!-- One or the other: an agency either has a login or needs
+                 one, and offering both invites issuing a second. -->
+            @if ($any(row).loginUserCode) {
+              <button *appCan="'agencies.manage'" type="button" class="btn btn--icon"
+                title="Resend password" (click)="resendPassword($any(row))">
+                <app-icon name="lock" [size]="15" />
+              </button>
+            } @else {
+              <button *appCan="'agencies.manage'" type="button" class="btn btn--icon"
+                title="Issue login" (click)="issueLogin($any(row))">
+                <app-icon name="mail" [size]="15" />
               </button>
             }
             <button type="button" class="btn btn--icon" title="History"
@@ -214,6 +240,91 @@ const COLUMNS: ColumnDef[] = [
       </app-data-table>
     </section>
 
+    @if (details(); as row) {
+      <app-modal
+        [title]="row.name"
+        [subtitle]="row.code + ' · ' + row.agencyType"
+        size="md"
+        (closed)="details.set(null)"
+      >
+        <div class="dl">
+          <div>
+            <dt>Contact person</dt>
+            <dd>{{ row.contactPerson }}</dd>
+          </div>
+          <div>
+            <dt>Email</dt>
+            <dd>{{ row.email }}</dd>
+          </div>
+          <div>
+            <dt>Mobile</dt>
+            <dd>{{ row.mobile }}</dd>
+          </div>
+          <div>
+            <dt>Address</dt>
+            <dd>
+              {{ row.addressLine1 }}@if (row.addressLine2) {, {{ row.addressLine2 }}}<br />
+              {{ row.city }}, {{ row.state }}@if (row.district) { ({{ row.district }})} —
+              {{ row.pincode }}
+            </dd>
+          </div>
+          @if (row.gstin) {
+            <div>
+              <dt>GSTIN</dt>
+              <dd>{{ row.gstin }}</dd>
+            </div>
+          }
+          @if (row.pan) {
+            <div>
+              <dt>PAN</dt>
+              <dd>{{ row.pan }}</dd>
+            </div>
+          }
+          <div>
+            <dt>Empanelled</dt>
+            <dd>
+              {{ row.empanelledOn | date: 'dd MMM yyyy' }}
+              @if (row.empanelmentValidTill) {
+                — valid till {{ row.empanelmentValidTill | date: 'dd MMM yyyy' }}
+              }
+            </dd>
+          </div>
+          <div>
+            <dt>Categories</dt>
+            <dd>{{ row.categoryNames.length ? row.categoryNames.join(', ') : '—' }}</dd>
+          </div>
+          <div>
+            <dt>Program types</dt>
+            <dd>{{ row.programTypeNames.length ? row.programTypeNames.join(', ') : '—' }}</dd>
+          </div>
+          <div>
+            <dt>Login</dt>
+            <dd>
+              @if (row.loginUserCode) {
+                {{ row.loginUserCode }}
+                @if (row.loginEmail) { · {{ row.loginEmail }} }
+                @if (row.loginLastSeenOn) {
+                  · last seen {{ row.loginLastSeenOn | date: 'dd MMM yyyy, HH:mm' }}
+                } @else {
+                  · never signed in
+                }
+              } @else {
+                No login yet
+              }
+            </dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd><app-status-badge [value]="row.status" /></dd>
+          </div>
+        </div>
+
+        <div modal-footer>
+          <button type="button" class="btn btn--secondary" (click)="details.set(null)">Close</button>
+        </div>
+      </app-modal>
+    }
+
     @if (formOpen()) {
       <app-modal
         [title]="editing() ? 'Edit implementing agency' : 'New implementing agency'"
@@ -222,12 +333,6 @@ const COLUMNS: ColumnDef[] = [
       >
         <form [formGroup]="form" id="agency-form" (ngSubmit)="save()" class="stack stack-md">
           <div class="form-grid">
-            <div class="field">
-              <label class="field-label" for="agCode">Agency code <span class="req">*</span></label>
-              <input id="agCode" class="input" formControlName="code" appUppercase maxlength="20"
-                [class.is-invalid]="invalid('code')" />
-              @if (invalid('code')) { <span class="field-error">{{ errorFor('code', 'Agency code') }}</span> }
-            </div>
             <div class="field">
               <label class="field-label" for="agTypeSel">Agency type <span class="req">*</span></label>
               <select id="agTypeSel" class="select" formControlName="agencyType">
@@ -443,9 +548,27 @@ export class AgenciesComponent {
 
   protected readonly history = signal<AgencyHistory | null>(null);
 
+  /** The agency whose details are on screen, or null. */
+  protected readonly details = signal<ImplementingAgency | null>(null);
+
   /** The empanelment, the login, the coordinators and the batches. */
   protected openHistory(row: ImplementingAgency): void {
     this.service.history(row.id).subscribe((record) => this.history.set(record));
+  }
+
+  /** For an agency empanelled without one. The server e-mails the credentials. */
+  protected issueLogin(row: ImplementingAgency): void {
+    this.service.issueLogin(row.id).subscribe(() => {
+      this.toast.success('Login created', `Credentials sent to ${row.email}.`);
+      this.list.reload();
+    });
+  }
+
+  protected resendPassword(row: ImplementingAgency): void {
+    this.service.resendLoginPassword(row.id).subscribe(() => {
+      this.toast.success('Password sent', `A new first-time password went to ${row.email}.`);
+      this.list.reload();
+    });
   }
   protected readonly formOpen = signal(false);
   protected readonly saving = signal(false);
@@ -481,7 +604,6 @@ export class AgenciesComponent {
   protected readonly stateCodes = signal<number[]>([]);
 
   protected readonly form = this.fb.group({
-    code: ['', requiredFormat('code')],
     name: ['', Validators.required],
     agencyType: ['Government Body', Validators.required],
     contactPerson: ['', Validators.required],
@@ -523,7 +645,6 @@ export class AgenciesComponent {
     this.programTypeIds.set(row?.programTypeIds ?? []);
     this.stateCodes.set(row?.stateCodes ?? []);
     this.form.reset({
-      code: row?.code ?? '',
       name: row?.name ?? '',
       agencyType: row?.agencyType ?? 'Government Body',
       contactPerson: row?.contactPerson ?? '',

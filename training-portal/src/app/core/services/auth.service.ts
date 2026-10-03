@@ -63,10 +63,20 @@ export class AuthService {
     if (redirect) void this.router.navigate(['/login']);
   }
 
+  /**
+   * What this account may do, from the permissions it actually holds.
+   *
+   * No shortcut for the Super Admin. It used to answer yes to everything,
+   * which made sense while it held every permission — it no longer does.
+   * It owns the masters, the roles and the portal, and deliberately not the
+   * operational grants that belong to the tier below: empanelling an agency,
+   * appointing a coordinator, raising a program, scrutinising. The server
+   * refuses those either way, so the shortcut only meant the screen offered
+   * buttons that could not work.
+   */
   hasPermission(permission: Permission | Permission[]): boolean {
     const user = this._user();
     if (!user) return false;
-    if (user.role === 'SuperAdmin') return true;
     const needed = Array.isArray(permission) ? permission : [permission];
     return needed.some((p) => user.permissions.includes(p));
   }

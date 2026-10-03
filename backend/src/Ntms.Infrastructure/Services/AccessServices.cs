@@ -267,7 +267,21 @@ public class UserService(
             .Select(r => r!.Value)
             .ToList();
 
+        /* Not your own row.
+
+           Visibility is the subtree plus yourself, because an account has to
+           be able to read its own record — for its profile, and wherever it
+           is named as somebody's reporting line. The register is a different
+           question: it is the list of people this account appoints and
+           answers for, and it is where accounts are enabled and disabled.
+           Listing yourself there offers you a switch that turns you off.
+
+           Dropped here rather than in the base query, so reading your own
+           record carries on working everywhere else. */
+        var self = currentUser.UserId ?? 0;
+
         var query = Base
+            .Where(u => u.Id != self)
             .WhereIf(role.HasValue, u => u.BaseRole == role)
             .WhereIf(excluded.Count > 0, u => !excluded.Contains(u.BaseRole))
             .WhereIf(roleId.HasValue, u => u.RoleId == roleId)
@@ -388,6 +402,28 @@ public class UserService(
     {
         var entity = await db.Users.FirstOrDefaultAsync(u => u.Id == id, ct)
                      ?? throw AppException.NotFound("User");
+
+        /* Nobody switches themselves off. Whatever the tier, the account that
+           would have to turn it back on is the one that just went off — and
+           for a sole Admin that is the end of the portal. */
+        if (entity.Id == (currentUser.UserId ?? 0))
+        {
+            throw new AppException(
+                "You cannot enable or disable your own account. Ask the tier that "
+                + "appointed it.");
+        }
+
+        /* The one account that cannot be switched off by anybody. A Super Admin
+           outranks everybody, which includes the Super Admin — so without this
+           the only account of its kind can be disabled, and the account that
+           would have to turn it back on is the one that is off. */
+        if (entity.BaseRole == BaseRole.SuperAdmin)
+        {
+            throw new AppException(
+                "The Super Admin account cannot be disabled. There is one of it, "
+                + "and it is what would have to enable it again.");
+        }
+
         delegation.EnsureOutranks(entity.BaseRole, "enable or disable");
 
         var next = EnumMaps.ToStatus(status);
@@ -587,6 +623,7 @@ public class UserService(
         entity.StateCode = dto.StateCode;
         entity.DistrictCode = dto.DistrictCode;
         entity.City = dto.City;
+        entity.Pincode = Formats.Normalise(dto.Pincode);
         entity.Status = EnumMaps.ToStatus(dto.Status);
     }
 

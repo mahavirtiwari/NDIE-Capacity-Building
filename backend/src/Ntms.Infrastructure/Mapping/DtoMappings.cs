@@ -183,6 +183,19 @@ public static class DtoMappings
             SubCategoryIds = [.. e.SubCategories.Select(x => x.SubCategoryId)],
             ProgramTypeIds = [.. e.ProgramTypes.Select(x => x.ProgramTypeId)],
             StateCodes = [.. e.States.Select(x => x.StateCode)],
+            /* Ordered, and only where the navigation was loaded: a caller
+               that did not include them gets an empty list rather than a
+               list of blanks. */
+            CategoryNames =
+            [
+                .. e.Categories.Where(x => x.Category is not null)
+                    .Select(x => x.Category!.Name).OrderBy(n => n),
+            ],
+            ProgramTypeNames =
+            [
+                .. e.ProgramTypes.Where(x => x.ProgramType is not null)
+                    .Select(x => x.ProgramType!.Name).OrderBy(n => n),
+            ],
             Status = e.Status.ToApi(),
         };
         FillAudit(dto, e);
@@ -522,6 +535,7 @@ public static class DtoMappings
             DistrictCode = e.DistrictCode,
             District = e.District?.Name,
             City = e.City,
+            Pincode = e.Pincode,
             LastLoginOn = e.LastLoginOn,
             Status = e.Status.ToApi(),
         };

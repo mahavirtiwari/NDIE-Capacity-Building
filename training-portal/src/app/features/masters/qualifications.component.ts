@@ -58,13 +58,6 @@ const COLUMNS: ColumnDef[] = [
 
     <section class="card">
       <div class="card__body card__body--tight">
-        <p class="text-muted text-sm">
-          A program type asks for a <strong>minimum</strong>, so what matters is the order.
-          An applicant clears the bar when their own qualification sits at the same position
-          or higher. Give two qualifications the same position when either one should count —
-          an ITI and a diploma, say.
-        </p>
-
         <div class="filter-bar">
           <div class="field field--search">
             <div class="input-group">

@@ -149,6 +149,12 @@ export const AGENCIES: ImplementingAgency[] = AGENCY_SEED.map((a) => ({
   categoryIds: a.cats,
   subCategoryIds: a.subs,
   programTypeIds: a.pts,
+  categoryNames: a.cats
+    .map((id) => CATEGORIES.find((c) => c.id === id)?.name ?? '')
+    .filter(Boolean),
+  programTypeNames: a.pts
+    .map((id) => PROGRAM_TYPES.find((p) => p.id === id)?.name ?? '')
+    .filter(Boolean),
   /* Sample data predates state allocation. */
   stateCodes: [],
   empanelledOn: '2024-04-01',

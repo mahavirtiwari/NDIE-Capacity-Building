@@ -249,6 +249,9 @@ export interface ImplementingAgency extends AuditInfo {
   programTypeIds: Id[];
   /** LGD state codes the agency is empanelled for. */
   stateCodes: number[];
+  /** What it is empanelled for, in words, for the register. */
+  categoryNames: string[];
+  programTypeNames: string[];
   empanelledOn: string;
   empanelmentValidTill: string;
 

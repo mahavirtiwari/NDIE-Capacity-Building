@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Ntms.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Ntms.Infrastructure.Persistence;
 namespace Ntms.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(NtmsDbContext))]
-    partial class NtmsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261002021121_OneScrutinyOnTheProfile")]
+    partial class OneScrutinyOnTheProfile
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2586,10 +2589,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
-
-                    b.Property<string>("Pincode")
-                        .HasMaxLength(6)
-                        .HasColumnType("nvarchar(6)");
 
                     b.Property<int?>("ReportsToUserId")
                         .HasColumnType("int");

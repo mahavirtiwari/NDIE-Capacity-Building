@@ -127,8 +127,10 @@ public class ProgramTypeDto : AuditDto
     public bool RequiresSignupForm { get; set; } = true;
 
     /// <summary>
-    /// Applying means filling in this track's profile form — and so the
-    /// application is scrutinised. Off, and it is approved on submission.
+    /// This discipline asks for a profile form, which is read and accepted
+    /// before any track in it is offered. Off, and the discipline is open to
+    /// anybody with an account. Either way the application itself is
+    /// accepted as it arrives: the scrutiny is of the profile.
     /// </summary>
     public bool RequiresProfileForm { get; set; } = true;
 
@@ -222,8 +224,10 @@ public class ProgramTypeUpsertDto
     public bool RequiresSignupForm { get; set; } = true;
 
     /// <summary>
-    /// Applying means filling in this track's profile form — and so the
-    /// application is scrutinised. Off, and it is approved on submission.
+    /// This discipline asks for a profile form, which is read and accepted
+    /// before any track in it is offered. Off, and the discipline is open to
+    /// anybody with an account. Either way the application itself is
+    /// accepted as it arrives: the scrutiny is of the profile.
     /// </summary>
     public bool RequiresProfileForm { get; set; } = true;
     public string CertificationPolicy { get; set; } = "QualificationOnly";
@@ -335,6 +339,12 @@ public class AgencyDto : AuditDto
     public List<int> ProgramTypeIds { get; set; } = [];
     /// <summary>LGD state codes the agency is empanelled for.</summary>
     public List<int> StateCodes { get; set; } = [];
+
+    /* What the agency is empanelled for, in words. The register used to show
+       a count of each, which says an agency is empanelled for something
+       without saying what — and the only way to find out was to open it. */
+    public List<string> CategoryNames { get; set; } = [];
+    public List<string> ProgramTypeNames { get; set; } = [];
 
     /// <summary>
     /// The agency's own login, shown here because this is where somebody

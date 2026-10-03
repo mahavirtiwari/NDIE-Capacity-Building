@@ -25,9 +25,11 @@ public class AgencyService(
     private IQueryable<ImplementingAgency> Base => db.Agencies.AsNoTracking()
         .Include(a => a.State)
         .Include(a => a.District)
-        .Include(a => a.Categories)
+        /* The masters behind the scope, because the register names what an
+           agency is empanelled for rather than counting it. */
+        .Include(a => a.Categories).ThenInclude(x => x.Category)
         .Include(a => a.SubCategories)
-        .Include(a => a.ProgramTypes)
+        .Include(a => a.ProgramTypes).ThenInclude(x => x.ProgramType)
         .Include(a => a.States).ThenInclude(x => x.State)
         /* Split, not joined: the scope collections multiply together. */
         .AsSplitQuery()
@@ -106,9 +108,18 @@ public class AgencyService(
                 .OrderBy(a => a.Name).ToListAsync(ct))
             .Select(Describe)];
 
-    public async Task<AgencyDto> GetAsync(int id, CancellationToken ct) =>
-        Describe(await Base.FirstOrDefaultAsync(a => a.Id == id, ct)
-                 ?? throw AppException.NotFound("Implementing agency"));
+    public async Task<AgencyDto> GetAsync(int id, CancellationToken ct)
+    {
+        var dto = Describe(await Base.FirstOrDefaultAsync(a => a.Id == id, ct)
+                           ?? throw AppException.NotFound("Implementing agency"));
+
+        /* The login too, as the list does. Reading one agency used to report
+           no login whatever it had, which the details panel showed as "No
+           login yet" and which made Issue login look as though it had done
+           nothing. */
+        await FillLoginsAsync([dto], ct);
+        return dto;
+    }
 
     /// <summary>
     /// The record plus whether this caller may change it, so the screen can
@@ -240,9 +251,12 @@ public class AgencyService(
     public async Task<AgencyDto> CreateAsync(AgencyUpsertDto dto, CancellationToken ct)
     {
         Validate(dto);
-        var code = Formats.Normalise(dto.Code)!;
-        if (await db.Agencies.AnyAsync(a => a.Code == code, ct))
-            throw AppException.Conflict($"Agency code '{code}' is already in use.");
+
+        /* System generated, like every other identity here. A typed code
+           produced QQQQQ on the live panel, and a code that somebody chooses
+           is a code two people can choose differently for the same body — or
+           the same for two. What the caller sent is ignored. */
+        var code = await codes.NextAgencyCodeAsync(ct);
 
         /* An agency is empanelled on all four axes, and a manager can only hand
            down what they hold on each of them. */
@@ -273,45 +287,7 @@ public class AgencyService(
         try
         {
             await notifications.SendAgencyEmpanelledAsync(entity, await ScopeTextAsync(entity, ct), ct);
-
-            if (!createLogin || string.IsNullOrWhiteSpace(entity.Email)) return;
-
-            /* One login per address: a contact who already has an account keeps
-               the one they have rather than being handed a second identity. */
-            var email = entity.Email.Trim();
-            if (await db.Users.AnyAsync(u => u.Email == email, ct)) return;
-
-            var role = await db.Roles.FirstOrDefaultAsync(r => r.Code == "AGENCY_ADMIN", ct);
-            if (role is null) return;
-
-            var temporaryPassword = passwords.GenerateTemporaryPassword();
-            var user = new PortalUser
-            {
-                UserCode = await codes.NextUserCodeAsync(role.BaseRole, ct),
-                FullName = entity.ContactPerson,
-                Email = email,
-                Mobile = entity.Mobile,
-                Designation = "Agency contact",
-                PasswordHash = passwords.Hash(temporaryPassword),
-                MustChangePassword = true,
-                RoleId = role.Id,
-                BaseRole = role.BaseRole,
-                AgencyId = entity.Id,
-                StateCode = entity.StateCode,
-                City = entity.City,
-                Status = RecordStatus.Active,
-            };
-
-            /* The login inherits exactly what the agency was empanelled for, so
-               the coordinators it goes on to create cannot reach further. */
-            foreach (var mapping in entity.ProgramTypes)
-                user.ProgramTypes.Add(new UserProgramType { ProgramTypeId = mapping.ProgramTypeId });
-            foreach (var mapping in entity.States)
-                user.States.Add(new UserState { StateCode = mapping.StateCode });
-
-            db.Users.Add(user);
-            await db.SaveChangesAsync(ct);
-            await notifications.SendCredentialsForRoleAsync(user, temporaryPassword, ct);
+            if (createLogin) await CreateLoginAsync(entity, ct);
         }
         catch (Exception ex)
         {
@@ -319,6 +295,129 @@ public class AgencyService(
                must not vanish either, or "no email arrived" is unanswerable. */
             logger.LogError(ex, "Agency {Code} saved, but notifying it failed", entity.Code);
         }
+    }
+
+    /// <summary>
+    /// Gives the agency's contact a way in, and e-mails it to them.
+    ///
+    /// Returns false, having said why in the log, when there is nothing to
+    /// create a login from. Called both when an agency is empanelled and
+    /// afterwards, from Issue login, for the ones that ended up without one.
+    /// </summary>
+    private async Task<bool> CreateLoginAsync(ImplementingAgency entity, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(entity.Email))
+        {
+            logger.LogWarning(
+                "Agency {Code} has no contact e-mail, so no login was created", entity.Code);
+            return false;
+        }
+
+        /* Not refused because the address is already on another account.
+
+           Identity here is the generated user code, never the e-mail — that
+           is why sign-in takes a user ID and why the e-mail index is not
+           unique. One person can be an Admin and also the contact for an
+           agency; those are two accounts with two sets of permissions, not
+           one identity seen twice.
+
+           The rule that used to stand here returned silently, so an agency
+           whose contact happened to hold any other account was empanelled
+           with no login and nobody was told: the register said "No login yet"
+           and the credentials e-mail that never arrived had never been
+           sent. */
+        var role = await db.Roles.FirstOrDefaultAsync(r => r.Code == "AGENCY_ADMIN", ct);
+        if (role is null)
+        {
+            logger.LogError(
+                "Agency {Code}: no AGENCY_ADMIN role, so no login was created", entity.Code);
+            return false;
+        }
+
+        var temporaryPassword = passwords.GenerateTemporaryPassword();
+        var user = new PortalUser
+        {
+            UserCode = await codes.NextUserCodeAsync(role.BaseRole, ct),
+            FullName = entity.ContactPerson,
+            Email = entity.Email.Trim(),
+            Mobile = entity.Mobile,
+            Designation = "Agency contact",
+            PasswordHash = passwords.Hash(temporaryPassword),
+            MustChangePassword = true,
+            RoleId = role.Id,
+            BaseRole = role.BaseRole,
+            AgencyId = entity.Id,
+            StateCode = entity.StateCode,
+            City = entity.City,
+            Status = RecordStatus.Active,
+        };
+
+        /* The login inherits exactly what the agency was empanelled for, so
+           the coordinators it goes on to create cannot reach further. */
+        foreach (var mapping in entity.ProgramTypes)
+            user.ProgramTypes.Add(new UserProgramType { ProgramTypeId = mapping.ProgramTypeId });
+        foreach (var mapping in entity.States)
+            user.States.Add(new UserState { StateCode = mapping.StateCode });
+
+        db.Users.Add(user);
+        await db.SaveChangesAsync(ct);
+        await notifications.SendCredentialsForRoleAsync(user, temporaryPassword, ct);
+        return true;
+    }
+
+    /// <summary>
+    /// Issues a login to an agency that has none, after the fact.
+    ///
+    /// Empanelment creates one, but an agency can end up without: no contact
+    /// address at the time, a failure while notifying, or a record from
+    /// before any of this. Without a way to issue one afterwards the only
+    /// remedy was to delete the agency and add it again.
+    /// </summary>
+    public async Task<AgencyDto> IssueLoginAsync(int id, CancellationToken ct)
+    {
+        var entity = await db.Agencies
+                         .Include(a => a.ProgramTypes).Include(a => a.States)
+                         .FirstOrDefaultAsync(a => a.Id == id, ct)
+                     ?? throw AppException.NotFound("Agency");
+
+        delegation.EnsureCanEditRecord(BaseRole.AgencyAdmin, entity.CreatedBy, "agency");
+
+        if (await db.Users.AnyAsync(u => u.AgencyId == id, ct))
+            throw new AppException("This agency already has a login. Use Resend password instead.");
+
+        if (string.IsNullOrWhiteSpace(entity.Email))
+            throw new AppException("The agency has no contact e-mail to send credentials to.");
+
+        if (!await CreateLoginAsync(entity, ct))
+            throw new AppException("The login could not be created. The log says why.");
+
+        return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// A fresh first-time password for the agency's login, e-mailed to it.
+    ///
+    /// The same thing the portal users register offers, where the account an
+    /// agency signs in with is not listed.
+    /// </summary>
+    public async Task<AgencyDto> ResendLoginPasswordAsync(int id, CancellationToken ct)
+    {
+        var entity = await db.Agencies.FirstOrDefaultAsync(a => a.Id == id, ct)
+                     ?? throw AppException.NotFound("Agency");
+
+        delegation.EnsureCanEditRecord(BaseRole.AgencyAdmin, entity.CreatedBy, "agency");
+
+        var user = await db.Users.FirstOrDefaultAsync(u => u.AgencyId == id, ct)
+                   ?? throw new AppException(
+                       "This agency has no login yet. Use Issue login first.");
+
+        var temporaryPassword = passwords.GenerateTemporaryPassword();
+        user.PasswordHash = passwords.Hash(temporaryPassword);
+        user.MustChangePassword = true;
+        await db.SaveChangesAsync(ct);
+
+        await notifications.SendCredentialsForRoleAsync(user, temporaryPassword, ct);
+        return await GetAsync(id, ct);
     }
 
     /// <summary>A readable summary of what the agency is empanelled for.</summary>
@@ -348,13 +447,11 @@ public class AgencyService(
            Manager who appointed them, or with whoever added the record. */
         delegation.EnsureCanEditRecord(BaseRole.AgencyAdmin, entity.CreatedBy, "agency");
 
-        var code = Formats.Normalise(dto.Code)!;
-        if (await db.Agencies.AnyAsync(a => a.Code == code && a.Id != id, ct))
-            throw AppException.Conflict($"Agency code '{code}' is already in use.");
-
+        /* Never reissued. Other records refer to an agency by its code, and
+           an identity that changes is not one. */
         var scope = await ResolveEmpanelmentAsync(dto, ct);
 
-        Apply(entity, dto, code);
+        Apply(entity, dto, entity.Code);
         entity.Categories.Clear();
         entity.SubCategories.Clear();
         entity.ProgramTypes.Clear();
@@ -380,7 +477,6 @@ public class AgencyService(
     /// </summary>
     private static void Validate(AgencyUpsertDto dto) =>
         Guard.Check()
-            .Code(dto.Code, "Agency code")
             .Required(dto.Name, "Agency name")
             .Required(dto.ContactPerson, "Contact person")
             .Email(dto.Email)

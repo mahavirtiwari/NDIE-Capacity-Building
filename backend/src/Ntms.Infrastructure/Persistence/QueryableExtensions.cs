@@ -2,6 +2,8 @@ using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Ntms.Application.Common;
+using Ntms.Domain.Common;
+using Ntms.Domain.Entities;
 
 namespace Ntms.Infrastructure.Persistence;
 
@@ -69,4 +71,41 @@ public static class QueryableExtensions
         bool condition,
         Expression<Func<T, bool>> predicate) =>
         condition ? query.Where(predicate) : query;
+}
+
+/// <summary>
+/// What an applicant is allowed to see of the programmes register.
+///
+/// One definition, because three screens ask the same question and a fourth
+/// will: the public catalogue, the batches an applicant can join, and which
+/// tracks are worth offering them in the app. Written out once so they cannot
+/// drift into disagreeing about what "open" means.
+/// </summary>
+public static class ProgrammeVisibility
+{
+    /// <summary>
+    /// Permission has been given by the operation manager.
+    ///
+    /// A batch is raised by an implementing agency and sits at New until the
+    /// tier above accepts it — an agency cannot accept its own. So these two
+    /// states, and only these, mean somebody with the authority to say yes
+    /// has said it. Rejected and postponed are the no; conducted is over.
+    /// </summary>
+    public static readonly ProgramStatus[] Approved =
+    [
+        ProgramStatus.PermissionAccepted,
+        ProgramStatus.CalendarCreated,
+    ];
+
+    /// <summary>
+    /// Approved, still taking people, and not already under way.
+    ///
+    /// Registration closing is separate from the status: a batch fills up, or
+    /// is held back, without being rejected.
+    /// </summary>
+    public static IQueryable<Programme> OpenForRegistration(
+        this IQueryable<Programme> query, DateOnly today) =>
+        query.Where(p => Approved.Contains(p.Status)
+                         && p.RegistrationsOpen
+                         && p.StartDate >= today);
 }

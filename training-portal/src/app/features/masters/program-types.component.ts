@@ -44,7 +44,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'subCategoryName', header: 'Sub-category' },
   { key: 'durationDays', header: 'Days', align: 'center', sortable: true, width: '80px' },
   { key: 'deliveryMode', header: 'Mode', width: '120px' },
-  { key: 'config', header: 'Configured', width: '180px' },
+  { key: 'config', header: 'Configured', width: '110px', align: 'center' },
   { key: 'status', header: 'Status', width: '110px' },
   { key: 'actions', header: '', width: '140px', align: 'right' },
 ];
@@ -161,14 +161,13 @@ const COLUMNS: ColumnDef[] = [
         <ng-template appCell="deliveryMode" let-row>
           <app-status-badge [value]="$any(row).deliveryMode" />
         </ng-template>
+        <!-- One button, not three chips. The chips said what was set but
+             not what it was set to, so the row was wide and still sent you
+             into the editor to find out. -->
         <ng-template appCell="config" let-row>
-          <div class="row row-sm">
-            <span class="chip" [class.is-off]="$any(row).evaluation?.kind === 'None'">
-              {{ examChip($any(row)) }}
-            </span>
-            <span class="chip" [class.is-off]="!$any(row).isFeeApplicable">Fee</span>
-            <span class="chip">{{ $any(row).certificateValidityMonths }} m validity</span>
-          </div>
+          <button type="button" class="btn btn--sm btn--subtle" (click)="showConfig($any(row))">
+            <app-icon name="sliders" [size]="14" /> View
+          </button>
         </ng-template>
         <ng-template appCell="actions" let-row>
           <div class="btn-row btn-row--end">
@@ -183,6 +182,78 @@ const COLUMNS: ColumnDef[] = [
         </ng-template>
       </app-data-table>
     </section>
+
+    @if (configOf(); as row) {
+      <app-modal
+        [title]="row.name"
+        subtitle="How this track is configured. Change any of it from Edit."
+        size="sm"
+        (closed)="configOf.set(null)"
+      >
+        <div class="dl">
+          <div>
+            <dt>Examination</dt>
+            <dd>
+              {{ row.evaluation.kindLabel || row.evaluation.kind }}
+              <!-- Marks only once there are some. A track whose paper has not
+                   been set yet said "0 marks, pass 0", which reads as a
+                   setting rather than as nothing set. -->
+              @if (row.evaluation.totalMarks > 0) {
+                · {{ row.evaluation.totalMarks }} marks, pass {{ row.evaluation.overallPassMarks }}
+              } @else if (row.evaluation.kind !== 'None') {
+                · marks not set
+              }
+            </dd>
+          </div>
+          @if (row.evaluation.hasWritten && row.evaluation.writtenMarks > 0) {
+            <div>
+              <dt>Written</dt>
+              <dd>{{ row.evaluation.writtenMarks }} marks, pass {{ row.evaluation.writtenPassMarks }}</dd>
+            </div>
+          }
+          @if (row.evaluation.hasViva && row.evaluation.vivaMarks > 0) {
+            <div>
+              <dt>Viva or practical</dt>
+              <dd>
+                {{ row.evaluation.vivaMarks }} marks, pass {{ row.evaluation.vivaPassMarks }}
+                @if (row.skillCount) { · {{ row.skillCount }} skills }
+              </dd>
+            </div>
+          }
+          <div>
+            <dt>Examination mandatory</dt>
+            <dd>{{ row.isExamMandatory ? 'Yes' : 'No' }}</dd>
+          </div>
+          <div>
+            <dt>Fee</dt>
+            <dd>{{ row.isFeeApplicable ? 'Payable' : 'Not applicable' }}</dd>
+          </div>
+          <div>
+            <dt>Certificate validity</dt>
+            <dd>{{ row.certificateValidityMonths }} months</dd>
+          </div>
+          <div>
+            <dt>Awards</dt>
+            <dd>{{ row.certificationPolicyLabel || row.certificationPolicy }}</dd>
+          </div>
+          <div>
+            <dt>Minimum qualification</dt>
+            <dd>{{ row.minQualificationLabel || row.minQualification || 'Not specified' }}</dd>
+          </div>
+          <div>
+            <dt>Minimum experience</dt>
+            <dd>{{ row.minExperienceYears ? row.minExperienceYears + ' years' : 'None' }}</dd>
+          </div>
+        </div>
+
+        <div modal-footer>
+          <button type="button" class="btn btn--secondary" (click)="configOf.set(null)">Close</button>
+          <button type="button" class="btn btn--primary" (click)="editFromConfig(row)">
+            <app-icon name="edit" [size]="15" /> Edit
+          </button>
+        </div>
+      </app-modal>
+    }
 
     @if (formOpen()) {
       <app-modal
@@ -470,6 +541,9 @@ export class ProgramTypesComponent {
   });
 
   protected readonly formOpen = signal(false);
+
+  /** The row whose configuration is on screen, or null. */
+  protected readonly configOf = signal<ProgramType | null>(null);
   protected readonly saving = signal(false);
   protected readonly editing = signal<ProgramType | null>(null);
 
@@ -494,14 +568,6 @@ export class ProgramTypesComponent {
 
   protected readonly examinationKinds = EXAMINATION_KINDS;
 
-  /** The scheme in a few words, for the list. */
-  protected examChip(row: ProgramType): string {
-    const scheme = row.evaluation;
-    if (!scheme || scheme.kind === 'None') return 'No exam';
-    const what =
-      scheme.kind === 'Written' ? 'Written' : scheme.kind === 'VivaPractical' ? 'Viva' : 'Written + viva';
-    return scheme.totalMarks > 0 ? `${what} · ${scheme.totalMarks}` : what;
-  }
 
   protected readonly examKind = computed<ExaminationKind>(
     () => (this.formValue().evaluation?.kind as ExaminationKind) ?? 'Written',
@@ -725,6 +791,16 @@ export class ProgramTypesComponent {
 
   protected errorFor(control: string, label: string): string {
     return describeError(this.form.get(control)?.errors ?? null, label);
+  }
+
+  protected showConfig(row: ProgramType): void {
+    this.configOf.set(row);
+  }
+
+  /** Straight from reading it to changing it, without going back to the row. */
+  protected editFromConfig(row: ProgramType): void {
+    this.configOf.set(null);
+    this.openForm(row);
   }
 
   protected openForm(row?: ProgramType): void {

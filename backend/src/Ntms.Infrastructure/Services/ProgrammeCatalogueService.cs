@@ -21,15 +21,6 @@ namespace Ntms.Infrastructure.Services;
 /// </summary>
 public class ProgrammeCatalogueService(NtmsDbContext db)
 {
-    /* Only a batch that has been approved and is running in the future is worth
-       showing. A New one has not been permitted yet, and a rejected or
-       conducted one cannot be joined. */
-    private static readonly ProgramStatus[] Listable =
-    [
-        ProgramStatus.PermissionAccepted,
-        ProgramStatus.CalendarCreated,
-    ];
-
     /* Everything an approval has been given for, including batches already
        run. The listing shows history as well as what is coming: somebody
        deciding whether this training is worth applying for wants to see that it
@@ -130,7 +121,7 @@ public class ProgrammeCatalogueService(NtmsDbContext db)
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
         var rows = await Base
-            .Where(p => Listable.Contains(p.Status) && p.RegistrationsOpen && p.StartDate >= today)
+            .OpenForRegistration(today)
             .WhereIf(programTypeId.HasValue, p => p.ProgramTypeId == programTypeId)
             .WhereIf(stateCode.HasValue, p => p.StateCode == stateCode)
             .OrderBy(p => p.StartDate)
@@ -175,7 +166,7 @@ public class ProgrammeCatalogueService(NtmsDbContext db)
         if (mine.Count == 0) return [];
 
         var rows = await Base
-            .Where(p => Listable.Contains(p.Status) && p.RegistrationsOpen && p.StartDate >= today)
+            .OpenForRegistration(today)
             /* Batches outside those disciplines are not theirs to join. */
             .Where(p => mine.Contains(p.SubCategoryId))
             .OrderBy(p => p.StartDate)

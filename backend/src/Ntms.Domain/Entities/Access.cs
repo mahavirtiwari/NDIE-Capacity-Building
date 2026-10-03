@@ -62,6 +62,13 @@ public class PortalUser : AuditableStatusEntity
     public LgdDistrict? District { get; set; }
     public string? City { get; set; }
 
+    /// <summary>
+    /// Postal code of where this person sits. Optional, like the rest of the
+    /// address: an account works without one, and the accounts that predate
+    /// the field have none.
+    /// </summary>
+    public string? Pincode { get; set; }
+
     public ICollection<UserCategory> Categories { get; set; } = [];
     public ICollection<UserSubCategory> SubCategories { get; set; } = [];
     public ICollection<UserProgramType> ProgramTypes { get; set; } = [];

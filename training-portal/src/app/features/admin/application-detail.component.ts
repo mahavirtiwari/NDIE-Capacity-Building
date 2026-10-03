@@ -1,14 +1,13 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { Application, LookupItem, ProfileForm, RejectionReason } from '../../core/models';
+import { Application, LookupItem, ProfileForm } from '../../core/models';
 import { ProfileFormService } from '../../core/services/academics.service';
 import { AuthService } from '../../core/services/auth.service';
 import { LookupService } from '../../core/services/masters.service';
 import { ToastService } from '../../core/services/toast.service';
-import { ApplicationService, RejectionReasonService } from '../../core/services/workflow.service';
+import { ApplicationService } from '../../core/services/workflow.service';
 import { DynamicFormComponent } from '../../shared/components/dynamic-form.component';
 import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
@@ -16,14 +15,12 @@ import { PageHeaderComponent } from '../../shared/components/page-header.compone
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
 import { FileSizePipe, InrPipe } from '../../shared/pipes/format.pipes';
 
-type Decision = 'Approve' | 'Reject' | 'Clarification';
 type Tab = 'responses' | 'documents' | 'history';
 
 @Component({
   selector: 'app-application-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    ReactiveFormsModule,
     RouterLink,
     DatePipe,
     PageHeaderComponent,
@@ -42,24 +39,16 @@ type Tab = 'responses' | 'documents' | 'history';
         icon="inbox"
         [breadcrumbs]="[
           { label: 'Administration' },
-          { label: 'Application scrutiny', link: '/admin/applications' },
+          { label: 'Applications', link: '/admin/applications' },
           { label: record.applicationNo }
         ]"
       >
+        <!-- No decision here. An application is accepted on submission:
+             the scrutiny is of the profile, per discipline, and it has
+             already happened before any track is offered. -->
         <a class="btn btn--secondary" routerLink="/admin/applications">
-          <app-icon name="chevron-left" [size]="15" /> Back to queue
+          <app-icon name="chevron-left" [size]="15" /> Back to applications
         </a>
-        @if (canScrutinise() && isOpen(record)) {
-          <button type="button" class="btn btn--secondary" (click)="openDecision('Clarification')">
-            <app-icon name="help" [size]="15" /> Seek clarification
-          </button>
-          <button type="button" class="btn btn--danger" (click)="openDecision('Reject')">
-            <app-icon name="x" [size]="15" /> Reject
-          </button>
-          <button type="button" class="btn btn--success" (click)="openDecision('Approve')">
-            <app-icon name="check" [size]="15" /> Approve
-          </button>
-        }
       </app-page-header>
 
       <div class="detail-grid">
@@ -107,10 +96,6 @@ type Tab = 'responses' | 'documents' | 'history';
                         </div>
                         @if (document.verified) {
                           <span class="badge badge--success"><span class="badge-dot"></span>Verified</span>
-                        } @else if (canScrutinise() && isOpen(record)) {
-                          <button type="button" class="btn btn--sm btn--secondary" (click)="verify(record, document.id)">
-                            Mark verified
-                          </button>
                         } @else {
                           <span class="badge badge--neutral"><span class="badge-dot"></span>Pending</span>
                         }
@@ -262,92 +247,6 @@ type Tab = 'responses' | 'documents' | 'history';
     } @else {
       <div class="card" style="height: 300px"></div>
     }
-
-    @if (decision(); as pending) {
-      <app-modal
-        [title]="
-          pending === 'Approve'
-            ? 'Approve application'
-            : pending === 'Reject'
-              ? 'Reject application'
-              : 'Seek clarification'
-        "
-        size="sm"
-        (closed)="decision.set(null)"
-      >
-        <form [formGroup]="decisionForm" id="decision-form" (ngSubmit)="submitDecision()">
-          @if (pending === 'Reject') {
-            <!-- Chosen, not typed. A rejection is something the scheme counts
-                 and reports on, and forty spellings of one reason cannot be.
-                 The list is configured in System Settings. -->
-            <div class="field">
-              <label class="field-label" for="rejectionReason">
-                Reason <span class="req">*</span>
-              </label>
-              <select id="rejectionReason" class="select" formControlName="rejectionReasonId">
-                <option [ngValue]="null">Choose a reason</option>
-                @for (reason of reasons(); track reason.id) {
-                  <option [ngValue]="reason.id">{{ reason.label }}</option>
-                }
-              </select>
-              @if (reasons().length === 0) {
-                <span class="field-hint">
-                  No reasons have been set up yet. A Super Admin adds them under
-                  System Settings.
-                </span>
-              } @else if (chosenReason()?.requiresNote) {
-                <span class="field-hint">
-                  This reason needs a note below saying what exactly was wrong.
-                </span>
-              }
-            </div>
-          }
-
-          <div class="field">
-            <label class="field-label" for="remarks">
-              Remarks
-              @if (pending !== 'Reject' || chosenReason()?.requiresNote) {
-                <span class="req">*</span>
-              }
-            </label>
-            <textarea
-              id="remarks"
-              class="textarea"
-              formControlName="remarks"
-              [placeholder]="
-                pending === 'Approve'
-                  ? 'Documents verified, eligibility criteria met.'
-                  : pending === 'Reject'
-                    ? 'State the ground for rejection.'
-                    : 'Tell the applicant exactly what to correct or re-upload.'
-              "
-            ></textarea>
-            <span class="field-hint">Recorded on the application history and sent to the applicant.</span>
-          </div>
-          @if (pending === 'Approve') {
-            <label class="check mt-sm">
-              <input type="checkbox" formControlName="verifyAll" />
-              <span class="text-sm">Mark all documents as verified</span>
-            </label>
-          }
-        </form>
-        <div footer>
-          <button type="button" class="btn btn--secondary" (click)="decision.set(null)">Cancel</button>
-          <button
-            type="submit"
-            form="decision-form"
-            class="btn"
-            [class.btn--success]="pending === 'Approve'"
-            [class.btn--danger]="pending === 'Reject'"
-            [class.btn--primary]="pending === 'Clarification'"
-            [disabled]="saving()"
-          >
-            @if (saving()) { <span class="spinner"></span> }
-            Confirm
-          </button>
-        </div>
-      </app-modal>
-    }
   `,
   styles: [
     `
@@ -403,14 +302,12 @@ export class ApplicationDetailComponent {
   private readonly lookups = inject(LookupService);
   private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
-  private readonly fb = inject(FormBuilder);
 
   readonly id = input.required<string>();
 
   protected readonly application = signal<Application | null>(null);
   protected readonly formDefinition = signal<ProfileForm | null>(null);
   protected readonly tab = signal<Tab>('responses');
-  protected readonly decision = signal<Decision | null>(null);
   protected readonly saving = signal(false);
 
   protected readonly officers = toSignal(this.lookups.operationManagers(), {
@@ -427,23 +324,6 @@ export class ApplicationDetailComponent {
     return record ? `APP${String(240000 + record.applicantId)}` : '';
   });
 
-  /* Remarks are not blanket-required any more: a rejection carries a chosen
-     reason, and only a reason that says so needs words as well. Which of
-     those applies is decided in submitDecision, where the reason is known. */
-  protected readonly decisionForm = this.fb.group({
-    remarks: [''],
-    verifyAll: [true],
-    rejectionReasonId: [null as number | null],
-  });
-
-  private readonly reasonService = inject(RejectionReasonService);
-
-  /** The form control as a signal, so the hint can follow the choice. */
-  protected readonly chosenReasonId = toSignal(
-    this.decisionForm.controls.rejectionReasonId.valueChanges,
-    { initialValue: null as number | null },
-  );
-
   constructor() {
     effect(() => {
       const id = Number(this.id());
@@ -455,103 +335,6 @@ export class ApplicationDetailComponent {
           error: () => this.formDefinition.set(null),
         });
       });
-    });
-  }
-
-  protected isOpen(record: Application): boolean {
-    return (
-      record.status === 'Submitted' ||
-      record.status === 'UnderScrutiny' ||
-      record.status === 'Clarification'
-    );
-  }
-
-  protected openDecision(kind: Decision): void {
-    this.decisionForm.reset({
-      remarks: '',
-      verifyAll: kind === 'Approve',
-      rejectionReasonId: null,
-    });
-    this.decision.set(kind);
-  }
-
-  /* Only the reasons still switched on: a retired one stays on the
-     applications that cite it but must not be handed out again. */
-  protected readonly reasons = toSignal(this.reasonService.list(true), {
-    initialValue: [] as RejectionReason[],
-  });
-
-  protected readonly chosenReason = computed(() => {
-    const id = this.chosenReasonId();
-    return this.reasons().find((r) => r.id === id) ?? null;
-  });
-
-  protected submitDecision(): void {
-    const record = this.application();
-    const kind = this.decision();
-    if (!record || !kind || this.decisionForm.invalid) {
-      this.decisionForm.markAllAsTouched();
-      return;
-    }
-
-    /* Enforced here as well as on the server, so the officer is told before
-       the round trip rather than after it. */
-    if (kind !== 'Reject' && (this.decisionForm.value.remarks ?? '').trim().length < 5) {
-      this.toast.error(
-        'Remarks are needed',
-        kind === 'Approve'
-          ? 'Say what was verified.'
-          : 'Tell the applicant exactly what to correct.',
-      );
-      return;
-    }
-
-    if (kind === 'Reject') {
-      const reason = this.chosenReason();
-      if (!reason) {
-        this.toast.error('Choose a reason', 'A rejection has to say what it is for.');
-        return;
-      }
-      if (reason.requiresNote && !(this.decisionForm.value.remarks ?? '').trim()) {
-        this.toast.error(
-          'A note is needed',
-          `'${reason.label}' does not say what exactly was wrong.`,
-        );
-        return;
-      }
-    }
-    this.saving.set(true);
-    const raw = this.decisionForm.getRawValue();
-    this.service
-      .decide({
-        applicationId: record.id,
-        decision: kind,
-        remarks: raw.remarks ?? '',
-        documentIdsVerified: raw.verifyAll ? record.documents.map((d) => d.id) : [],
-        rejectionReasonId: kind === 'Reject' ? raw.rejectionReasonId : null,
-      })
-      .subscribe({
-        next: (updated) => {
-          this.saving.set(false);
-          this.application.set(updated);
-          this.decision.set(null);
-          this.toast.success(
-            kind === 'Approve'
-              ? 'Application approved'
-              : kind === 'Reject'
-                ? 'Application rejected'
-                : 'Clarification sought',
-            record.applicationNo,
-          );
-        },
-        error: () => this.saving.set(false),
-      });
-  }
-
-  protected verify(record: Application, documentId: number): void {
-    this.service.verifyDocument(record.id, documentId, true).subscribe((updated) => {
-      this.application.set(updated);
-      this.toast.success('Document verified');
     });
   }
 

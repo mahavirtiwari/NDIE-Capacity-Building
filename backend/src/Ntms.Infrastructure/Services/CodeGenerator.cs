@@ -13,6 +13,7 @@ public interface ICodeGenerator
 {
     Task<string> NextUserCodeAsync(BaseRole role, CancellationToken ct = default);
     Task<string> NextApplicantCodeAsync(CancellationToken ct = default);
+    Task<string> NextAgencyCodeAsync(CancellationToken ct = default);
     Task<string> NextApplicationNoAsync(CancellationToken ct = default);
     Task<string> NextProgrammeIdAsync(CancellationToken ct = default);
 }
@@ -61,6 +62,23 @@ public class CodeGenerator(NtmsDbContext db) : ICodeGenerator
         var seed = ParseTrailingNumber(last, prefix.Length);
         var next = seed < 240000 ? 240001 : seed + 1;
         return $"{prefix}{next}";
+    }
+
+    public async Task<string> NextAgencyCodeAsync(CancellationToken ct = default)
+    {
+        /* IA, not AG: AG belongs to the agency's login account, and two
+           identities on one organisation that differ only by their number
+           would be read as each other. */
+        const string prefix = "IA";
+
+        var last = await db.Agencies
+            .Where(a => a.Code.StartsWith(prefix))
+            .OrderByDescending(a => a.Code)
+            .Select(a => a.Code)
+            .FirstOrDefaultAsync(ct);
+
+        var next = ParseTrailingNumber(last, prefix.Length) + 1;
+        return $"{prefix}{next:D4}";
     }
 
     public async Task<string> NextApplicationNoAsync(CancellationToken ct = default)

@@ -223,11 +223,11 @@ public class ApplicationsController(ApplicationService service) : ApiControllerB
     public async Task<ActionResult<ApiEnvelope<ApplicationDto>>> Get(int id, CancellationToken ct) =>
         Envelope(await service.GetAsync(id, ct));
 
-    [HttpPost("{id:int}/scrutiny")]
-    [HasPermission(Permissions.ApplicationsScrutinise)]
-    public async Task<ActionResult<ApiEnvelope<ApplicationDto>>> Decide(
-        int id, [FromBody] ScrutinyDecisionDto dto, CancellationToken ct) =>
-        Envelope(await service.DecideAsync(id, dto, ct), "Decision recorded.");
+    /* There is no decision to take on an application. The scrutiny is of the
+       profile, per discipline, and it happens before any track in that
+       discipline is offered — so an application is accepted as it arrives.
+       The route is gone rather than left refusing, because a route that
+       exists is one somebody builds against. */
 
 
     [HttpPatch("{id:int}/assign")]
