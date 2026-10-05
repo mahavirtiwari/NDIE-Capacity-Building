@@ -226,6 +226,8 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
                 class="input"
                 [id]="idFor(field, group)"
                 [formControl]="ctrl(group, field.key)"
+                [attr.min]="field.validation.minDate || null"
+                [attr.max]="field.validation.maxDate || null"
                 [class.is-invalid]="invalid(group, field.key)"
               />
             }
@@ -508,6 +510,8 @@ export class DynamicFormComponent {
     if (errors['minlength']) return `Minimum ${field.validation.minLength} characters.`;
     if (errors['maxlength']) return `Maximum ${field.validation.maxLength} characters.`;
     if (errors['min']) return `Minimum value is ${field.validation.min}.`;
+    if (errors['minDate']) return `Cannot be before ${field.validation.minDate}.`;
+    if (errors['maxDate']) return `Cannot be after ${field.validation.maxDate}.`;
     if (errors['max']) return `Maximum value is ${field.validation.max}.`;
     return 'Invalid value.';
   }
@@ -541,6 +545,20 @@ function defaultFor(field: ProfileField): FieldValue {
   return '';
 }
 
+function dateNotBefore(earliest: string): ValidatorFn {
+  return (control) => {
+    const value = control.value as string | null;
+    return value && value < earliest ? { minDate: { earliest } } : null;
+  };
+}
+
+function dateNotAfter(latest: string): ValidatorFn {
+  return (control) => {
+    const value = control.value as string | null;
+    return value && value > latest ? { maxDate: { latest } } : null;
+  };
+}
+
 function validatorsFor(field: ProfileField): ValidatorFn[] {
   const rules: ValidatorFn[] = [];
   const v = field.validation;
@@ -551,6 +569,11 @@ function validatorsFor(field: ProfileField): ValidatorFn[] {
   if (v.maxLength) rules.push(Validators.maxLength(v.maxLength));
   if (v.min !== null && v.min !== undefined) rules.push(Validators.min(v.min));
   if (v.max !== null && v.max !== undefined) rules.push(Validators.max(v.max));
+
+  /* Dates compare as yyyy-MM-dd strings, which is what the input gives and
+     what the server stores — no parsing, and no timezone to get wrong. */
+  if (v.minDate) rules.push(dateNotBefore(v.minDate));
+  if (v.maxDate) rules.push(dateNotAfter(v.maxDate));
   const pattern = v.pattern ? new RegExp(v.pattern) : PATTERNS[field.type];
   if (pattern) rules.push(Validators.pattern(pattern));
   return rules;

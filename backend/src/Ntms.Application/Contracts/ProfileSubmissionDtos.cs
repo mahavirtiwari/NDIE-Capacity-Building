@@ -83,6 +83,31 @@ public class ProfileChoiceDto
 }
 
 /// <summary>One profile submission, as the scrutiny queue shows it.</summary>
+/// <summary>
+/// The headline figures over the scrutiny queue.
+///
+/// Counted under the same filters as the list but without its status, so
+/// the tiles always add up to what was received rather than to whichever
+/// status happens to be selected.
+/// </summary>
+/// <summary>
+/// Who a profile should sit with. Null hands it back to nobody, which is
+/// how a profile assigned in error returns to the unassigned pile rather
+/// than being parked on an arbitrary desk.
+/// </summary>
+public class AssignProfileDto
+{
+    public int? UserId { get; set; }
+}
+
+public class ProfileScrutinyCountsDto
+{
+    public int Received { get; set; }
+    public int Pending { get; set; }
+    public int Approved { get; set; }
+    public int Rejected { get; set; }
+}
+
 public class ProfileSubmissionDto
 {
     public int Id { get; set; }
@@ -99,6 +124,10 @@ public class ProfileSubmissionDto
     public DateTime? SubmittedOn { get; set; }
     public DateTime? DecidedOn { get; set; }
     public string? DecidedByUserName { get; set; }
+
+    /// <summary>The Operation Manager whose desk this is on, if anybody's.</summary>
+    public int? AssignedToUserId { get; set; }
+    public string? AssignedToName { get; set; }
     public int? RejectionReasonId { get; set; }
     public string? RejectionReasonLabel { get; set; }
     public string? Remarks { get; set; }

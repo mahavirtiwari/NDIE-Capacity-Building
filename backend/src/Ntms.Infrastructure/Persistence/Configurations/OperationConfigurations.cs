@@ -13,6 +13,13 @@ public class AdminRoleConfiguration : IEntityTypeConfiguration<AdminRole>
         b.Property(x => x.Code).HasMaxLength(60).IsRequired();
         b.Property(x => x.Description).HasMaxLength(500);
         b.HasIndex(x => x.Code).IsUnique();
+
+        /* Restrict, not cascade: deleting the account that shaped a role must
+           not take the role — and the accounts assigned to it — with it. */
+        b.HasOne(x => x.OwnerUser).WithMany()
+            .HasForeignKey(x => x.OwnerUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => x.OwnerUserId);
     }
 }
 

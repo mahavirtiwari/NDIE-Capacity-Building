@@ -12,7 +12,7 @@ import {
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ProfileField, ProfileForm, ProfileSection } from '../api/types';
 import { colors, font, radius, spacing } from '../theme';
-import { MAX_LENGTHS, UPPERCASE_TYPES, formatErrorFor } from '../validation/formats';
+import { MAX_LENGTHS, UPPERCASE_TYPES, dateBoundsError, formatErrorFor } from '../validation/formats';
 import { me } from '../api/endpoints';
 import { saveAndShare } from '../files/saveAndShare';
 import { Card, Chip, Field } from './ui';
@@ -330,6 +330,17 @@ export function useDynamicForm(form: ProfileForm | null): DynamicFormState {
       if (formatError) {
         found[key] = formatError;
         return;
+      }
+
+      /* A date's window, where the form sets one. Checked before the
+         length rules, which say nothing useful about a date. */
+      if (field.type === 'date') {
+        const outside = dateBoundsError(
+          text, field.validation.minDate, field.validation.maxDate);
+        if (outside) {
+          found[key] = outside;
+          return;
+        }
       }
 
       const { minLength, maxLength, min, max, pattern } = field.validation;
@@ -823,7 +834,7 @@ function FieldRenderer({
 
     default: {
       const upper = UPPERCASE_TYPES.includes(field.type);
-      const numeric = ['number', 'mobile', 'aadhaar', 'pincode'].includes(field.type);
+      const numeric = ['number', 'mobile', 'aadhaar', 'pincode', 'date'].includes(field.type);
 
       return (
         <Field

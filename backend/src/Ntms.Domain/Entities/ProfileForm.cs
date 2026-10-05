@@ -141,6 +141,17 @@ public class FieldValidation
     public int? MaxLength { get; set; }
     public decimal? Min { get; set; }
     public decimal? Max { get; set; }
+
+    /// <summary>
+    /// The window a date has to fall in.
+    ///
+    /// A date field had the number bounds, which do not apply to it, and a
+    /// regex, which is no way to say "not in the future". These are what a
+    /// date actually needs: a birth date that cannot be tomorrow, a
+    /// certificate that cannot have expired before the course.
+    /// </summary>
+    public DateOnly? MinDate { get; set; }
+    public DateOnly? MaxDate { get; set; }
     public string? Pattern { get; set; }
     /// <summary>Comma separated extensions for file fields.</summary>
     public string? AllowedExtensions { get; set; }

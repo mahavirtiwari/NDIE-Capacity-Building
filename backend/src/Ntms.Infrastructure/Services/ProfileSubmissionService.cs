@@ -4,6 +4,7 @@ using Ntms.Application.Common;
 using Ntms.Application.Contracts;
 using Ntms.Domain.Common;
 using Ntms.Domain.Entities;
+using Ntms.Infrastructure.Identity;
 using Ntms.Infrastructure.Persistence;
 
 namespace Ntms.Infrastructure.Services;
@@ -18,9 +19,11 @@ namespace Ntms.Infrastructure.Services;
 /// assessor or a Bronze trainer, not both. Several categories are fine, and
 /// a new one can start from the answers they already gave.
 /// </summary>
-public class ProfileSubmissionService(NtmsDbContext db, ProfileFormService forms)
+public class ProfileSubmissionService(
+    NtmsDbContext db, ProfileFormService forms, ICurrentUser currentUser)
 {
     private IQueryable<ProfileSubmission> Base => db.ProfileSubmissions
+        .Include(s => s.AssignedToUser)
         .Include(s => s.Category)
         .Include(s => s.SubCategory)
         .Include(s => s.Applicant)
@@ -252,6 +255,14 @@ public class ProfileSubmissionService(NtmsDbContext db, ProfileFormService forms
             DecidedByUserName = form.RequiresScrutiny ? null : "Not scrutinised",
         };
 
+        /* Onto somebody's desk, not into a shared pile. Only where there is
+           a decision to take: a form nobody reads needs no officer. */
+        if (form.RequiresScrutiny)
+        {
+            submission.AssignedToUserId = await PickScrutinyOfficerAsync(
+                subCategoryId, applicant.StateCode, ct);
+        }
+
         submission.History.Add(new ProfileScrutinyEvent
         {
             Action = ScrutinyAction.Submitted,
@@ -294,23 +305,191 @@ public class ProfileSubmissionService(NtmsDbContext db, ProfileFormService forms
     /* -------------------------------------------------------------- office */
 
     /// <summary>What is waiting to be read, newest request first.</summary>
-    public async Task<PagedResult<ProfileSubmissionDto>> QueueAsync(
-        PagedRequest request, string? status, int? subCategoryId, CancellationToken ct)
+    /// <summary>
+    /// The scrutiny queue, filtered the way the applications register used
+    /// to be — that register is gone, and this is the one scrutiny now.
+    ///
+    /// A profile belongs to a discipline rather than to a course, so a
+    /// program type filter resolves to the sub-category that type sits in:
+    /// asking for Assessor - Silver asks for the profiles that qualify
+    /// somebody for it. The state is the applicant's; a submission has none
+    /// of its own.
+    /// </summary>
+    private IQueryable<ProfileSubmission> Queue(
+        string? search, string? status, int? categoryId, int? subCategoryId,
+        int? programTypeId, string? state, DateOnly? from, DateOnly? to)
     {
         var wanted = string.IsNullOrWhiteSpace(status)
             ? null
             : (ProfileSubmissionStatus?)Enum.Parse<ProfileSubmissionStatus>(status, true);
 
+        var fromStamp = from?.ToDateTime(TimeOnly.MinValue);
+        var toStamp = to?.ToDateTime(TimeOnly.MaxValue);
+
         var query = Base.AsNoTracking()
-            .Where(s => s.Status != ProfileSubmissionStatus.Draft)
+            /* A draft has not been handed in, so it is not in anybody's queue. */
+            .Where(s => s.Status != ProfileSubmissionStatus.Draft);
+
+        /* An Operation Manager sees the desk they were given, not the whole
+           register. The tiers above see everything, which is how an
+           unassigned profile gets noticed and placed. */
+        if (currentUser.Tier == BaseRole.OperationManager)
+        {
+            var self = currentUser.UserId ?? 0;
+            query = query.Where(s => s.AssignedToUserId == self);
+        }
+
+        return query
             .WhereIf(wanted.HasValue, s => s.Status == wanted)
+            .WhereIf(categoryId.HasValue, s => s.CategoryId == categoryId)
             .WhereIf(subCategoryId.HasValue, s => s.SubCategoryId == subCategoryId)
-            .WhereIf(!string.IsNullOrWhiteSpace(request.Search),
-                s => s.Applicant!.FullName.Contains(request.Search!)
-                     || s.Applicant!.ApplicantCode.Contains(request.Search!))
+            .WhereIf(programTypeId.HasValue, s => db.ProgramTypes
+                .Any(p => p.Id == programTypeId && p.SubCategoryId == s.SubCategoryId))
+            .WhereIf(!string.IsNullOrWhiteSpace(state),
+                s => s.Applicant!.State!.Name == state!.ToUpperInvariant())
+            .WhereIf(fromStamp.HasValue, s => s.SubmittedOn >= fromStamp)
+            .WhereIf(toStamp.HasValue, s => s.SubmittedOn <= toStamp)
+            .WhereIf(!string.IsNullOrWhiteSpace(search),
+                s => s.Applicant!.FullName.Contains(search!)
+                     || s.Applicant!.ApplicantCode.Contains(search!)
+                     || s.Applicant!.Pan.Contains(search!));
+    }
+
+    /// <summary>
+    /// The Operation Manager a profile belongs to.
+    ///
+    /// Qualified by allocation rather than by tier: a manager holds program
+    /// types and states, so the ones who cover this profile are those with a
+    /// program type in its discipline and the applicant's state on their
+    /// list. An empty allocation covers nothing, which is the rule
+    /// everywhere else here.
+    ///
+    /// Among those, whoever is holding the fewest open profiles — otherwise
+    /// the first manager created takes every case in their patch. Ties go to
+    /// the lower id so the choice is repeatable.
+    ///
+    /// Null when nobody qualifies. That is not a failure to hide: the
+    /// profile stays in the register, unassigned, for a tier above to place.
+    /// </summary>
+    private async Task<int?> PickScrutinyOfficerAsync(
+        int subCategoryId, int? applicantState, CancellationToken ct)
+    {
+        var candidates = db.Users.AsNoTracking()
+            .Where(u => u.BaseRole == BaseRole.OperationManager
+                        && u.Status == RecordStatus.Active
+                        && u.ProgramTypes.Any(held => db.ProgramTypes
+                            .Any(p => p.Id == held.ProgramTypeId
+                                      && p.SubCategoryId == subCategoryId)));
+
+        /* Where the applicant said where they are, the manager has to cover
+           it. Where they did not, the discipline is all there is to go on. */
+        if (applicantState is { } state)
+        {
+            candidates = candidates.Where(u => u.States.Any(s => s.StateCode == state));
+        }
+
+        var lightest = await candidates
+            .Select(u => new
+            {
+                u.Id,
+                Open = db.ProfileSubmissions.Count(s =>
+                    s.AssignedToUserId == u.Id
+                    && (s.Status == ProfileSubmissionStatus.Submitted
+                        || s.Status == ProfileSubmissionStatus.UnderScrutiny)),
+            })
+            .OrderBy(x => x.Open).ThenBy(x => x.Id)
+            .FirstOrDefaultAsync(ct);
+
+        return lightest?.Id;
+    }
+
+    /// <summary>
+    /// Moves a profile to another Operation Manager.
+    ///
+    /// For the cases nobody qualified for, and for the ones whose officer is
+    /// away. Only a tier above an Operation Manager may do it — a manager
+    /// cannot hand their own queue to somebody else.
+    /// </summary>
+    public async Task<ProfileSubmissionDto> AssignAsync(
+        int id, int? userId, CancellationToken ct)
+    {
+        var submission = await db.ProfileSubmissions.Include(s => s.History)
+                             .FirstOrDefaultAsync(s => s.Id == id, ct)
+                         ?? throw AppException.NotFound("Profile submission");
+
+        if (currentUser.Tier is not { } tier
+            || !RoleHierarchy.Outranks(tier, BaseRole.OperationManager))
+        {
+            throw AppException.Forbidden(
+                "Only a tier above an Operation Manager may reassign a profile.");
+        }
+
+        string officerName;
+        if (userId is { } to)
+        {
+            var officer = await db.Users.FirstOrDefaultAsync(u => u.Id == to, ct)
+                          ?? throw AppException.NotFound("User");
+
+            if (officer.BaseRole != BaseRole.OperationManager)
+                throw new AppException("A profile is scrutinised by an Operation Manager.");
+
+            submission.AssignedToUserId = officer.Id;
+            officerName = officer.FullName;
+        }
+        else
+        {
+            submission.AssignedToUserId = null;
+            officerName = "nobody";
+        }
+
+        submission.History.Add(new ProfileScrutinyEvent
+        {
+            Action = ScrutinyAction.Assigned,
+            ByUserName = currentUser.DisplayName ?? "System",
+            ByRole = currentUser.RoleName ?? tier.ToString(),
+            On = DateTime.UtcNow,
+            Remarks = $"Assigned to {officerName}.",
+        });
+
+        await db.SaveChangesAsync(ct);
+        return await GetAsync(id, ct);
+    }
+
+    public async Task<PagedResult<ProfileSubmissionDto>> QueueAsync(
+        PagedRequest request, string? status, int? categoryId, int? subCategoryId,
+        int? programTypeId, string? state, DateOnly? from, DateOnly? to,
+        CancellationToken ct)
+    {
+        var query = Queue(request.Search, status, categoryId, subCategoryId,
+                          programTypeId, state, from, to)
             .OrderByDescending(s => s.SubmittedOn);
 
         return await query.ToPagedResultAsync(request, Map, ct);
+    }
+
+    /// <summary>
+    /// The counters over the queue, under the same filters as the list — so
+    /// the headline figures and the rows beneath them cannot disagree.
+    /// </summary>
+    public async Task<ProfileScrutinyCountsDto> CountsAsync(
+        string? search, string? status, int? categoryId, int? subCategoryId,
+        int? programTypeId, string? state, DateOnly? from, DateOnly? to,
+        CancellationToken ct)
+    {
+        /* Counted without the status filter, so the three tiles always add up
+           to what was received rather than to whichever one is selected. */
+        var all = Queue(search, null, categoryId, subCategoryId,
+                        programTypeId, state, from, to);
+
+        return new ProfileScrutinyCountsDto
+        {
+            Received = await all.CountAsync(ct),
+            Pending = await all.CountAsync(
+                s => s.Status == ProfileSubmissionStatus.Submitted
+                     || s.Status == ProfileSubmissionStatus.UnderScrutiny, ct),
+            Approved = await all.CountAsync(s => s.Status == ProfileSubmissionStatus.Approved, ct),
+            Rejected = await all.CountAsync(s => s.Status == ProfileSubmissionStatus.Rejected, ct),
+        };
     }
 
     public async Task<ProfileSubmissionDto> GetAsync(int id, CancellationToken ct) =>
@@ -494,6 +673,8 @@ public class ProfileSubmissionService(NtmsDbContext db, ProfileFormService forms
         SubmittedOn = s.SubmittedOn,
         DecidedOn = s.DecidedOn,
         DecidedByUserName = s.DecidedByUserName,
+        AssignedToUserId = s.AssignedToUserId,
+        AssignedToName = s.AssignedToUser?.FullName,
         RejectionReasonId = s.RejectionReasonId,
         RejectionReasonLabel = s.RejectionReasonLabel,
         Remarks = s.Remarks,

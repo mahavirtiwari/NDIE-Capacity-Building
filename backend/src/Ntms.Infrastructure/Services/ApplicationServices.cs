@@ -251,7 +251,12 @@ public class ApplicantService(
             /* Reported to the applicant by the verify screen when they resend. */
         }
 
-        await notifications.SendApplicantWelcomeAsync(entity, ct);
+        /* One e-mail at sign-up, and it is the code they need to get past
+           this screen. The applicant ID used to go out in a second message
+           sent in the same breath — before the address had been verified,
+           and announcing an account that could not yet be signed in to. It
+           arrives with the password instead, once the OTP is accepted,
+           which is the first moment it is any use. */
 
         return await GetAsync(entity.Id, ct);
     }

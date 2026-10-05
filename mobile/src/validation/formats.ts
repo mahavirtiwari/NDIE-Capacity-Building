@@ -11,6 +11,9 @@ export const FORMAT_PATTERNS = {
   aadhaar: /^[2-9][0-9]{11}$/,
   pincode: /^[1-9][0-9]{5}$/,
   ifsc: /^[A-Z]{4}0[A-Z0-9]{6}$/,
+  /* The shape only. A real calendar date is checked separately, because
+     2026-02-31 matches this and is not a day. */
+  date: /^\d{4}-\d{2}-\d{2}$/,
 } as const;
 
 export type FormatName = keyof typeof FORMAT_PATTERNS;
@@ -24,6 +27,7 @@ export const FORMAT_MESSAGES: Record<FormatName, string> = {
   aadhaar: 'Aadhaar must be 12 digits and cannot start with 0 or 1.',
   pincode: 'Pincode must be 6 digits and cannot start with 0.',
   ifsc: 'IFSC must be 11 characters, e.g. SBIN0001234.',
+  date: 'Enter a date as YYYY-MM-DD.',
 };
 
 /** Field types the applicant types in upper case. */
@@ -70,5 +74,28 @@ export function formatErrorFor(type: string, value: string): string | null {
   if (!(name in FORMAT_PATTERNS)) return null;
 
   const candidate = UPPERCASE_TYPES.includes(type) ? value.toUpperCase() : value;
-  return matchesFormat(name, candidate) ? null : FORMAT_MESSAGES[name];
+  if (!matchesFormat(name, candidate)) return FORMAT_MESSAGES[name];
+
+  /* The shape is right; now is it a day that exists? Parsed in UTC and
+     compared back, so 2026-02-31 — which JavaScript happily rolls into
+     March — is caught rather than silently moved. */
+  if (name === 'date') {
+    const parsed = new Date(`${candidate}T00:00:00Z`);
+    if (Number.isNaN(parsed.getTime())
+        || parsed.toISOString().slice(0, 10) !== candidate) {
+      return 'That date does not exist.';
+    }
+  }
+
+  return null;
+}
+
+/** The window a date field allows, where the form designer set one. */
+export function dateBoundsError(
+  value: string, minDate?: string | null, maxDate?: string | null,
+): string | null {
+  if (!value) return null;
+  if (minDate && value < minDate) return `Cannot be before ${minDate}.`;
+  if (maxDate && value > maxDate) return `Cannot be after ${maxDate}.`;
+  return null;
 }

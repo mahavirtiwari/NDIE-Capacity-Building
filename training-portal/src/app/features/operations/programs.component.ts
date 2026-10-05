@@ -26,7 +26,7 @@ import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
-import { ListState } from '../../shared/list-state';
+import { ListState, searchTerm } from '../../shared/list-state';
 
 const COLUMNS: ColumnDef[] = [
   { key: 'serial', header: 'S.No', width: '64px', align: 'center' },
@@ -78,6 +78,20 @@ const COLUMNS: ColumnDef[] = [
     <section class="card">
       <div class="card__body card__body--tight">
         <div class="filter-bar filter-bar--two-rows">
+          <!-- The server already searched on these three; there was simply
+               no box to type into. -->
+          <div class="field field--search">
+            <label class="field-label" for="pgSearch">Search</label>
+            <div class="input-group">
+              <span class="input-icon"><app-icon name="search" [size]="15" /></span>
+              <input
+                id="pgSearch"
+                class="input"
+                placeholder="Program ID, name or agency"
+                (input)="list.setSearch(term($event))"
+              />
+            </div>
+          </div>
           <div class="field">
             <label class="field-label" for="pgState">State/UT</label>
             <select
@@ -520,6 +534,7 @@ export class ProgramsComponent {
     maxParticipants: [30],
   });
 
+  protected term = searchTerm;
   protected value = (event: Event) => (event.target as HTMLInputElement | HTMLSelectElement).value;
 
   constructor() {

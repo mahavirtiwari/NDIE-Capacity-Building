@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Ntms.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Ntms.Infrastructure.Persistence;
 namespace Ntms.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(NtmsDbContext))]
-    partial class NtmsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261005143020_ProfilesAreAssignedToAnOfficer")]
+    partial class ProfilesAreAssignedToAnOfficer
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1903,9 +1906,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
 
-                    b.Property<int?>("OwnerUserId")
-                        .HasColumnType("int");
-
                     b.Property<string>("Pan")
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
@@ -1930,8 +1930,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.HasIndex("DistrictCode");
 
                     b.HasIndex("Email");
-
-                    b.HasIndex("OwnerUserId");
 
                     b.HasIndex("StateCode");
 
@@ -4943,11 +4941,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .HasForeignKey("DistrictCode")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("Ntms.Domain.Entities.PortalUser", "OwnerUser")
-                        .WithMany()
-                        .HasForeignKey("OwnerUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("Ntms.Domain.Entities.LgdState", "State")
                         .WithMany()
                         .HasForeignKey("StateCode")
@@ -4955,8 +4948,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("District");
-
-                    b.Navigation("OwnerUser");
 
                     b.Navigation("State");
                 });
@@ -5216,9 +5207,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                                 .HasColumnType("decimal(18,2)")
                                 .HasColumnName("Validation_Max");
 
-                            b1.Property<DateOnly?>("MaxDate")
-                                .HasColumnType("date");
-
                             b1.Property<int?>("MaxFileSizeMb")
                                 .HasColumnType("int")
                                 .HasColumnName("Validation_MaxFileSizeMb");
@@ -5233,9 +5221,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                             b1.Property<decimal?>("Min")
                                 .HasColumnType("decimal(18,2)")
                                 .HasColumnName("Validation_Min");
-
-                            b1.Property<DateOnly?>("MinDate")
-                                .HasColumnType("date");
 
                             b1.Property<int?>("MinLength")
                                 .HasColumnType("int")

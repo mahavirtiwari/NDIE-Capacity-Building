@@ -76,6 +76,15 @@ public class ProfileSubmissionConfiguration : IEntityTypeConfiguration<ProfileSu
         b.HasIndex(x => new { x.ApplicantId, x.SubCategoryId, x.AttemptNo }).IsUnique();
         b.HasIndex(x => new { x.Status, x.SubmittedOn });
 
+        /* The officer's own queue is the commonest read of this table. */
+        b.HasIndex(x => new { x.AssignedToUserId, x.Status });
+
+        /* Restrict: an officer leaving must not take the profiles on their
+           desk with them. They are reassigned, not deleted. */
+        b.HasOne(x => x.AssignedToUser).WithMany()
+            .HasForeignKey(x => x.AssignedToUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         b.HasOne(x => x.Applicant).WithMany(a => a.ProfileSubmissions)
             .HasForeignKey(x => x.ApplicantId)
             .OnDelete(DeleteBehavior.Cascade);

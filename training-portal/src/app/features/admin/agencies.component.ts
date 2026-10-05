@@ -222,7 +222,7 @@ const COLUMNS: ColumnDef[] = [
             @if ($any(row).loginUserCode) {
               <button *appCan="'agencies.manage'" type="button" class="btn btn--icon"
                 title="Resend password" (click)="resendPassword($any(row))">
-                <app-icon name="lock" [size]="15" />
+                <app-icon name="send" [size]="15" />
               </button>
             } @else {
               <button *appCan="'agencies.manage'" type="button" class="btn btn--icon"
@@ -333,14 +333,6 @@ const COLUMNS: ColumnDef[] = [
       >
         <form [formGroup]="form" id="agency-form" (ngSubmit)="save()" class="stack stack-md">
           <div class="form-grid">
-            <div class="field">
-              <label class="field-label" for="agTypeSel">Agency type <span class="req">*</span></label>
-              <select id="agTypeSel" class="select" formControlName="agencyType">
-                @for (type of agencyTypes; track type) {
-                  <option [value]="type">{{ type }}</option>
-                }
-              </select>
-            </div>
             <div class="field field--span-2">
               <label class="field-label" for="agName">Agency name <span class="req">*</span></label>
               <input id="agName" class="input" formControlName="name" />
@@ -374,6 +366,14 @@ const COLUMNS: ColumnDef[] = [
               <input id="agPan" class="input" formControlName="pan" appUppercase maxlength="10"
                 placeholder="ABCDE1234F" [class.is-invalid]="invalid('pan')" />
               @if (invalid('pan')) { <span class="field-error">{{ errorFor('pan', 'PAN') }}</span> }
+            </div>
+            <div class="field">
+              <label class="field-label" for="agTypeSel">Agency type <span class="req">*</span></label>
+              <select id="agTypeSel" class="select" formControlName="agencyType">
+                @for (type of agencyTypes; track type) {
+                  <option [value]="type">{{ type }}</option>
+                }
+              </select>
             </div>
             <div class="field field--span-2">
               <label class="field-label" for="agAddr1">Address <span class="req">*</span></label>

@@ -192,6 +192,14 @@ public class AgencyConfiguration : IEntityTypeConfiguration<ImplementingAgency>
     public void Configure(EntityTypeBuilder<ImplementingAgency> b)
     {
         b.ToTable("ImplementingAgencies");
+
+        /* Restrict: a manager leaving must not take their agencies with
+           them. The agency is reassigned, or kept and seen from above. */
+        b.HasOne(x => x.OwnerUser).WithMany()
+            .HasForeignKey(x => x.OwnerUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => x.OwnerUserId);
+
         b.Property(x => x.Code).HasMaxLength(30).IsRequired();
         b.Property(x => x.Name).HasMaxLength(250).IsRequired();
         b.Property(x => x.ContactPerson).HasMaxLength(120).IsRequired();

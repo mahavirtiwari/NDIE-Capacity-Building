@@ -5869,3 +5869,218 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005133307_RolesBelongToTheirCreator'
+)
+BEGIN
+    ALTER TABLE [AdminRoles] ADD [OwnerUserId] int NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005133307_RolesBelongToTheirCreator'
+)
+BEGIN
+    CREATE INDEX [IX_AdminRoles_OwnerUserId] ON [AdminRoles] ([OwnerUserId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005133307_RolesBelongToTheirCreator'
+)
+BEGIN
+    ALTER TABLE [AdminRoles] ADD CONSTRAINT [FK_AdminRoles_PortalUsers_OwnerUserId] FOREIGN KEY ([OwnerUserId]) REFERENCES [PortalUsers] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005133307_RolesBelongToTheirCreator'
+)
+BEGIN
+    EXEC(N'
+    UPDATE r
+    SET r.OwnerUserId = u.Id
+    FROM AdminRoles r
+    CROSS JOIN (SELECT TOP 1 Id FROM PortalUsers
+                WHERE BaseRole = ''SuperAdmin'' ORDER BY Id) u
+    WHERE r.BaseRole IN (''Admin'', ''Ministry'');
+    ');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005133307_RolesBelongToTheirCreator'
+)
+BEGIN
+    INSERT INTO RolePermissions (RoleId, Permission)
+    SELECT r.Id, p.Permission
+    FROM AdminRoles r
+    CROSS JOIN (VALUES ('roles.view'), ('roles.manage')) AS p(Permission)
+    WHERE r.BaseRole IN ('Admin', 'OperationManager', 'AgencyAdmin')
+      AND NOT EXISTS (
+          SELECT 1 FROM RolePermissions x
+          WHERE x.RoleId = r.Id AND x.Permission = p.Permission);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005133307_RolesBelongToTheirCreator'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261005133307_RolesBelongToTheirCreator', N'10.0.12');
+END;
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005143020_ProfilesAreAssignedToAnOfficer'
+)
+BEGIN
+    ALTER TABLE [ProfileSubmissions] ADD [AssignedToUserId] int NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005143020_ProfilesAreAssignedToAnOfficer'
+)
+BEGIN
+    CREATE INDEX [IX_ProfileSubmissions_AssignedToUserId_Status] ON [ProfileSubmissions] ([AssignedToUserId], [Status]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005143020_ProfilesAreAssignedToAnOfficer'
+)
+BEGIN
+    ALTER TABLE [ProfileSubmissions] ADD CONSTRAINT [FK_ProfileSubmissions_PortalUsers_AssignedToUserId] FOREIGN KEY ([AssignedToUserId]) REFERENCES [PortalUsers] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005143020_ProfilesAreAssignedToAnOfficer'
+)
+BEGIN
+    EXEC(N'
+    UPDATE s
+    SET s.AssignedToUserId = pick.UserId
+    FROM ProfileSubmissions s
+    JOIN Applicants a ON a.Id = s.ApplicantId
+    CROSS APPLY (
+        SELECT TOP 1 u.Id AS UserId
+        FROM PortalUsers u
+        WHERE u.BaseRole = ''OperationManager''
+          AND u.Status = ''Active''
+          AND EXISTS (
+              SELECT 1 FROM UserProgramTypes upt
+              JOIN ProgramTypes p ON p.Id = upt.ProgramTypeId
+              WHERE upt.UserId = u.Id AND p.SubCategoryId = s.SubCategoryId)
+          AND (a.StateCode IS NULL OR EXISTS (
+              SELECT 1 FROM UserStates us
+              WHERE us.UserId = u.Id AND us.StateCode = a.StateCode))
+        ORDER BY u.Id
+    ) pick
+    WHERE s.AssignedToUserId IS NULL
+      AND s.Status IN (''Submitted'', ''UnderScrutiny'');
+    ');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005143020_ProfilesAreAssignedToAnOfficer'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261005143020_ProfilesAreAssignedToAnOfficer', N'10.0.12');
+END;
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005144018_DateFieldsHaveDateBounds'
+)
+BEGIN
+    ALTER TABLE [ProfileFields] ADD [Validation_MaxDate] date NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005144018_DateFieldsHaveDateBounds'
+)
+BEGIN
+    ALTER TABLE [ProfileFields] ADD [Validation_MinDate] date NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005144018_DateFieldsHaveDateBounds'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261005144018_DateFieldsHaveDateBounds', N'10.0.12');
+END;
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005230852_AgenciesBelongToTheirOperationManager'
+)
+BEGIN
+    ALTER TABLE [ImplementingAgencies] ADD [OwnerUserId] int NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005230852_AgenciesBelongToTheirOperationManager'
+)
+BEGIN
+    CREATE INDEX [IX_ImplementingAgencies_OwnerUserId] ON [ImplementingAgencies] ([OwnerUserId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005230852_AgenciesBelongToTheirOperationManager'
+)
+BEGIN
+    ALTER TABLE [ImplementingAgencies] ADD CONSTRAINT [FK_ImplementingAgencies_PortalUsers_OwnerUserId] FOREIGN KEY ([OwnerUserId]) REFERENCES [PortalUsers] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005230852_AgenciesBelongToTheirOperationManager'
+)
+BEGIN
+    EXEC(N'
+    UPDATE a
+    SET a.OwnerUserId = u.ReportsToUserId
+    FROM ImplementingAgencies a
+    JOIN PortalUsers u ON u.AgencyId = a.Id
+                      AND u.BaseRole = ''AgencyAdmin''
+    WHERE a.OwnerUserId IS NULL
+      AND u.ReportsToUserId IS NOT NULL;
+    ');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261005230852_AgenciesBelongToTheirOperationManager'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261005230852_AgenciesBelongToTheirOperationManager', N'10.0.12');
+END;
+
+COMMIT;
+GO
+

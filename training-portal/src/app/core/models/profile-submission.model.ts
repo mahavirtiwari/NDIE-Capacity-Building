@@ -9,6 +9,19 @@ import { ScrutinyEvent } from './application.model';
  * exists yet — an applicant has no applications until their profile has
  * been accepted.
  */
+/**
+ * The headline figures over the scrutiny queue.
+ *
+ * Counted under the same filters as the list but without its status, so the
+ * tiles always add up to what was received.
+ */
+export interface ProfileScrutinyCounts {
+  received: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+}
+
 export interface ProfileSubmission extends AuditInfo {
   id: Id;
   applicantId: Id;
@@ -30,6 +43,9 @@ export interface ProfileSubmission extends AuditInfo {
   submittedOn?: string | null;
   decidedOn?: string | null;
   decidedByUserName?: string | null;
+  /** The Operation Manager whose desk this is on, if anybody's. */
+  assignedToUserId?: Id | null;
+  assignedToName?: string | null;
   rejectionReasonId?: Id | null;
   rejectionReasonLabel?: string | null;
   remarks?: string | null;
@@ -46,19 +62,32 @@ export type ProfileSubmissionStatus =
   | 'Rejected';
 
 /** The ones worth filtering by: a draft never reaches the queue. */
+/**
+ * The three a profile can be filtered by.
+ *
+ * Draft has not been handed in, so it is in nobody's queue. UnderScrutiny is
+ * read in places but never written — nothing moves a profile into it — so
+ * offering it was a filter that could only ever come back empty.
+ */
 export const PROFILE_STATUSES: ProfileSubmissionStatus[] = [
   'Submitted',
-  'UnderScrutiny',
   'Approved',
   'Rejected',
 ];
 
+/**
+ * Plain names, matching the badge on the row.
+ *
+ * These read "Waiting", "Accepted" and "Turned down" while the badge beside
+ * them said Submitted, Approved and Rejected — the same state under two
+ * vocabularies on one screen, which reads as two different things.
+ */
 export const PROFILE_STATUS_LABELS: Record<ProfileSubmissionStatus, string> = {
   Draft: 'Draft',
-  Submitted: 'Waiting',
-  UnderScrutiny: 'Being read',
-  Approved: 'Accepted',
-  Rejected: 'Turned down',
+  Submitted: 'Submitted',
+  UnderScrutiny: 'Under scrutiny',
+  Approved: 'Approved',
+  Rejected: 'Rejected',
 };
 
 export interface ProfileDecision {

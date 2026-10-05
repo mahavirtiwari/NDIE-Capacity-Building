@@ -49,6 +49,22 @@ public class ProfileSubmission : AuditableEntity
 
     public ProfileSubmissionStatus Status { get; set; } = ProfileSubmissionStatus.Draft;
 
+    /// <summary>
+    /// The Operation Manager this profile is on the desk of.
+    ///
+    /// Chosen when the profile is handed in, from the managers whose
+    /// allocation actually covers it — a program type in this discipline and
+    /// the applicant's state — because a queue everybody can see is a queue
+    /// nobody owns. Where several qualify it goes to whoever is holding the
+    /// fewest, so one desk does not take the lot.
+    ///
+    /// Null where nobody qualified. The profile is still in the register for
+    /// the tiers above to see and hand to somebody; it is not lost, it is
+    /// waiting for an owner.
+    /// </summary>
+    public int? AssignedToUserId { get; set; }
+    public PortalUser? AssignedToUser { get; set; }
+
     public DateTime? SubmittedOn { get; set; }
     public DateTime? DecidedOn { get; set; }
     public string? DecidedByUserName { get; set; }

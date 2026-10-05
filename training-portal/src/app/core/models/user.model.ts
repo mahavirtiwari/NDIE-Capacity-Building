@@ -11,6 +11,10 @@ export interface AdminRole extends AuditInfo {
   permissions: Permission[];
   userCount?: number;
   isSystemRole: boolean;
+  /** The seeded starting point for its tier, owned by nobody and edited by nobody. */
+  isDefault: boolean;
+  /** Whether this caller may reshape it. Decided on the server. */
+  canEdit: boolean;
 
   /**
    * Which axes an account on this role is allocated on, sent by the

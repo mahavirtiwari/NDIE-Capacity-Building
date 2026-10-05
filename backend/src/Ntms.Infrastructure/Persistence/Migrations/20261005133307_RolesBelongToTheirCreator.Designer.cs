@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Ntms.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Ntms.Infrastructure.Persistence;
 namespace Ntms.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(NtmsDbContext))]
-    partial class NtmsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261005133307_RolesBelongToTheirCreator")]
+    partial class RolesBelongToTheirCreator
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1903,9 +1906,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
 
-                    b.Property<int?>("OwnerUserId")
-                        .HasColumnType("int");
-
                     b.Property<string>("Pan")
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
@@ -1930,8 +1930,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.HasIndex("DistrictCode");
 
                     b.HasIndex("Email");
-
-                    b.HasIndex("OwnerUserId");
 
                     b.HasIndex("StateCode");
 
@@ -2994,9 +2992,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Property<int>("ApplicantId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("AssignedToUserId")
-                        .HasColumnType("int");
-
                     b.Property<int>("AttemptNo")
                         .HasColumnType("int");
 
@@ -3059,8 +3054,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.HasIndex("RejectionReasonId");
 
                     b.HasIndex("SubCategoryId");
-
-                    b.HasIndex("AssignedToUserId", "Status");
 
                     b.HasIndex("Status", "SubmittedOn");
 
@@ -4943,11 +4936,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .HasForeignKey("DistrictCode")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("Ntms.Domain.Entities.PortalUser", "OwnerUser")
-                        .WithMany()
-                        .HasForeignKey("OwnerUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("Ntms.Domain.Entities.LgdState", "State")
                         .WithMany()
                         .HasForeignKey("StateCode")
@@ -4955,8 +4943,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("District");
-
-                    b.Navigation("OwnerUser");
 
                     b.Navigation("State");
                 });
@@ -5216,9 +5202,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                                 .HasColumnType("decimal(18,2)")
                                 .HasColumnName("Validation_Max");
 
-                            b1.Property<DateOnly?>("MaxDate")
-                                .HasColumnType("date");
-
                             b1.Property<int?>("MaxFileSizeMb")
                                 .HasColumnType("int")
                                 .HasColumnName("Validation_MaxFileSizeMb");
@@ -5233,9 +5216,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                             b1.Property<decimal?>("Min")
                                 .HasColumnType("decimal(18,2)")
                                 .HasColumnName("Validation_Min");
-
-                            b1.Property<DateOnly?>("MinDate")
-                                .HasColumnType("date");
 
                             b1.Property<int?>("MinLength")
                                 .HasColumnType("int")
@@ -5318,11 +5298,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Ntms.Domain.Entities.PortalUser", "AssignedToUser")
-                        .WithMany()
-                        .HasForeignKey("AssignedToUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("Ntms.Domain.Entities.Category", "Category")
                         .WithMany()
                         .HasForeignKey("CategoryId")
@@ -5346,8 +5321,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Applicant");
-
-                    b.Navigation("AssignedToUser");
 
                     b.Navigation("Category");
 

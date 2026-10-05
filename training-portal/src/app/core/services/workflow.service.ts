@@ -9,6 +9,7 @@ import {
   Id,
   Program,
   ProfileDecision,
+  ProfileScrutinyCounts,
   ProfileSubmission,
   ScrutinyDecision,
   StateCoverageResult,
@@ -32,6 +33,16 @@ export class ProfileSubmissionService extends CrudService<ProfileSubmission> {
 
   reject(id: Id, decision: ProfileDecision): Observable<ProfileSubmission> {
     return this.api.post<ProfileSubmission>(`${this.resource}/${id}/reject`, decision);
+  }
+
+  /** Moves a profile to another Operation Manager, or to nobody. */
+  assign(id: Id, userId: Id | null): Observable<ProfileSubmission> {
+    return this.api.patch<ProfileSubmission>(`${this.resource}/${id}/assign`, { userId });
+  }
+
+  /** The counters over the queue, under the same filters as the list. */
+  counts(query: Record<string, unknown>): Observable<ProfileScrutinyCounts> {
+    return this.api.get<ProfileScrutinyCounts>(`${this.resource}/counts`, query);
   }
 }
 

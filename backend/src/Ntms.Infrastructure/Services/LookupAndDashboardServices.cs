@@ -547,27 +547,6 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
         /* Inclusive of the closing day, so "to 31 March" includes the 31st. */
         var toStamp = to.HasValue ? to.Value.ToDateTime(TimeOnly.MaxValue) : (DateTime?)null;
 
-        /* Scoped like every other read. Without this the headline figures
-           showed the whole estate to every tier while the map beside them
-           showed only the caller's slice. */
-        var applications = db.Applications.AsNoTracking()
-            .WithinScope(currentUser)
-            .Include(a => a.Applicant)
-            .Include(a => a.Category)
-            .Include(a => a.SubCategory)
-            .Include(a => a.ProgramType)
-            .Include(a => a.AssignedToUser)
-            .Include(a => a.State)
-            .Include(a => a.Documents)
-            .Include(a => a.History)
-            .WhereIf(filter.CategoryId.HasValue, a => a.CategoryId == filter.CategoryId)
-            .WhereIf(filter.SubCategoryId.HasValue, a => a.SubCategoryId == filter.SubCategoryId)
-            .WhereIf(filter.ProgramTypeId.HasValue, a => a.ProgramTypeId == filter.ProgramTypeId)
-            .WhereIf(!string.IsNullOrWhiteSpace(filter.State),
-                a => a.State!.Name == filter.State!.ToUpperInvariant())
-            .WhereIf(fromStamp.HasValue, a => a.SubmittedOn >= fromStamp)
-            .WhereIf(toStamp.HasValue, a => a.SubmittedOn <= toStamp);
-
         var programmes = db.Programmes.AsNoTracking()
             .WithinScope(currentUser)
             /* Through to the programme type: the curriculum's code lives there now. */
@@ -592,11 +571,26 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
             .WhereIf(from.HasValue, p => p.StartDate >= from)
             .WhereIf(to.HasValue, p => p.StartDate <= to);
 
-        var applicationRows = await applications.ToListAsync(ct);
-        var programmeRows = await programmes.ToListAsync(ct);
+        /* The headline pair counts profile scrutiny, not applications.
+           Scrutiny happens once, on the profile, and an application is
+           accepted as it arrives — so counting applications counted a step
+           nobody takes a decision at. The register is gone with it. */
+        var profiles = db.ProfileSubmissions.AsNoTracking()
+            .Where(s => s.Status != ProfileSubmissionStatus.Draft)
+            .WhereIf(filter.CategoryId.HasValue, s => s.CategoryId == filter.CategoryId)
+            .WhereIf(filter.SubCategoryId.HasValue, s => s.SubCategoryId == filter.SubCategoryId)
+            .WhereIf(filter.ProgramTypeId.HasValue, s => db.ProgramTypes
+                .Any(p => p.Id == filter.ProgramTypeId && p.SubCategoryId == s.SubCategoryId))
+            .WhereIf(!string.IsNullOrWhiteSpace(filter.State),
+                s => s.Applicant!.State!.Name == filter.State!.ToUpperInvariant())
+            .WhereIf(fromStamp.HasValue, s => s.SubmittedOn >= fromStamp)
+            .WhereIf(toStamp.HasValue, s => s.SubmittedOn <= toStamp);
 
-        var approved = applicationRows.Count(a =>
-            a.Status is ApplicationStatus.Approved or ApplicationStatus.Enrolled);
+        var profilesReceived = await profiles.CountAsync(ct);
+        var profilesApproved = await profiles
+            .CountAsync(s => s.Status == ProfileSubmissionStatus.Approved, ct);
+
+        var programmeRows = await programmes.ToListAsync(ct);
         var conducted = programmeRows.Count(p => p.Status == ProgramStatus.Conducted);
         /* Everyone enrolled on a programme, whatever the outcome — distinct from
            the certified count, which is only those who passed. */
@@ -617,8 +611,8 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
         {
             Kpis =
             [
-                new() { Key = "applications", Label = "Applications received", Value = applicationRows.Count, Tone = "primary", Icon = "inbox" },
-                new() { Key = "approved", Label = "Approved applications", Value = approved, Tone = "success", Icon = "check" },
+                new() { Key = "profiles", Label = "Profiles received", Value = profilesReceived, Tone = "primary", Icon = "inbox" },
+                new() { Key = "profilesApproved", Label = "Profiles approved", Value = profilesApproved, Tone = "success", Icon = "check" },
                 new() { Key = "programs", Label = "Programs conducted", Value = conducted, Tone = "info", Icon = "calendar" },
                 new() { Key = "participated", Label = "Candidates participated", Value = participated, Tone = "primary", Icon = "users" },
                 new() { Key = "certified", Label = "Candidates certified", Value = certified, Tone = "success", Icon = "award" },
@@ -636,7 +630,13 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
     }
 
     /// <summary>
-    /// Programmes per calendar month, newest first.
+    /// Programmes conducted per calendar month, newest first.
+    ///
+    /// Conducted, and only conducted — which is what the card is titled and
+    /// what the figure beside it counts. This counted every batch whose start
+    /// date fell in the month whatever had become of it, so a dashboard
+    /// reading "Programs conducted 0" sat above a bar of six that were
+    /// raised, permitted, or still to run.
     ///
     /// The month the reader is standing in comes first and history runs away to
     /// the right, because "how are we doing now" is the question the card is
@@ -666,7 +666,8 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
             {
                 Label = month.ToString("MMM yy", CultureInfo.InvariantCulture),
                 Value = programmes.Count(p =>
-                    p.StartDate.Year == month.Year && p.StartDate.Month == month.Month),
+                    p.Status == ProgramStatus.Conducted
+                    && p.StartDate.Year == month.Year && p.StartDate.Month == month.Month),
             });
             cursor = cursor.AddMonths(-1);
         }

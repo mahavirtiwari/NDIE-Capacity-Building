@@ -12,6 +12,21 @@ public class AdminRole : AuditableStatusEntity
     /// <summary>System roles cannot be disabled or deleted.</summary>
     public bool IsSystemRole { get; set; }
 
+    /// <summary>
+    /// The account that shaped this role, and the only one that may reshape it.
+    ///
+    /// A tier settles what the tier beneath it may do, so two Admins each
+    /// appoint Operation Managers and neither has business changing what the
+    /// other's can reach. Ownership is what keeps those apart; without it one
+    /// shared role per tier meant whoever saved last decided for everybody.
+    ///
+    /// Null is a seeded default: the starting point offered to every creator
+    /// at that tier and reshaped by none of them. A creator who wants
+    /// something else makes their own role, which is theirs.
+    /// </summary>
+    public int? OwnerUserId { get; set; }
+    public PortalUser? OwnerUser { get; set; }
+
     public ICollection<RolePermission> Permissions { get; set; } = [];
     public ICollection<PortalUser> Users { get; set; } = [];
 }

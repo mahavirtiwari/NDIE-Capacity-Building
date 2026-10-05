@@ -104,10 +104,45 @@ public static class MasterScopeExtensions
         if (states.Count > 0) query = query.Where(p => states.Contains(p.StateCode));
 
         /* An agency login only ever sees its own programmes, whatever else its
-           allocation might permit. */
-        if (user.Tier == Domain.Common.BaseRole.AgencyAdmin && user.AgencyId is { } agencyId)
+           allocation might permit.
+ 
+           Closed, not open. This used to apply only when the login carried an
+           agency, so one that did not — a login issued before the agency was
+           attached, or attached by hand — skipped the rule entirely and read
+           every batch its program types and states touched, which is every
+           other agency working the same patch. The agency register next door
+           has always failed closed in that case; this now matches it. */
+        if (user.Tier == Domain.Common.BaseRole.AgencyAdmin)
         {
-            query = query.Where(p => p.AgencyId == agencyId);
+            return user.AgencyId is { } agencyId
+                ? query.Where(p => p.AgencyId == agencyId)
+                : query.Where(_ => false);
+        }
+
+        /* Above the agency, the chain rather than the overlap.
+ 
+           An Operation Manager sees the batches of the agencies it
+           empanelled, and the Admin above sees those of the managers it
+           appointed. Allocation alone put two managers whose program types
+           overlap into each other's work: both hold Assessor - Silver in
+           Delhi, so both read every batch either one's agencies raise.
+ 
+           Agencies empanelled before the owner was recorded have none, and
+           stay visible from the allocation alone — they belong to nobody to
+           hide them from. */
+        var self = user.UserId ?? 0;
+
+        if (user.Tier == Domain.Common.BaseRole.OperationManager)
+        {
+            query = query.Where(p =>
+                p.Agency!.OwnerUserId == null || p.Agency.OwnerUserId == self);
+        }
+        else if (user.Tier == Domain.Common.BaseRole.Admin)
+        {
+            query = query.Where(p =>
+                p.Agency!.OwnerUserId == null
+                || p.Agency.OwnerUserId == self
+                || p.Agency.OwnerUser!.ReportsToUserId == self);
         }
 
         return query;

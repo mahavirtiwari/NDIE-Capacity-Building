@@ -239,12 +239,12 @@ function blankField(): ProfileField {
             <div class="field field--span-2">
               <label class="check">
                 <input type="checkbox" formControlName="requiresScrutiny" />
-                <span>Read this profile before the programs open</span>
+                <span>Scrutiny required before the programs open</span>
               </label>
               <span class="field-hint">
                 @if (headerForm.controls.requiresScrutiny.value) {
-                  A submission joins the scrutiny queue, and the programs under this
-                  sub-category stay shut until somebody accepts it.
+                  A submission goes to an Operation Manager for scrutiny, and the
+                  programs under this sub-category stay shut until it is accepted.
                 } @else {
                   Accepted as it arrives. The applicant fills the form and goes straight on
                   to apply — for a discipline that asks only for things nobody verifies, a
@@ -614,6 +614,23 @@ function blankField(): ProfileField {
               <div class="field">
                 <label class="field-label" for="feMax">Maximum value</label>
                 <input id="feMax" type="number" class="input" [value]="editor.field.validation.max ?? ''" (input)="editValidation({ max: numberValue($event) })" />
+              </div>
+            }
+            <!-- A date needs a window, not a regex. The number bounds above
+                 do not apply to it and "not in the future" cannot be said
+                 with a pattern. -->
+            @if (editor.field.type === 'date') {
+              <div class="field">
+                <label class="field-label" for="feMinDate">Earliest date</label>
+                <input id="feMinDate" type="date" class="input"
+                  [value]="editor.field.validation.minDate || ''"
+                  (change)="editValidation({ minDate: inputValue($event) || null })" />
+              </div>
+              <div class="field">
+                <label class="field-label" for="feMaxDate">Latest date</label>
+                <input id="feMaxDate" type="date" class="input"
+                  [value]="editor.field.validation.maxDate || ''"
+                  (change)="editValidation({ maxDate: inputValue($event) || null })" />
               </div>
             }
             @if (editor.field.type === 'photos') {

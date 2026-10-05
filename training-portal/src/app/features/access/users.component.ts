@@ -243,7 +243,7 @@ const TIER_DEPTH: Record<string, number> = {
                 title="Resend sign-in details"
                 (click)="resetPassword($any(row))"
               >
-                <app-icon name="lock" [size]="15" />
+                <app-icon name="send" [size]="15" />
               </button>
             }
             @if (canEdit($any(row))) {

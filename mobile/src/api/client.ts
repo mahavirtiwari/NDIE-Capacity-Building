@@ -231,8 +231,13 @@ async function postForm<T>(path: string, body: FormData): Promise<T> {
   let response: Response;
   try {
     response = await fetch(url, { method: 'POST', headers, body });
-  } catch {
-    throw new ApiError(`Cannot reach the server at ${API_BASE_URL}. Check your connection.`, 0);
+  } catch (caught) {
+    /* Say what actually went wrong. This reported "check your connection"
+       for every failure — a refused upload, a file the runtime could not
+       read, a certificate problem — which sent everybody looking at the
+       signal bars while the form loaded perfectly well beside it. */
+    const reason = caught instanceof Error && caught.message ? `: ${caught.message}` : '';
+    throw new ApiError(`Could not upload to ${API_BASE_URL}${reason}`, 0);
   }
 
   if (response.status === 401) {

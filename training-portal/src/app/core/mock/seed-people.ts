@@ -20,6 +20,8 @@ export const ROLES: AdminRole[] = [
     description: 'Full control over masters, curriculum, fee, exams and material.',
     permissions: ALL_PERMISSIONS,
     isSystemRole: true,
+    isDefault: true,
+    canEdit: false,
     status: 'Active',
   },
   {
@@ -34,6 +36,8 @@ export const ROLES: AdminRole[] = [
       'applications.view', 'applications.scrutinise', 'programs.view', 'reports.view',
     ],
     isSystemRole: true,
+    isDefault: true,
+    canEdit: false,
     status: 'Active',
   },
   {
@@ -48,6 +52,8 @@ export const ROLES: AdminRole[] = [
       'reports.view',
     ],
     isSystemRole: true,
+    isDefault: true,
+    canEdit: false,
     status: 'Active',
   },
   {
@@ -58,6 +64,8 @@ export const ROLES: AdminRole[] = [
     description: 'Captures programs conducted physically or virtually and marks attendance.',
     permissions: ['programs.view', 'programs.manage', 'materials.view'],
     isSystemRole: true,
+    isDefault: true,
+    canEdit: false,
     status: 'Active',
   },
   {
@@ -68,6 +76,8 @@ export const ROLES: AdminRole[] = [
     description: 'Custom role limited to application scrutiny and reporting.',
     permissions: ['applications.view', 'applications.scrutinise', 'reports.view', 'masters.view'],
     isSystemRole: false,
+    isDefault: false,
+    canEdit: true,
     status: 'Active',
   },
   {
@@ -81,6 +91,8 @@ export const ROLES: AdminRole[] = [
       'materials.view', 'materials.manage', 'masters.view',
     ],
     isSystemRole: false,
+    isDefault: false,
+    canEdit: true,
     status: 'Inactive',
   },
 ];

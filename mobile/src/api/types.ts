@@ -151,6 +151,9 @@ export interface FieldValidation {
   maxLength?: number | null;
   min?: number | null;
   max?: number | null;
+  /** The window a date field has to fall in, as yyyy-MM-dd. */
+  minDate?: string | null;
+  maxDate?: string | null;
   pattern?: string | null;
   allowedExtensions?: string[] | null;
   maxFileSizeMb?: number | null;

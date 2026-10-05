@@ -521,14 +521,37 @@ public class ProfileSubmissionsController(ProfileSubmissionService service) : Ap
     [HasPermission(Permissions.ApplicationsView)]
     public async Task<ActionResult<ApiEnvelope<PagedResult<ProfileSubmissionDto>>>> List(
         [FromQuery] PagedRequest request, [FromQuery] string? status,
-        [FromQuery] int? subCategoryId, CancellationToken ct) =>
-        Envelope(await service.QueueAsync(request, status, subCategoryId, ct));
+        [FromQuery] int? categoryId, [FromQuery] int? subCategoryId,
+        [FromQuery] int? programTypeId, [FromQuery] string? state,
+        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to,
+        CancellationToken ct) =>
+        Envelope(await service.QueueAsync(
+            request, status, categoryId, subCategoryId, programTypeId, state, from, to, ct));
+
+    /// <summary>The counters over the queue, under the same filters.</summary>
+    [HttpGet("counts")]
+    [HasPermission(Permissions.ApplicationsView)]
+    public async Task<ActionResult<ApiEnvelope<ProfileScrutinyCountsDto>>> Counts(
+        [FromQuery] string? search, [FromQuery] string? status,
+        [FromQuery] int? categoryId, [FromQuery] int? subCategoryId,
+        [FromQuery] int? programTypeId, [FromQuery] string? state,
+        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to,
+        CancellationToken ct) =>
+        Envelope(await service.CountsAsync(
+            search, status, categoryId, subCategoryId, programTypeId, state, from, to, ct));
 
     [HttpGet("{id:int}")]
     [HasPermission(Permissions.ApplicationsView)]
     public async Task<ActionResult<ApiEnvelope<ProfileSubmissionDto>>> Get(
         int id, CancellationToken ct) =>
         Envelope(await service.GetAsync(id, ct));
+
+    /// <summary>Moves a profile to another Operation Manager, or to nobody.</summary>
+    [HttpPatch("{id:int}/assign")]
+    [HasPermission(Permissions.ApplicationsScrutinise)]
+    public async Task<ActionResult<ApiEnvelope<ProfileSubmissionDto>>> Assign(
+        int id, [FromBody] AssignProfileDto dto, CancellationToken ct) =>
+        Envelope(await service.AssignAsync(id, dto.UserId, ct), "Profile reassigned.");
 
     [HttpPost("{id:int}/approve")]
     [HasPermission(Permissions.ApplicationsScrutinise)]

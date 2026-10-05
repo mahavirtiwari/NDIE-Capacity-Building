@@ -1,15 +1,19 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
   LookupItem,
   PROFILE_STATUSES,
   PROFILE_STATUS_LABELS,
+  ProfileForm,
+  ProfileScrutinyCounts,
   ProfileSubmission,
   RejectionReason,
 } from '../../core/models';
 import { LookupService } from '../../core/services/masters.service';
+import { ProfileFormService } from '../../core/services/academics.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import {
@@ -33,6 +37,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'subCategoryName', header: 'Sub-category', width: '180px' },
   { key: 'attemptNo', header: 'Attempt', width: '90px', align: 'center' },
   { key: 'submittedOn', header: 'Sent', sortable: true, width: '130px' },
+  { key: 'assignedToName', header: 'Assigned to', width: '160px', variant: 'muted' },
   { key: 'status', header: 'Status', width: '140px' },
   { key: 'rejectionReasonLabel', header: 'Reason', width: '200px', variant: 'muted' },
   { key: 'actions', header: '', width: '150px', align: 'right' },
@@ -58,6 +63,7 @@ const COLUMNS: ColumnDef[] = [
     StatusBadgeComponent,
     ModalComponent,
     IconComponent,
+    RouterLink,
   ],
   template: `
     <app-page-header
@@ -66,6 +72,23 @@ const COLUMNS: ColumnDef[] = [
       icon="inbox"
       [breadcrumbs]="[{ label: 'Administration' }, { label: 'Profile scrutiny' }]"
     />
+
+    <!-- The headline figures, and a way into each. Counted under the same
+         filters as the list but without its status, so the three always add
+         up to what was received. -->
+    <div class="queue-strip mb-md">
+      @for (tile of queueTiles(); track tile.status) {
+        <button
+          type="button"
+          class="queue-tile"
+          [class.is-active]="activeStatus() === tile.status"
+          (click)="filterByStatus(tile.status)"
+        >
+          <span class="queue-tile__label">{{ tile.label }}</span>
+          <strong class="queue-tile__value tabular">{{ tile.count }}</strong>
+        </button>
+      }
+    </div>
 
     <section class="card">
       <div class="card__body card__body--tight">
@@ -77,10 +100,22 @@ const COLUMNS: ColumnDef[] = [
               <input
                 id="psSearch"
                 class="input"
-                placeholder="Applicant name or ID"
+                placeholder="Applicant name, ID or PAN"
                 (input)="list.setSearch(term($event))"
               />
             </div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="psCat">Category</label>
+            <select id="psCat" class="select"
+              [value]="list.stagedValue('categoryId')"
+              (change)="list.stageFilter('categoryId', value($event))"
+            >
+              <option value="">All categories</option>
+              @for (cat of categories(); track cat.id) {
+                <option [value]="cat.id">{{ cat.name }}</option>
+              }
+            </select>
           </div>
           <div class="field">
             <label class="field-label" for="psSub">Sub-category</label>
@@ -95,6 +130,45 @@ const COLUMNS: ColumnDef[] = [
                 <option [value]="sub.id">{{ sub.name }}</option>
               }
             </select>
+          </div>
+          <!-- A profile belongs to a discipline rather than a course, so
+               this asks for the profiles that qualify somebody for the
+               chosen type. -->
+          <div class="field">
+            <label class="field-label" for="psType">Program type</label>
+            <select id="psType" class="select"
+              [value]="list.stagedValue('programTypeId')"
+              (change)="list.stageFilter('programTypeId', value($event))"
+            >
+              <option value="">All program types</option>
+              @for (type of programTypes(); track type.id) {
+                <option [value]="type.id">{{ type.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="psState">State/UT</label>
+            <select id="psState" class="select"
+              [value]="list.stagedValue('state')"
+              (change)="list.stageFilter('state', value($event))"
+            >
+              <option value="">All states/UTs</option>
+              @for (st of states(); track st.id) {
+                <option [value]="st.name">{{ st.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="psFrom">Submitted between</label>
+            <div class="date-range">
+              <input id="psFrom" type="date" class="input"
+                [value]="list.stagedValue('from')"
+                (change)="list.stageFilter('from', value($event))" />
+              <span class="text-muted">&ndash;</span>
+              <input type="date" class="input" aria-label="Submitted up to"
+                [value]="list.stagedValue('to')"
+                (change)="list.stageFilter('to', value($event))" />
+            </div>
           </div>
           <div class="field">
             <label class="field-label" for="psStatus">Status</label>
@@ -145,6 +219,13 @@ const COLUMNS: ColumnDef[] = [
         <ng-template appCell="submittedOn" let-row>
           {{ $any(row).submittedOn | date: 'dd MMM yyyy' }}
         </ng-template>
+        <ng-template appCell="assignedToName" let-row>
+          @if ($any(row).assignedToName) {
+            {{ $any(row).assignedToName }}
+          } @else {
+            <span class="cell-muted">Unassigned</span>
+          }
+        </ng-template>
         <ng-template appCell="status" let-row>
           <app-status-badge [value]="$any(row).status" />
         </ng-template>
@@ -156,9 +237,12 @@ const COLUMNS: ColumnDef[] = [
           }
         </ng-template>
         <ng-template appCell="actions" let-row>
-          <button type="button" class="btn btn--sm btn--secondary" (click)="open($any(row))">
-            Read it
-          </button>
+          <!-- A page, not a sheet. The whole form read section by section,
+               with the decision beside it, is the same job the application
+               sheet did and reads the same way. -->
+          <a class="btn btn--sm btn--primary" [routerLink]="['/admin/profile-scrutiny', $any(row).id]">
+            <app-icon name="eye" [size]="14" /> View details
+          </a>
         </ng-template>
       </app-data-table>
     </section>
@@ -186,17 +270,26 @@ const COLUMNS: ColumnDef[] = [
 
           <div class="stack stack-sm">
             <span class="field-label">What they declared</span>
-            @if (answers(row).length === 0) {
-              <p class="text-muted text-sm">Nothing was recorded against this submission.</p>
-            } @else {
-              <div class="dl">
-                @for (entry of answers(row); track entry.key) {
-                  <div>
-                    <dt>{{ entry.key }}</dt>
-                    <dd>{{ entry.value }}</dd>
+            @if (sections(row); as groups) {
+              @if (groups.length === 0) {
+                <p class="text-muted text-sm">
+                  Nothing was recorded against this submission.
+                </p>
+              } @else {
+                @for (group of groups; track group.title) {
+                  <div class="scrutiny-section">
+                    <h4 class="section-title">{{ group.title }}</h4>
+                    <div class="dl">
+                      @for (entry of group.entries; track entry.label) {
+                        <div>
+                          <dt>{{ entry.label }}</dt>
+                          <dd>{{ entry.value }}</dd>
+                        </div>
+                      }
+                    </div>
                   </div>
                 }
-              </div>
+              }
             }
           </div>
 
@@ -296,7 +389,53 @@ const COLUMNS: ColumnDef[] = [
         color: var(--ink-900);
         word-break: break-word;
       }
+      .scrutiny-section + .scrutiny-section { margin-top: 0.9rem; }
+      .scrutiny-section .section-title {
+        margin: 0 0 0.25rem;
+        font-size: var(--fs-sm);
+        color: var(--ink-700);
+      }
       .text-danger { color: var(--danger-700); }
+
+      /* The headline figures, as the applications register showed them.
+         These styles came with that component and were lost when it went. */
+      .queue-strip {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.6rem;
+      }
+      .queue-tile {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        align-items: flex-start;
+        padding: 0.65rem 0.8rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        cursor: pointer;
+        font: inherit;
+        transition: border-color var(--transition), background var(--transition);
+      }
+      .queue-tile:hover { border-color: var(--brand-300); background: var(--brand-50); }
+      .queue-tile.is-active {
+        border-color: var(--brand-600);
+        background: var(--brand-50);
+        box-shadow: inset 0 -2px 0 var(--brand-600);
+      }
+      .queue-tile__label {
+        font-size: var(--fs-xs);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--ink-500);
+        font-weight: 600;
+      }
+      .queue-tile__value { font-size: var(--fs-xl); color: var(--ink-900); }
+
+      /* The two date inputs are one control. Without a width they each take
+         a grid track's worth and push Status out of its own field. */
+      .date-range { display: flex; align-items: center; gap: 0.4rem; }
+      .date-range .input { min-width: 0; flex: 1 1 0; }
     `,
   ],
 })
@@ -305,6 +444,7 @@ export class ProfileScrutinyComponent {
   private readonly service = inject(ProfileSubmissionService);
   private readonly reasonService = inject(RejectionReasonService);
   private readonly lookups = inject(LookupService);
+  private readonly forms = inject(ProfileFormService);
   private readonly toast = inject(ToastService);
   private readonly fb = inject(FormBuilder);
 
@@ -323,11 +463,76 @@ export class ProfileScrutinyComponent {
     initialValue: [] as LookupItem[],
   });
 
+  protected readonly categories = toSignal(this.lookups.categories(), {
+    initialValue: [] as LookupItem[],
+  });
+
+  protected readonly programTypes = toSignal(this.lookups.programTypes(null, null), {
+    initialValue: [] as LookupItem[],
+  });
+
+  protected readonly states = toSignal(this.lookups.states(), {
+    initialValue: [] as LookupItem[],
+  });
+
+  /* The counters, counted in the database against the same filters as the
+     list rather than by pulling every submission here. */
+  private readonly counts = signal<ProfileScrutinyCounts | null>(null);
+
+  /**
+   * Received, approved, rejected — and a way into each.
+   *
+   * Pending is not a tile of its own: Submitted and Under scrutiny are two
+   * points in the same queue rather than two places a profile rests.
+   */
+  protected readonly queueTiles = computed(() => {
+    const counts = this.counts();
+    return [
+      { status: '', label: 'Profiles received', count: counts?.received ?? 0 },
+      { status: 'Approved', label: 'Approved', count: counts?.approved ?? 0 },
+      { status: 'Rejected', label: 'Rejected', count: counts?.rejected ?? 0 },
+    ];
+  });
+
+  protected readonly activeStatus = computed(
+    () => (this.list.filters()['status'] as string | undefined) ?? '');
+
+  protected filterByStatus(status: string): void {
+    this.list.stageFilter('status', this.activeStatus() === status ? '' : status);
+    this.list.applyFilters();
+  }
+
+  constructor() {
+    /* Reading list.rows() ties this to every reload the list does — a
+       filter, a search, a page, or coming back from a decision — so the
+       tiles and the table can never disagree about what is being looked
+       at. */
+    effect(() => {
+      this.list.rows();
+      const filters = this.list.filters();
+      this.service
+        .counts({
+          status: filters['status'] ?? null,
+          categoryId: filters['categoryId'] ?? null,
+          subCategoryId: filters['subCategoryId'] ?? null,
+          programTypeId: filters['programTypeId'] ?? null,
+          state: filters['state'] ?? null,
+          from: filters['from'] ?? null,
+          to: filters['to'] ?? null,
+          search: this.list.search(),
+        })
+        .subscribe((counts) => this.counts.set(counts));
+    });
+  }
+
   protected readonly reasons = toSignal(this.reasonService.list(true), {
     initialValue: [] as RejectionReason[],
   });
 
   protected readonly reading = signal<ProfileSubmission | null>(null);
+
+  /** The form the submission was filled against, so answers read in sections. */
+  protected readonly formDefinition = signal<ProfileForm | null>(null);
   protected readonly deciding = signal(false);
 
   protected readonly decision = this.fb.nonNullable.group({
@@ -337,9 +542,60 @@ export class ProfileScrutinyComponent {
 
   protected open(row: ProfileSubmission): void {
     this.decision.reset({ rejectionReasonId: null, remarks: '' });
+    this.formDefinition.set(null);
+
     /* Fetched rather than reused from the row: the list carries enough to
        scan, and the sheet needs the answers and the whole history. */
     this.service.getById(row.id).subscribe((full) => this.reading.set(full));
+
+    /* And the form it was filled against, so the answers can be read in the
+       sections and under the labels the applicant saw. A bare list of
+       storage keys is not something anybody can scrutinise. */
+    this.forms.bySubCategory(row.subCategoryId).subscribe({
+      next: (form) => this.formDefinition.set(form),
+      error: () => this.formDefinition.set(null),
+    });
+  }
+
+  /**
+   * The answers laid out the way the applicant filled them: section by
+   * section, each field under its own label, in the form's own order.
+   *
+   * Anything the form no longer asks about is gathered at the end rather
+   * than dropped — a question that was removed after somebody answered it
+   * still has their answer, and hiding it would quietly change what is
+   * being scrutinised.
+   */
+  protected sections(row: ProfileSubmission): {
+    title: string;
+    entries: { label: string; value: string }[];
+  }[] {
+    const responses: Record<string, unknown> = row.responses ?? {};
+    const form = this.formDefinition();
+    if (!form) return [];
+
+    const seen = new Set<string>();
+    const out = form.sections
+      .filter((section) => section.isEnabled)
+      .sort((a, b) => a.displayOrder - b.displayOrder)
+      .map((section) => ({
+        title: section.title,
+        entries: [...section.fields]
+          .sort((a, b) => a.displayOrder - b.displayOrder)
+          .map((field) => {
+            seen.add(field.key);
+            return { label: field.label, value: this.describe(responses[field.key]) };
+          }),
+      }))
+      .filter((section) => section.entries.length > 0);
+
+    const orphans = Object.entries(responses)
+      .filter(([key]) => !seen.has(key))
+      .map(([key, value]) => ({ label: key, value: this.describe(value) }));
+
+    return orphans.length > 0
+      ? [...out, { title: 'No longer asked', entries: orphans }]
+      : out;
   }
 
   /** The answers as a list the template can walk, newest form first. */

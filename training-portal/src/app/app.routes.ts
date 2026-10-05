@@ -272,19 +272,12 @@ export const routes: Routes = [
               ),
           },
           {
-            path: 'applications',
-            title: 'Applications · CBMS',
+            path: 'profile-scrutiny/:id',
+            title: 'Profile · CBMS',
             canActivate: [permissionGuard('applications.view')],
             loadComponent: () =>
-              import('./features/admin/applications.component').then((m) => m.ApplicationsComponent),
-          },
-          {
-            path: 'applications/:id',
-            title: 'Application · CBMS',
-            canActivate: [permissionGuard('applications.view')],
-            loadComponent: () =>
-              import('./features/admin/application-detail.component').then(
-                (m) => m.ApplicationDetailComponent,
+              import('./features/admin/profile-scrutiny-detail.component').then(
+                (m) => m.ProfileScrutinyDetailComponent,
               ),
           },
         ],

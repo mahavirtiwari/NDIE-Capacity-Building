@@ -14,6 +14,7 @@ public class ProgrammeService(
     NtmsDbContext db,
     ICodeGenerator codes,
     ICurrentUser currentUser,
+    DelegationGuard delegation,
     INotificationService notifications)
 {
     /* Scoped at the source, so no read path can forget it. */
@@ -85,7 +86,7 @@ public class ProgrammeService(
             ? own
             : dto.AgencyId;
 
-        var agency = await db.Agencies.Include(a => a.ProgramTypes)
+        var agency = await db.Agencies.Include(a => a.ProgramTypes).Include(a => a.States)
                          .FirstOrDefaultAsync(a => a.Id == agencyId, ct)
                      ?? throw AppException.NotFound("Implementing agency");
 
@@ -95,6 +96,8 @@ public class ProgrammeService(
         {
             throw new AppException($"{agency.Name} is not empanelled for this program type.");
         }
+
+        await EnsureMayRunThereAsync(agency, dto.StateCode, ct);
 
         Validate(dto);
 
@@ -145,6 +148,19 @@ public class ProgrammeService(
             throw new AppException($"A {entity.Status} program can no longer be edited.");
 
         Validate(dto);
+
+        /* The same boundary on the way in as on the way out. Editing a batch
+           into a state the caller does not hold is the same hole as creating
+           one there. */
+        if (dto.StateCode != entity.StateCode)
+        {
+            var agency = await db.Agencies.Include(a => a.States)
+                             .FirstOrDefaultAsync(a => a.Id == entity.AgencyId, ct)
+                         ?? throw AppException.NotFound("Implementing agency");
+
+            await EnsureMayRunThereAsync(agency, dto.StateCode, ct);
+        }
+
         var mode = EnumMaps.ParseEnum(dto.Mode, entity.Mode);
 
         entity.CurriculumId = dto.CurriculumId ?? entity.CurriculumId;
@@ -407,6 +423,43 @@ public class ProgrammeService(
         }
 
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// A batch may only be raised where both the agency and the caller may
+    /// work.
+    ///
+    /// Allocation bounded what could be read and nothing at all about what
+    /// could be written, so somebody allocated Delhi could raise a batch in
+    /// Haryana — and then not see it, because the same allocation filtered it
+    /// straight back out. A record its own author cannot find is worse than a
+    /// refusal.
+    /// </summary>
+    private async Task EnsureMayRunThereAsync(
+        ImplementingAgency agency, int stateCode, CancellationToken ct)
+    {
+        /* Where the agency's empanelment names states at all. The ones
+           empanelled before states were recorded name none, and refusing
+           those would shut every batch they have. */
+        if (agency.States.Count > 0 && agency.States.All(s => s.StateCode != stateCode))
+        {
+            var where = await db.States.AsNoTracking()
+                .Where(x => x.Code == stateCode).Select(x => x.Name).FirstOrDefaultAsync(ct);
+            throw new AppException(
+                $"{agency.Name} is not empanelled in {where ?? "that state"}.");
+        }
+
+        /* And the caller's own reach. Whole master for an unscoped caller,
+           their allocation for everybody else — and empty for a scoped
+           account allocated nothing, which refuses, as it should. */
+        var permitted = await delegation.PermittedAsync(ScopeAxis.State, ct);
+        if (!permitted.Contains(stateCode))
+        {
+            var where = await db.States.AsNoTracking()
+                .Where(x => x.Code == stateCode).Select(x => x.Name).FirstOrDefaultAsync(ct);
+            throw AppException.Forbidden(
+                $"You are not allocated to work in {where ?? "that state"}.");
+        }
     }
 
     private static void Validate(ProgrammeUpsertDto dto)

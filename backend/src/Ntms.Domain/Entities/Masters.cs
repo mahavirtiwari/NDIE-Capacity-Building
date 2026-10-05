@@ -120,6 +120,21 @@ public class CertificateTemplate : AuditableEntity
 /// <summary>Empanelled body that conducts programmes on the ground.</summary>
 public class ImplementingAgency : AuditableStatusEntity
 {
+    /// <summary>
+    /// The Operation Manager who empanelled this agency.
+    ///
+    /// Visibility of everything the agency goes on to do follows from here:
+    /// a manager sees the batches raised by the agencies it empanelled, and
+    /// the Admin above sees those of the managers it appointed. Allocation
+    /// alone was not enough — two managers whose program types overlap were
+    /// each reading the other's agencies.
+    ///
+    /// Null for the agencies empanelled before this was recorded, and for
+    /// any created by a tier with nobody above the chain.
+    /// </summary>
+    public int? OwnerUserId { get; set; }
+    public PortalUser? OwnerUser { get; set; }
+
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public AgencyType AgencyType { get; set; } = AgencyType.GovernmentBody;

@@ -65,6 +65,9 @@ public class FieldValidationDto
     public int? MaxLength { get; set; }
     public decimal? Min { get; set; }
     public decimal? Max { get; set; }
+    /// <summary>The window a date field has to fall in.</summary>
+    public DateOnly? MinDate { get; set; }
+    public DateOnly? MaxDate { get; set; }
     public string? Pattern { get; set; }
     public List<string>? AllowedExtensions { get; set; }
     public int? MaxFileSizeMb { get; set; }

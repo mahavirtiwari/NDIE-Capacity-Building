@@ -321,6 +321,8 @@ public static class DtoMappings
                                 MaxLength = f.Validation.MaxLength,
                                 Min = f.Validation.Min,
                                 Max = f.Validation.Max,
+                                MinDate = f.Validation.MinDate,
+                                MaxDate = f.Validation.MaxDate,
                                 Pattern = f.Validation.Pattern,
                                 AllowedExtensions = EnumMaps.SplitList(f.Validation.AllowedExtensions),
                                 MaxFileSizeMb = f.Validation.MaxFileSizeMb,
@@ -485,6 +487,7 @@ public static class DtoMappings
             Permissions = [.. e.Permissions.Select(p => p.Permission).Order()],
             UserCount = userCount,
             IsSystemRole = e.IsSystemRole,
+            IsDefault = e.OwnerUserId is null,
             /* Read from RoleHierarchy, which is the one definition of what
                a tier is allocated on. */
             Axes = e.BaseRole.ToAxesDto(),

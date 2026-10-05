@@ -101,6 +101,16 @@ public class AdminRoleDto : AuditDto
     public bool IsSystemRole { get; set; }
 
     /// <summary>
+    /// The seeded starting point for its tier, owned by nobody. Offered to
+    /// every creator at that tier and reshaped by none of them, so the screen
+    /// shows it read-only rather than offering an Edit the server refuses.
+    /// </summary>
+    public bool IsDefault { get; set; }
+
+    /// <summary>Whether this caller may reshape it — decided on the server.</summary>
+    public bool CanEdit { get; set; }
+
+    /// <summary>
     /// Which axes an account on this role is allocated on, so the screen
     /// that allocates one shows the right pickers.
     ///

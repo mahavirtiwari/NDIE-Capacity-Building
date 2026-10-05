@@ -262,7 +262,12 @@ public class AgencyService(
            down what they hold on each of them. */
         var scope = await ResolveEmpanelmentAsync(dto, ct);
 
-        var entity = new ImplementingAgency();
+        var entity = new ImplementingAgency
+        {
+            /* Whoever empanels an agency answers for it, and sees what it
+               goes on to do. The tier above sees it through them. */
+            OwnerUserId = currentUser.UserId,
+        };
         Apply(entity, dto, code);
         ReplaceMappings(entity, scope);
 

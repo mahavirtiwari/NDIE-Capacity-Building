@@ -48,6 +48,7 @@ public class DbSeeder(
         await SeedLocationsAsync(ct);
         await SeedRolesAsync(ct);
         await SeedSuperAdminAsync(ct);
+        await AssignRoleOwnershipAsync(ct);
         await SeedBrandingAsync(ct);
         await SeedEmailAsync(ct);
         await SeedSignupFormAsync(ct);
@@ -193,6 +194,42 @@ public class DbSeeder(
     }
 
     /* --------------------------------------------------------- super admin */
+
+    /// <summary>
+    /// Hands the Super Admin the two tiers it settles.
+    ///
+    /// A role is reshaped only by the account that owns it, so the seeded
+    /// Admin and Ministry roles are given to the Super Admin — those two are
+    /// its to decide. Everything below stays ownerless on purpose: the
+    /// default for its tier, offered to whoever appoints one and reshaped by
+    /// none of them, because two Admins each appoint Operation Managers and
+    /// neither settles the other's.
+    ///
+    /// Runs after the Super Admin exists, which is why it is not part of
+    /// seeding the roles themselves.
+    /// </summary>
+    private async Task AssignRoleOwnershipAsync(CancellationToken ct)
+    {
+        var superAdmin = await db.Users
+            .Where(u => u.BaseRole == BaseRole.SuperAdmin)
+            .OrderBy(u => u.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (superAdmin is null) return;
+
+        var theirs = await db.Roles
+            .Where(r => (r.BaseRole == BaseRole.Admin || r.BaseRole == BaseRole.Ministry)
+                        && r.OwnerUserId == null)
+            .ToListAsync(ct);
+
+        if (theirs.Count == 0) return;
+
+        foreach (var role in theirs) role.OwnerUserId = superAdmin.Id;
+        await db.SaveChangesAsync(ct);
+
+        logger.LogInformation(
+            "Assigned {Count} seeded role(s) to the Super Admin to settle", theirs.Count);
+    }
 
     private async Task SeedSuperAdminAsync(CancellationToken ct)
     {
@@ -358,23 +395,28 @@ public class DbSeeder(
            these keys are touched; everything else stays as configured. */
         var corrections = new (string Code, string[] Grant, string[] Revoke)[]
         {
-            /* RolesView is read-only. A tier that creates the one below it has
-               to be able to list roles to fill the dropdown; managing them
-               stays with the Super Admin. */
+            /* A tier settles what the tier it appoints may do, so the three
+               that appoint somebody hold both keys. Bounded elsewhere: a
+               role can only be given permissions its shaper holds, and only
+               the shaper can reshape it. A Coordinator appoints nobody and
+               gets neither. */
             /* The registers were added after these roles were configured, and
                a permission that exists but is on no role is a screen nobody
                can reach. Granted to whoever already had the equivalent reach:
                reading reports and running programmes. */
             ("ADMIN",
-                [Permissions.CoordinatorsView, Permissions.UsersStatus, Permissions.RolesView,
+                [Permissions.CoordinatorsView, Permissions.UsersStatus,
+                 Permissions.RolesView, Permissions.RolesManage,
                  Permissions.ProfessionalsView, Permissions.TrainersView],
                 [Permissions.AgenciesManage]),
             ("OPS_MANAGER",
                 [Permissions.AgenciesView, Permissions.AgenciesManage,
                  Permissions.UsersView, Permissions.UsersStatus,
                  Permissions.ProfessionalsView, Permissions.TrainersView,
-                 Permissions.TrainersManage], []),
-            ("AGENCY_ADMIN", [Permissions.UsersStatus, Permissions.RolesView], []),
+                 Permissions.TrainersManage,
+                 Permissions.RolesView, Permissions.RolesManage], []),
+            ("AGENCY_ADMIN",
+                [Permissions.UsersStatus, Permissions.RolesView, Permissions.RolesManage], []),
             /* Oversight only: the Ministry must never gain a write key. */
             ("MINISTRY",
                 [Permissions.ProfessionalsView, Permissions.TrainersView],

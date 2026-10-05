@@ -14,7 +14,48 @@ namespace Ntms.Infrastructure.Services;
 
 public class RoleService(NtmsDbContext db, ICurrentUser currentUser)
 {
-    private IQueryable<AdminRole> Base => db.Roles.AsNoTracking().Include(r => r.Permissions);
+    /// <summary>
+    /// The roles this account has any business seeing.
+    ///
+    /// A tier settles what the tier beneath it may do, so the catalogue is
+    /// not one list everybody reads. What is visible is: the roles for the
+    /// tier this account appoints, and of those, only the ones it shaped
+    /// itself plus the seeded default nobody owns.
+    ///
+    /// </summary>
+    private IQueryable<AdminRole> Base
+    {
+        get
+        {
+            var query = db.Roles.AsNoTracking().Include(r => r.Permissions);
+            if (currentUser.Tier is not { } tier) return query.Where(_ => false);
+
+            var shapes = RoleHierarchy.CreatableBy(tier).ToList();
+            var self = currentUser.UserId ?? 0;
+
+            return query.Where(r =>
+                shapes.Contains(r.BaseRole)
+                && (r.OwnerUserId == null || r.OwnerUserId == self));
+        }
+    }
+
+    /// <summary>Shaped by somebody else, or by nobody: not this caller's to change.</summary>
+    private bool Owns(AdminRole role) => role.OwnerUserId == (currentUser.UserId ?? 0);
+
+    /// <summary>
+    /// The role, plus whether this caller may reshape it — decided here and
+    /// sent, so the screen withholds an Edit the server would refuse rather
+    /// than offering one that fails when pressed.
+    /// </summary>
+    private AdminRoleDto Describe(AdminRole role, int userCount = 0)
+    {
+        var dto = role.ToDto(userCount);
+        dto.CanEdit = role.OwnerUserId is not null
+                      && Owns(role)
+                      && currentUser.Tier is { } tier
+                      && RoleHierarchy.CanCreate(tier, role.BaseRole);
+        return dto;
+    }
 
     public async Task<PagedResult<AdminRoleDto>> ListAsync(
         PagedRequest request, string? baseRole, string? status, CancellationToken ct)
@@ -34,21 +75,21 @@ public class RoleService(NtmsDbContext db, ICurrentUser currentUser)
             .ApplySort(request, db.Model.FindEntityType(typeof(AdminRole))!, r => r.Name);
 
         return await query.ToPagedResultAsync(
-            request, r => r.ToDto(counts.GetValueOrDefault(r.Id)), ct);
+            request, r => Describe(r, counts.GetValueOrDefault(r.Id)), ct);
     }
 
     public async Task<List<AdminRoleDto>> AllAsync(string? status, CancellationToken ct) =>
         [.. (await Base
                 .WhereIf(!string.IsNullOrWhiteSpace(status), r => r.Status == EnumMaps.ToStatus(status))
                 .OrderBy(r => r.Name).ToListAsync(ct))
-            .Select(r => r.ToDto())];
+            .Select(Describe)];
 
     public async Task<AdminRoleDto> GetAsync(int id, CancellationToken ct)
     {
         var role = await Base.FirstOrDefaultAsync(r => r.Id == id, ct)
                    ?? throw AppException.NotFound("Role");
         var count = await db.Users.CountAsync(u => u.RoleId == id, ct);
-        return role.ToDto(count);
+        return Describe(role, count);
     }
 
     public IReadOnlyList<PermissionGroupDto> Catalogue() =>
@@ -77,6 +118,9 @@ public class RoleService(NtmsDbContext db, ICurrentUser currentUser)
             BaseRole = EnumMaps.ParseEnum(dto.BaseRole, BaseRole.Admin),
             Description = dto.Description,
             IsSystemRole = false,
+            /* Whoever shapes a role owns it, and is the only one who can
+               reshape it. Two Admins each settle their own. */
+            OwnerUserId = currentUser.UserId,
             Status = EnumMaps.ToStatus(dto.Status),
         };
         foreach (var permission in dto.Permissions.Distinct())
@@ -96,7 +140,7 @@ public class RoleService(NtmsDbContext db, ICurrentUser currentUser)
         /* The role as it stands, and the role it would become: both have to be
            beneath the caller. Checking only the target would let somebody
            promote a role they may edit into one they may not. */
-        EnsureMayShape(entity.BaseRole);
+        EnsureMayReshape(entity);
         if (!entity.IsSystemRole) EnsureMayShape(EnumMaps.ParseEnum(dto.BaseRole, entity.BaseRole));
         EnsureMayGrant(dto.Permissions, entity.Permissions.Select(p => p.Permission));
 
@@ -127,7 +171,7 @@ public class RoleService(NtmsDbContext db, ICurrentUser currentUser)
     {
         var entity = await db.Roles.FirstOrDefaultAsync(r => r.Id == id, ct)
                      ?? throw AppException.NotFound("Role");
-        EnsureMayShape(entity.BaseRole);
+        EnsureMayReshape(entity);
 
         if (entity.IsSystemRole)
             throw new AppException("System roles cannot be disabled.");
@@ -145,6 +189,16 @@ public class RoleService(NtmsDbContext db, ICurrentUser currentUser)
     /// The permission to administer roles is not the permission to administer
     /// every role.
     /// </summary>
+    /// <summary>
+    /// A tier shapes the roles of the tier it appoints, and of no other.
+    ///
+    /// The same table that governs who may create an account, because it is
+    /// the same question: a Super Admin settles what an Admin and the
+    /// Ministry may do, an Admin settles what its Operation Managers may do,
+    /// and so down the chain. Outranking is not enough — a Super Admin
+    /// outranks a Coordinator, but what a Coordinator may do is the agency's
+    /// business, not the Super Admin's.
+    /// </summary>
     private void EnsureMayShape(BaseRole target)
     {
         var actor = currentUser.Tier;
@@ -152,13 +206,35 @@ public class RoleService(NtmsDbContext db, ICurrentUser currentUser)
         if (actor is null)
             throw AppException.Forbidden("Sign in again before changing roles.");
 
-        if (actor == BaseRole.SuperAdmin) return;
-
-        if (!RoleHierarchy.Outranks(actor.Value, target))
+        if (!RoleHierarchy.CanCreate(actor.Value, target))
         {
             throw AppException.Forbidden(
-                $"{Article(actor.Value, capital: true)} cannot change " +
-                $"{Article(target)} role. A role can only be changed from above it.");
+                $"{Article(actor.Value, capital: true)} does not settle what "
+                + $"{Article(target)} may do. That is decided by whoever appoints them.");
+        }
+    }
+
+    /// <summary>
+    /// The seeded roles are the starting point and belong to nobody, so
+    /// nobody edits them into something another creator did not ask for. A
+    /// creator who wants different makes their own.
+    /// </summary>
+    private void EnsureMayReshape(AdminRole role)
+    {
+        EnsureMayShape(role.BaseRole);
+
+        if (role.OwnerUserId is null)
+        {
+            throw AppException.Forbidden(
+                $"'{role.Name}' is the default for its tier and is shared by everyone who "
+                + "appoints one. Copy it into a role of your own and change that instead.");
+        }
+
+        if (!Owns(role))
+        {
+            throw AppException.Forbidden(
+                $"'{role.Name}' was shaped by somebody else. You can only change roles you "
+                + "created yourself.");
         }
     }
 

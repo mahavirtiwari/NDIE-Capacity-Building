@@ -133,7 +133,9 @@ const labelFor = (base: string): string => ROLE_LABELS[base as AppRole] ?? base;
         <ng-template appCell="name" let-row>
           <div class="stack stack-xs">
             <strong>{{ $any(row).name }}</strong>
-            @if ($any(row).isSystemRole) {
+            @if ($any(row).isDefault) {
+              <span class="chip">Default for its tier</span>
+            } @else if ($any(row).isSystemRole) {
               <span class="chip">System role</span>
             }
           </div>
@@ -143,12 +145,22 @@ const labelFor = (base: string): string => ROLE_LABELS[base as AppRole] ?? base;
         </ng-template>
         <ng-template appCell="actions" let-row>
           <div class="btn-row btn-row--end">
-            <button type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
-              <app-icon name="edit" [size]="15" />
-            </button>
+            <!-- Withheld rather than offered and refused. A default belongs
+                 to no one and is shared by everyone who appoints at that
+                 tier; a role somebody else shaped is theirs. -->
+            @if ($any(row).canEdit) {
+              <button type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
+                <app-icon name="edit" [size]="15" />
+              </button>
+            } @else {
+              <button type="button" class="btn btn--icon" title="Copy into a role of your own"
+                (click)="copyFrom($any(row))">
+                <app-icon name="plus" [size]="15" />
+              </button>
+            }
             <app-status-toggle
               [status]="$any(row).status"
-              [disabled]="$any(row).isSystemRole"
+              [disabled]="$any(row).isSystemRole || !$any(row).canEdit"
               (toggled)="setStatus($any(row), $event)"
             />
           </div>
@@ -342,6 +354,30 @@ export class RolesComponent {
 
   protected selectAll(all: boolean): void {
     this.selected.set(all ? [...ALL_PERMISSIONS] : []);
+  }
+
+  /**
+   * A new role of your own, starting from one you cannot change.
+   *
+   * The default for a tier is shared by everyone who appoints at it, so it
+   * is nobody's to edit. Copying it is how a creator gets something of their
+   * own to narrow — which is the whole point of the tier settling what the
+   * tier beneath it may do.
+   */
+  protected copyFrom(row: AdminRole): void {
+    this.editing.set(null);
+    this.selected.set([...row.permissions]);
+    this.form.reset({
+      name: `${row.name} (mine)`,
+      code: '',
+      baseRole: row.baseRole,
+      description: row.description ?? '',
+      status: 'Active',
+    });
+    for (const control of ['name', 'code', 'baseRole', 'status'] as const) {
+      this.form.controls[control].enable();
+    }
+    this.formOpen.set(true);
   }
 
   protected openForm(row?: AdminRole): void {
