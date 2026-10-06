@@ -88,7 +88,7 @@ export function Picker({
         <Text style={styles.hint}>{hint}</Text>
       ) : null}
 
-      <Modal visible={open} animationType="slide" transparent onRequestClose={() => setOpen(false)}>
+      <Modal visible={open} animationType="fade" transparent onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
             <View style={styles.sheetHeader}>
@@ -304,18 +304,30 @@ const styles = StyleSheet.create({
   error: { fontSize: font.xs, color: colors.danger700, fontWeight: '500' },
   hint: { fontSize: font.sm, color: colors.ink600, lineHeight: 17 },
 
+  /* Centred rather than anchored to the bottom edge, like every other
+     dialog in the app. A sheet that rises from the bottom puts the first
+     option under the thumb and the title furthest from the eye; in the
+     middle the list is read before it is reached for, and it no longer
+     has to dodge the gesture bar.
+
+     Capped both ways: the 763-district list would otherwise grow to the
+     full height of the window, and the list inside scrolls. */
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15,23,42,0.45)',
-    justifyContent: 'flex-end',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
   },
   sheet: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
+    width: '100%',
+    maxWidth: 420,
     maxHeight: '80%',
-    /* Clear of the gesture bar, which was cutting the last option in half. */
-    paddingBottom: spacing.xxl,
+    alignSelf: 'center',
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    paddingBottom: spacing.sm,
   },
   sheetHeader: {
     flexDirection: 'row',

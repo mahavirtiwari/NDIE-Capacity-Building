@@ -88,7 +88,7 @@ export function Picker({
         <Text style={styles.hint}>{hint}</Text>
       ) : null}
 
-      <Modal visible={open} animationType="slide" transparent onRequestClose={() => setOpen(false)}>
+      <Modal visible={open} animationType="fade" transparent onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
             <View style={styles.sheetHeader}>
@@ -304,17 +304,25 @@ const styles = StyleSheet.create({
   error: { fontSize: font.xs, color: colors.danger700, fontWeight: '500' },
   hint: { fontSize: font.xs, color: colors.ink500 },
 
+  /* Centred, matching the applicant app. A list anchored to the bottom
+     edge puts its title furthest from the eye and its first option under
+     the thumb; capped both ways, with the list inside scrolling. */
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15,23,42,0.45)',
-    justifyContent: 'flex-end',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
   },
   sheet: {
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '80%',
+    alignSelf: 'center',
     backgroundColor: colors.white,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    maxHeight: '75%',
-    paddingBottom: spacing.xl,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    paddingBottom: spacing.sm,
   },
   sheetHeader: {
     flexDirection: 'row',

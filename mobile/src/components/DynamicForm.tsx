@@ -16,6 +16,7 @@ import { MAX_LENGTHS, UPPERCASE_TYPES, dateBoundsError, formatErrorFor } from '.
 import { me } from '../api/endpoints';
 import { saveAndShare } from '../files/saveAndShare';
 import { Card, Chip, Field } from './ui';
+import { DateField } from './DateField';
 import { CheckboxGroup, Picker, RadioGroup, Switch } from './Picker';
 
 export type FormValue = string | string[] | boolean | null;
@@ -806,6 +807,20 @@ function FieldRenderer({
         />
       );
 
+    case 'date':
+      return (
+        <DateField
+          label={field.label}
+          required={field.validation.required}
+          value={typeof value === 'string' && value ? value : null}
+          hint={field.helpText}
+          error={error}
+          minDate={field.validation.minDate}
+          maxDate={field.validation.maxDate}
+          onChange={onChange}
+        />
+      );
+
     case 'file':
       return (
         <FileField
@@ -834,7 +849,7 @@ function FieldRenderer({
 
     default: {
       const upper = UPPERCASE_TYPES.includes(field.type);
-      const numeric = ['number', 'mobile', 'aadhaar', 'pincode', 'date'].includes(field.type);
+      const numeric = ['number', 'mobile', 'aadhaar', 'pincode'].includes(field.type);
 
       return (
         <Field
@@ -842,7 +857,7 @@ function FieldRenderer({
           required={field.validation.required}
           value={typeof value === 'string' ? value : ''}
           onChangeText={(text) => onChange(upper ? text.toUpperCase() : text)}
-          placeholder={field.placeholder ?? (field.type === 'date' ? 'YYYY-MM-DD' : undefined)}
+          placeholder={field.placeholder}
           hint={field.helpText}
           error={error}
           autoCapitalize={upper ? 'characters' : field.type === 'email' ? 'none' : 'sentences'}
@@ -1181,13 +1196,16 @@ const styles = StyleSheet.create({
      page, the questions being asked should read as one block and not as
      more of the page. */
   section: { gap: spacing.md, backgroundColor: colors.brand50, borderColor: colors.brand100 },
+  /* The rule under a heading was a 1pt tint, which on a card that is
+     itself tinted read as nothing at all, so the sections ran together.
+     Brand red at 2pt actually divides them. */
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.brand100,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.brand600,
     paddingBottom: spacing.sm,
   },
   sectionTitle: { flex: 1, fontSize: font.md, fontWeight: '700', color: colors.ink900 },
