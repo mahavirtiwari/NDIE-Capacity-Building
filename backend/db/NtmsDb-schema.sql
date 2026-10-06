@@ -6084,3 +6084,44 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261006000958_AnAgencySuspensionIsRecorded'
+)
+BEGIN
+    CREATE TABLE [AgencyStatusEvents] (
+        [Id] int NOT NULL IDENTITY,
+        [AgencyId] int NOT NULL,
+        [FromStatus] varchar(40) NOT NULL,
+        [ToStatus] varchar(40) NOT NULL,
+        [Reason] nvarchar(500) NOT NULL,
+        [ByUserId] int NULL,
+        [ByUserName] nvarchar(160) NOT NULL,
+        [ByUserCode] nvarchar(20) NOT NULL,
+        [On] datetime2 NOT NULL,
+        CONSTRAINT [PK_AgencyStatusEvents] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_AgencyStatusEvents_ImplementingAgencies_AgencyId] FOREIGN KEY ([AgencyId]) REFERENCES [ImplementingAgencies] ([Id]) ON DELETE CASCADE
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261006000958_AnAgencySuspensionIsRecorded'
+)
+BEGIN
+    CREATE INDEX [IX_AgencyStatusEvents_AgencyId_On] ON [AgencyStatusEvents] ([AgencyId], [On]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261006000958_AnAgencySuspensionIsRecorded'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261006000958_AnAgencySuspensionIsRecorded', N'10.0.12');
+END;
+
+COMMIT;
+GO
+
