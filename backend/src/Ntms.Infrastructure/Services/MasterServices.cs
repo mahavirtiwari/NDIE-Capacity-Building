@@ -11,7 +11,23 @@ namespace Ntms.Infrastructure.Services;
 
 /* ------------------------------------------------------------- categories */
 
-public class CategoryService(NtmsDbContext db)
+
+/* ---------------------------------------------------------------- scoping
+
+   The master list screens read the whole table. The dropdowns in front of
+   them were narrowed to the account's allocation, which hid the problem:
+   an Admin holding one category still saw every category, sub-category and
+   program type in the system the moment they opened the master screen, and
+   could open one by its URL.
+
+   So each read path below asks MasterVisibility what the account may see.
+   Null is no narrowing (Super Admin, the Ministry); an empty list is an
+   account that holds nothing on that axis, and sees nothing. A record
+   outside the allocation reads as absent rather than forbidden: whether a
+   program type exists in a category you were not given is not yours to
+   learn. */
+
+public class CategoryService(NtmsDbContext db, MasterVisibility visibility)
 {
     public async Task<PagedResult<CategoryDto>> ListAsync(
         PagedRequest request, string? status, CancellationToken ct)
@@ -21,7 +37,10 @@ public class CategoryService(NtmsDbContext db)
             .Select(g => new { CategoryId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.CategoryId, x => x.Count, ct);
 
+        var visible = await visibility.CategoriesAsync(ct);
+
         var query = db.Categories.AsNoTracking()
+            .WhereIf(visible is not null, c => visible!.Contains(c.Id))
             .WhereIf(!string.IsNullOrWhiteSpace(status),
                 c => c.Status == EnumMaps.ToStatus(status))
             .WhereIf(!string.IsNullOrWhiteSpace(request.Search),
@@ -33,15 +52,24 @@ public class CategoryService(NtmsDbContext db)
             request, c => c.ToDto(counts.GetValueOrDefault(c.Id)), ct);
     }
 
-    public async Task<List<CategoryDto>> AllAsync(string? status, CancellationToken ct) =>
-        [.. (await db.Categories.AsNoTracking()
+    public async Task<List<CategoryDto>> AllAsync(string? status, CancellationToken ct)
+    {
+        var visible = await visibility.CategoriesAsync(ct);
+
+        return [.. (await db.Categories.AsNoTracking()
+                .WhereIf(visible is not null, c => visible!.Contains(c.Id))
                 .WhereIf(!string.IsNullOrWhiteSpace(status), c => c.Status == EnumMaps.ToStatus(status))
                 .OrderBy(c => c.DisplayOrder).ToListAsync(ct))
             .Select(c => c.ToDto())];
+    }
 
     public async Task<CategoryDto> GetAsync(int id, CancellationToken ct)
     {
-        var entity = await db.Categories.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, ct)
+        var visible = await visibility.CategoriesAsync(ct);
+
+        var entity = await db.Categories.AsNoTracking()
+                         .WhereIf(visible is not null, c => visible!.Contains(c.Id))
+                         .FirstOrDefaultAsync(c => c.Id == id, ct)
                      ?? throw AppException.NotFound("Category");
         var count = await db.SubCategories.CountAsync(s => s.CategoryId == id, ct);
         return entity.ToDto(count);
@@ -125,14 +153,21 @@ public class CategoryService(NtmsDbContext db)
 
 /* ---------------------------------------------------------- sub-categories */
 
-public class SubCategoryService(NtmsDbContext db)
+public class SubCategoryService(NtmsDbContext db, MasterVisibility visibility)
 {
     private IQueryable<SubCategory> Base => db.SubCategories.AsNoTracking().Include(s => s.Category);
+
+    /// <summary>The base query already narrowed to what the caller may see.</summary>
+    private async Task<IQueryable<SubCategory>> VisibleAsync(CancellationToken ct)
+    {
+        var visible = await visibility.SubCategoriesAsync(ct);
+        return Base.WhereIf(visible is not null, s => visible!.Contains(s.Id));
+    }
 
     public async Task<PagedResult<SubCategoryDto>> ListAsync(
         PagedRequest request, int? categoryId, string? status, CancellationToken ct)
     {
-        var query = Base
+        var query = (await VisibleAsync(ct))
             .WhereIf(categoryId.HasValue, s => s.CategoryId == categoryId)
             .WhereIf(!string.IsNullOrWhiteSpace(status), s => s.Status == EnumMaps.ToStatus(status))
             .WhereIf(!string.IsNullOrWhiteSpace(request.Search),
@@ -142,15 +177,16 @@ public class SubCategoryService(NtmsDbContext db)
         return await query.ToPagedResultAsync(request, s => s.ToDto(), ct);
     }
 
-    public async Task<List<SubCategoryDto>> AllAsync(int? categoryId, string? status, CancellationToken ct) =>
-        [.. (await Base
+    public async Task<List<SubCategoryDto>> AllAsync(
+        int? categoryId, string? status, CancellationToken ct) =>
+        [.. (await (await VisibleAsync(ct))
                 .WhereIf(categoryId.HasValue, s => s.CategoryId == categoryId)
                 .WhereIf(!string.IsNullOrWhiteSpace(status), s => s.Status == EnumMaps.ToStatus(status))
                 .OrderBy(s => s.DisplayOrder).ToListAsync(ct))
             .Select(s => s.ToDto())];
 
     public async Task<SubCategoryDto> GetAsync(int id, CancellationToken ct) =>
-        (await Base.FirstOrDefaultAsync(s => s.Id == id, ct)
+        (await (await VisibleAsync(ct)).FirstOrDefaultAsync(s => s.Id == id, ct)
          ?? throw AppException.NotFound("Sub-category")).ToDto();
 
     public async Task<SubCategoryDto> CreateAsync(SubCategoryUpsertDto dto, CancellationToken ct)
@@ -244,7 +280,8 @@ public class SubCategoryService(NtmsDbContext db)
 
 /* ----------------------------------------------------------- program types */
 
-public class ProgramTypeService(NtmsDbContext db, CertificateTemplateStore templates)
+public class ProgramTypeService(
+    NtmsDbContext db, CertificateTemplateStore templates, MasterVisibility visibility)
 {
     private IQueryable<ProgramType> Base =>
         db.ProgramTypes.AsNoTracking()
@@ -253,13 +290,20 @@ public class ProgramTypeService(NtmsDbContext db, CertificateTemplateStore templ
             .Include(p => p.CertificateTemplates)
             .Include(p => p.Skills);
 
+    /// <summary>The base query already narrowed to what the caller may see.</summary>
+    private async Task<IQueryable<ProgramType>> VisibleAsync(CancellationToken ct)
+    {
+        var visible = await visibility.ProgramTypesAsync(ct);
+        return Base.WhereIf(visible is not null, p => visible!.Contains(p.Id));
+    }
+
     public async Task<PagedResult<ProgramTypeDto>> ListAsync(
         PagedRequest request, int? categoryId, int? subCategoryId,
         string? deliveryMode, string? status, CancellationToken ct)
     {
         var mode = EnumMaps.ParseEnumOrNull<DeliveryMode>(deliveryMode);
 
-        var query = Base
+        var query = (await VisibleAsync(ct))
             .WhereIf(categoryId.HasValue, p => p.CategoryId == categoryId)
             .WhereIf(subCategoryId.HasValue, p => p.SubCategoryId == subCategoryId)
             .WhereIf(mode.HasValue, p => p.DeliveryMode == mode)
@@ -273,7 +317,7 @@ public class ProgramTypeService(NtmsDbContext db, CertificateTemplateStore templ
 
     public async Task<List<ProgramTypeDto>> AllAsync(
         int? categoryId, int? subCategoryId, string? status, CancellationToken ct) =>
-        [.. (await Base
+        [.. (await (await VisibleAsync(ct))
                 .WhereIf(categoryId.HasValue, p => p.CategoryId == categoryId)
                 .WhereIf(subCategoryId.HasValue, p => p.SubCategoryId == subCategoryId)
                 .WhereIf(!string.IsNullOrWhiteSpace(status), p => p.Status == EnumMaps.ToStatus(status))
@@ -281,7 +325,7 @@ public class ProgramTypeService(NtmsDbContext db, CertificateTemplateStore templ
             .Select(p => p.ToDto())];
 
     public async Task<ProgramTypeDto> GetAsync(int id, CancellationToken ct) =>
-        (await Base.FirstOrDefaultAsync(p => p.Id == id, ct)
+        (await (await VisibleAsync(ct)).FirstOrDefaultAsync(p => p.Id == id, ct)
          ?? throw AppException.NotFound("Program type")).ToDto();
 
     public async Task<ProgramTypeDto> CreateAsync(ProgramTypeUpsertDto dto, CancellationToken ct)

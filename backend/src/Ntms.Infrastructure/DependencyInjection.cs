@@ -61,6 +61,7 @@ public static class DependencyInjection
         services.AddScoped<OtpService>();
         services.AddScoped<DbSeeder>();
 
+        services.AddScoped<MasterVisibility>();
         services.AddScoped<CategoryService>();
         services.AddScoped<SubCategoryService>();
         services.AddScoped<QualificationService>();

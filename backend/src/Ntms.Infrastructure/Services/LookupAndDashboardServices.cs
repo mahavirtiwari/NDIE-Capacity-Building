@@ -12,7 +12,11 @@ namespace Ntms.Infrastructure.Services;
 
 /* ------------------------------------------------------------------ lookups */
 
-public class LookupService(NtmsDbContext db, ICurrentUser currentUser, DelegationGuard delegation)
+public class LookupService(
+    NtmsDbContext db,
+    ICurrentUser currentUser,
+    DelegationGuard delegation,
+    MasterVisibility visibility)
 {
     /// <summary>
     /// Everything the caller may allocate to somebody beneath them, read
@@ -79,7 +83,7 @@ public class LookupService(NtmsDbContext db, ICurrentUser currentUser, Delegatio
     /// </summary>
     public async Task<List<LookupItemDto>> CategoriesAsync(CancellationToken ct)
     {
-        var visible = await VisibleCategoriesAsync(ct);
+        var visible = await visibility.CategoriesAsync(ct);
 
         return await db.Categories.AsNoTracking()
             .Where(c => c.Status == RecordStatus.Active)
@@ -92,7 +96,7 @@ public class LookupService(NtmsDbContext db, ICurrentUser currentUser, Delegatio
     public async Task<List<LookupItemDto>> SubCategoriesAsync(
         int? categoryId, CancellationToken ct)
     {
-        var visible = await VisibleSubCategoriesAsync(ct);
+        var visible = await visibility.SubCategoriesAsync(ct);
 
         return await db.SubCategories.AsNoTracking()
             .Where(s => s.Status == RecordStatus.Active)
@@ -109,7 +113,7 @@ public class LookupService(NtmsDbContext db, ICurrentUser currentUser, Delegatio
     public async Task<List<LookupItemDto>> ProgramTypesAsync(
         int? categoryId, int? subCategoryId, CancellationToken ct)
     {
-        var visible = await VisibleProgramTypesAsync(ct);
+        var visible = await visibility.ProgramTypesAsync(ct);
 
         return await db.ProgramTypes.AsNoTracking()
             .Where(p => p.Status == RecordStatus.Active)
@@ -122,115 +126,6 @@ public class LookupService(NtmsDbContext db, ICurrentUser currentUser, Delegatio
                 Id = p.Id, Name = p.Name, Code = p.Code, ParentId = p.SubCategoryId,
             })
             .ToListAsync(ct);
-    }
-
-    /* ------------------------------------------------- what is visible
-
-       An allocation names one or two axes and the rest follow from it.
-       An Admin given categories can see the sub-categories inside them;
-       an agency given program types can see the category those sit in.
-       So this derives in both directions, which is what makes it
-       different from what may be *allocated* — you can pass down a
-       sub-category of a category you hold, but holding a program type
-       inside a category has never let you hand out the category itself.
-
-       Null means no narrowing at all: Super Admin, the Ministry, and the
-       anonymous reads the applicant app makes before anybody signs in. */
-
-    private async Task<List<int>?> VisibleCategoriesAsync(CancellationToken ct)
-    {
-        if (!currentUser.IsMasterScoped) return null;
-
-        if (currentUser.ScopeCategoryIds.Count > 0) return [.. currentUser.ScopeCategoryIds];
-
-        if (currentUser.ScopeSubCategoryIds.Count > 0)
-        {
-            var subs = currentUser.ScopeSubCategoryIds;
-            return await db.SubCategories.AsNoTracking()
-                .Where(s => subs.Contains(s.Id))
-                .Select(s => s.CategoryId).Distinct().ToListAsync(ct);
-        }
-
-        var types = currentUser.ScopeProgramTypeIds;
-        if (types.Count == 0) return [];
-
-        return await db.ProgramTypes.AsNoTracking()
-            .Where(p => types.Contains(p.Id))
-            .Select(p => p.CategoryId).Distinct().ToListAsync(ct);
-    }
-
-    private async Task<List<int>?> VisibleSubCategoriesAsync(CancellationToken ct)
-    {
-        if (!currentUser.IsMasterScoped) return null;
-
-        if (currentUser.ScopeSubCategoryIds.Count > 0)
-            return [.. currentUser.ScopeSubCategoryIds];
-
-        if (currentUser.ScopeCategoryIds.Count > 0)
-        {
-            var categories = currentUser.ScopeCategoryIds;
-            return await db.SubCategories.AsNoTracking()
-                .Where(s => categories.Contains(s.CategoryId))
-                .Select(s => s.Id).ToListAsync(ct);
-        }
-
-        var types = currentUser.ScopeProgramTypeIds;
-        if (types.Count == 0) return [];
-
-        return await db.ProgramTypes.AsNoTracking()
-            .Where(p => types.Contains(p.Id))
-            .Select(p => p.SubCategoryId).Distinct().ToListAsync(ct);
-    }
-
-    private async Task<List<int>?> VisibleProgramTypesAsync(CancellationToken ct)
-    {
-        if (!currentUser.IsMasterScoped) return null;
-
-        if (currentUser.ScopeProgramTypeIds.Count > 0)
-            return [.. currentUser.ScopeProgramTypeIds];
-
-        if (currentUser.ScopeSubCategoryIds.Count > 0)
-        {
-            var subs = currentUser.ScopeSubCategoryIds;
-            return await db.ProgramTypes.AsNoTracking()
-                .Where(p => subs.Contains(p.SubCategoryId))
-                .Select(p => p.Id).ToListAsync(ct);
-        }
-
-        var categories = currentUser.ScopeCategoryIds;
-        if (categories.Count == 0) return [];
-
-        return await db.ProgramTypes.AsNoTracking()
-            .Where(p => categories.Contains(p.CategoryId))
-            .Select(p => p.Id).ToListAsync(ct);
-    }
-
-    private async Task<List<int>?> VisibleStatesAsync(CancellationToken ct)
-    {
-        if (!currentUser.IsMasterScoped) return null;
-
-        if (currentUser.ScopeStateCodes.Count > 0) return [.. currentUser.ScopeStateCodes];
-
-        var districts = currentUser.ScopeDistrictCodes;
-        if (districts.Count == 0) return [];
-
-        return await db.Districts.AsNoTracking()
-            .Where(d => districts.Contains(d.Code))
-            .Select(d => d.StateCode).Distinct().ToListAsync(ct);
-    }
-
-    private async Task<List<int>?> VisibleDistrictsAsync(CancellationToken ct)
-    {
-        if (!currentUser.IsMasterScoped) return null;
-
-        if (currentUser.ScopeDistrictCodes.Count > 0) return [.. currentUser.ScopeDistrictCodes];
-
-        var states = currentUser.ScopeStateCodes;
-        if (states.Count == 0) return [];
-
-        return await db.Districts.AsNoTracking()
-            .Where(d => states.Contains(d.StateCode))
-            .Select(d => d.Code).ToListAsync(ct);
     }
 
     public Task<List<LookupItemDto>> AgenciesAsync(CancellationToken ct) =>
@@ -287,7 +182,7 @@ public class LookupService(NtmsDbContext db, ICurrentUser currentUser, Delegatio
     /// </summary>
     public async Task<List<LookupItemDto>> StatesAsync(CancellationToken ct)
     {
-        var visible = await VisibleStatesAsync(ct);
+        var visible = await visibility.StatesAsync(ct);
 
         return await db.States.AsNoTracking()
             .WhereIf(visible is not null, s => visible!.Contains(s.Code))
@@ -303,7 +198,7 @@ public class LookupService(NtmsDbContext db, ICurrentUser currentUser, Delegatio
     public async Task<List<LookupItemDto>> DistrictsAsync(
         int? stateCode, string? state, CancellationToken ct)
     {
-        var visible = await VisibleDistrictsAsync(ct);
+        var visible = await visibility.DistrictsAsync(ct);
 
         return await db.Districts.AsNoTracking()
             .WhereIf(visible is not null, d => visible!.Contains(d.Code))
