@@ -396,6 +396,94 @@ function ProfileFor({
   const [keeping, setKeeping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sectionError, setSectionError] = useState<string | null>(null);
+  /* ------------------------------------------------- keeping up ----
+
+     Saving only when a section is left still loses the section being
+     typed if the app goes away — a phone call, a flat battery, Android
+     reclaiming memory behind a browser. So the answers are also kept
+     while the applicant is still in the section.
+
+     Three things decide when, and all three matter:
+
+     It waits for a pause. Writing on every keystroke would be a request
+     per character over whatever connection a phone has, which is slower
+     and less reliable than not doing it.
+
+     It goes anyway if the pause never comes. Somebody working steadily
+     through a long section would otherwise never be idle long enough,
+     and would be the person with the most to lose.
+
+     It will not write until the applicant has actually changed
+     something. The form mounts empty and fills in a moment later from
+     what the server holds; an autosave in that gap would send {} and
+     overwrite the draft it was about to display. The baseline is taken
+     once the form has settled, and nothing is sent until the answers
+     differ from it. */
+
+  const SETTLE_MS = 2500;
+  const AT_MOST_MS = 20000;
+
+  /* What the server already holds, so an unchanged form is not rewritten. */
+  const baseline = useRef<string | null>(null);
+  const lastWrite = useRef(0);
+  const inFlight = useRef(false);
+
+  const snapshot = JSON.stringify(state.values);
+
+  useEffect(() => {
+    if (baseline.current !== null || !form.data) return;
+    /* standing may legitimately carry no answers — a profile not yet
+       started. Either way this is the point the form has settled. */
+    if (standing.loading) return;
+    baseline.current = snapshot;
+  }, [form.data, standing.loading, snapshot]);
+
+  const keepUp = useCallback(async () => {
+    if (inFlight.current) return;
+    if (baseline.current === null || snapshot === baseline.current) return;
+
+    inFlight.current = true;
+    try {
+      await me.saveProfileDraft(subCategoryId, state.values);
+      baseline.current = snapshot;
+      lastWrite.current = Date.now();
+    } catch {
+      /* Quiet, and deliberately so. This is a background write the
+         applicant did not ask for; a banner over a form they are
+         typing into would be worse than the next attempt putting it
+         right. Save and continue does wait and does report. */
+    } finally {
+      inFlight.current = false;
+    }
+  }, [snapshot, subCategoryId, state.values]);
+
+  /* Read from standing rather than `where`, which is bound further down
+     the component. A profile already accepted or already on a desk takes
+     no draft, and the server would refuse each attempt. */
+  const draftable = (standing.data?.canSubmit ?? false) && !submitting;
+
+  useEffect(() => {
+    if (!open || !draftable) return;
+    if (baseline.current === null || snapshot === baseline.current) return;
+
+    const since = Date.now() - (lastWrite.current || Date.now());
+    const wait = since >= AT_MOST_MS ? 0 : SETTLE_MS;
+
+    const timer = setTimeout(() => void keepUp(), wait);
+    return () => clearTimeout(timer);
+  }, [snapshot, open, draftable, keepUp]);
+
+  /* Leaving the screen entirely, by the header arrow or the hardware
+     back button, is the other way a section goes unsaved.
+
+     Through a ref, and with no dependencies. Depending on keepUp meant
+     the effect was torn down and rebuilt on every render, and a cleanup
+     that saves ran on each teardown — so it wrote once per keystroke and
+     the pause above never got to hold anything back. Measured at one
+     request per character before this. */
+  const keepUpRef = useRef(keepUp);
+  keepUpRef.current = keepUp;
+  useEffect(() => () => void keepUpRef.current(), []);
 
   /* Other profiles that were accepted, which a new one can start from.
      Only accepted ones: copying answers that scrutiny turned down would
@@ -574,11 +662,12 @@ function ProfileFor({
         >
           <View style={styles.stepRow}>
             <Text style={styles.stepText}>{`Section ${at + 1} of ${sections.length}`}</Text>
-            <StatusChip status={state.progressOf(open).status} />
           </View>
 
+          {/* No field count on the heading: the fields are on screen
+              underneath it, and counting them told nobody anything. */}
           <ProfileScope subCategoryId={subCategoryId}>
-            <DynamicSectionView section={open} state={state} />
+            <DynamicSectionView section={open} state={state} showCount={false} />
           </ProfileScope>
 
           {sectionError ? <Banner tone="danger">{sectionError}</Banner> : null}
@@ -598,6 +687,8 @@ function ProfileFor({
   /* ------------------------------------------------------ where they are */
 
   const completed = sections.filter((s) => state.progressOf(s).status === 'done').length;
+  const remaining = sections.length - completed;
+  const finished = sections.length > 0 && remaining === 0;
   const blocked = !!where.blockedUntil;
   const waiting = where.status === 'Submitted' || where.status === 'UnderScrutiny';
 
@@ -743,8 +834,16 @@ function ProfileFor({
 
             {error ? <Banner tone="danger">{error}</Banner> : null}
 
-            {/* Named for what actually happens. "Send for scrutiny" on a form
-                nobody reads described a queue the submission never joins. */}
+            {/* Named for what actually happens. "Send for scrutiny" on a
+                form nobody reads described a queue the submission never
+                joins.
+
+                Off until every section is done. It was always going to
+                be refused before that — the server reads the answers,
+                not the button — so offering it only taught the applicant
+                that pressing it produces an error. The line underneath
+                says what is outstanding, because a dead button with no
+                reason given is worse than no button. */}
             <Button
               label={
                 submitting
@@ -756,7 +855,16 @@ function ProfileFor({
               icon="send"
               onPress={submit}
               loading={submitting}
+              disabled={!finished}
             />
+
+            {!finished ? (
+              <Text style={styles.gateNote}>
+                {remaining === 1
+                  ? 'One section still to finish.'
+                  : `${remaining} sections still to finish.`}
+              </Text>
+            ) : null}
           </>
         ) : null}
 
@@ -784,9 +892,6 @@ function ProfileFor({
           </Card>
         ) : null}
 
-        {onLeave ? (
-          <Button label="Your other profiles" variant="secondary" onPress={onLeave} />
-        ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -869,8 +974,15 @@ const styles = StyleSheet.create({
   note: { fontSize: font.sm, color: colors.ink600, lineHeight: 19 },
   muted: { fontSize: font.sm, color: colors.ink500 },
 
-  stepRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  stepText: { fontSize: font.sm, fontWeight: '600', color: colors.ink600 },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  /* Takes the slack so the two chips sit together on the right. */
+  stepText: { flex: 1, fontSize: font.sm, fontWeight: '600', color: colors.ink600 },
+  gateNote: { fontSize: font.sm, color: colors.ink600, textAlign: 'center', marginTop: -4 },
 
   track: {
     flexDirection: 'row',
