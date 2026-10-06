@@ -559,6 +559,16 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
             .WhereIf(fromStamp.HasValue, s => s.SubmittedOn >= fromStamp)
             .WhereIf(toStamp.HasValue, s => s.SubmittedOn <= toStamp);
 
+        /* The same desk the scrutiny queue shows. An Operation Manager's
+           register holds the profiles given to them, so a headline counting
+           every profile in the scheme sat above a list of their own and the
+           two disagreed — five received over an empty queue. */
+        if (currentUser.Tier == BaseRole.OperationManager)
+        {
+            var self = currentUser.UserId ?? 0;
+            profiles = profiles.Where(s => s.AssignedToUserId == self);
+        }
+
         var profilesReceived = await profiles.CountAsync(ct);
         var profilesApproved = await profiles
             .CountAsync(s => s.Status == ProfileSubmissionStatus.Approved, ct);
@@ -580,25 +590,41 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
             .Where(a => a is not null)
             .ToList();
 
+        /* A dashboard is a summary of what this account is responsible
+           for, not a fixed set of five cards. A tier that cannot open the
+           scrutiny queue has no business being shown how many profiles
+           arrived, and a card reading zero because the reader may not see
+           the data is worse than no card: it says the scheme is idle. */
+        var seesProfiles = currentUser.HasPermission(Permissions.ApplicationsView);
+        var seesProgrammes = currentUser.HasPermission(Permissions.ProgramsView);
+
+        var kpis = new List<DashboardKpiDto>();
+        if (seesProfiles)
+        {
+            kpis.Add(new() { Key = "profiles", Label = "Profiles received", Value = profilesReceived, Tone = "primary", Icon = "inbox" });
+            kpis.Add(new() { Key = "profilesApproved", Label = "Profiles approved", Value = profilesApproved, Tone = "success", Icon = "check" });
+        }
+
+        if (seesProgrammes)
+        {
+            kpis.Add(new() { Key = "programs", Label = "Programs conducted", Value = conducted, Tone = "info", Icon = "calendar" });
+            kpis.Add(new() { Key = "participated", Label = "Candidates participated", Value = participated, Tone = "primary", Icon = "users" });
+            kpis.Add(new() { Key = "certified", Label = "Candidates certified", Value = certified, Tone = "success", Icon = "award" });
+        }
+
         return new DashboardDto
         {
-            Kpis =
-            [
-                new() { Key = "profiles", Label = "Profiles received", Value = profilesReceived, Tone = "primary", Icon = "inbox" },
-                new() { Key = "profilesApproved", Label = "Profiles approved", Value = profilesApproved, Tone = "success", Icon = "check" },
-                new() { Key = "programs", Label = "Programs conducted", Value = conducted, Tone = "info", Icon = "calendar" },
-                new() { Key = "participated", Label = "Candidates participated", Value = participated, Tone = "primary", Icon = "users" },
-                new() { Key = "certified", Label = "Candidates certified", Value = certified, Tone = "success", Icon = "award" },
-            ],
-            ProgramsByMonth = MonthSeries(programmeRows, from, to),
-            ParticipantsByGender = Profile(
-                participants,
-                a => a!.Gender,
-                g => g == Gender.Other ? "Others" : g.ToString()),
-            ParticipantsBySocialCategory = Profile(
-                participants,
-                a => a!.SocialCategory,
-                c => c.ToString()),
+            Kpis = kpis,
+            /* The charts and the map are drawn from programmes, so they
+               stand or fall with the same permission. */
+            ProgramsByMonth = seesProgrammes ? MonthSeries(programmeRows, from, to) : [],
+            ParticipantsByGender = seesProgrammes
+                ? Profile(participants, a => a!.Gender,
+                          g => g == Gender.Other ? "Others" : g.ToString())
+                : [],
+            ParticipantsBySocialCategory = seesProgrammes
+                ? Profile(participants, a => a!.SocialCategory, c => c.ToString())
+                : [],
         };
     }
 

@@ -130,10 +130,17 @@ const PERIODS: { value: number; label: string }[] = [
         }
       </div>
 
-      <div class="mt-lg">
-        <app-state-coverage-map [data]="coverage() ?? null" />
-      </div>
+      <!-- The map and the charts are all drawn from programmes. An account
+           that may not see those gets no empty frames where they were: a
+           chart of nothing reads as a scheme at a standstill rather than as
+           a view somebody was not given. -->
+      @if (seesProgrammes()) {
+        <div class="mt-lg">
+          <app-state-coverage-map [data]="coverage() ?? null" />
+        </div>
+      }
 
+      @if (seesProgrammes()) {
       <div class="dash-row mt-lg">
         <section class="card">
           <div class="card__header">
@@ -179,6 +186,7 @@ const PERIODS: { value: number; label: string }[] = [
           </div>
         </section>
       </div>
+      }
     } @else {
       <div class="kpi-grid">
         @for (n of [1, 2, 3, 4, 5, 6]; track n) {
@@ -264,6 +272,10 @@ export class DashboardComponent {
 
   /* Loaded alongside the rest of the dashboard and re-fetched with the same
      filters, so the map never disagrees with the figures beside it. */
+  /** Whether this account may see programmes, which is what the map and
+      the three charts are made of. */
+  protected readonly seesProgrammes = computed(() => this.auth.hasPermission('programs.view'));
+
   protected readonly coverage = toSignal<StateCoverageResult | undefined>(
     this.applied.pipe(switchMap((filters) => this.service.stateCoverage(filters))),
   );
