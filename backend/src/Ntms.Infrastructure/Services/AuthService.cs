@@ -382,6 +382,13 @@ public class AuthService(
         CategoryIds = [.. user.Categories.Select(c => c.CategoryId)],
         SubCategoryIds = [.. user.SubCategories.Select(c => c.SubCategoryId)],
         ProgramTypeIds = [.. user.ProgramTypes.Select(c => c.ProgramTypeId)],
+        /* The two the DTO declared and nobody filled. Loaded on every one of
+           these queries already, so the allocation was there and simply not
+           handed over: an Admin covering Delhi signed in looking as though it
+           covered nowhere, and any screen reading its own states off the
+           session saw none. */
+        StateCodes = [.. user.States.Select(s => s.StateCode)],
+        DistrictCodes = [.. user.Districts.Select(d => d.DistrictCode)],
         AgencyId = user.AgencyId,
         AvatarInitials = Initials(user.FullName),
         MustChangePassword = user.MustChangePassword,
