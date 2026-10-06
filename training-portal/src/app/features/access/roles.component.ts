@@ -9,6 +9,7 @@ import {
   ROLE_LABELS,
   RecordStatus,
 } from '../../core/models';
+import { AuthService } from '../../core/services/auth.service';
 import { RoleService } from '../../core/services/people.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -51,6 +52,27 @@ const BASE_ROLES = [
   'AgencyAdmin',
   'Coordinator',
 ] as const satisfies readonly AppRole[];
+
+/**
+ * Which tiers each tier may write a role for, mirroring RoleHierarchy on
+ * the server.
+ *
+ * Every tier settles the tier it appoints and no other, so a Super Admin
+ * reaches Admin and the Ministry and stops there. The server has always
+ * enforced this — it answers 403 with "A Super Admin does not settle what
+ * a Coordinator may do" — but the form went on offering all six, so four
+ * of the six choices were errors waiting to be pressed.
+ */
+const CREATES: Record<string, readonly AppRole[]> = {
+  SuperAdmin: ['Admin', 'Ministry'],
+  Admin: ['OperationManager'],
+  /* An Operation Manager empanels agencies; the agency login comes with
+     the agency rather than being written here. */
+  OperationManager: ['AgencyAdmin'],
+  AgencyAdmin: ['Coordinator'],
+  Ministry: [],
+  Coordinator: [],
+};
 
 /** The reader-facing name for a tier; the stored value stays the enum name. */
 const labelFor = (base: string): string => ROLE_LABELS[base as AppRole] ?? base;
@@ -97,7 +119,7 @@ const labelFor = (base: string): string => ROLE_LABELS[base as AppRole] ?? base;
               (change)="list.stageFilter('baseRole', value($event))"
             >
               <option value="">All</option>
-              @for (base of baseRoles; track base) {
+              @for (base of baseRoles(); track base) {
                 <option [value]="base">{{ label(base) }}</option>
               }
             </select>
@@ -188,7 +210,7 @@ const labelFor = (base: string): string => ROLE_LABELS[base as AppRole] ?? base;
             <div class="field">
               <label class="field-label" for="roleBaseSel">Base role <span class="req">*</span></label>
               <select id="roleBaseSel" class="select" formControlName="baseRole">
-                @for (base of baseRoles; track base) {
+                @for (base of baseRoles(); track base) {
                   <option [value]="base">{{ label(base) }}</option>
                 }
               </select>
@@ -282,6 +304,7 @@ const labelFor = (base: string): string => ROLE_LABELS[base as AppRole] ?? base;
 export class RolesComponent {
   protected readonly copy = inject(SiteTextService);
   private readonly service = inject(RoleService);
+  private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
   private readonly confirm = inject(ConfirmService);
   private readonly fb = inject(FormBuilder);
@@ -293,7 +316,13 @@ export class RolesComponent {
      function on every change detection pass. */
 
   protected readonly exportRows = () => this.list.fetchAll();
-  protected readonly baseRoles = BASE_ROLES;
+  /** The tiers this account may write a role for. */
+  protected readonly baseRoles = computed<readonly AppRole[]>(
+    () => CREATES[this.auth.role() ?? ''] ?? [],
+  );
+
+  /** Every tier, for reading back a role that already exists. */
+  protected readonly allBaseRoles = BASE_ROLES;
   protected readonly label = labelFor;
 
   /** A seeded role: its name, code, tier and status are not ours to move. */
