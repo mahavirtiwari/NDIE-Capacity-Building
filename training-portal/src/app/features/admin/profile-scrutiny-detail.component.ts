@@ -1,12 +1,10 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, input, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { LookupItem, ProfileForm, ProfileSubmission, RejectionReason } from '../../core/models';
+import { ProfileForm, ProfileSubmission, RejectionReason } from '../../core/models';
 import { ProfileFormService } from '../../core/services/academics.service';
-import { LookupService } from '../../core/services/masters.service';
-import { AuthService } from '../../core/services/auth.service';
 import {
   ProfileSubmissionService,
   RejectionReasonService,
@@ -131,6 +129,12 @@ import { TimelineComponent } from '../../shared/components/timeline.component';
                 <div>
                   <div class="dl__term">Assigned to</div>
                   <div class="dl__value">{{ record.assignedToName || 'Unassigned' }}</div>
+                  <!-- Nobody places these by hand any more, so the sheet has
+                       to say how the desk was chosen. -->
+                  <div class="text-sm text-muted">
+                    Chosen automatically from the managers whose program types and
+                    states cover this profile.
+                  </div>
                 </div>
                 @if (record.decidedOn) {
                   <div>
@@ -148,23 +152,6 @@ import { TimelineComponent } from '../../shared/components/timeline.component';
                   </div>
                 }
               </div>
-              @if (canReassign()) {
-                <div class="field" style="margin-top: 0.6rem">
-                  <label class="field-label" for="pdAssign">Reassign</label>
-                  <select id="pdAssign" class="select" (change)="reassign($event)">
-                    <option value="">Select an operation manager</option>
-                    @for (officer of officers(); track officer.id) {
-                      <option [value]="officer.id" [selected]="officer.id === record.assignedToUserId">
-                        {{ officer.name }}
-                      </option>
-                    }
-                  </select>
-                  <span class="field-hint">
-                    Chosen automatically when the profile arrives, from the managers
-                    whose program types and states cover it.
-                  </span>
-                </div>
-              }
             </div>
           </section>
 
@@ -252,8 +239,6 @@ export class ProfileScrutinyDetailComponent {
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
-  private readonly lookups = inject(LookupService);
-  private readonly auth = inject(AuthService);
 
   protected readonly submission = signal<ProfileSubmission | null>(null);
   protected readonly definition = signal<ProfileForm | null>(null);
@@ -270,30 +255,6 @@ export class ProfileScrutinyDetailComponent {
     rejectionReasonId: [null as number | null],
     remarks: [''],
   });
-
-  /* Who a profile may be handed to. Operation Managers only — scrutiny is
-     theirs, and offering anybody else is offering something the server
-     refuses. */
-  protected readonly officers = toSignal(this.lookups.operationManagers(), {
-    initialValue: [] as LookupItem[],
-  });
-
-  /* Reassignment belongs to the tier above. A manager cannot hand their own
-     queue to somebody else, which is the same rule the server enforces. */
-  protected readonly canReassign = computed(() =>
-    this.auth.hasRole('SuperAdmin', 'Ministry', 'Admin'),
-  );
-
-  protected reassign(event: Event): void {
-    const record = this.submission();
-    const value = (event.target as HTMLSelectElement).value;
-    if (!record || !value) return;
-
-    this.service.assign(record.id, Number(value)).subscribe((updated) => {
-      this.submission.set(updated);
-      this.toast.success('Profile reassigned', updated.assignedToName ?? '');
-    });
-  }
 
   constructor() {
     effect(() => {

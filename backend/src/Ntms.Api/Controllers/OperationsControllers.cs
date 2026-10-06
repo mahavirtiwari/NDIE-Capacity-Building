@@ -556,13 +556,6 @@ public class ProfileSubmissionsController(ProfileSubmissionService service) : Ap
         int id, CancellationToken ct) =>
         Envelope(await service.GetAsync(id, ct));
 
-    /// <summary>Moves a profile to another Operation Manager, or to nobody.</summary>
-    [HttpPatch("{id:int}/assign")]
-    [HasPermission(Permissions.ApplicationsScrutinise)]
-    public async Task<ActionResult<ApiEnvelope<ProfileSubmissionDto>>> Assign(
-        int id, [FromBody] AssignProfileDto dto, CancellationToken ct) =>
-        Envelope(await service.AssignAsync(id, dto.UserId, ct), "Profile reassigned.");
-
     [HttpPost("{id:int}/approve")]
     [HasPermission(Permissions.ApplicationsScrutinise)]
     public async Task<ActionResult<ApiEnvelope<ProfileSubmissionDto>>> Approve(

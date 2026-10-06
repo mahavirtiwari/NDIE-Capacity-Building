@@ -510,68 +510,60 @@ public class ProfileSubmissionService(
         return lightest?.Id;
     }
 
-    /// <summary>
-    /// Moves a profile to another Operation Manager.
-    ///
-    /// For the cases nobody qualified for, and for the ones whose officer is
-    /// away. Only a tier above an Operation Manager may do it — a manager
-    /// cannot hand their own queue to somebody else.
-    /// </summary>
-    public async Task<ProfileSubmissionDto> AssignAsync(
-        int id, int? userId, CancellationToken ct)
-    {
-        var submission = await db.ProfileSubmissions.Include(s => s.History)
-                             .FirstOrDefaultAsync(s => s.Id == id, ct)
-                         ?? throw AppException.NotFound("Profile submission");
-
-        if (currentUser.Tier is not { } tier
-            || !RoleHierarchy.Outranks(tier, BaseRole.OperationManager))
-        {
-            throw AppException.Forbidden(
-                "Only a tier above an Operation Manager may reassign a profile.");
-        }
-
-        string officerName;
-        if (userId is { } to)
-        {
-            var officer = await db.Users.FirstOrDefaultAsync(u => u.Id == to, ct)
-                          ?? throw AppException.NotFound("User");
-
-            if (officer.BaseRole != BaseRole.OperationManager)
-                throw new AppException("A profile is scrutinised by an Operation Manager.");
-
-            submission.AssignedToUserId = officer.Id;
-            officerName = officer.FullName;
-        }
-        else
-        {
-            submission.AssignedToUserId = null;
-            officerName = "nobody";
-        }
-
-        submission.History.Add(new ProfileScrutinyEvent
-        {
-            Action = ScrutinyAction.Assigned,
-            ByUserName = currentUser.DisplayName ?? "System",
-            ByRole = currentUser.RoleName ?? tier.ToString(),
-            On = DateTime.UtcNow,
-            Remarks = $"Assigned to {officerName}.",
-        });
-
-        await db.SaveChangesAsync(ct);
-        return await GetAsync(id, ct);
-    }
-
     public async Task<PagedResult<ProfileSubmissionDto>> QueueAsync(
         PagedRequest request, string? status, int? categoryId, int? subCategoryId,
         int? programTypeId, string? state, DateOnly? from, DateOnly? to,
         CancellationToken ct)
     {
+        await PlaceUnassignedAsync(ct);
+
         var query = Queue(request.Search, status, categoryId, subCategoryId,
                           programTypeId, state, from, to)
             .OrderByDescending(s => s.SubmittedOn);
 
         return await query.ToPagedResultAsync(request, Map, ct);
+    }
+
+    /// <summary>
+    /// Places any profile that is waiting with nobody on it.
+    ///
+    /// A profile is given to an officer when it is handed in, and at that
+    /// moment there may be no Operation Manager whose program types and
+    /// states cover it. Reassignment by hand is gone, so without this such
+    /// a profile would wait for good — including every profile submitted
+    /// before an officer who covers it was appointed.
+    ///
+    /// Run when the queue is read, which is a write during a read and not
+    /// free of smell. The alternative is a profile nobody holds and no way
+    /// to hand it to anyone. Only rows awaiting a decision are touched, and
+    /// only where a pick is actually found.
+    /// </summary>
+    private async Task PlaceUnassignedAsync(CancellationToken ct)
+    {
+        var waiting = await db.ProfileSubmissions
+            .Where(s => s.AssignedToUserId == null
+                        && (s.Status == ProfileSubmissionStatus.Submitted
+                            || s.Status == ProfileSubmissionStatus.UnderScrutiny))
+            .Select(s => new { s.Id, s.SubCategoryId, s.Applicant!.StateCode })
+            .ToListAsync(ct);
+
+        if (waiting.Count == 0) return;
+
+        var placed = false;
+        foreach (var row in waiting)
+        {
+            var officer = await PickScrutinyOfficerAsync(row.SubCategoryId, row.StateCode, ct);
+            if (officer is null) continue;
+
+            var entity = await db.ProfileSubmissions
+                .FirstOrDefaultAsync(s => s.Id == row.Id, ct);
+            if (entity is null) continue;
+
+            entity.AssignedToUserId = officer;
+            placed = true;
+        }
+
+        if (placed) await db.SaveChangesAsync(ct);
     }
 
     /// <summary>
