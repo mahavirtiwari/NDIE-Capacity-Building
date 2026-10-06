@@ -165,6 +165,95 @@ public class ProfileSubmissionService(
     }
 
     /// <summary>
+    /// Keeps what has been filled in so far, without sending it.
+    ///
+    /// A profile form runs to dozens of answers across several sections.
+    /// Until now none of it existed anywhere but the phone's memory, so
+    /// signing out — or the app being killed behind a phone call — threw
+    /// the lot away and the applicant started again. The attachments did
+    /// survive, because those upload as they are picked, which made the
+    /// loss stranger still: the documents were there and the answers
+    /// beside them were gone.
+    ///
+    /// The draft is the same row the submission will be, in Draft status,
+    /// which is what that status was always for. It is not a second record
+    /// that has to be reconciled with the first: handing it in promotes
+    /// this row rather than adding another, so the attempt count cannot
+    /// drift and a draft cannot be read as a try that was used.
+    ///
+    /// Nothing is validated here. A draft is by definition half-finished,
+    /// and refusing to keep it because a required answer is missing would
+    /// defeat the point. The rules are applied when it is handed in.
+    /// </summary>
+    public async Task<ProfileStandingDto> SaveDraftAsync(
+        int applicantId, int subCategoryId, Dictionary<string, object?> responses,
+        CancellationToken ct)
+    {
+        var applicant = await db.Applicants.AsNoTracking()
+                            .FirstOrDefaultAsync(a => a.Id == applicantId, ct)
+                        ?? throw AppException.NotFound("Applicant");
+
+        if (applicant.IsBlocked) throw AppException.Forbidden("Your account is blocked.");
+
+        var subCategory = await db.SubCategories.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == subCategoryId, ct)
+            ?? throw AppException.NotFound("Sub-category");
+
+        var attempts = await db.ProfileSubmissions
+            .Where(s => s.ApplicantId == applicantId && s.SubCategoryId == subCategoryId)
+            .ToListAsync(ct);
+
+        var draft = attempts.FirstOrDefault(s => s.Status == ProfileSubmissionStatus.Draft);
+
+        /* A profile already accepted, or already on a desk, is not a thing
+           to be drafted over. Silently keeping a draft behind one would
+           let the applicant type into a form whose answers can never be
+           sent, which is a worse outcome than being told. */
+        var settled = attempts
+            .Where(s => s.Status != ProfileSubmissionStatus.Draft)
+            .OrderByDescending(s => s.AttemptNo)
+            .FirstOrDefault();
+
+        if (settled?.Status == ProfileSubmissionStatus.Approved)
+            throw new AppException("Your profile for this sub-category has already been accepted.");
+
+        if (settled?.Status is ProfileSubmissionStatus.Submitted
+            or ProfileSubmissionStatus.UnderScrutiny)
+        {
+            throw new AppException("Your profile is with scrutiny. You will be told the outcome.");
+        }
+
+        var json = JsonSerializer.Serialize(responses);
+
+        if (draft is not null)
+        {
+            draft.Responses = json;
+            draft.ProfileFormId = (await forms.ActiveForAsync(subCategoryId, ct))?.Id
+                                  ?? draft.ProfileFormId;
+        }
+        else
+        {
+            db.ProfileSubmissions.Add(new ProfileSubmission
+            {
+                ApplicantId = applicantId,
+                CategoryId = subCategory.CategoryId,
+                SubCategoryId = subCategoryId,
+                ProfileFormId = (await forms.ActiveForAsync(subCategoryId, ct))?.Id,
+                /* The attempt it will be once it is handed in, so the
+                   screen can say "attempt 2" while it is still being
+                   written. Recomputed on submit in case another attempt
+                   was decided in between. */
+                AttemptNo = (settled?.AttemptNo ?? 0) + 1,
+                Responses = json,
+                Status = ProfileSubmissionStatus.Draft,
+            });
+        }
+
+        await db.SaveChangesAsync(ct);
+        return await StandingAsync(applicantId, subCategoryId, ct);
+    }
+
+    /// <summary>
     /// Sends a profile for one discipline, as a new attempt at it.
     ///
     /// Every refusal here is one the applicant can act on, because the app
@@ -194,7 +283,12 @@ public class ProfileSubmissionService(
         var elsewhere = await db.ProfileSubmissions.AsNoTracking()
             .Where(s => s.ApplicantId == applicantId
                         && s.CategoryId == subCategory.CategoryId
-                        && s.SubCategoryId != subCategoryId)
+                        && s.SubCategoryId != subCategoryId
+                        /* A draft is not a registration. Somebody who
+                           opened the wrong discipline, typed two answers
+                           and left would otherwise be locked out of the
+                           category they actually wanted. */
+                        && s.Status != ProfileSubmissionStatus.Draft)
             .Select(s => s.SubCategory!.Name)
             .FirstOrDefaultAsync(ct);
 
@@ -211,7 +305,16 @@ public class ProfileSubmissionService(
             .Where(s => s.ApplicantId == applicantId && s.SubCategoryId == subCategoryId)
             .ToListAsync(ct);
 
-        var latest = attempts.OrderByDescending(s => s.AttemptNo).FirstOrDefault();
+        /* The draft, if one is being handed in, and the last attempt that
+           was actually sent. Kept apart: the draft is the row about to
+           become attempt n, not attempt n itself, so counting it as one
+           would make every first submission look like a second. */
+        var draft = attempts.FirstOrDefault(s => s.Status == ProfileSubmissionStatus.Draft);
+        var sent = attempts
+            .Where(s => s.Status != ProfileSubmissionStatus.Draft)
+            .ToList();
+
+        var latest = sent.OrderByDescending(s => s.AttemptNo).FirstOrDefault();
 
         if (latest?.Status == ProfileSubmissionStatus.Approved)
             throw new AppException("Your profile for this sub-category has already been accepted.");
@@ -222,7 +325,7 @@ public class ProfileSubmissionService(
             throw new AppException("Your profile is with scrutiny. You will be told the outcome.");
         }
 
-        var blockedUntil = BlockedUntil(attempts, settings);
+        var blockedUntil = BlockedUntil(sent, settings);
         if (blockedUntil > DateTime.UtcNow)
         {
             throw new AppException(
@@ -236,24 +339,28 @@ public class ProfileSubmissionService(
 
         var now = DateTime.UtcNow;
 
-        var submission = new ProfileSubmission
+        /* The draft becomes the submission. One row, so the answers kept
+           along the way and the answers handed in are the same record and
+           cannot disagree. */
+        var submission = draft ?? new ProfileSubmission
         {
             ApplicantId = applicantId,
             CategoryId = subCategory.CategoryId,
             SubCategoryId = subCategoryId,
-            ProfileFormId = form.Id,
-            AttemptNo = (latest?.AttemptNo ?? 0) + 1,
-            Responses = JsonSerializer.Serialize(responses),
-            /* A form nobody reads is accepted as it arrives. Queuing it
-               would be a queue of submissions to rubber-stamp, and the
-               applicant would wait for somebody to do nothing. */
-            Status = form.RequiresScrutiny
-                ? ProfileSubmissionStatus.Submitted
-                : ProfileSubmissionStatus.Approved,
-            SubmittedOn = now,
-            DecidedOn = form.RequiresScrutiny ? null : now,
-            DecidedByUserName = form.RequiresScrutiny ? null : "Not scrutinised",
         };
+
+        submission.ProfileFormId = form.Id;
+        submission.AttemptNo = (latest?.AttemptNo ?? 0) + 1;
+        submission.Responses = JsonSerializer.Serialize(responses);
+        /* A form nobody reads is accepted as it arrives. Queuing it would
+           be a queue of submissions to rubber-stamp, and the applicant
+           would wait for somebody to do nothing. */
+        submission.Status = form.RequiresScrutiny
+            ? ProfileSubmissionStatus.Submitted
+            : ProfileSubmissionStatus.Approved;
+        submission.SubmittedOn = now;
+        submission.DecidedOn = form.RequiresScrutiny ? null : now;
+        submission.DecidedByUserName = form.RequiresScrutiny ? null : "Not scrutinised";
 
         /* Onto somebody's desk, not into a shared pile. Only where there is
            a decision to take: a form nobody reads needs no officer. */
@@ -285,7 +392,7 @@ public class ProfileSubmissionService(
             });
         }
 
-        db.ProfileSubmissions.Add(submission);
+        if (draft is null) db.ProfileSubmissions.Add(submission);
 
         /* The first discipline somebody enters is kept on the applicant for
            the reports that group by one. It is never changed afterwards:

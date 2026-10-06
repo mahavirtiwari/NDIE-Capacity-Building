@@ -284,6 +284,20 @@ public class ApplicantAppController(
         return File(content, type, name);
     }
 
+    /// <summary>
+    /// Keeps what has been filled in so far, without sending it.
+    ///
+    /// Called as the applicant moves between sections and as they leave
+    /// the screen, so signing out no longer throws the form away. The
+    /// response is the standing, so the app sees the same shape it would
+    /// after a submission and does not need a second code path.
+    /// </summary>
+    [HttpPut("profile-draft")]
+    public async Task<ActionResult<ApiEnvelope<ProfileStandingDto>>> SaveProfileDraft(
+        [FromBody] ProfileSubmitDto dto, CancellationToken ct) =>
+        Envelope(await profile.SaveDraftAsync(
+            ApplicantId, dto.SubCategoryId, dto.Responses, ct));
+
     /// <summary>Sends the profile for scrutiny, as a fresh attempt.</summary>
     [HttpPost("profile-submission")]
     public async Task<ActionResult<ApiEnvelope<ProfileStandingDto>>> SubmitProfile(

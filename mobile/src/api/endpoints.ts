@@ -232,6 +232,17 @@ export const me = {
     api.getLive<Record<string, unknown>>(
       `me/profile-form/${subCategoryId}/from/${fromSubCategoryId}`),
 
+  /**
+   * Keeps what has been filled in so far, without sending it.
+   *
+   * The answers used to live only in the screen's own state, so signing
+   * out threw away a form that had taken an hour to fill. Saved as the
+   * applicant moves between sections; the draft is the row the
+   * submission will become, so nothing has to be reconciled later.
+   */
+  saveProfileDraft: (subCategoryId: number, responses: Record<string, unknown>) =>
+    api.put<ProfileStanding>('me/profile-draft', { subCategoryId, responses }),
+
   submitProfile: (subCategoryId: number, responses: Record<string, unknown>) =>
     api.post<ProfileStanding>('me/profile-submission', { subCategoryId, responses }),
 

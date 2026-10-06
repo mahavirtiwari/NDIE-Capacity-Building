@@ -393,6 +393,7 @@ function ProfileFor({
   const open = useMemo(() => sections.find((s) => s.id === openId) ?? null, [sections, openId]);
 
   const [submitting, setSubmitting] = useState(false);
+  const [keeping, setKeeping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sectionError, setSectionError] = useState<string | null>(null);
 
@@ -438,10 +439,16 @@ function ProfileFor({
     }
   };
 
+  /* Backing out keeps the section as well, so a half-finished one
+     survives too. Not waited on and not blocking: a section left part
+     way is exactly what is worth keeping, and trapping somebody on a
+     screen because the network is down would be its own fault. The next
+     Save and continue, which does wait, is the one that reports. */
   const backToSections = useCallback(() => {
     setSectionError(null);
+    void me.saveProfileDraft(subCategoryId, state.values).catch(() => undefined);
     setOpenId(null);
-  }, []);
+  }, [subCategoryId, state.values]);
 
   const screenOptions = useMemo(() => {
     const back = open ? backToSections : onLeave;
@@ -523,14 +530,34 @@ function ProfileFor({
     const at = sections.indexOf(open);
     const next = sections[at + 1] ?? null;
 
-    const keep = () => {
+    /* The button says Save, so it saves — to the server, not to this
+       screen's memory, which is gone the moment anybody signs out.
+
+       It waits for the save before moving on, and stays put if it fails.
+       Advancing anyway would tell the applicant their section was kept
+       when it was not, and they would only find out on the next sign-in,
+       which is the fault this is here to fix. */
+    const keep = async () => {
       if (!state.validateSection(open)) {
         setSectionError('Please correct the highlighted fields before moving on.');
         return;
       }
       setError(null);
       setSectionError(null);
-      setOpenId(next ? next.id : null);
+
+      setKeeping(true);
+      try {
+        await me.saveProfileDraft(subCategoryId, state.values);
+        setOpenId(next ? next.id : null);
+      } catch (caught) {
+        setSectionError(
+          caught instanceof ApiError
+            ? caught.message
+            : 'Could not save this section. Check your connection and try again.',
+        );
+      } finally {
+        setKeeping(false);
+      }
     };
 
     return (
@@ -559,6 +586,7 @@ function ProfileFor({
           <Button
             label={next ? 'Save and continue' : 'Save and finish'}
             icon={next ? 'arrow-forward' : 'checkmark'}
+            loading={keeping}
             onPress={keep}
           />
           <Button label="Back to sections" variant="secondary" onPress={backToSections} />
