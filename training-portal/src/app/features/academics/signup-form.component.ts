@@ -109,7 +109,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
             <app-status-badge [value]="field.status" />
 
             <div class="field__actions">
-              <button type="button" class="btn btn--icon" title="Edit"
+              <button *appCan="'masters.manage'" type="button" class="btn btn--icon" title="Edit"
                 [disabled]="saving()" (click)="openForm(field)">
                 <app-icon name="edit" [size]="15" />
               </button>
@@ -125,7 +125,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
               }
 
               @if (!field.isBuiltIn) {
-                <button type="button" class="btn btn--icon btn--danger" title="Remove"
+                <button *appCan="'masters.manage'" type="button" class="btn btn--icon btn--danger" title="Remove"
                   [disabled]="saving()" (click)="remove(field)">
                   <app-icon name="trash" [size]="15" />
                 </button>

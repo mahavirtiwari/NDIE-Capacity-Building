@@ -185,10 +185,12 @@ const KIND_ICONS: Record<string, IconName> = {
             >
               <app-icon name="eye" [size]="15" />
             </button>
-            <button type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
+            <button *appCan="'materials.manage'" type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
               <app-icon name="edit" [size]="15" />
             </button>
-            <app-status-toggle [status]="$any(row).status" (toggled)="setStatus($any(row), $event)" />
+            <ng-container *appCan="'materials.manage'">
+              <app-status-toggle [status]="$any(row).status" (toggled)="setStatus($any(row), $event)" />
+            </ng-container>
           </div>
         </ng-template>
       </app-data-table>

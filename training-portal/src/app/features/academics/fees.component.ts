@@ -143,13 +143,15 @@ const COLUMNS: ColumnDef[] = [
         </ng-template>
         <ng-template appCell="actions" let-row>
           <div class="btn-row btn-row--end">
-            <button type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
+            <button *appCan="'fees.manage'" type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
               <app-icon name="edit" [size]="15" />
             </button>
-            <app-status-toggle
+            <ng-container *appCan="'fees.manage'">
+              <app-status-toggle
               [status]="$any(row).status"
               (toggled)="setStatus($any(row), $event)"
             />
+            </ng-container>
           </div>
         </ng-template>
       </app-data-table>

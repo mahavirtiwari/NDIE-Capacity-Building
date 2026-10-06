@@ -135,13 +135,37 @@ public static class RoleHierarchy
             [
                 Permissions.AgenciesManage,
                 Permissions.CoordinatorsManage,
+                Permissions.TrainersManage,
+                Permissions.MaterialsManage,
             ],
 
             /* A coordinator is appointed by the agency they work for, which
                is the body accountable for what they record on the ground.
                An Operation Manager empanels the agency and reads its
                coordinators; it does not put them there. */
-            [BaseRole.OperationManager] = [Permissions.CoordinatorsManage],
+            [BaseRole.OperationManager] =
+            [
+                Permissions.CoordinatorsManage,
+                Permissions.TrainersManage,
+                Permissions.MaterialsManage,
+            ],
+
+            /* A trainer is put on the record by the coordinator who was in
+               the room, as the register's own empty state says. The agency
+               appoints the coordinator and reads the faculty; it does not
+               enter one itself. Coordinators are unaffected: they register a
+               trainer against a batch of their own, which is gated by
+               holding that batch rather than by this key. */
+            [BaseRole.AgencyAdmin] =
+            [
+                Permissions.TrainersManage,
+                Permissions.MaterialsManage,
+            ],
+
+            /* Training material is the scheme's own, published once by the
+               Super Admin and read everywhere. A tier that could edit it
+               would be rewriting the course from the middle of the chain. */
+            [BaseRole.Coordinator] = [Permissions.MaterialsManage],
         };
 
     /// <summary>

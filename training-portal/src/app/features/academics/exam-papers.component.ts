@@ -128,10 +128,12 @@ const COLUMNS: ColumnDef[] = [
         <ng-template appCell="durationMinutes" let-row>{{ $any(row).durationMinutes }} min</ng-template>
         <ng-template appCell="actions" let-row>
           <div class="btn-row btn-row--end">
-            <button type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
+            <button *appCan="'exams.manage'" type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
               <app-icon name="edit" [size]="15" />
             </button>
-            <app-status-toggle [status]="$any(row).status" (toggled)="setStatus($any(row), $event)" />
+            <ng-container *appCan="'exams.manage'">
+              <app-status-toggle [status]="$any(row).status" (toggled)="setStatus($any(row), $event)" />
+            </ng-container>
           </div>
         </ng-template>
       </app-data-table>

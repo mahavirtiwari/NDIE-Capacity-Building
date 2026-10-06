@@ -180,10 +180,12 @@ const TYPES: { value: FeedbackQuestionType; label: string }[] = [
             >
               <app-icon name="edit" [size]="15" />
             </button>
-            <app-status-toggle
+            <ng-container *appCan="'curriculum.manage'">
+              <app-status-toggle
               [status]="$any(row).status"
               (toggled)="setStatus($any(row), $event)"
             />
+            </ng-container>
           </div>
         </ng-template>
       </app-data-table>

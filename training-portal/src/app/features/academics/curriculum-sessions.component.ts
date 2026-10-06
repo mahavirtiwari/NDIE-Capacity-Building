@@ -12,6 +12,7 @@ import {
 import { CurriculumService } from '../../core/services/academics.service';
 import { ToastService } from '../../core/services/toast.service';
 import { IconComponent } from '../../shared/components/icon.component';
+import { CanDirective } from '../../shared/directives/can.directive';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
@@ -34,6 +35,7 @@ interface FlatRow {
     PageHeaderComponent,
     StatusBadgeComponent,
     StatusToggleComponent,
+    CanDirective,
     ModalComponent,
     IconComponent,
   ],
@@ -139,10 +141,12 @@ interface FlatRow {
                         >
                           <app-icon name="edit" [size]="15" />
                         </button>
-                        <app-status-toggle
+                        <ng-container *appCan="'curriculum.manage'">
+                          <app-status-toggle
                           [status]="topic.status ?? 'Active'"
                           (toggled)="setTopicStatus(row.session, topic, $event)"
                         />
+                        </ng-container>
                       </div>
                     }
                   </td>
@@ -155,10 +159,12 @@ interface FlatRow {
                         <button type="button" class="btn btn--icon" title="Edit session" (click)="openSession(row.session)">
                           <app-icon name="edit" [size]="15" />
                         </button>
-                        <app-status-toggle
+                        <ng-container *appCan="'curriculum.manage'">
+                          <app-status-toggle
                           [status]="row.session.status ?? 'Active'"
                           (toggled)="setSessionStatus(row.session, $event)"
                         />
+                        </ng-container>
                       </div>
                     </td>
                   }

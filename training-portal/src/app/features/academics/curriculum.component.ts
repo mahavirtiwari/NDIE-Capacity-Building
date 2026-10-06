@@ -162,7 +162,7 @@ const COLUMNS: ColumnDef[] = [
             <a class="btn btn--icon" title="Sessions" [routerLink]="['/academics/curriculum', $any(row).id]">
               <app-icon name="list" [size]="15" />
             </a>
-            <button type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
+            <button *appCan="'curriculum.manage'" type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
               <app-icon name="edit" [size]="15" />
             </button>
             <button

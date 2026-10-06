@@ -194,7 +194,9 @@ function blankField(): ProfileField {
             <button type="button" class="btn btn--icon" title="Design" (click)="openBuilder($any(row))">
               <app-icon name="sliders" [size]="15" />
             </button>
-            <app-status-toggle [status]="$any(row).status" (toggled)="setStatus($any(row), $event)" />
+            <ng-container *appCan="'masters.manage'">
+              <app-status-toggle [status]="$any(row).status" (toggled)="setStatus($any(row), $event)" />
+            </ng-container>
           </div>
         </ng-template>
       </app-data-table>

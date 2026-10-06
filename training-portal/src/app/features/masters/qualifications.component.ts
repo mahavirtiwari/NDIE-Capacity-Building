@@ -114,14 +114,16 @@ const COLUMNS: ColumnDef[] = [
         </ng-template>
         <ng-template appCell="actions" let-row>
           <div class="btn-row btn-row--end">
-            <button type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
+            <button *appCan="'masters.manage'" type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
               <app-icon name="edit" [size]="15" />
             </button>
             @if (!$any(row).isSystem) {
-              <app-status-toggle
+              <ng-container *appCan="'masters.manage'">
+                <app-status-toggle
                 [status]="$any(row).status"
                 (toggled)="setStatus($any(row), $event)"
               />
+              </ng-container>
             }
           </div>
         </ng-template>
