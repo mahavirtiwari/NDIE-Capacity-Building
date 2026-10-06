@@ -14,6 +14,7 @@ import {
   LookupItem,
   ProgramType,
   Qualification,
+  RecordStatus,
   SubCategory,
 } from '../models';
 import { ApiService } from './api.service';
@@ -105,6 +106,17 @@ export class OptionSetService extends CrudService<OptionSet> {
 @Injectable({ providedIn: 'root' })
 export class AgencyService extends CrudService<ImplementingAgency> {
   protected readonly resource = 'agencies';
+
+  /**
+   * Overridden to carry the reason.
+   *
+   * Suspending an agency stops every batch it would have raised, so the
+   * history sheet is asked about it later. Without the reason travelling
+   * with the change there is nothing to answer with.
+   */
+  override setStatus(id: Id, status: RecordStatus, reason = ''): Observable<ImplementingAgency> {
+    return this.api.patch<ImplementingAgency>(`${this.resource}/${id}/status`, { status, reason });
+  }
 
   /** The empanelment, the login, the coordinators and the batches. */
   history(id: Id): Observable<AgencyHistory> {

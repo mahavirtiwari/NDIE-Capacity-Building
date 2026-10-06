@@ -178,6 +178,29 @@ public class AgencyService(
             });
         }
 
+        /* Every time it was suspended or let back in, with the grounds.
+           The status used to change silently, so this sheet could show that
+           an agency was inactive and nothing about how it got that way. */
+        var switches = await db.AgencyStatusEvents.AsNoTracking()
+            .Where(e => e.AgencyId == id)
+            .OrderBy(e => e.On)
+            .ToListAsync(ct);
+
+        foreach (var change in switches)
+        {
+            timeline.Add(new TimelineEventDto
+            {
+                On = change.On,
+                Area = "Empanelment",
+                Title = change.ToStatus == RecordStatus.Active
+                    ? "Empanelled back in"
+                    : "Suspended",
+                Detail = change.Reason,
+                Reference = change.ByUserCode,
+                By = change.ByUserName,
+            });
+        }
+
         var people = await db.Users.AsNoTracking()
             .Where(u => u.AgencyId == id)
             .Select(u => new
@@ -467,11 +490,58 @@ public class AgencyService(
         return await GetAsync(id, ct);
     }
 
-    public async Task<AgencyDto> SetStatusAsync(int id, string status, CancellationToken ct)
+    /// <summary>
+    /// Suspends an agency or empanels it back in, on the record.
+    ///
+    /// This used to change the status and write nothing, so the agency's own
+    /// history sheet could not show that it had happened — the register said
+    /// Active or Inactive and nobody could tell who had decided it or why.
+    ///
+    /// A reason is required in both directions, as it is for a portal
+    /// account. Letting an agency back in is as much a decision as stopping
+    /// it, and a history with grounds on only half its rows answers half the
+    /// questions asked of it.
+    /// </summary>
+    public async Task<AgencyDto> SetStatusAsync(
+        int id, string status, string? reason, CancellationToken ct)
     {
         var entity = await db.Agencies.FirstOrDefaultAsync(a => a.Id == id, ct)
                      ?? throw AppException.NotFound("Implementing agency");
-        entity.Status = EnumMaps.ToStatus(status);
+
+        delegation.EnsureCanEditRecord(BaseRole.AgencyAdmin, entity.CreatedBy, "agency");
+
+        var next = EnumMaps.ToStatus(status);
+        var trimmed = reason?.Trim();
+
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            throw new AppException(next == RecordStatus.Active
+                ? "Give a reason for empanelling this agency back in."
+                : "Give a reason for suspending this agency.");
+        }
+
+        if (trimmed.Length > 500)
+            throw new AppException("The reason must be 500 characters or fewer.");
+
+        if (entity.Status == next)
+        {
+            throw new AppException(
+                $"{entity.Name} is already {(next == RecordStatus.Active ? "active" : "suspended")}.");
+        }
+
+        db.AgencyStatusEvents.Add(new AgencyStatusEvent
+        {
+            AgencyId = entity.Id,
+            FromStatus = entity.Status,
+            ToStatus = next,
+            Reason = trimmed,
+            ByUserId = currentUser.UserId,
+            ByUserName = currentUser.DisplayName ?? "System",
+            ByUserCode = currentUser.UserCode ?? string.Empty,
+            On = DateTime.UtcNow,
+        });
+
+        entity.Status = next;
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
     }

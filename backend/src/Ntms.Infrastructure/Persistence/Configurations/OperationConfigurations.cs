@@ -144,6 +144,23 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
     }
 }
 
+public class AgencyStatusEventConfiguration : IEntityTypeConfiguration<AgencyStatusEvent>
+{
+    public void Configure(EntityTypeBuilder<AgencyStatusEvent> b)
+    {
+        b.ToTable("AgencyStatusEvents");
+        b.Property(x => x.Reason).HasMaxLength(500).IsRequired();
+        b.Property(x => x.ByUserName).HasMaxLength(160);
+        b.Property(x => x.ByUserCode).HasMaxLength(20);
+
+        b.HasOne(x => x.Agency).WithMany().HasForeignKey(x => x.AgencyId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        /* Read newest first, always for one agency. */
+        b.HasIndex(x => new { x.AgencyId, x.On });
+    }
+}
+
 public class UserStatusEventConfiguration : IEntityTypeConfiguration<UserStatusEvent>
 {
     public void Configure(EntityTypeBuilder<UserStatusEvent> b)

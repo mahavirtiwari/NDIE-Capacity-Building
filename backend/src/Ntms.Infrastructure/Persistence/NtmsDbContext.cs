@@ -38,6 +38,7 @@ public class NtmsDbContext(DbContextOptions<NtmsDbContext> options, ICurrentUser
     public DbSet<ApplicantStatusEvent> ApplicantStatusEvents => Set<ApplicantStatusEvent>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
     public DbSet<UserStatusEvent> UserStatusEvents => Set<UserStatusEvent>();
+    public DbSet<AgencyStatusEvent> AgencyStatusEvents => Set<AgencyStatusEvent>();
     public DbSet<ProgramType> ProgramTypes => Set<ProgramType>();
     public DbSet<ImplementingAgency> Agencies => Set<ImplementingAgency>();
     public DbSet<AgencyCategory> AgencyCategories => Set<AgencyCategory>();

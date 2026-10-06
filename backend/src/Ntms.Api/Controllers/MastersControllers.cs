@@ -480,7 +480,7 @@ public class AgenciesController(AgencyService service) : ApiControllerBase
     [HasPermission(Permissions.AgenciesManage)]
     public async Task<ActionResult<ApiEnvelope<AgencyDto>>> SetStatus(
         int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
-        Envelope(await service.SetStatusAsync(id, dto.Status, ct));
+        Envelope(await service.SetStatusAsync(id, dto.Status, dto.Reason, ct));
 
     /// <summary>A login for an agency that ended up without one.</summary>
     [HttpPost("{id:int}/login")]

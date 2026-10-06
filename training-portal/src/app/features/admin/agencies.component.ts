@@ -13,7 +13,6 @@ import {
 import { AgencyService, LookupService } from '../../core/services/masters.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
-import { ConfirmService } from '../../shared/components/confirm.service';
 import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shared/components/data-table.component';
 import { CanDirective } from '../../shared/directives/can.directive';
 import { IconComponent } from '../../shared/components/icon.component';
@@ -325,6 +324,63 @@ const COLUMNS: ColumnDef[] = [
       </app-modal>
     }
 
+    @if (statusPrompt(); as prompt) {
+      <!-- Both directions ask. A history with grounds on only the
+           suspensions answers half the questions later put to it. -->
+      <app-modal
+        [title]="prompt.status === 'Active' ? 'Empanel back in?' : 'Suspend this agency?'"
+        size="sm"
+        (closed)="statusPrompt.set(null)"
+      >
+        <div class="stack stack-sm">
+          <p class="text-sm">
+            {{ prompt.row.name }} ({{ prompt.row.code }})
+            @if (prompt.status === 'Active') {
+              can be chosen for new programs again.
+            } @else {
+              can raise no new program. The batches it has already run are kept.
+            }
+          </p>
+          <div class="field">
+            <label class="field-label" for="agStatusReason">
+              Reason <span class="req">*</span>
+            </label>
+            <textarea
+              id="agStatusReason"
+              class="textarea"
+              maxlength="500"
+              [value]="statusReason()"
+              (input)="statusReason.set(textValue($event))"
+              [placeholder]="
+                prompt.status === 'Active'
+                  ? 'e.g. Documents renewed on 1 April'
+                  : 'e.g. Empanelment documents expired'
+              "
+            ></textarea>
+            <span class="field-hint">
+              Recorded against the agency with your name and the date, and shown in its history.
+            </span>
+          </div>
+        </div>
+        <div footer>
+          <button type="button" class="btn btn--secondary" (click)="statusPrompt.set(null)">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="btn"
+            [class.btn--primary]="prompt.status === 'Active'"
+            [class.btn--danger]="prompt.status !== 'Active'"
+            [disabled]="statusReason().trim().length === 0 || savingStatus()"
+            (click)="confirmStatus()"
+          >
+            @if (savingStatus()) { <span class="spinner"></span> }
+            {{ prompt.status === 'Active' ? 'Empanel back in' : 'Suspend' }}
+          </button>
+        </div>
+      </app-modal>
+    }
+
     @if (formOpen()) {
       <app-modal
         [title]="editing() ? 'Edit implementing agency' : 'New implementing agency'"
@@ -502,7 +558,6 @@ export class AgenciesComponent {
   private readonly service = inject(AgencyService);
   private readonly lookups = inject(LookupService);
   private readonly toast = inject(ToastService);
-  private readonly confirm = inject(ConfirmService);
   private readonly fb = inject(FormBuilder);
 
   protected readonly columns = COLUMNS;
@@ -550,6 +605,11 @@ export class AgenciesComponent {
 
   /** The agency whose details are on screen, or null. */
   protected readonly details = signal<ImplementingAgency | null>(null);
+
+  protected readonly statusPrompt = signal<
+    { row: ImplementingAgency; status: RecordStatus } | null>(null);
+  protected readonly statusReason = signal('');
+  protected readonly savingStatus = signal(false);
 
   /** The empanelment, the login, the coordinators and the batches. */
   protected openHistory(row: ImplementingAgency): void {
@@ -700,22 +760,36 @@ export class AgenciesComponent {
     });
   }
 
-  protected async setStatus(row: ImplementingAgency, status: RecordStatus): Promise<void> {
-    const verb = status === 'Active' ? 'Enable' : 'Disable';
-    const confirmed = await this.confirm.ask({
-      title: `${verb} agency?`,
-      message:
-        status === 'Active'
-          ? 'The agency can be selected for new programs again.'
-          : 'Existing programs are retained, but no new program can be assigned to this agency.',
-      confirmLabel: verb,
-      tone: status === 'Active' ? 'primary' : 'danger',
-    });
-    if (!confirmed) return;
-    this.service.setStatus(row.id, status).subscribe(() => {
-      this.toast.success(`Agency ${status === 'Active' ? 'enabled' : 'disabled'}`, row.name);
-      this.lookups.invalidate('agencies');
-      this.list.reload();
+  /* A reason, not a yes/no. Suspending an agency stops every batch it would
+     raise, and the history sheet has to be able to say who decided it and on
+     what grounds — which a confirm dialog cannot capture. */
+  protected textValue(event: Event): string {
+    return (event.target as HTMLTextAreaElement).value;
+  }
+
+  protected setStatus(row: ImplementingAgency, status: RecordStatus): void {
+    this.statusReason.set('');
+    this.statusPrompt.set({ row, status });
+  }
+
+  protected confirmStatus(): void {
+    const prompt = this.statusPrompt();
+    const reason = this.statusReason().trim();
+    if (!prompt || reason.length === 0 || this.savingStatus()) return;
+
+    this.savingStatus.set(true);
+    this.service.setStatus(prompt.row.id, prompt.status, reason).subscribe({
+      next: () => {
+        this.savingStatus.set(false);
+        this.statusPrompt.set(null);
+        this.toast.success(
+          `Agency ${prompt.status === 'Active' ? 'empanelled back in' : 'suspended'}`,
+          prompt.row.name,
+        );
+        this.lookups.invalidate('agencies');
+        this.list.reload();
+      },
+      error: () => this.savingStatus.set(false),
     });
   }
 }
