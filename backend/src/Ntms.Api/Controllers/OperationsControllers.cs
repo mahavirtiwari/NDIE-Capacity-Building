@@ -46,8 +46,9 @@ public class RolesController(RoleService service) : ApiControllerBase
     /// <summary>The permission catalogue the roles screen renders.</summary>
     [HttpGet("permissions")]
     [HasPermission(Permissions.RolesView)]
-    public ActionResult<ApiEnvelope<IReadOnlyList<PermissionGroupDto>>> Catalogue() =>
-        Envelope(service.Catalogue());
+    public async Task<ActionResult<ApiEnvelope<IReadOnlyList<PermissionGroupDto>>>> Catalogue(
+        [FromQuery] string? baseRole, [FromQuery] int? roleId, CancellationToken ct) =>
+        Envelope(await service.CatalogueAsync(baseRole, roleId, ct));
 
     [HttpGet("{id:int}")]
     [HasPermission(Permissions.RolesView)]

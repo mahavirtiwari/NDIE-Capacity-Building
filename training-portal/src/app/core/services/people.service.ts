@@ -22,6 +22,21 @@ export class RoleService extends CrudService<AdminRole> {
   protected readonly resource = 'roles';
 
   /**
+   * The permission keys this account may put on a role of that tier.
+   *
+   * Nobody grants what they do not hold, so the catalogue is the caller's
+   * own set, less anything the tier being shaped may never hold, plus
+   * whatever the role already carries. Decided by the server, which is the
+   * same authority that refuses the save.
+   */
+  grantable(baseRole: string, roleId?: Id): Observable<{ group: string; permissions: string[] }[]> {
+    return this.api.get<{ group: string; permissions: string[] }[]>(
+      `${this.resource}/permissions`,
+      roleId ? { baseRole, roleId } : { baseRole },
+    );
+  }
+
+  /**
    * Roles whose holders this account can see listed.
    *
    * Wider than `all()`, which answers "what may I settle". The user

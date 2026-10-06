@@ -209,7 +209,8 @@ const labelFor = (base: string): string => ROLE_LABELS[base as AppRole] ?? base;
             </div>
             <div class="field">
               <label class="field-label" for="roleBaseSel">Base role <span class="req">*</span></label>
-              <select id="roleBaseSel" class="select" formControlName="baseRole">
+              <select id="roleBaseSel" class="select" formControlName="baseRole"
+                (change)="onBaseRoleChange($event)">
                 @for (base of baseRoles(); track base) {
                   <option [value]="base">{{ label(base) }}</option>
                 }
@@ -245,7 +246,7 @@ const labelFor = (base: string): string => ROLE_LABELS[base as AppRole] ?? base;
             </div>
           </div>
 
-          @for (group of catalogue; track group.group) {
+          @for (group of catalogue(); track group.group) {
             <fieldset class="perm-group">
               <div class="perm-group__head">
                 <strong class="text-sm">{{ group.group }}</strong>
@@ -327,7 +328,28 @@ export class RolesComponent {
 
   /** A seeded role: its name, code, tier and status are not ours to move. */
   protected readonly isSystemRole = computed(() => this.editing()?.isSystemRole ?? false);
-  protected readonly catalogue = PERMISSION_CATALOGUE;
+  /** Which keys the server will accept on the role being shaped. */
+  private readonly grantable = signal<string[] | null>(null);
+
+  /**
+   * The catalogue as this account may actually use it.
+   *
+   * The labels are ours and the authority is the server's: it says which
+   * keys may go on this role, and the group headings and wording come from
+   * here. Before the answer arrives nothing is offered, rather than
+   * offering everything and taking some of it away a moment later.
+   *
+   * A group whose every key is withheld disappears rather than sitting
+   * there empty.
+   */
+  protected readonly catalogue = computed(() => {
+    const allowed = this.grantable();
+    if (allowed === null) return [];
+    const set = new Set(allowed);
+    return PERMISSION_CATALOGUE
+      .map((g) => ({ ...g, permissions: g.permissions.filter((p) => set.has(p.key)) }))
+      .filter((g) => g.permissions.length > 0);
+  });
   protected readonly totalPermissions = ALL_PERMISSIONS.length;
 
   protected readonly list = new ListState<AdminRole>((request) => this.service.list(request), {
@@ -367,13 +389,13 @@ export class RolesComponent {
   }
 
   protected isGroupFull(group: string): boolean {
-    const keys = this.catalogue.find((g) => g.group === group)?.permissions.map((p) => p.key) ?? [];
+    const keys = this.catalogue().find((g) => g.group === group)?.permissions.map((p) => p.key) ?? [];
     return keys.length > 0 && keys.every((key) => this.selected().includes(key));
   }
 
   protected toggleGroup(group: string, event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
-    const keys = this.catalogue.find((g) => g.group === group)?.permissions.map((p) => p.key) ?? [];
+    const keys = this.catalogue().find((g) => g.group === group)?.permissions.map((p) => p.key) ?? [];
     this.selected.update((list) =>
       checked
         ? [...new Set([...list, ...keys])]
@@ -430,7 +452,30 @@ export class RolesComponent {
       else this.form.controls[control].enable();
     }
 
+    this.loadGrantable(row?.baseRole ?? 'Admin', row?.id);
     this.formOpen.set(true);
+  }
+
+  /**
+   * Asks what may go on a role of this tier, and drops any tick that the
+   * answer no longer allows.
+   *
+   * Re-asked when the base role changes, because what an Operation Manager
+   * may hold is not what an Admin may.
+   */
+  private loadGrantable(baseRole: string, roleId?: number): void {
+    this.grantable.set(null);
+    this.service.grantable(baseRole, roleId).subscribe((groups) => {
+      const keys = groups.flatMap((g) => g.permissions);
+      this.grantable.set(keys);
+      const allowed = new Set(keys);
+      this.selected.update((list) => list.filter((k) => allowed.has(k)));
+    });
+  }
+
+  protected onBaseRoleChange(event: Event): void {
+    const base = (event.target as HTMLSelectElement).value;
+    this.loadGrantable(base, this.editing()?.id);
   }
 
   protected closeForm(): void {

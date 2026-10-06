@@ -121,12 +121,76 @@ public class RoleService(NtmsDbContext db, ICurrentUser currentUser)
         return Describe(role, count);
     }
 
-    public IReadOnlyList<PermissionGroupDto> Catalogue() =>
-        [.. Permissions.Catalogue.Select(g => new PermissionGroupDto
+    /// <summary>
+    /// The permission catalogue, less anything the tier being shaped may
+    /// never hold.
+    ///
+    /// Offering a key that is withheld produces a tick that saves and then
+    /// does nothing, which is worse than not offering it: the role sheet
+    /// would say an Admin empanels agencies while the server refused every
+    /// attempt.
+    /// </summary>
+    public async Task<IReadOnlyList<PermissionGroupDto>> CatalogueAsync(
+        string? baseRole, int? roleId, CancellationToken ct = default)
+    {
+        var tier = EnumMaps.ParseEnumOrNull<BaseRole>(baseRole);
+        var barred = tier is { } t ? RoleHierarchy.WithheldFrom(t) : [];
+
+        /* What this caller may hand on, which is what it holds itself.
+           Super Admin is exempt for the same reason it is exempt when the
+           save is checked: it shapes the tiers beneath it and has to be able
+           to give them an authority it does not exercise itself. */
+        HashSet<string>? mine = null;
+        if (currentUser.Tier != BaseRole.SuperAdmin)
         {
-            Group = g.Group,
-            Permissions = [.. g.Keys],
-        })];
+            mine = currentUser.Permissions.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            /* Plus whatever the role being edited already carries. Saving
+               replaces the whole set, so hiding a key the role already has
+               would strip it the first time somebody changed the
+               description. Keeping is not granting. */
+            if (roleId is { } id)
+            {
+                var existing = await db.Roles.AsNoTracking()
+                    .Where(r => r.Id == id)
+                    .SelectMany(r => r.Permissions.Select(p => p.Permission))
+                    .ToListAsync(ct);
+                foreach (var key in existing) mine.Add(key);
+            }
+        }
+
+        return
+        [
+            .. Permissions.Catalogue
+                .Select(g => new PermissionGroupDto
+                {
+                    Group = g.Group,
+                    Permissions =
+                    [
+                        .. g.Keys.Where(k => !barred.Contains(k)
+                                             && (mine is null || mine.Contains(k))),
+                    ],
+                })
+                .Where(g => g.Permissions.Count > 0),
+        ];
+    }
+
+    /// <summary>
+    /// Refuses a permission the tier may never hold, rather than storing a
+    /// row that does nothing.
+    /// </summary>
+    private static void EnsureHoldable(BaseRole tier, IEnumerable<string> permissions)
+    {
+        var barred = RoleHierarchy.WithheldFrom(tier);
+        if (barred.Count == 0) return;
+
+        var offending = permissions.Where(barred.Contains).Distinct().ToList();
+        if (offending.Count == 0) return;
+
+        throw new AppException(
+            $"A {RoleHierarchy.DisplayName(tier)} cannot hold "
+            + string.Join(", ", offending) + ". That belongs to another tier.", 403);
+    }
 
     public async Task<AdminRoleDto> CreateAsync(AdminRoleUpsertDto dto, CancellationToken ct)
     {
@@ -135,6 +199,7 @@ public class RoleService(NtmsDbContext db, ICurrentUser currentUser)
 
         var tier = EnumMaps.ParseEnum(dto.BaseRole, BaseRole.Admin);
         EnsureMayShape(tier);
+        EnsureHoldable(tier, dto.Permissions);
         EnsureMayGrant(dto.Permissions);
 
         if (await db.Roles.AnyAsync(r => r.Code == code, ct))
@@ -171,6 +236,7 @@ public class RoleService(NtmsDbContext db, ICurrentUser currentUser)
            promote a role they may edit into one they may not. */
         EnsureMayReshape(entity);
         if (!entity.IsSystemRole) EnsureMayShape(EnumMaps.ParseEnum(dto.BaseRole, entity.BaseRole));
+        EnsureHoldable(EnumMaps.ParseEnum(dto.BaseRole, entity.BaseRole), dto.Permissions);
         EnsureMayGrant(dto.Permissions, entity.Permissions.Select(p => p.Permission));
 
         /* A system role keeps its identity; only its permission set may move. */

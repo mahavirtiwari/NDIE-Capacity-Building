@@ -120,12 +120,38 @@ public static class RoleHierarchy
                 Permissions.TrainersManage,
                 Permissions.ApplicationsScrutinise,
             ],
+
+            /* Empanelling belongs to the Operation Manager, who answers for
+               the agencies it takes on and for the batches they raise. An
+               Admin appoints those managers and reads everything beneath
+               them; it does not take an agency onto the register itself.
+
+               The seeder revokes this from the stock Admin role on every
+               start, which was never enough: the key could be ticked back on
+               from the Roles screen, and a role named "Admin" that the
+               seeder does not recognise never had it revoked at all. Held
+               against the tier, it cannot be granted by any route. */
+            [BaseRole.Admin] =
+            [
+                Permissions.AgenciesManage,
+                Permissions.CoordinatorsManage,
+            ],
+
+            /* A coordinator is appointed by the agency they work for, which
+               is the body accountable for what they record on the ground.
+               An Operation Manager empanels the agency and reads its
+               coordinators; it does not put them there. */
+            [BaseRole.OperationManager] = [Permissions.CoordinatorsManage],
         };
 
     /// <summary>
     /// The permissions a role actually confers on this tier: what was
     /// granted, less what the tier may never hold.
     /// </summary>
+    /// <summary>What this tier may never hold, whatever a role record says.</summary>
+    public static IReadOnlyList<string> WithheldFrom(BaseRole tier) =>
+        Withheld.GetValueOrDefault(tier, []);
+
     public static List<string> Effective(BaseRole? tier, IEnumerable<string> granted)
     {
         if (tier is not { } role || !Withheld.TryGetValue(role, out var barred))
