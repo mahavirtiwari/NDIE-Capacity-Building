@@ -601,7 +601,25 @@ export class ProgramsComponent {
       });
   }
 
-  protected advance(programme: Program, status: ProgramStatus): void {
+  /**
+   * Accepting an agency's request to run a batch.
+   *
+   * Asked for first, like closing registrations and postponing beside it.
+   * This was the one of the three that fired on the first click, and it is
+   * the consequential one: it opens the batch for enrolment and lets it
+   * run. Postponing — which can be undone — stopped to ask, while
+   * approving did not.
+   */
+  protected async advance(programme: Program, status: ProgramStatus): Promise<void> {
+    const confirmed = await this.confirm.ask({
+      title: 'Accept permission for this program?',
+      message:
+        `${programme.programmeId} may then run, and registrations open for it. `
+        + 'The agency and its coordinator are told.',
+      confirmLabel: 'Accept permission',
+    });
+    if (!confirmed) return;
+
     this.service.update(programme.id, { ...programme, status, registrationsOpen: true }).subscribe(() => {
       this.toast.success('Permission accepted', programme.programmeId);
       this.list.reload();
