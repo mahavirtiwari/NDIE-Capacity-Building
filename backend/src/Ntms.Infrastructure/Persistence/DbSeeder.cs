@@ -122,7 +122,9 @@ public class DbSeeder(
                        settled by Super Admin; everyone below allocates out
                        of what they themselves hold. */
                     Permissions.UsersView, Permissions.UsersManage, Permissions.UsersStatus,
-                    Permissions.ApplicationsView, Permissions.ApplicationsScrutinise,
+                    /* Reading the queue, not deciding it. A profile is read
+                       by the Operation Manager it was given to. */
+                    Permissions.ApplicationsView,
                     Permissions.ProgramsView, Permissions.CoordinatorsView, Permissions.ReportsView,
                     Permissions.ProfessionalsView, Permissions.TrainersView,
                 ]),
@@ -131,7 +133,11 @@ public class DbSeeder(
                 [
                     Permissions.MastersView, Permissions.CurriculumView, Permissions.MaterialsView,
                     Permissions.AgenciesView, Permissions.AgenciesManage,
-                    Permissions.UsersView, Permissions.UsersStatus, Permissions.ApplicationsView,
+                    Permissions.UsersView, Permissions.UsersStatus,
+                    /* Scrutiny is theirs. A profile is placed on a manager's
+                       desk by its discipline and the applicant's state, and
+                       the manager holding it decides it. */
+                    Permissions.ApplicationsView, Permissions.ApplicationsScrutinise,
                     Permissions.ProgramsView, Permissions.ProgramsManage,
                     Permissions.CoordinatorsView, Permissions.ReportsView,
                     Permissions.ProfessionalsView, Permissions.TrainersView,
@@ -408,12 +414,14 @@ public class DbSeeder(
                 [Permissions.CoordinatorsView, Permissions.UsersStatus,
                  Permissions.RolesView, Permissions.RolesManage,
                  Permissions.ProfessionalsView, Permissions.TrainersView],
-                [Permissions.AgenciesManage]),
+                /* Scrutiny went to the manager the profile is assigned to,
+                   which is where the queue has always pointed. */
+                [Permissions.AgenciesManage, Permissions.ApplicationsScrutinise]),
             ("OPS_MANAGER",
                 [Permissions.AgenciesView, Permissions.AgenciesManage,
                  Permissions.UsersView, Permissions.UsersStatus,
                  Permissions.ProfessionalsView, Permissions.TrainersView,
-                 Permissions.TrainersManage,
+                 Permissions.ApplicationsView, Permissions.ApplicationsScrutinise,
                  Permissions.RolesView, Permissions.RolesManage], []),
             ("AGENCY_ADMIN",
                 [Permissions.UsersStatus, Permissions.RolesView, Permissions.RolesManage], []),

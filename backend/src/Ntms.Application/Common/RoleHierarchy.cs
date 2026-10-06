@@ -137,6 +137,10 @@ public static class RoleHierarchy
                 Permissions.CoordinatorsManage,
                 Permissions.TrainersManage,
                 Permissions.MaterialsManage,
+                /* A profile is decided by the Operation Manager whose
+                   program types and states put it on their desk. An Admin
+                   appoints those managers and reads their queue. */
+                Permissions.ApplicationsScrutinise,
             ],
 
             /* A coordinator is appointed by the agency they work for, which
@@ -160,12 +164,17 @@ public static class RoleHierarchy
             [
                 Permissions.TrainersManage,
                 Permissions.MaterialsManage,
+                Permissions.ApplicationsScrutinise,
             ],
 
             /* Training material is the scheme's own, published once by the
                Super Admin and read everywhere. A tier that could edit it
                would be rewriting the course from the middle of the chain. */
-            [BaseRole.Coordinator] = [Permissions.MaterialsManage],
+            [BaseRole.Coordinator] =
+            [
+                Permissions.MaterialsManage,
+                Permissions.ApplicationsScrutinise,
+            ],
         };
 
     /// <summary>
