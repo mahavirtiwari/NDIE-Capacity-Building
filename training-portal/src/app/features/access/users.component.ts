@@ -113,7 +113,13 @@ const TIER_DEPTH: Record<string, number> = {
         { label: copy.text(isCoordinatorView() ? 'page.coordinators.title' : 'page.users.title') }
       ]"
     >
-      <button *appCan="'users.manage'" type="button" class="btn btn--primary" (click)="openForm()">
+      <!-- Two registers behind one screen, and two permissions with them:
+           appointing a coordinator is not the same authority as appointing
+           an Admin, and a tier may hold one without the other. -->
+      <button
+        *appCan="isCoordinatorView() ? 'coordinators.manage' : 'users.manage'"
+        type="button" class="btn btn--primary" (click)="openForm()"
+      >
         <app-icon name="plus" [size]="15" />
         {{ isCoordinatorView() ? 'New coordinator' : 'New user' }}
       </button>
@@ -644,7 +650,13 @@ export class UsersComponent {
   protected readonly exportRows = () => this.list.fetchAll();
   protected readonly isCoordinatorView = computed(() => this.scope() === 'coordinators');
 
+  /** What may be assigned when creating somebody: the tier below this one. */
   protected readonly roles = toSignal(this.roleService.all(), { initialValue: [] as AdminRole[] });
+
+  /** What the register can hold, which reaches further down than that. */
+  protected readonly visibleRoles = toSignal(this.roleService.visible(), {
+    initialValue: [] as AdminRole[],
+  });
 
   /* The role filter offers only what the list can hold. Coordinators and
      agency logins have registers of their own, and the Super Admin is not
@@ -652,8 +664,8 @@ export class UsersComponent {
      ever return nothing. */
   protected readonly filterRoles = computed(() =>
     this.isCoordinatorView()
-      ? this.roles().filter((r) => r.baseRole === 'Coordinator')
-      : this.roles().filter(
+      ? this.visibleRoles().filter((r) => r.baseRole === 'Coordinator')
+      : this.visibleRoles().filter(
           (r) => r.baseRole !== 'Coordinator'
             && r.baseRole !== 'AgencyAdmin'
             && r.baseRole !== 'SuperAdmin',

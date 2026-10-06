@@ -132,7 +132,7 @@ const COLUMNS: ColumnDef[] = [
         </ng-template>
         <ng-template appCell="usedByFieldCount" let-row>
           @if ($any(row).usedByFieldCount) {
-            <span class="chip">{{ $any(row).usedByFieldCount }} fields</span>
+            <span class="chip">{{ $any(row).usedByFieldCount }} {{ $any(row).usedByFieldCount === 1 ? 'field' : 'fields' }}</span>
           } @else {
             <span class="cell-muted">—</span>
           }

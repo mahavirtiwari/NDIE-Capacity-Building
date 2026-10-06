@@ -93,6 +93,48 @@ public static class RoleHierarchy
         Axes.GetValueOrDefault(role, ScopeAxis.None);
 
     /// <summary>
+    /// What a tier may never hold, whatever its role record says.
+    ///
+    /// Super Admin owns the scheme's shape — the masters, the forms, the
+    /// portal, and the two tiers it appoints — and does not run the
+    /// operation. It does not raise or approve a batch, empanel an agency,
+    /// appoint a coordinator or a trainer, or decide a profile. Those
+    /// belong to the chain that is accountable for delivering them, and a
+    /// decision taken from the top of the system leaves nobody answerable
+    /// for it.
+    ///
+    /// Withheld here rather than merely left out of the seed, because a
+    /// permission absent from a seed can be put back by editing a row, and
+    /// this is not a default. Nothing is taken from the view permissions:
+    /// Super Admin reads all of it.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<BaseRole, string[]> Withheld =
+        new Dictionary<BaseRole, string[]>
+        {
+            [BaseRole.SuperAdmin] =
+            [
+                Permissions.ProgramsCreate,
+                Permissions.ProgramsManage,
+                Permissions.AgenciesManage,
+                Permissions.CoordinatorsManage,
+                Permissions.TrainersManage,
+                Permissions.ApplicationsScrutinise,
+            ],
+        };
+
+    /// <summary>
+    /// The permissions a role actually confers on this tier: what was
+    /// granted, less what the tier may never hold.
+    /// </summary>
+    public static List<string> Effective(BaseRole? tier, IEnumerable<string> granted)
+    {
+        if (tier is not { } role || !Withheld.TryGetValue(role, out var barred))
+            return [.. granted];
+
+        return [.. granted.Where(p => !barred.Contains(p, StringComparer.OrdinalIgnoreCase))];
+    }
+
+    /// <summary>
     /// True for tiers whose reach is limited to an explicit allocation. The
     /// unscoped tiers — Super Admin and Ministry — see the whole estate.
     /// </summary>

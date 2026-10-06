@@ -20,6 +20,17 @@ import { CrudService } from './crud.service';
 @Injectable({ providedIn: 'root' })
 export class RoleService extends CrudService<AdminRole> {
   protected readonly resource = 'roles';
+
+  /**
+   * Roles whose holders this account can see listed.
+   *
+   * Wider than `all()`, which answers "what may I settle". The user
+   * register lists everyone beneath this tier, so a filter drawn from the
+   * narrower question leaves rows on screen that cannot be filtered for.
+   */
+  visible(): Observable<AdminRole[]> {
+    return this.api.get<AdminRole[]>(`${this.resource}/visible`);
+  }
 }
 
 @Injectable({ providedIn: 'root' })

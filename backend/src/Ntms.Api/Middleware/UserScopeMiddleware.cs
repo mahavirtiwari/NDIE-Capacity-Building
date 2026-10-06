@@ -39,15 +39,14 @@ public class UserScopeMiddleware(RequestDelegate next)
 
         /* Every portal account, scoped or not, because a permission is not a
            scope: an Admin and the Ministry are unscoped and still answer to
-           what their role grants.
+           what their role grants. Super Admin included — it was skipped here
+           while it was waved through the handler, and now that it is not,
+           skipping the load would leave it with no permissions at all rather
+           than with its own.
 
-           Not the Super Admin, who is allowed everything by definition and
-           would only be paying for a query whose answer never changes the
-           outcome — and not an applicant, whose token carries no user id and
-           who has no role to read permissions from. */
-        var superAdmin = principal?.IsInRole(nameof(Domain.Common.BaseRole.SuperAdmin)) == true;
-
-        if (hasId && !superAdmin)
+           Still not an applicant, whose token carries no user id and who has
+           no role to read permissions from. */
+        if (hasId)
         {
             context.Items[PermissionsKey] =
                 await scopes.LoadPermissionsAsync(userId, context.RequestAborted);

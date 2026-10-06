@@ -84,6 +84,35 @@ public class RoleService(NtmsDbContext db, ICurrentUser currentUser)
                 .OrderBy(r => r.Name).ToListAsync(ct))
             .Select(Describe)];
 
+    /// <summary>
+    /// Every role whose holders this account can see listed, which is a
+    /// wider set than the roles it settles.
+    ///
+    /// Creating and seeing are governed by different rules: a tier shapes
+    /// only the tier it appoints, but it sees everyone beneath it. A Super
+    /// Admin writes roles for Admin and the Ministry, and its user register
+    /// nonetheless lists the Operation Managers those Admins appointed. Feed
+    /// the register's filter from the creatable set and it offers two of the
+    /// tiers on screen and omits the third, so rows appear that cannot be
+    /// filtered for.
+    ///
+    /// Ownership is deliberately not applied. Who shaped a role decides who
+    /// may change it, not who may be told that somebody holds it.
+    /// </summary>
+    public async Task<List<AdminRoleDto>> VisibleAsync(string? status, CancellationToken ct)
+    {
+        if (currentUser.Tier is not { } tier) return [];
+
+        var roles = await db.Roles.AsNoTracking().Include(r => r.Permissions)
+            .WhereIf(!string.IsNullOrWhiteSpace(status), r => r.Status == EnumMaps.ToStatus(status))
+            .OrderBy(r => r.Name)
+            .ToListAsync(ct);
+
+        return [.. roles
+            .Where(r => RoleHierarchy.Outranks(tier, r.BaseRole))
+            .Select(Describe)];
+    }
+
     public async Task<AdminRoleDto> GetAsync(int id, CancellationToken ct)
     {
         var role = await Base.FirstOrDefaultAsync(r => r.Id == id, ct)

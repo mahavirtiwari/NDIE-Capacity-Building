@@ -49,12 +49,13 @@ public class PermissionHandler(IHttpContextAccessor accessor)
         AuthorizationHandlerContext context,
         PermissionRequirement requirement)
     {
-        /* Super Admin is allowed everything by definition. */
-        if (context.User.IsInRole(BaseRole.SuperAdmin.ToString()))
-        {
-            context.Succeed(requirement);
-            return Task.CompletedTask;
-        }
+        /* No tier is waved through. Super Admin used to be, on the reading
+           that whoever owns the portal owns everything in it — but it does
+           not run the operation: it neither raises nor approves a batch,
+           empanels an agency, appoints a coordinator or a trainer, nor
+           decides a profile. A blanket pass here made the permission set
+           on its role decorative, and the one tier nobody can hold to
+           account the one tier nothing could stop. */
 
         if (PermissionSet.Current(accessor) is { } granted)
         {
@@ -124,9 +125,6 @@ public class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser, ICurrent
     /// </summary>
     public bool HasPermission(string permission)
     {
-        if (Principal?.IsInRole(Ntms.Domain.Common.BaseRole.SuperAdmin.ToString()) == true)
-            return true;
-
         return PermissionSet.Current(accessor) is { } granted
             ? granted.Contains(permission)
             : Principal?.HasClaim(JwtTokenService.PermissionClaim, permission) == true;
@@ -134,10 +132,8 @@ public class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser, ICurrent
 
     /// <summary>Everything this account may do, for the callers that need the set.</summary>
     public IReadOnlyCollection<string> Permissions =>
-        Principal?.IsInRole(Ntms.Domain.Common.BaseRole.SuperAdmin.ToString()) == true
-            ? Ntms.Application.Common.Permissions.All
-            : PermissionSet.Current(accessor)
-              ?? [.. (Principal?.FindAll(JwtTokenService.PermissionClaim) ?? []).Select(c => c.Value)];
+        PermissionSet.Current(accessor)
+        ?? [.. (Principal?.FindAll(JwtTokenService.PermissionClaim) ?? []).Select(c => c.Value)];
 
     /* Loaded onto the request by UserScopeMiddleware, which runs for every
        scoped account. Null means the middleware had nothing to load for this

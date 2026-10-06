@@ -73,7 +73,8 @@ public class AuthService(
         if (user.Role is null || user.Role.Status != RecordStatus.Active)
             throw new AppException("The role assigned to this account is disabled.", 403);
 
-        var permissions = user.Role.Permissions.Select(p => p.Permission).ToList();
+        var permissions = RoleHierarchy.Effective(
+            user.Role.BaseRole, user.Role.Permissions.Select(p => p.Permission));
         var (token, expiresIn) = tokens.CreateAccessToken(user, permissions);
         var refresh = tokens.CreateRefreshToken();
 
@@ -119,7 +120,8 @@ public class AuthService(
         if (user.Status != RecordStatus.Active)
             throw new AppException("This account has been deactivated.", 403);
 
-        var permissions = user.Role?.Permissions.Select(p => p.Permission).ToList() ?? [];
+        var permissions = RoleHierarchy.Effective(
+            user.Role?.BaseRole, user.Role?.Permissions.Select(p => p.Permission) ?? []);
         var (token, expiresIn) = tokens.CreateAccessToken(user, permissions);
         var replacement = tokens.CreateRefreshToken();
 
@@ -164,7 +166,8 @@ public class AuthService(
             .FirstOrDefaultAsync(u => u.Id == userId, ct)
             ?? throw AppException.NotFound("User");
 
-        return ToAuthUser(user, user.Role?.Permissions.Select(p => p.Permission).ToList() ?? []);
+        return ToAuthUser(user, RoleHierarchy.Effective(
+            user.Role?.BaseRole, user.Role?.Permissions.Select(p => p.Permission) ?? []));
     }
 
     public async Task ChangePasswordAsync(int userId, ChangePasswordDto dto, CancellationToken ct)

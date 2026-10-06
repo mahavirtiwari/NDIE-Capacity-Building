@@ -93,12 +93,46 @@ public class LookupService(
             .ToListAsync(ct);
     }
 
+    /// <summary>
+    /// Says which one it is, where the name alone does not.
+    ///
+    /// Sub-category and program type names repeat across the scheme —
+    /// "Consultant" exists under ZED Certification and under MCLS,
+    /// "Assessor" under MCLS and SAMAR. In a dropdown they arrive as two
+    /// identical lines, and nobody can tell which is which; picking the
+    /// wrong one filters a whole screen to the wrong discipline with no
+    /// sign that anything is amiss.
+    ///
+    /// The qualifier is added only to names that actually collide. Putting
+    /// the parent on every line would make the common case, where the name
+    /// is already unique, harder to read in order to serve the rare one.
+    /// </summary>
+    private static void Disambiguate(
+        List<LookupItemDto> items, IReadOnlyDictionary<int, string> parents)
+    {
+        var clashing = items
+            .GroupBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1)
+            .SelectMany(g => g)
+            .ToHashSet();
+
+        foreach (var item in clashing)
+        {
+            if (item.ParentId is { } parentId
+                && parents.TryGetValue(parentId, out var parent)
+                && !string.IsNullOrWhiteSpace(parent))
+            {
+                item.Name = $"{item.Name} ({parent})";
+            }
+        }
+    }
+
     public async Task<List<LookupItemDto>> SubCategoriesAsync(
         int? categoryId, CancellationToken ct)
     {
         var visible = await visibility.SubCategoriesAsync(ct);
 
-        return await db.SubCategories.AsNoTracking()
+        var items = await db.SubCategories.AsNoTracking()
             .Where(s => s.Status == RecordStatus.Active)
             .WhereIf(visible is not null, s => visible!.Contains(s.Id))
             .WhereIf(categoryId.HasValue, s => s.CategoryId == categoryId)
@@ -108,6 +142,12 @@ public class LookupService(
                 Id = s.Id, Name = s.Name, Code = s.Code, ParentId = s.CategoryId,
             })
             .ToListAsync(ct);
+
+        var categories = await db.Categories.AsNoTracking()
+            .ToDictionaryAsync(c => c.Id, c => c.Name, ct);
+
+        Disambiguate(items, categories);
+        return items;
     }
 
     public async Task<List<LookupItemDto>> ProgramTypesAsync(
@@ -115,17 +155,45 @@ public class LookupService(
     {
         var visible = await visibility.ProgramTypesAsync(ct);
 
-        return await db.ProgramTypes.AsNoTracking()
+        var rows = await db.ProgramTypes.AsNoTracking()
             .Where(p => p.Status == RecordStatus.Active)
             .WhereIf(visible is not null, p => visible!.Contains(p.Id))
             .WhereIf(categoryId.HasValue, p => p.CategoryId == categoryId)
             .WhereIf(subCategoryId.HasValue, p => p.SubCategoryId == subCategoryId)
             .OrderBy(p => p.Code)
+            .Select(p => new
+            {
+                p.Id, p.Name, p.Code, p.SubCategoryId,
+                /* The category, not the sub-category, qualifies a program
+                   type: the sub-category names collide too, so "Consultant"
+                   would settle nothing. */
+                Qualifier = p.Category!.Name,
+            })
+            .ToListAsync(ct);
+
+        var items = rows
             .Select(p => new LookupItemDto
             {
                 Id = p.Id, Name = p.Name, Code = p.Code, ParentId = p.SubCategoryId,
             })
-            .ToListAsync(ct);
+            .ToList();
+
+        var qualifiers = rows.ToDictionary(p => p.Id, p => p.Qualifier);
+        var clashing = items
+            .GroupBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1)
+            .SelectMany(g => g);
+
+        foreach (var item in clashing)
+        {
+            if (qualifiers.TryGetValue(item.Id, out var parent)
+                && !string.IsNullOrWhiteSpace(parent))
+            {
+                item.Name = $"{item.Name} ({parent})";
+            }
+        }
+
+        return items;
     }
 
     public Task<List<LookupItemDto>> AgenciesAsync(CancellationToken ct) =>
@@ -285,7 +353,14 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
             .Select(g => new
             {
                 StateCode = g.Key,
-                ProgramTypes = g.Select(p => p.ProgramTypeId).Distinct().Count(),
+                /* Conducted only, like the count beside it. Every distinct
+                   type raised shaded a state the moment a batch was entered
+                   in the calendar, so the map showed reach across three
+                   states while the table under it, and the KPI above it,
+                   both read zero. One panel cannot answer two questions
+                   without saying which is which. */
+                ProgramTypes = g.Where(p => p.Status == ProgramStatus.Conducted)
+                    .Select(p => p.ProgramTypeId).Distinct().Count(),
                 /* Conducted only, because the column is headed "Programmes
                    conducted" and has to agree with the KPI of that name.
                    Counting scheduled batches here put 12 under the table
@@ -330,10 +405,11 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
         result.MaxParticipants = result.States.Count == 0 ? 0 : result.States.Max(s => s.Participants);
         result.TotalParticipants = result.States.Sum(s => s.Participants);
         result.TotalProgrammes = result.States.Sum(s => s.Programmes);
-        /* Presence, not completion: a state with a batch in the calendar is
-           covered even though nothing has been conducted there yet. A state has
-           a programme type recorded only if it has at least one programme. */
-        result.StatesCovered = result.States.Count(s => s.ProgramTypes > 0);
+        /* Completion, not presence. A batch sitting in a calendar is a plan,
+           and counting it here told the reader three states had a programme
+           running on a screen whose every other number was zero. A state is
+           covered once something has actually been conducted in it. */
+        result.StatesCovered = result.States.Count(s => s.Programmes > 0);
 
         await AddDistrictsAsync(result, programmes, filter, ct);
         return result;
@@ -387,7 +463,9 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
             .Select(g => new
             {
                 DistrictCode = g.Key,
-                ProgramTypes = g.Select(p => p.ProgramTypeId).Distinct().Count(),
+                /* Conducted, matching the states above and the column head. */
+                ProgramTypes = g.Where(p => p.Status == ProgramStatus.Conducted)
+                    .Select(p => p.ProgramTypeId).Distinct().Count(),
                 Programmes = g.Count(p => p.Status == ProgramStatus.Conducted),
                 Participants = g.SelectMany(p => p.Participants).Count(),
             })

@@ -61,10 +61,10 @@ public class SiteTextService(NtmsDbContext db)
         /* -------------------------------------------------------- dashboard */
         new("dashboard.map.title", "Dashboard", "Map heading", "Reach across India"),
         new("dashboard.map.subtitle", "Dashboard", "Map subtitle",
-            "{covered} of {total} states and union territories have a program running.",
+            "{covered} of {total} states and union territories have conducted a program.",
             "{covered} and {total} are filled in with the numbers."),
         new("dashboard.map.districtSubtitle", "Dashboard", "Map subtitle, one state",
-            "{covered} of {total} districts in {state} have a program running.",
+            "{covered} of {total} districts in {state} have conducted a program.",
             "{covered}, {total} and {state} are filled in."),
 
         /* ----------------------------------------------------------- charts */

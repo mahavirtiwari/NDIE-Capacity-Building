@@ -73,7 +73,10 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
             @if (section.isRepeatable) {
               <span class="chip">{{ entriesOf(section).length }} of {{ maxEntries(section) }}</span>
             } @else {
-              <span class="chip">{{ enabledFields(section).length }} fields</span>
+              <span class="chip">
+                {{ enabledFields(section).length }}
+                {{ enabledFields(section).length === 1 ? 'field' : 'fields' }}
+              </span>
             }
           </div>
 

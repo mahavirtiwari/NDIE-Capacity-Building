@@ -172,7 +172,7 @@ function blankField(): ProfileField {
         <ng-template appCell="summary" let-row>
           <div class="row row-sm row-wrap">
             <span class="chip">{{ $any(row).sections.length }} sections</span>
-            <span class="chip">{{ fieldCount($any(row)) }} fields</span>
+            <span class="chip">{{ fieldCount($any(row)) }} {{ fieldCount($any(row)) === 1 ? 'field' : 'fields' }}</span>
             <span class="chip">{{ activeCount($any(row)) }} active</span>
           </div>
         </ng-template>

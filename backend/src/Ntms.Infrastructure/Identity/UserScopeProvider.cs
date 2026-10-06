@@ -49,14 +49,24 @@ public class UserScopeProvider(NtmsDbContext db)
     public async Task<IReadOnlyCollection<string>> LoadPermissionsAsync(
         int userId, CancellationToken ct)
     {
-        var granted = await db.Users.AsNoTracking()
+        var row = await db.Users.AsNoTracking()
             .Where(u => u.Id == userId && u.Status == Domain.Common.RecordStatus.Active)
-            .SelectMany(u => u.Role!.Permissions.Select(p => p.Permission))
-            .ToListAsync(ct);
+            .Select(u => new
+            {
+                Tier = (Domain.Common.BaseRole?)u.Role!.BaseRole,
+                Granted = u.Role!.Permissions.Select(p => p.Permission).ToList(),
+            })
+            .FirstOrDefaultAsync(ct);
 
         /* A disabled or deleted account grants nothing, rather than falling
            back to whatever its token still claims. */
-        return granted.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (row is null) return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        /* Less whatever the tier may never hold, whatever its role record
+           says. Applied here as well as at sign-in because this set is the
+           one the request is actually judged against. */
+        var effective = Application.Common.RoleHierarchy.Effective(row.Tier, row.Granted);
+        return effective.ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>

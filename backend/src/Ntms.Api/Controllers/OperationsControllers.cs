@@ -33,6 +33,16 @@ public class RolesController(RoleService service) : ApiControllerBase
         [FromQuery] string? status, CancellationToken ct) =>
         Envelope(await service.AllAsync(status, ct));
 
+    /// <summary>
+    /// The roles the user register may be filtered by: every tier this
+    /// account outranks, not only the tier it appoints.
+    /// </summary>
+    [HttpGet("visible")]
+    [HasPermission(Permissions.RolesView)]
+    public async Task<ActionResult<ApiEnvelope<List<AdminRoleDto>>>> Visible(
+        [FromQuery] string? status, CancellationToken ct) =>
+        Envelope(await service.VisibleAsync(status, ct));
+
     /// <summary>The permission catalogue the roles screen renders.</summary>
     [HttpGet("permissions")]
     [HasPermission(Permissions.RolesView)]

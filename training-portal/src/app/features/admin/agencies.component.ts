@@ -233,7 +233,15 @@ const COLUMNS: ColumnDef[] = [
               (click)="openHistory($any(row))">
               <app-icon name="clock" [size]="15" />
             </button>
-            <app-status-toggle [status]="$any(row).status" (toggled)="setStatus($any(row), $event)" />
+            <!-- Suspending is an edit, and was the one that slipped the
+                 guard: the server refuses it without agencies.manage, so
+                 offering it only produced a toast. -->
+            <ng-container *appCan="'agencies.manage'">
+              <app-status-toggle
+                [status]="$any(row).status"
+                (toggled)="setStatus($any(row), $event)"
+              />
+            </ng-container>
           </div>
         </ng-template>
       </app-data-table>
