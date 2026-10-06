@@ -176,7 +176,8 @@ const COLUMNS: ColumnDef[] = [
         </ng-template>
 
         <ng-template appCell="actions" let-row>
-          <button type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
+          <button *appCan="'trainers.manage'" type="button" class="btn btn--icon" title="Edit"
+            (click)="openForm($any(row))">
             <app-icon name="edit" [size]="15" />
           </button>
         </ng-template>

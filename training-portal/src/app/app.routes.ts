@@ -63,7 +63,13 @@ export const routes: Routes = [
       /* ---------------- Programme setup (Super Admin) ---------------- */
       {
         path: 'masters',
-        canActivate: [permissionGuard('masters.manage')],
+        /* Reaching a screen is reading it. These six guarded on the manage
+           key while every other route guards on view, so a tier holding
+           masters.view was sent to Forbidden rather than shown a register it
+           is entitled to read. The screens withhold their own New, Edit and
+           status controls without the manage key, so opening one grants
+           nothing beyond the reading. */
+        canActivate: [permissionGuard('masters.view')],
         children: [
           { path: '', pathMatch: 'full', redirectTo: 'categories' },
           {
@@ -124,14 +130,14 @@ export const routes: Routes = [
           {
             path: 'curriculum',
             title: 'Curriculum · CBMS',
-            canActivate: [permissionGuard('curriculum.manage')],
+            canActivate: [permissionGuard('curriculum.view')],
             loadComponent: () =>
               import('./features/academics/curriculum.component').then((m) => m.CurriculumComponent),
           },
           {
             path: 'curriculum/:id',
             title: 'Curriculum sessions · CBMS',
-            canActivate: [permissionGuard('curriculum.manage')],
+            canActivate: [permissionGuard('curriculum.view')],
             loadComponent: () =>
               import('./features/academics/curriculum-sessions.component').then(
                 (m) => m.CurriculumSessionsComponent,
@@ -140,7 +146,7 @@ export const routes: Routes = [
           {
             path: 'profile-forms',
             title: 'Profile forms · CBMS',
-            canActivate: [permissionGuard('masters.manage')],
+            canActivate: [permissionGuard('masters.view')],
             loadComponent: () =>
               import('./features/academics/profile-forms.component').then(
                 (m) => m.ProfileFormsComponent,
@@ -149,7 +155,7 @@ export const routes: Routes = [
           {
             path: 'signup-form',
             title: 'Applicant sign-up form · CBMS',
-            canActivate: [permissionGuard('masters.manage')],
+            canActivate: [permissionGuard('masters.view')],
             loadComponent: () =>
               import('./features/academics/signup-form.component').then(
                 (m) => m.SignupFormComponent,
@@ -158,7 +164,7 @@ export const routes: Routes = [
           {
             path: 'feedback-forms',
             title: 'Feedback forms · CBMS',
-            canActivate: [permissionGuard('curriculum.manage')],
+            canActivate: [permissionGuard('curriculum.view')],
             loadComponent: () =>
               import('./features/academics/feedback-forms.component').then(
                 (m) => m.FeedbackFormsComponent,
