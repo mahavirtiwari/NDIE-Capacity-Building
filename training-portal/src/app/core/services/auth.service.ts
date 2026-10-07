@@ -37,6 +37,8 @@ export class AuthService {
       tap((res) => {
         localStorage.setItem(TOKEN_KEY, res.token);
         localStorage.setItem(USER_KEY, JSON.stringify(res.user));
+        /* A fresh session can be signed out of again. */
+        this.leaving = false;
         this._token.set(res.token);
         this._user.set(res.user);
       }),
@@ -55,12 +57,41 @@ export class AuthService {
     return this.api.post<boolean>('auth/reset-password', { userCode, code, newPassword });
   }
 
+  /**
+   * Ends the session and gets the user to the sign-in screen.
+   *
+   * The router alone was not enough. Signing out while another navigation
+   * is still resolving — the lazy chunk for the page just clicked, or the
+   * redirect a second 401 has already started — leaves the new navigation
+   * cancelled: the session is gone but the screen never moves, and the
+   * button looks broken. So the destination is checked, and a navigation
+   * that did not land is finished off with a full page load, which also
+   * throws away every component still holding the old session's data.
+   *
+   * Signing out twice over is one sign-out: several calls failing at once
+   * would otherwise race each other's navigations.
+   */
   logout(redirect = true): void {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     this._token.set(null);
     this._user.set(null);
-    if (redirect) void this.router.navigate(['/login']);
+    if (!redirect || this.leaving) return;
+
+    this.leaving = true;
+    this.router
+      .navigate(['/login'])
+      .then((landed) => {
+        if (!landed || !this.router.url.startsWith('/login')) this.reload();
+      })
+      .catch(() => this.reload());
+  }
+
+  /** Guards against several failed calls each starting their own sign-out. */
+  private leaving = false;
+
+  private reload(): void {
+    window.location.assign('/login');
   }
 
   /**
