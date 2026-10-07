@@ -153,7 +153,10 @@ public class CategoryService(NtmsDbContext db, MasterVisibility visibility)
 
 /* ---------------------------------------------------------- sub-categories */
 
-public class SubCategoryService(NtmsDbContext db, MasterVisibility visibility)
+public class SubCategoryService(
+    NtmsDbContext db,
+    MasterVisibility visibility,
+    NotificationBroadcastService broadcasts)
 {
     private IQueryable<SubCategory> Base => db.SubCategories.AsNoTracking().Include(s => s.Category);
 
@@ -208,6 +211,22 @@ public class SubCategoryService(NtmsDbContext db, MasterVisibility visibility)
         };
         db.SubCategories.Add(entity);
         await db.SaveChangesAsync(ct);
+
+        /* A new track is a new thing somebody can apply for, and nobody
+           finds it by refreshing the app on the off chance. Only a live
+           one is announced: a track added switched off is not open yet. */
+        if (entity.Status == RecordStatus.Active)
+        {
+            await broadcasts.RaiseAsync(
+                "SubCategoryAdded",
+                "A new track has opened",
+                $"{entity.Name} has been added. See what it leads to and whether "
+                + "you can apply.",
+                NotificationAudience.Applicants,
+                linkPath: "/apply",
+                ct: ct);
+        }
+
         return await GetAsync(entity.Id, ct);
     }
 

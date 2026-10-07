@@ -12,6 +12,7 @@ import {
 import { Platform } from 'react-native';
 import { forgetCachedData } from '../offline/store';
 import { configureApi } from '../api/client';
+import { registerForPush, retirePush } from '../notifications/push';
 import { auth as authApi, me as meApi } from '../api/endpoints';
 import type { Applicant } from '../api/types';
 
@@ -72,6 +73,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const tokenRef = useRef<string | null>(null);
 
   const signOut = useCallback(async () => {
+    /* Before the token goes: this handset stops being this applicant's, so
+       a shared phone does not keep delivering their notices. */
+    await retirePush();
     tokenRef.current = null;
     setApplicant(null);
     /* The cache holds this applicant's programmes, applications and profile.
@@ -111,6 +115,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         tokenRef.current = token;
         try {
           setApplicant(JSON.parse(profile) as Applicant);
+          /* A token can be revoked by the push service between runs, so
+             the handset says hello on every cold start, not only at
+             sign-in. */
+          void registerForPush();
         } catch {
           await signOut();
         }
@@ -131,6 +139,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       storage.set(TOKEN_KEY, result.token),
       storage.set(APPLICANT_KEY, JSON.stringify(result.applicant)),
     ]);
+    /* Where to reach this applicant, now that we know who they are. */
+    void registerForPush();
   }, []);
 
   const refreshProfile = useCallback(async () => {

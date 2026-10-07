@@ -15,7 +15,8 @@ public class ProgrammeService(
     ICodeGenerator codes,
     ICurrentUser currentUser,
     DelegationGuard delegation,
-    INotificationService notifications)
+    INotificationService notifications,
+    NotificationBroadcastService broadcasts)
 {
     /* Scoped at the source, so no read path can forget it. */
     private IQueryable<Programme> Base => db.Programmes.AsNoTracking()
@@ -260,6 +261,23 @@ public class ProgrammeService(
         CloseIfFull(entity);
 
         await db.SaveChangesAsync(ct);
+
+        /* Permitted means open, and a batch nobody is told about fills up
+           with whoever happened to look. Narrowed to the track it belongs
+           to and the state it runs in, because that is who can sit it. */
+        if (target == ProgramStatus.PermissionAccepted && entity.RegistrationsOpen)
+        {
+            await broadcasts.RaiseAsync(
+                "ProgrammeOpened",
+                "A new programme is open",
+                $"{entity.ProgrammeName} starts on "
+                + $"{entity.StartDate:dd MMM yyyy}. Registration is open now.",
+                NotificationAudience.Applicants,
+                subCategoryId: entity.SubCategoryId,
+                stateCode: entity.StateCode,
+                linkPath: "/programs",
+                ct: ct);
+        }
         return await GetAsync(id, ct);
     }
 

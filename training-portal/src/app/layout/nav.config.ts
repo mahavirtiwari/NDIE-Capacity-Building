@@ -51,6 +51,14 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'People and access',
     items: [
       { label: 'Portal users', route: '/access/users', icon: 'users', permissions: ['users.view'] },
+      /* What the scheme says to the handsets: an announcement written here
+         and the notices raised when a programme opens or a track is added. */
+      {
+        label: 'Notifications',
+        route: '/admin/notifications',
+        icon: 'bell',
+        permissions: ['notifications.view'],
+      },
       { label: 'Roles & permissions', route: '/access/roles', icon: 'shield', permissions: ['roles.view'] },
       { label: 'Implementing agencies', route: '/admin/agencies', icon: 'building', permissions: ['agencies.view'] },
       { label: 'Coordinators', route: '/operations/coordinators', icon: 'user-check', permissions: ['coordinators.view'] },

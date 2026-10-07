@@ -7,6 +7,7 @@ import type {
   Marksheet,
   MarksheetRowSave,
   MonitoringPhoto,
+  MyNotifications,
   MonitoringSession,
   Participant,
   PhotoKind,
@@ -383,4 +384,15 @@ export const photos = {
 
   /** Absolute URL for showing a stored photo back. */
   src: (kind: PhotoKind | undefined, relative: string) => `${API_BASE_URL}/${relative}`,
+};
+
+
+/** What the scheme has said to this coordinator, and where to reach them. */
+export const notices = {
+  list: (take = 50) => api.get<MyNotifications>('my-notifications', { take }),
+  markRead: (id: number) => api.post<boolean>(`my-notifications/${id}/read`, {}),
+  registerDevice: (device: { token: string; platform: string; app: string }) =>
+    api.post<boolean>('my-notifications/devices', device),
+  retireDevice: (token: string) =>
+    api.delete<boolean>(`my-notifications/devices/${encodeURIComponent(token)}`),
 };

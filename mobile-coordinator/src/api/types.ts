@@ -268,3 +268,19 @@ export interface Branding {
   logoVersion: number;
   updatedOn: string;
 }
+
+/** One notice as the handset shows it. */
+export interface MyNotification {
+  id: number;
+  title: string;
+  body: string;
+  linkPath?: string | null;
+  kind: string;
+  sentOn: string;
+  isRead: boolean;
+}
+
+export interface MyNotifications {
+  items: MyNotification[];
+  unread: number;
+}

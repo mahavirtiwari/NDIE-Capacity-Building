@@ -16,6 +16,7 @@ import type {
   Gender,
   LookupItem,
   MaterialTicket,
+  MyNotifications,
   PaymentInitiation,
   PaymentSummary,
   PaymentTransaction,
@@ -152,6 +153,20 @@ export const me = {
   /** Live, not cached: this decides whether anything else is reachable. */
   profileStanding: (subCategoryId: number) =>
     api.getLive<ProfileStanding>(`me/profile-submission/${subCategoryId}`),
+
+  /* ------------------------------------------------- notifications */
+
+  notifications: (take = 50) =>
+    api.getLive<MyNotifications>('my-notifications', { take }),
+
+  markNotificationRead: (id: number) =>
+    api.post<boolean>(`my-notifications/${id}/read`, {}),
+
+  registerDevice: (device: { token: string; platform: string; app: string }) =>
+    api.post<boolean>('my-notifications/devices', device),
+
+  retireDevice: (token: string) =>
+    api.delete<boolean>(`my-notifications/devices/${encodeURIComponent(token)}`),
 
   /* -------------------------------------------- pictures on a field */
 

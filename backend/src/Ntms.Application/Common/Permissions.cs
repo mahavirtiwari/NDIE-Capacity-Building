@@ -85,6 +85,14 @@ public static class Permissions
     /// <summary>Portal identity: organisation name and logo.</summary>
     public const string SettingsManage = "settings.manage";
 
+    /// <summary>
+    /// What the scheme says to the handsets: reading what has been sent,
+    /// and sending something new. Separated because the log is worth
+    /// showing to more people than the send button is.
+    /// </summary>
+    public const string NotificationsView = "notifications.view";
+    public const string NotificationsSend = "notifications.send";
+
     public static readonly IReadOnlyList<string> All =
     [
         MastersView, MastersManage,
@@ -103,6 +111,7 @@ public static class Permissions
         TrainersView,
         TrainersManage,
         SettingsManage,
+        NotificationsView, NotificationsSend,
     ];
 
     /// <summary>
@@ -149,5 +158,6 @@ public static class Permissions
            running of the programmes behind them. */
         ("Reports & registers", [ReportsView, ProfessionalsView, TrainersView, TrainersManage]),
         ("Portal settings", [SettingsManage]),
+        ("Notifications", [NotificationsView, NotificationsSend]),
     ];
 }

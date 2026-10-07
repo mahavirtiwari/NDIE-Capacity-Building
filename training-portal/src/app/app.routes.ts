@@ -254,6 +254,15 @@ export const routes: Routes = [
             loadComponent: () => import('./features/admin/agencies.component').then((m) => m.AgenciesComponent),
           },
           {
+            path: 'notifications',
+            title: 'Notifications · CBMS',
+            canActivate: [permissionGuard('notifications.view')],
+            loadComponent: () =>
+              import('./features/admin/notifications.component').then(
+                (m) => m.NotificationsComponent,
+              ),
+          },
+          {
             path: 'applicants',
             title: 'Applicants · CBMS',
             canActivate: [

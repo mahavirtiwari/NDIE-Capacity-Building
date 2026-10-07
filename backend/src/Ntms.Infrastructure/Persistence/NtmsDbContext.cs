@@ -116,6 +116,11 @@ public class NtmsDbContext(DbContextOptions<NtmsDbContext> options, ICurrentUser
     public DbSet<ProgrammeSubmission> ProgrammeSubmissions => Set<ProgrammeSubmission>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
 
+    /* What the scheme has to say, and the handsets it can say it to. */
+    public DbSet<PushDevice> PushDevices => Set<PushDevice>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<NotificationRead> NotificationReads => Set<NotificationRead>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

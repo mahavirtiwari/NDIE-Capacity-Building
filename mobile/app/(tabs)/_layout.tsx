@@ -5,6 +5,7 @@ import { View } from 'react-native';
 import { useAuth } from '../../src/auth/AuthContext';
 import { MenuButton, SideMenu } from '../../src/components/SideMenu';
 import { Loading } from '../../src/components/ui';
+import { NotificationBell } from '../../src/notifications/NotificationBell';
 import { colors } from '../../src/theme';
 
 export default function TabsLayout() {
@@ -26,6 +27,7 @@ export default function TabsLayout() {
         headerTintColor: colors.white,
         headerTitleStyle: { fontWeight: '700', color: colors.white },
         headerLeft: () => <MenuButton onPress={() => setMenu(true)} />,
+        headerRight: () => <NotificationBell />,
         tabBarActiveTintColor: colors.brand700,
         tabBarInactiveTintColor: colors.ink500,
         tabBarStyle: { backgroundColor: colors.blush, borderTopColor: colors.brand100 },

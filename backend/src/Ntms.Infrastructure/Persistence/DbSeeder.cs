@@ -415,7 +415,8 @@ public class DbSeeder(
             ("ADMIN",
                 [Permissions.CoordinatorsView, Permissions.UsersStatus,
                  Permissions.RolesView, Permissions.RolesManage,
-                 Permissions.ProfessionalsView, Permissions.TrainersView],
+                 Permissions.ProfessionalsView, Permissions.TrainersView,
+                 Permissions.NotificationsView, Permissions.NotificationsSend],
                 /* Scrutiny went to the manager the profile is assigned to,
                    which is where the queue has always pointed. */
                 [Permissions.AgenciesManage, Permissions.ApplicationsScrutinise]),
@@ -436,6 +437,12 @@ public class DbSeeder(
                     sessions, the attendance, the enrolment. */
                  Permissions.ProgramsManage], []),
             /* Oversight only: the Ministry must never gain a write key. */
+            /* The notifications screen is new, and a permission on no role
+               is a screen nobody can reach. The Super Admin owns the portal
+               and the Admin runs it, so both get it; nobody below is given
+               the country's handsets. */
+            ("SUPER_ADMIN",
+                [Permissions.NotificationsView, Permissions.NotificationsSend], []),
             ("MINISTRY",
                 [Permissions.ProfessionalsView, Permissions.TrainersView],
                 [Permissions.UsersStatus, Permissions.UsersManage, Permissions.TrainersManage]),

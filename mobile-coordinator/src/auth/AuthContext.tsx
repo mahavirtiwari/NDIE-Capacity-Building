@@ -1,3 +1,4 @@
+import { registerForPush, retirePush } from '../notifications/push';
 import * as SecureStore from 'expo-secure-store';
 import {
   createContext,
@@ -48,6 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   current.current = session;
 
   const signOut = useCallback(async () => {
+    /* Before the session goes: this handset stops being this coordinator's. */
+    await retirePush();
     setSession(null);
     await SecureStore.deleteItemAsync(KEY).catch(() => {});
   }, []);
@@ -69,7 +72,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (async () => {
       try {
         const stored = await SecureStore.getItemAsync(KEY);
-        if (!cancelled && stored) setSession(JSON.parse(stored) as Session);
+        if (!cancelled && stored) {
+          setSession(JSON.parse(stored) as Session);
+          /* A push token can be revoked between runs, so the handset says
+             hello on every cold start, not only at sign-in. */
+          void registerForPush();
+        }
       } catch {
         /* A keystore that cannot be read is the same as no session. */
       } finally {
@@ -90,6 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     setSession(next);
     await SecureStore.setItemAsync(KEY, JSON.stringify(next)).catch(() => {});
+    /* Where to reach this coordinator, now that we know who they are. */
+    void registerForPush();
   }, []);
 
   const value = useMemo<AuthValue>(

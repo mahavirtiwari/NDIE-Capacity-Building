@@ -8,6 +8,7 @@ import { SiteTextProvider } from '../src/content/SiteTextContext';
 import { NetworkProvider } from '../src/offline/NetworkContext';
 import { OutboxNotice } from '../src/offline/OutboxNotice';
 import { InstallGate } from '../src/permissions/InstallGate';
+import { NotificationBell } from '../src/notifications/NotificationBell';
 import { colors } from '../src/theme';
 
 export default function RootLayout() {
@@ -29,12 +30,14 @@ export default function RootLayout() {
             headerStyle: { backgroundColor: colors.blush },
             headerTintColor: colors.brand700,
             headerTitleStyle: { fontWeight: '600' },
+            headerRight: () => <NotificationBell />,
             contentStyle: { backgroundColor: colors.page },
           }}
         >
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="workshops" options={{ title: 'My workshops' }} />
+          <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
           <Stack.Screen name="workshop/[id]" options={{ headerShown: false }} />
               </Stack>
             </View>

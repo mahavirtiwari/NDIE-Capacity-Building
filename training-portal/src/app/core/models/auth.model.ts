@@ -43,7 +43,8 @@ export type Permission =
   | 'reports.view'
   | 'professionals.view'
   | 'trainers.view' | 'trainers.manage'
-  | 'settings.manage';
+  | 'settings.manage'
+  | 'notifications.view' | 'notifications.send';
 
 export interface PermissionGroup {
   group: string;
@@ -117,6 +118,13 @@ export const PERMISSION_CATALOGUE: PermissionGroup[] = [
     group: 'Portal settings',
     permissions: [
       { key: 'settings.manage', label: 'Edit portal branding (name & logo)' },
+    ],
+  },
+  {
+    group: 'Notifications',
+    permissions: [
+      { key: 'notifications.view', label: 'Read what has been sent to the apps' },
+      { key: 'notifications.send', label: 'Write and send a notification' },
     ],
   },
 ];

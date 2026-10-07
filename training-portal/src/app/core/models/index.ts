@@ -18,3 +18,4 @@ export * from './application.model';
 export * from './profile-submission.model';
 export * from './program.model';
 export * from './marksheet.model';
+export * from './notification.model';

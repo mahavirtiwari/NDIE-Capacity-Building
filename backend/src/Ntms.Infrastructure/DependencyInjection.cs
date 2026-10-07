@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Ntms.Infrastructure.Email;
 using Ntms.Infrastructure.Identity;
 using Ntms.Infrastructure.Invoicing;
+using Ntms.Infrastructure.Notifications;
 using Ntms.Infrastructure.Payments;
 using Ntms.Infrastructure.Persistence;
 using Ntms.Infrastructure.Services;
@@ -99,6 +100,14 @@ public static class DependencyInjection
         services.AddScoped<EmailAdminService>();
         services.AddScoped<LookupService>();
         services.AddScoped<DashboardService>();
+
+        /* What the scheme says to the handsets. The sender is a typed
+           client because it talks to one host and nothing else. */
+        services.AddHttpClient<IPushSender, ExpoPushSender>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+        services.AddScoped<NotificationBroadcastService>();
 
         /* Payments. The gateways are stateless and registered as the one
            interface, so the registry can refuse by name any of the others the
