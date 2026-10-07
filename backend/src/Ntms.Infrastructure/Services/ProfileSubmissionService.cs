@@ -422,6 +422,46 @@ public class ProfileSubmissionService(
     /// somebody for it. The state is the applicant's; a submission has none
     /// of its own.
     /// </summary>
+    /// <summary>
+    /// The profiles this account may read at all.
+    ///
+    /// An Operation Manager sees the desk they were given. The tiers above
+    /// it see everything, which is how a profile nobody was found for gets
+    /// noticed and placed. Below it, nobody.
+    ///
+    /// That last part was missing: the rule narrowed for the Operation
+    /// Manager and let every other tier through to the whole register,
+    /// which was written with the tiers above in mind. An agency login
+    /// sits beneath, so it read every profile in the scheme — names,
+    /// disciplines, decisions, and the reasons people were turned down.
+    /// An agency runs the batches it is given and has no part in deciding
+    /// who is let into a discipline.
+    ///
+    /// Applied to the record as well as to the list. Hiding a row while
+    /// leaving it to be fetched by its id hides nothing.
+    /// </summary>
+    private IQueryable<ProfileSubmission> Visible()
+    {
+        var query = Base.AsNoTracking()
+            /* A draft has not been handed in, so it is in nobody's queue. */
+            .Where(s => s.Status != ProfileSubmissionStatus.Draft);
+
+        switch (currentUser.Tier)
+        {
+            case BaseRole.OperationManager:
+                var self = currentUser.UserId ?? 0;
+                return query.Where(s => s.AssignedToUserId == self);
+
+            case BaseRole.SuperAdmin:
+            case BaseRole.Ministry:
+            case BaseRole.Admin:
+                return query;
+
+            default:
+                return query.Where(_ => false);
+        }
+    }
+
     private IQueryable<ProfileSubmission> Queue(
         string? search, string? status, int? categoryId, int? subCategoryId,
         int? programTypeId, string? state, DateOnly? from, DateOnly? to)
@@ -433,20 +473,7 @@ public class ProfileSubmissionService(
         var fromStamp = from?.ToDateTime(TimeOnly.MinValue);
         var toStamp = to?.ToDateTime(TimeOnly.MaxValue);
 
-        var query = Base.AsNoTracking()
-            /* A draft has not been handed in, so it is not in anybody's queue. */
-            .Where(s => s.Status != ProfileSubmissionStatus.Draft);
-
-        /* An Operation Manager sees the desk they were given, not the whole
-           register. The tiers above see everything, which is how an
-           unassigned profile gets noticed and placed. */
-        if (currentUser.Tier == BaseRole.OperationManager)
-        {
-            var self = currentUser.UserId ?? 0;
-            query = query.Where(s => s.AssignedToUserId == self);
-        }
-
-        return query
+        return Visible()
             .WhereIf(wanted.HasValue, s => s.Status == wanted)
             .WhereIf(categoryId.HasValue, s => s.CategoryId == categoryId)
             .WhereIf(subCategoryId.HasValue, s => s.SubCategoryId == subCategoryId)
@@ -592,7 +619,7 @@ public class ProfileSubmissionService(
     }
 
     public async Task<ProfileSubmissionDto> GetAsync(int id, CancellationToken ct) =>
-        Map(await Base.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id, ct)
+        Map(await Visible().FirstOrDefaultAsync(s => s.Id == id, ct)
             ?? throw AppException.NotFound("Profile submission"));
 
     /// <summary>Accepts a profile, which opens the discipline to the applicant.</summary>

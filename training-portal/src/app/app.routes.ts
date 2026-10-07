@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, guestGuard, permissionGuard } from './core/guards/auth.guard';
+import { authGuard, guestGuard, permissionGuard, roleGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -271,7 +271,10 @@ export const routes: Routes = [
           {
             path: 'profile-scrutiny',
             title: 'Profile scrutiny · CBMS',
-            canActivate: [permissionGuard('applications.view')],
+            canActivate: [
+              permissionGuard('applications.view'),
+              roleGuard('SuperAdmin', 'Ministry', 'Admin', 'OperationManager'),
+            ],
             loadComponent: () =>
               import('./features/admin/profile-scrutiny.component').then(
                 (m) => m.ProfileScrutinyComponent,
@@ -280,7 +283,10 @@ export const routes: Routes = [
           {
             path: 'profile-scrutiny/:id',
             title: 'Profile · CBMS',
-            canActivate: [permissionGuard('applications.view')],
+            canActivate: [
+              permissionGuard('applications.view'),
+              roleGuard('SuperAdmin', 'Ministry', 'Admin', 'OperationManager'),
+            ],
             loadComponent: () =>
               import('./features/admin/profile-scrutiny-detail.component').then(
                 (m) => m.ProfileScrutinyDetailComponent,
