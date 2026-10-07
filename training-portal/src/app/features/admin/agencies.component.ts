@@ -32,7 +32,9 @@ import {
 import { ListState, searchTerm } from '../../shared/list-state';
 
 const COLUMNS: ColumnDef[] = [
-  { key: 'code', header: 'Code', sortable: true, width: '140px' },
+  /* No code column. It is a generated reference nobody reads the register
+     by, and it cost a column the agency's own name could use. Still on the
+     details sheet, and still searchable. */
   { key: 'name', header: 'Agency', sortable: true, variant: 'primary' },
   { key: 'agencyType', header: 'Type', width: '170px' },
   { key: 'contact', header: 'Contact person', width: '230px' },
@@ -452,10 +454,6 @@ const COLUMNS: ColumnDef[] = [
               ></textarea>
             </div>
             <div class="field">
-              <label class="field-label" for="agCity">City <span class="req">*</span></label>
-              <input id="agCity" class="input" formControlName="city" />
-            </div>
-            <div class="field">
               <label class="field-label" for="agStateSel">State/UT <span class="req">*</span></label>
               <select id="agStateSel" class="select" formControlName="stateCode" (change)="onStateChange()">
                 <option [ngValue]="null">Select</option>
@@ -473,6 +471,10 @@ const COLUMNS: ColumnDef[] = [
                   <option [ngValue]="district.id">{{ district.name }}</option>
                 }
               </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="agCity">City <span class="req">*</span></label>
+              <input id="agCity" class="input" formControlName="city" />
             </div>
             <div class="field">
               <label class="field-label" for="agPin">Pincode <span class="req">*</span></label>
@@ -613,8 +615,12 @@ export class AgenciesComponent {
   protected readonly programTypes = computed(() => this.allocatable().programTypes);
   protected readonly scopeStates = computed(() => this.allocatable().states);
 
+  /* Newest first: the register is read to find what was just empanelled far
+     more often than to look somebody up alphabetically. The Agency column
+     still sorts by name for when it is the other way round. */
   protected readonly list = new ListState<ImplementingAgency>((request) => this.service.list(request), {
-    sortBy: 'name',
+    sortBy: 'createdOn',
+    sortDir: 'desc',
   });
 
   protected readonly history = signal<AgencyHistory | null>(null);
