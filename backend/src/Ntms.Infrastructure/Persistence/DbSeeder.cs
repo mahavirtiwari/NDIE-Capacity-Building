@@ -462,6 +462,31 @@ public class DbSeeder(
             }
         }
 
+        /* ---- and anything the tier may never hold --------------------------
+           The named corrections above are structural, one key at a time. This
+           is the sweep behind them: a row granting a permission its tier can
+           never exercise is a lie on the roles screen, and it is how a
+           Coordinator came to be listed with the masters, the roles screen
+           and the system settings. The permission set is read through the
+           same rule, so these rows already did nothing; they are taken off
+           the record as well, so the screen says what is true. */
+        var allRoles = await db.Roles.Include(r => r.Permissions).ToListAsync(ct);
+        foreach (var role in allRoles)
+        {
+            var impossible = role.Permissions
+                .Where(p => !RoleHierarchy.Holdable(role.BaseRole, p.Permission))
+                .ToList();
+
+            foreach (var stale in impossible)
+            {
+                role.Permissions.Remove(stale);
+                changed++;
+                logger.LogInformation(
+                    "Removed {Permission} from {Role}: a {Tier} cannot hold it",
+                    stale.Permission, role.Code, RoleHierarchy.DisplayName(role.BaseRole));
+            }
+        }
+
         /* ---- free-text qualifications become catalogue codes -------------
            The field used to hold a sentence. Where one named several levels,
            the lowest is taken, since that is the bar it actually set. Anything
