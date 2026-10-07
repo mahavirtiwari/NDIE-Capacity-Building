@@ -154,6 +154,20 @@ function isBlank(raw: FormValue): boolean {
 }
 
 /**
+ * Whether a field has actually been answered.
+ *
+ * A photos field keeps its answer as a count, so "0" is a stored value
+ * that means no pictures were taken -- blank by every reading that
+ * matters, and the reason a section could be opened and left and still
+ * report itself completed. A number field is not treated this way: nought
+ * years of experience is an answer somebody gave.
+ */
+function isAnswered(field: ProfileField, raw: FormValue): boolean {
+  if (field.type === 'photos') return Number(asText(raw ?? '')) > 0;
+  return !isBlank(raw);
+}
+
+/**
  * Whether a stored key belongs to this section, so its errors can be cleared
  * without disturbing the rest of the form's.
  */
@@ -314,7 +328,8 @@ export function useDynamicForm(form: ProfileForm | null): DynamicFormState {
     ) => {
       const raw = source[key] ?? defaultFor(field);
       const text = asText(raw);
-      const empty = Array.isArray(raw) ? raw.length === 0 : text.trim() === '' || text === 'false';
+      const empty = !isAnswered(field, raw)
+        || (Array.isArray(raw) ? raw.length === 0 : text.trim() === '' || text === 'false');
 
       if (field.validation.required && empty) {
         /* A declaration's label is a paragraph, and "<the whole paragraph>
@@ -460,7 +475,7 @@ export function useDynamicForm(form: ProfileForm | null): DynamicFormState {
           if (!isVisible(field, section, index, values)) continue;
 
           const key = storageKey(section, index, field.key);
-          const filled = !isBlank(values[key] ?? defaultFor(field));
+          const filled = isAnswered(field, values[key] ?? defaultFor(field));
 
           total += 1;
           if (filled) answered += 1;
@@ -1044,7 +1059,9 @@ function PhotosField({
         const standing = await me.photoStanding(subCategoryId, field.key);
         if (cancelled) return;
         setCount(standing.count);
-        onChange(String(standing.count));
+        /* Nothing on the server is no answer. Writing "0" here is what made
+           opening a section enough to complete it. */
+        onChange(standing.count > 0 ? String(standing.count) : '');
       } catch {
         /* Offline, or the field is new. The local count stands. */
       }
@@ -1075,7 +1092,7 @@ function PhotosField({
         type: asset.mimeType ?? 'image/jpeg',
       });
       setCount(standing.count);
-      onChange(String(standing.count));
+      onChange(standing.count > 0 ? String(standing.count) : '');
     } catch (caught) {
       setFailure(caught instanceof Error ? caught.message : 'Could not add the picture.');
     } finally {
@@ -1090,7 +1107,7 @@ function PhotosField({
     try {
       const standing = await me.removePhoto(subCategoryId, field.key, count);
       setCount(standing.count);
-      onChange(String(standing.count));
+      onChange(standing.count > 0 ? String(standing.count) : '');
     } catch (caught) {
       setFailure(caught instanceof Error ? caught.message : 'Could not remove the picture.');
     } finally {
