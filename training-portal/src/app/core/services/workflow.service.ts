@@ -78,6 +78,19 @@ export class ApplicationService extends CrudService<Application> {
 export class ProgramService extends CrudService<Program> {
   protected readonly resource = 'programs';
 
+  /**
+   * Moves a batch along its workflow: permission accepted, postponed, and
+   * the rest.
+   *
+   * Its own route, because editing a batch and deciding one are different
+   * acts. A full update carries the whole record and deliberately leaves
+   * the status alone, so sending a decision that way changed nothing while
+   * reporting success.
+   */
+  advance(id: Id, status: string, comments?: string): Observable<Program> {
+    return this.api.patch<Program>(`${this.resource}/${id}/status`, { status, comments });
+  }
+
   addSession(programId: Id, session: Record<string, unknown>): Observable<Program> {
     return this.api.post<Program>(`${this.resource}/${programId}/sessions`, session);
   }

@@ -557,7 +557,8 @@ public class AgencyService(
             .Email(dto.Email)
             .Mobile(dto.Mobile)
             .Gstin(dto.Gstin)
-            .Pan(dto.Pan)
+            /* Required: the agency is a legal body the scheme pays. */
+            .Pan(dto.Pan, required: true)
             .Required(dto.AddressLine1, "Address")
             .Required(dto.City, "City")
             .Pincode(dto.Pincode)

@@ -620,7 +620,10 @@ export class ProgramsComponent {
     });
     if (!confirmed) return;
 
-    this.service.update(programme.id, { ...programme, status, registrationsOpen: true }).subscribe(() => {
+    /* The status route, not a full update. Update carries the whole record
+       and leaves the status where it was by design, so this reported
+       success and moved nothing. */
+    this.service.advance(programme.id, status).subscribe(() => {
       this.toast.success('Permission accepted', programme.programmeId);
       this.list.reload();
     });
@@ -671,11 +674,7 @@ export class ProgramsComponent {
     });
     if (!confirmed) return;
     this.service
-      .update(programme.id, {
-        ...programme,
-        status: 'Postponed',
-        comments: 'Postponed by operations.',
-      })
+      .advance(programme.id, 'Postponed', 'Postponed by operations.')
       .subscribe(() => {
         this.toast.success('Program postponed', programme.programmeId);
         this.list.reload();

@@ -17,7 +17,12 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
           toast.error('Session expired', 'Please sign in again.');
           auth.logout();
         } else if (error.status === 403) {
-          toast.error('Not permitted', 'You do not have access to this action.');
+          /* The server says why — "A Super Admin does not settle what a
+             Coordinator may do", "You can only allocate states from your own
+             allocation" — and this threw all of it away for one line that
+             told nobody anything. Its words where it gave them. */
+          const refusal = (error.error as { message?: string } | null)?.message;
+          toast.error('Not permitted', refusal ?? 'You do not have access to this action.');
         } else {
           const body = error.error as { message?: string; errors?: string[] } | null;
           toast.error(

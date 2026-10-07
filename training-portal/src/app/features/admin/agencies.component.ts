@@ -426,7 +426,7 @@ const COLUMNS: ColumnDef[] = [
               @if (invalid('gstin')) { <span class="field-error">{{ errorFor('gstin', 'GSTIN') }}</span> }
             </div>
             <div class="field">
-              <label class="field-label" for="agPan">PAN</label>
+              <label class="field-label" for="agPan">PAN <span class="req">*</span></label>
               <input id="agPan" class="input" formControlName="pan" appUppercase maxlength="10"
                 placeholder="ABCDE1234F" [class.is-invalid]="invalid('pan')" />
               @if (invalid('pan')) { <span class="field-error">{{ errorFor('pan', 'PAN') }}</span> }
@@ -441,7 +441,15 @@ const COLUMNS: ColumnDef[] = [
             </div>
             <div class="field field--span-2">
               <label class="field-label" for="agAddr1">Address <span class="req">*</span></label>
-              <input id="agAddr1" class="input" formControlName="addressLine1" />
+              <!-- A postal address runs to several lines, and a one-line box
+                   made the operator scroll sideways through their own typing. -->
+              <textarea
+                id="agAddr1"
+                class="textarea"
+                formControlName="addressLine1"
+                rows="3"
+                maxlength="300"
+              ></textarea>
             </div>
             <div class="field">
               <label class="field-label" for="agCity">City <span class="req">*</span></label>
@@ -678,7 +686,9 @@ export class AgenciesComponent {
     email: ['', requiredFormat('email')],
     mobile: ['', requiredFormat('mobile')],
     gstin: ['', [formatValidator('gstin')]],
-    pan: ['', [formatValidator('pan')]],
+    /* An agency is a legal body being paid by the scheme, so its PAN is
+       as much a part of the record as its name. */
+    pan: ['', requiredFormat('pan')],
     addressLine1: ['', Validators.required],
     city: ['', Validators.required],
     stateCode: [null as number | null, Validators.required],
