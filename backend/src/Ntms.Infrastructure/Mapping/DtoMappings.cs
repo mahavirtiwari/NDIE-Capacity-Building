@@ -542,6 +542,7 @@ public static class DtoMappings
             Pincode = e.Pincode,
             Pan = e.Pan,
             Aadhaar = e.Aadhaar,
+            OrganisationName = e.OrganisationName,
             LastLoginOn = e.LastLoginOn,
             Status = e.Status.ToApi(),
         };

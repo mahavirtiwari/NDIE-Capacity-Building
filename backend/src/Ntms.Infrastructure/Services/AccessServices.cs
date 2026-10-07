@@ -486,6 +486,7 @@ public class UserService(
         Validate(dto);
         var role = await db.Roles.FirstOrDefaultAsync(r => r.Id == dto.RoleId, ct)
                    ?? throw AppException.NotFound("Role");
+        EnsureRecordComplete(dto, role.BaseRole);
 
         /* One rung down only, and never outside what the caller holds. */
         delegation.EnsureCanCreate(role.BaseRole);
@@ -534,6 +535,7 @@ public class UserService(
 
         var role = await db.Roles.FirstOrDefaultAsync(r => r.Id == dto.RoleId, ct)
                    ?? throw AppException.NotFound("Role");
+        EnsureRecordComplete(dto, role.BaseRole);
 
         /* Editable only by the tier that creates this kind of account, and only
            into another kind that same tier could have created — otherwise an
@@ -723,6 +725,8 @@ public class UserService(
             On = e.On,
             Area = "Account",
             Title = e.ToStatus == "Active" ? "Switched back on" : "Switched off",
+            /* An account going off is the entry somebody is looking for. */
+            Tone = e.ToStatus == "Active" ? "success" : "danger",
             Detail = e.Reason,
             By = e.ByUserName,
         }));
@@ -773,6 +777,32 @@ public class UserService(
         };
     }
 
+    /// <summary>
+    /// The particulars an account for the scheme's own staff is opened with.
+    ///
+    /// An Admin, a Ministry account or an Operation Manager is a named
+    /// person at a named body, somewhere, and the record is what the scheme
+    /// is administered from -- half of it filled in is a record nobody can
+    /// act on later. A coordinator is lighter on purpose: the agency that
+    /// appoints them already carries the organisation and its PAN, and an
+    /// agency's own login is issued with the agency rather than typed in
+    /// here. Aadhaar is never required of anybody.
+    /// </summary>
+    private static void EnsureRecordComplete(PortalUserUpsertDto dto, BaseRole tier)
+    {
+        if (tier is not (BaseRole.Admin or BaseRole.Ministry or BaseRole.OperationManager)) return;
+
+        Guard.Check()
+            .Required(dto.Designation, "Designation")
+            .Required(dto.OrganisationName, "Organisation name")
+            .Required(dto.City, "City")
+            .When(dto.StateCode is null, "Select a State/UT.")
+            .When(dto.DistrictCode is null, "Select a district.")
+            .Pincode(dto.Pincode)
+            .Pan(dto.Pan, required: true)
+            .ThrowIfInvalid();
+    }
+
     private static void Validate(PortalUserUpsertDto dto) =>
         Guard.Check()
             .Required(dto.FullName, "Full name")
@@ -801,6 +831,7 @@ public class UserService(
         entity.Pincode = Formats.Normalise(dto.Pincode);
         entity.Pan = Formats.Normalise(dto.Pan);
         entity.Aadhaar = Formats.Normalise(dto.Aadhaar);
+        entity.OrganisationName = dto.OrganisationName?.Trim();
         entity.Status = EnumMaps.ToStatus(dto.Status);
     }
 

@@ -10,7 +10,7 @@ import {
   untracked,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 import {
   AdminRole,
   AllocatableScope,
@@ -286,50 +286,92 @@ const TIER_DEPTH: Record<string, number> = {
         size="md"
         (closed)="details.set(null)"
       >
-        <div class="dl">
-          <div>
-            <div class="dl__term">Email</div>
-            <div class="dl__value">{{ row.email }}</div>
-          </div>
-          <div>
-            <div class="dl__term">Mobile</div>
-            <div class="dl__value">{{ row.mobile || '—' }}</div>
-          </div>
-          <div>
-            <div class="dl__term">Designation</div>
-            <div class="dl__value">{{ row.designation || '—' }}</div>
-          </div>
-          @if (row.agencyName) {
-            <div>
-              <div class="dl__term">Implementing agency</div>
-              <div class="dl__value">{{ row.agencyName }}</div>
+        <!-- Read in the order somebody needs it: how to reach them, who
+             they are on the record, where they sit, and how the account
+             itself stands. A single ten-value grid made all ten look
+             equally important, which left the eye to do the sorting. -->
+        <div class="stack stack-md">
+          <div class="sheet-id">
+            <div class="sheet-id__who">
+              <span class="avatar avatar--lg">{{ initialsOf(row.fullName) }}</span>
+              <div class="stack stack-xs">
+                <strong>{{ row.roleName }}</strong>
+                <span class="text-xs text-muted">
+                  Signing in as <code>{{ row.userCode }}</code>
+                </span>
+              </div>
             </div>
-          }
-          <div>
-            <div class="dl__term">PAN</div>
-            <div class="dl__value">{{ row.pan || '—' }}</div>
+            <app-status-badge [value]="row.status" />
           </div>
+
           <div>
-            <div class="dl__term">Aadhaar</div>
-            <div class="dl__value">{{ row.aadhaar ? masked(row.aadhaar) : '—' }}</div>
-          </div>
-          <div>
-            <div class="dl__term">Location</div>
-            <div class="dl__value">
-              {{ row.city || '—' }}@if (row.state) {, {{ row.state }}}@if (row.pincode) {
-                — {{ row.pincode }}
-              }
-            </div>
-          </div>
-          <div>
-            <div class="dl__term">Last login</div>
-            <div class="dl__value">
-              {{ row.lastLoginOn ? (row.lastLoginOn | date: 'dd MMM yyyy, HH:mm') : 'Never signed in' }}
+            <h4 class="section-title">Contact</h4>
+            <div class="dl">
+              <div>
+                <div class="dl__term">Email</div>
+                <div class="dl__value">
+                  <a [href]="'mailto:' + row.email">{{ row.email }}</a>
+                </div>
+              </div>
+              <div>
+                <div class="dl__term">Mobile</div>
+                <div class="dl__value">
+                  @if (row.mobile) {
+                    <a [href]="'tel:' + row.mobile">{{ row.mobile }}</a>
+                  } @else {
+                    —
+                  }
+                </div>
+              </div>
             </div>
           </div>
+
           <div>
-            <div class="dl__term">Status</div>
-            <div class="dl__value"><app-status-badge [value]="row.status" /></div>
+            <h4 class="section-title">On the record</h4>
+            <div class="dl">
+              <div>
+                <div class="dl__term">Designation</div>
+                <div class="dl__value">{{ row.designation || '—' }}</div>
+              </div>
+              <div>
+                <div class="dl__term">Organization</div>
+                <div class="dl__value">{{ row.organisationName || row.agencyName || '—' }}</div>
+              </div>
+              <div>
+                <div class="dl__term">PAN</div>
+                <div class="dl__value tabular">{{ row.pan || '—' }}</div>
+              </div>
+              <div>
+                <div class="dl__term">Aadhaar</div>
+                <div class="dl__value tabular">
+                  {{ row.aadhaar ? masked(row.aadhaar) : '—' }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h4 class="section-title">Posting</h4>
+            <div class="dl">
+              <div>
+                <div class="dl__term">Location</div>
+                <div class="dl__value">
+                  {{ row.city || '—' }}@if (row.state) {, {{ row.state }}}@if (row.pincode) {
+                    — {{ row.pincode }}
+                  }
+                </div>
+              </div>
+              <div>
+                <div class="dl__term">Last signed in</div>
+                <div class="dl__value">
+                  {{
+                    row.lastLoginOn
+                      ? (row.lastLoginOn | date: 'dd MMM yyyy, HH:mm')
+                      : 'Never signed in'
+                  }}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -363,8 +405,14 @@ const TIER_DEPTH: Record<string, number> = {
               <input id="uName" class="input" formControlName="fullName" />
             </div>
             <div class="field">
-              <label class="field-label" for="uDesignation">Designation</label>
-              <input id="uDesignation" class="input" formControlName="designation" />
+              <label class="field-label" for="uDesignation">
+                Designation @if (needsFullRecord()) { <span class="req">*</span> }
+              </label>
+              <input id="uDesignation" class="input" formControlName="designation"
+                [class.is-invalid]="invalid('designation')" />
+              @if (invalid('designation')) {
+                <span class="field-error">{{ errorFor('designation', 'Designation') }}</span>
+              }
             </div>
             <div class="field">
               <label class="field-label" for="uEmail">Email <span class="req">*</span></label>
@@ -405,7 +453,9 @@ const TIER_DEPTH: Record<string, number> = {
                  so a picker could only record a different answer from the
                  truth. -->
             <div class="field">
-              <label class="field-label" for="uState">State/UT</label>
+              <label class="field-label" for="uState">
+                State/UT @if (needsFullRecord()) { <span class="req">*</span> }
+              </label>
               <select id="uState" class="select" formControlName="stateCode" (change)="onStateChange()">
                 <option [ngValue]="null">Select</option>
                 @for (state of addressStates(); track state.id) {
@@ -414,7 +464,9 @@ const TIER_DEPTH: Record<string, number> = {
               </select>
             </div>
             <div class="field">
-              <label class="field-label" for="uDistrict">District</label>
+              <label class="field-label" for="uDistrict">
+                District @if (needsFullRecord()) { <span class="req">*</span> }
+              </label>
               <select id="uDistrict" class="select" formControlName="districtCode">
                 <option [ngValue]="null">Select</option>
                 @for (district of districts(); track district.id) {
@@ -423,17 +475,38 @@ const TIER_DEPTH: Record<string, number> = {
               </select>
             </div>
             <div class="field">
-              <label class="field-label" for="uCity">City</label>
-              <input id="uCity" class="input" formControlName="city" />
+              <label class="field-label" for="uCity">
+                City @if (needsFullRecord()) { <span class="req">*</span> }
+              </label>
+              <input id="uCity" class="input" formControlName="city"
+                [class.is-invalid]="invalid('city')" />
+              @if (invalid('city')) { <span class="field-error">{{ errorFor('city', 'City') }}</span> }
             </div>
             <div class="field">
-              <label class="field-label" for="uPin">Pincode</label>
+              <label class="field-label" for="uPin">
+                Pincode @if (needsFullRecord()) { <span class="req">*</span> }
+              </label>
               <input id="uPin" class="input" formControlName="pincode" maxlength="6" inputmode="numeric"
                 [class.is-invalid]="invalid('pincode')" />
               @if (invalid('pincode')) { <span class="field-error">{{ errorFor('pincode', 'Pincode') }}</span> }
             </div>
+            @if (needsFullRecord()) {
+              <div class="field">
+                <label class="field-label" for="uOrg">Organization name <span class="req">*</span></label>
+                <input id="uOrg" class="input" formControlName="organisationName" maxlength="200"
+                  placeholder="The body this account belongs to"
+                  [class.is-invalid]="invalid('organisationName')" />
+                @if (invalid('organisationName')) {
+                  <span class="field-error">
+                    {{ errorFor('organisationName', 'Organization name') }}
+                  </span>
+                }
+              </div>
+            }
             <div class="field">
-              <label class="field-label" for="uPan">PAN</label>
+              <label class="field-label" for="uPan">
+                PAN (Organization's PAN) @if (needsFullRecord()) { <span class="req">*</span> }
+              </label>
               <input id="uPan" class="input" formControlName="pan" maxlength="10"
                 placeholder="ABCDE1234F" appUppercase
                 [class.is-invalid]="invalid('pan')" />
@@ -615,25 +688,32 @@ const TIER_DEPTH: Record<string, number> = {
     }
 
     @if (history(); as record) {
-      <app-modal [title]="record.fullName" (closed)="history.set(null)">
+      <app-modal
+        [title]="record.fullName"
+        [subtitle]="record.userCode + ' · ' + record.roleName"
+        (closed)="history.set(null)"
+      >
         <div class="stack stack-md">
-          <div class="dl">
-            <div>
-              <div class="dl__term">Login</div>
-              <div class="dl__value"><code>{{ record.userCode }}</code></div>
-            </div>
-            <div>
-              <div class="dl__term">Role</div>
-              <div class="dl__value">{{ record.roleName }}</div>
-            </div>
-            <div>
-              <div class="dl__term">Status</div>
-              <div class="dl__value">{{ record.status }}</div>
-            </div>
-            <div>
-              <div class="dl__term">Last signed in</div>
-              <div class="dl__value">
-                {{ record.lastLoginOn ? (record.lastLoginOn | date: 'dd MMM yyyy, HH:mm') : 'Never' }}
+          <!-- Where the account stands now, set off from what has happened
+               to it: the header already says who this is, so the panel
+               answers the two questions the register cannot. -->
+          <div class="card">
+            <div class="card__body card__body--tight">
+              <div class="dl">
+                <div>
+                  <div class="dl__term">Status</div>
+                  <div class="dl__value"><app-status-badge [value]="record.status" /></div>
+                </div>
+                <div>
+                  <div class="dl__term">Last signed in</div>
+                  <div class="dl__value">
+                    {{
+                      record.lastLoginOn
+                        ? (record.lastLoginOn | date: 'dd MMM yyyy, HH:mm')
+                        : 'Never signed in'
+                    }}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -655,6 +735,28 @@ const TIER_DEPTH: Record<string, number> = {
       </app-modal>
     }
   `,
+  styles: [
+    `
+      /* Who this is and how the account stands, before the particulars. */
+      .sheet-id {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.85rem 1rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-muted);
+      }
+
+      .sheet-id__who {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        min-width: 0;
+      }
+    `,
+  ],
 })
 export class UsersComponent {
   protected readonly copy = inject(SiteTextService);
@@ -781,8 +883,12 @@ export class UsersComponent {
     return mine !== undefined && theirs !== undefined && mine < theirs;
   }
 
+  /* Newest first. The register is read to see who has lately been given an
+     account far more often than to look somebody up by name, and the Name
+     column still sorts both ways for when it is the other way round. */
   protected readonly list = new ListState<PortalUser>((request) => this.service.list(request), {
-    sortBy: 'fullName',
+    sortBy: 'createdOn',
+    sortDir: 'desc',
   });
 
   protected readonly formOpen = signal(false);
@@ -930,7 +1036,9 @@ export class UsersComponent {
     pincode: ['', formatValidator('pincode')],
     /* Optional, and checked where given. */
     pan: ['', formatValidator('pan')],
+    /* Never required of anybody. */
     aadhaar: ['', formatValidator('aadhaar')],
+    organisationName: [''],
     status: ['Active'],
   });
 
@@ -1051,9 +1159,13 @@ export class UsersComponent {
       pincode: row?.pincode ?? '',
       pan: row?.pan ?? '',
       aadhaar: row?.aadhaar ?? '',
+      organisationName: row?.organisationName ?? '',
       status: row?.status ?? 'Active',
     });
     this.lookups.addressDistricts(row?.stateCode ?? null).subscribe((items) => this.districts.set(items));
+    /* The dialog may open on a role already chosen -- editing, or the
+       coordinator screen, which picks the only role there is. */
+    this.applyRecordRules();
     this.formOpen.set(true);
   }
 
@@ -1062,8 +1174,55 @@ export class UsersComponent {
    * that no longer apply — leaving them behind would submit an allocation the
    * form is no longer showing.
    */
+  /**
+   * Whether this account is opened with the whole record.
+   *
+   * An Admin, a Ministry account or an Operation Manager is a named person
+   * at a named body: the scheme is administered from that record, and half
+   * of it filled in is a record nobody can act on later. A coordinator is
+   * lighter on purpose -- the agency that appoints them already carries the
+   * organisation and its PAN. Aadhaar is asked of nobody.
+   */
+  protected readonly needsFullRecord = computed(() => {
+    const tier = this.chosenBaseRole();
+    return tier === 'Admin' || tier === 'Ministry' || tier === 'OperationManager';
+  });
+
+  /**
+   * Holds the form to that, as the role is chosen.
+   *
+   * The rules cannot sit on the controls: the same form opens for a
+   * coordinator, where asking for an organisation's PAN would be asking the
+   * agency to repeat itself.
+   */
+  private applyRecordRules(): void {
+    const full = this.needsFullRecord();
+    const c = this.form.controls;
+
+    const plain: [typeof c.designation, ValidatorFn[]][] = [
+      [c.designation, [Validators.required]],
+      [c.city, [Validators.required]],
+      [c.organisationName, [Validators.required]],
+    ];
+    for (const [control, rules] of plain) {
+      control.setValidators(full ? rules : []);
+      control.updateValueAndValidity({ emitEvent: false });
+    }
+
+    c.stateCode.setValidators(full ? [Validators.required] : []);
+    c.stateCode.updateValueAndValidity({ emitEvent: false });
+    c.districtCode.setValidators(full ? [Validators.required] : []);
+    c.districtCode.updateValueAndValidity({ emitEvent: false });
+
+    c.pincode.setValidators(full ? requiredFormat('pincode') : [formatValidator('pincode')]);
+    c.pincode.updateValueAndValidity({ emitEvent: false });
+    c.pan.setValidators(full ? requiredFormat('pan') : [formatValidator('pan')]);
+    c.pan.updateValueAndValidity({ emitEvent: false });
+  }
+
   protected onRoleChanged(): void {
     this.roleIdSignal.set(this.form.controls.roleId.value ?? null);
+    this.applyRecordRules();
     const axes = this.axes();
     if (!axes.category) this.categoryIds.set([]);
     if (!axes.subCategory) this.subCategoryIds.set([]);
@@ -1177,6 +1336,15 @@ export class UsersComponent {
    * Enough to tell two records apart, which is all the sheet is read for.
    * The whole number is in the form for whoever may edit the account.
    */
+  /** The avatar's letters, the same two the topbar shows. */
+  protected initialsOf(name: string): string {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '?';
+    const first = parts[0][0];
+    const last = parts.length > 1 ? parts[parts.length - 1][0] : '';
+    return (first + last).toUpperCase();
+  }
+
   protected masked(aadhaar: string): string {
     return aadhaar.length < 4 ? aadhaar : `XXXX XXXX ${aadhaar.slice(-4)}`;
   }

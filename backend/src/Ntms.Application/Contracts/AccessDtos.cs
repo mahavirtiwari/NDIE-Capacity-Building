@@ -180,6 +180,7 @@ public class PortalUserDto : AuditDto
     public string? Pincode { get; set; }
     public string? Pan { get; set; }
     public string? Aadhaar { get; set; }
+    public string? OrganisationName { get; set; }
     public DateTime? LastLoginOn { get; set; }
     public string Status { get; set; } = "Active";
 }
@@ -207,6 +208,7 @@ public class PortalUserUpsertDto
     public string? Pincode { get; set; }
     public string? Pan { get; set; }
     public string? Aadhaar { get; set; }
+    public string? OrganisationName { get; set; }
     public string Status { get; set; } = "Active";
 }
 

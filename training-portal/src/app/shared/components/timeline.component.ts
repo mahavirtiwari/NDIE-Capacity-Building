@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { TimelineEvent } from '../../core/models';
 
@@ -30,12 +30,18 @@ import { TimelineEvent } from '../../core/models';
           <li class="timeline__item">
             <span
               class="timeline__dot"
-              [class]="'timeline__dot--' + event.area.toLowerCase()"
+              [class]="
+                event.tone
+                  ? 'timeline__dot timeline__dot--tone-' + event.tone
+                  : 'timeline__dot timeline__dot--' + event.area.toLowerCase()
+              "
             ></span>
             <div class="timeline__body">
               <div class="timeline__head">
                 <span class="timeline__title">{{ event.title }}</span>
-                <span class="chip chip--muted timeline__area">{{ event.area }}</span>
+                @if (!oneArea()) {
+                  <span class="chip chip--muted timeline__area">{{ event.area }}</span>
+                }
                 <time class="timeline__when tabular">
                   {{ event.on | date: 'dd MMM yyyy, HH:mm' }}
                 </time>
@@ -112,6 +118,13 @@ import { TimelineEvent } from '../../core/models';
         box-shadow: 0 0 0 3px var(--surface);
         z-index: 1;
       }
+
+      /* How it went, where the event says so, which wins over the area:
+         a suspension is read for being a suspension. */
+      .timeline__dot--tone-success { background: var(--success-600, #16a34a); }
+      .timeline__dot--tone-danger { background: var(--danger-600, #dc2626); }
+      .timeline__dot--tone-warning { background: var(--warning-600, #d97706); }
+      .timeline__dot--tone-info { background: var(--brand-600); }
 
       /* One colour per area, the same on all three screens. */
       .timeline__dot--account { background: var(--ink-500); }
@@ -195,4 +208,16 @@ import { TimelineEvent } from '../../core/models';
 export class TimelineComponent {
   readonly events = input<TimelineEvent[]>([]);
   readonly emptyMessage = input('Nothing has happened yet.');
+
+  /**
+   * True where every entry comes from the same part of the system.
+   *
+   * The chip is there to tell a profile event from a payment one. On an
+   * account's own history every row says "Account", which is a column of
+   * the same word beside the only thing worth reading.
+   */
+  protected readonly oneArea = computed(() => {
+    const rows = this.events();
+    return rows.length > 0 && rows.every((e) => e.area === rows[0].area);
+  });
 }

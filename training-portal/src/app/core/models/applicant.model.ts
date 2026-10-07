@@ -125,6 +125,8 @@ export interface TimelineEvent {
   /** Account, Profile, Application, Payment, Programme or Certificate. */
   area: string;
   title: string;
+  /** How it went: success, danger, warning or info. Absent for most. */
+  tone?: string | null;
   detail?: string | null;
   /** An application number, a programme, a sub-category. */
   reference?: string | null;

@@ -74,6 +74,8 @@ export interface PortalUser extends AuditInfo {
   /** Who the person is, for the record. Optional, format-checked. */
   pan?: string;
   aadhaar?: string;
+  /** The body the account belongs to, and whose PAN is held above. */
+  organisationName?: string;
   lastLoginOn?: string | null;
   status: RecordStatus;
 }

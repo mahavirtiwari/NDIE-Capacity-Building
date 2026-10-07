@@ -110,6 +110,15 @@ public class TimelineEventDto
     /// <summary>What happened, in a few words.</summary>
     public string Title { get; set; } = string.Empty;
 
+    /// <summary>
+    /// How it went, where that is not obvious from the area: "success",
+    /// "danger", "warning" or "info". The screen colours the marker with
+    /// it, so somebody scanning a long history finds the suspensions and
+    /// the refusals without reading every line. Empty means the area's own
+    /// colour, which is the usual case.
+    /// </summary>
+    public string? Tone { get; set; }
+
     /// <summary>The detail worth reading: a reason, an amount, a remark.</summary>
     public string? Detail { get; set; }
 

@@ -93,6 +93,13 @@ public class PortalUser : AuditableStatusEntity
     public string? Pan { get; set; }
     public string? Aadhaar { get; set; }
 
+    /// <summary>
+    /// The body this account belongs to, and whose PAN is held above: the
+    /// scheme's own staff sit in an organisation, and the PAN on the record
+    /// is that organisation's rather than the person's.
+    /// </summary>
+    public string? OrganisationName { get; set; }
+
     public ICollection<UserCategory> Categories { get; set; } = [];
     public ICollection<UserSubCategory> SubCategories { get; set; } = [];
     public ICollection<UserProgramType> ProgramTypes { get; set; } = [];
