@@ -1,3 +1,4 @@
+import * as FileSystem from 'expo-file-system/legacy';
 import { ApiError, API_BASE_URL, api, readAuthToken, readUserCode } from './client';
 import { enqueue, keepPhoto, newLocalId } from '../offline/outbox';
 import type {
@@ -328,24 +329,24 @@ async function send(path: string, image: CapturedImage, fix?: Fix | null): Promi
     url.searchParams.set('longitude', String(fix.longitude));
   }
 
-  const form = new FormData();
-  form.append('file', {
-    uri: image.uri,
-    name: image.fileName ?? `photo-${Date.now()}.jpg`,
-    type: image.mimeType ?? 'image/jpeg',
-  } as unknown as Blob);
-
   const token = readAuthToken();
 
-  let response: Response;
+  /* Not fetch with a FormData part: React Native's own multipart encoder
+     refuses a file part under the new architecture -- "Unsupported
+     FormDataPart implementation" -- so the photograph never leaves the
+     handset. The file system module encodes it natively from the path the
+     picture is already at. */
+  let result: FileSystem.FileSystemUploadResult;
   try {
-    response = await fetch(url.toString(), {
-      method: 'POST',
+    result = await FileSystem.uploadAsync(url.toString(), image.uri, {
+      httpMethod: 'POST',
+      uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+      fieldName: 'file',
+      mimeType: image.mimeType ?? 'image/jpeg',
       headers: {
         Accept: 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: form,
     });
   } catch {
     /* Status 0 is how the rest of the client says "could not reach the
@@ -353,12 +354,15 @@ async function send(path: string, image: CapturedImage, fix?: Fix | null): Promi
     throw new ApiError('Cannot reach the server.', 0);
   }
 
-  const envelope = (await response.json().catch(() => null)) as
-    | { success: boolean; data: MonitoringPhoto; message?: string }
-    | null;
+  let envelope: { success: boolean; data: MonitoringPhoto; message?: string } | null = null;
+  try {
+    envelope = JSON.parse(result.body);
+  } catch {
+    /* Nothing readable came back; the status decides. */
+  }
 
-  if (!response.ok || envelope?.success === false) {
-    throw new Error(envelope?.message ?? `Upload failed (${response.status}).`);
+  if (result.status >= 400 || envelope?.success === false) {
+    throw new Error(envelope?.message ?? `Upload failed (${result.status}).`);
   }
 
   return envelope!.data;

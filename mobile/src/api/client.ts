@@ -1,4 +1,7 @@
 import Constants from 'expo-constants';
+/* The legacy entry point: uploadAsync lives there in this SDK, and it is
+   what encodes a multipart body from a file already on disk. */
+import * as FileSystem from 'expo-file-system/legacy';
 import { cacheKeyFor, readCache, writeCache } from '../offline/store';
 import { Platform } from 'react-native';
 import type { ApiEnvelope } from './types';
@@ -52,6 +55,15 @@ let onUnauthorised: () => void = () => {};
 export function configureApi(reader: TokenReader, unauthorised: () => void): void {
   readToken = reader;
   onUnauthorised = unauthorised;
+}
+
+/**
+ * The headers a request outside this module needs: an image the phone
+ * fetches for itself, or a file it uploads.
+ */
+export function authHeaders(): Record<string, string> {
+  const token = readToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 interface RequestOptions {
@@ -221,6 +233,68 @@ function fileNameFrom(disposition: string | null): string | null {
  * the runtime sets it with the boundary, and naming it ourselves produces
  * a body the server cannot parse.
  */
+/**
+ * Sends a file the phone holds on disk.
+ *
+ * Not fetch with a FormData part. React Native's own multipart encoder
+ * refuses a file part under the new architecture -- "Unsupported
+ * FormDataPart implementation" -- so a photograph taken on the form never
+ * left the handset. The file system module does the multipart encoding
+ * natively from the file's own path, which is where the picture already
+ * is. The web build has a real FormData and keeps using it.
+ */
+async function uploadFile<T>(
+  path: string,
+  fieldName: string,
+  file: { uri: string; name: string; type: string },
+): Promise<T> {
+  const url = `${API_BASE_URL}/${path.replace(/^\//, '')}`;
+
+  if (Platform.OS === 'web') {
+    const body = new FormData();
+    const blob = await (await fetch(file.uri)).blob();
+    body.append(fieldName, blob, file.name);
+    return postForm<T>(path, body);
+  }
+
+  let result: FileSystem.FileSystemUploadResult;
+  try {
+    result = await FileSystem.uploadAsync(url, file.uri, {
+      httpMethod: 'POST',
+      uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+      fieldName,
+      mimeType: file.type,
+      parameters: {},
+      headers: { Accept: 'application/json', ...authHeaders() },
+    });
+  } catch (caught) {
+    const reason = caught instanceof Error && caught.message ? `: ${caught.message}` : '';
+    throw new ApiError(`Could not upload to ${API_BASE_URL}${reason}`, 0);
+  }
+
+  if (result.status === 401) {
+    onUnauthorised();
+    throw new ApiError('Your session has expired. Please sign in again.', 401);
+  }
+
+  let envelope: ApiEnvelope<T> | null = null;
+  try {
+    envelope = JSON.parse(result.body) as ApiEnvelope<T>;
+  } catch {
+    /* A body-less response is fine. */
+  }
+
+  if (result.status >= 400) {
+    throw new ApiError(
+      envelope?.message ?? `The upload was refused (${result.status}).`,
+      result.status,
+      envelope?.errors,
+    );
+  }
+
+  return (envelope?.data ?? (null as T)) as T;
+}
+
 async function postForm<T>(path: string, body: FormData): Promise<T> {
   const url = `${API_BASE_URL}/${path.replace(/^\//, '')}`;
   const headers: Record<string, string> = { Accept: 'application/json' };
@@ -265,6 +339,7 @@ async function postForm<T>(path: string, body: FormData): Promise<T> {
 
 export const api = {
   postForm,
+  uploadFile,
   get: <T>(path: string, query?: RequestOptions['query'], anonymous = false) =>
     request<T>(path, { method: 'GET', query, anonymous }),
   /** A read that must be fresh or fail, such as a fee about to be paid. */

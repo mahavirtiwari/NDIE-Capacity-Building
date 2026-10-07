@@ -9,10 +9,11 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ProfileField, ProfileForm, ProfileSection } from '../api/types';
 import { colors, font, radius, spacing } from '../theme';
 import { MAX_LENGTHS, UPPERCASE_TYPES, dateBoundsError, formatErrorFor } from '../validation/formats';
+import { authHeaders } from '../api/client';
 import { me } from '../api/endpoints';
 import { saveAndShare } from '../files/saveAndShare';
 import { Card, Chip, Field } from './ui';
@@ -1048,6 +1049,9 @@ function PhotosField({
   const [count, setCount] = useState(() => Number(value) || 0);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  /* Bumped whenever the set changes, so a thumbnail is re-fetched rather
+     than served from the cache under a url that has not changed. */
+  const [stamp, setStamp] = useState(() => Date.now());
 
   /* What the server actually holds, which is the truth — the answer in the
      form is only a copy, and a form reopened after a rejection has to show
@@ -1059,6 +1063,7 @@ function PhotosField({
         const standing = await me.photoStanding(subCategoryId, field.key);
         if (cancelled) return;
         setCount(standing.count);
+      setStamp(Date.now());
         /* Nothing on the server is no answer. Writing "0" here is what made
            opening a section enough to complete it. */
         onChange(standing.count > 0 ? String(standing.count) : '');
@@ -1092,6 +1097,7 @@ function PhotosField({
         type: asset.mimeType ?? 'image/jpeg',
       });
       setCount(standing.count);
+      setStamp(Date.now());
       onChange(standing.count > 0 ? String(standing.count) : '');
     } catch (caught) {
       setFailure(caught instanceof Error ? caught.message : 'Could not add the picture.');
@@ -1107,6 +1113,7 @@ function PhotosField({
     try {
       const standing = await me.removePhoto(subCategoryId, field.key, count);
       setCount(standing.count);
+      setStamp(Date.now());
       onChange(standing.count > 0 ? String(standing.count) : '');
     } catch (caught) {
       setFailure(caught instanceof Error ? caught.message : 'Could not remove the picture.');
@@ -1134,18 +1141,30 @@ function PhotosField({
         {field.validation.required ? <Text style={styles.required}> *</Text> : null}
       </Text>
 
-      <View style={[styles.photoBox, error ? styles.fileBoxInvalid : null]}>
-        <Ionicons
-          name={count > 0 ? 'images' : 'camera-outline'}
-          size={20}
-          color={count > 0 ? colors.brand700 : colors.ink500}
-        />
-        <Text style={[styles.fileText, count > 0 && styles.fileTextChosen]}>
-          {count === 0
-            ? `No pictures yet · up to ${limit}`
-            : `${count} of ${limit} taken`}
-        </Text>
-      </View>
+      {count === 0 ? (
+        <View style={[styles.photoBox, error ? styles.fileBoxInvalid : null]}>
+          <Ionicons name="camera-outline" size={20} color={colors.ink500} />
+          <Text style={styles.fileText}>{`No pictures yet · up to ${limit}`}</Text>
+        </View>
+      ) : (
+        /* The pictures, not a count of them. Somebody who has just taken a
+           photograph of themselves wants to see that it came out; a line
+           reading "1 of 1 taken" tells them only that something happened. */
+        <View style={[styles.photoStrip, error ? styles.fileBoxInvalid : null]}>
+          {Array.from({ length: count }, (_, i) => i + 1).map((order) => (
+            <Image
+              key={`${order}-${stamp}`}
+              source={{
+                uri: `${me.photoUri(subCategoryId, field.key, order)}?v=${stamp}`,
+                headers: authHeaders(),
+              }}
+              style={styles.photoThumb}
+              accessibilityLabel={`${field.label}, picture ${order} of ${count}`}
+            />
+          ))}
+          <Text style={styles.photoCount}>{`${count} of ${limit}`}</Text>
+        </View>
+      )}
 
       <View style={styles.photoRow}>
         {count < limit ? (
@@ -1287,6 +1306,26 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     backgroundColor: colors.ink50,
   },
+  photoStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.white,
+  },
+  photoThumb: {
+    width: 72,
+    height: 96,
+    borderRadius: radius.sm,
+    backgroundColor: colors.ink100,
+    resizeMode: 'cover',
+  },
+  photoCount: { fontSize: font.sm, color: colors.ink600 },
+
   photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: 2 },
   photoAction: {
     flexDirection: 'row',

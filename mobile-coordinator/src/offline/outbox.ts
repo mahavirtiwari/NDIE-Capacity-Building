@@ -1,3 +1,4 @@
+import * as FileSystem from 'expo-file-system/legacy';
 import { Directory, File, Paths } from 'expo-file-system';
 import { API_BASE_URL, readAuthToken } from '../api/client';
 import { readValue, writeValue } from './store';
@@ -238,18 +239,16 @@ async function send(entry: OutboxEntry): Promise<SendResult> {
   let response: Response;
   try {
     if (entry.photo) {
-      const form = new FormData();
-      form.append('file', {
-        uri: entry.photo.uri,
-        name: entry.photo.name,
-        type: entry.photo.type,
-      } as unknown as Blob);
-
-      response = await fetch(url, {
-        method: 'POST',
+      /* The same reason as the live upload: the runtime will not encode a
+         file part itself, so the file system module does it. */
+      const sent = await FileSystem.uploadAsync(url, entry.photo.uri, {
+        httpMethod: 'POST',
+        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+        fieldName: 'file',
+        mimeType: entry.photo.type,
         headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: form,
       });
+      response = new Response(sent.body, { status: sent.status });
     } else {
       response = await fetch(url, {
         method: entry.method,

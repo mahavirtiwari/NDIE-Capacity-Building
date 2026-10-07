@@ -1,4 +1,4 @@
-import { api, download } from './client';
+import { api, API_BASE_URL, download } from './client';
 import type {
   Applicant,
   ApplicantBatch,
@@ -163,17 +163,17 @@ export const me = {
     subCategoryId: number,
     fieldKey: string,
     picture: { uri: string; type: string },
-  ) => {
-    const body = new FormData();
-    body.append('picture', {
-      uri: picture.uri,
-      name: 'picture.jpg',
-      type: picture.type,
-    } as unknown as Blob);
+  ) =>
+    api.uploadFile<PhotoStanding>(
+      `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}`,
+      'picture',
+      { uri: picture.uri, name: 'picture.jpg', type: picture.type },
+    ),
 
-    return api.postForm<PhotoStanding>(
-      `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}`, body);
-  },
+  /** Where one picture can be fetched from, for the thumbnail beside the field. */
+  photoUri: (subCategoryId: number, fieldKey: string, displayOrder: number) =>
+    `${API_BASE_URL}/me/profile-photos/${subCategoryId}`
+    + `/${encodeURIComponent(fieldKey)}/${displayOrder}`,
 
   removePhoto: (subCategoryId: number, fieldKey: string, displayOrder: number) =>
     api.delete<PhotoStanding>(
@@ -190,17 +190,12 @@ export const me = {
     subCategoryId: number,
     fieldKey: string,
     file: { uri: string; name: string; type: string },
-  ) => {
-    const body = new FormData();
-    body.append('document', {
-      uri: file.uri,
-      name: file.name,
-      type: file.type,
-    } as unknown as Blob);
-
-    return api.postForm<FileStanding>(
-      `me/profile-files/${subCategoryId}/${encodeURIComponent(fieldKey)}`, body);
-  },
+  ) =>
+    api.uploadFile<FileStanding>(
+      `me/profile-files/${subCategoryId}/${encodeURIComponent(fieldKey)}`,
+      'document',
+      file,
+    ),
 
   profileFileDownload: (subCategoryId: number, fieldKey: string) =>
     download(
