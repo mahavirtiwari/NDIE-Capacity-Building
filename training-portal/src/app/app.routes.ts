@@ -256,7 +256,10 @@ export const routes: Routes = [
           {
             path: 'applicants',
             title: 'Applicants · CBMS',
-            canActivate: [permissionGuard('applications.view')],
+            canActivate: [
+              permissionGuard('applications.view'),
+              roleGuard('SuperAdmin', 'Ministry', 'Admin', 'OperationManager'),
+            ],
             loadComponent: () => import('./features/admin/applicants.component').then((m) => m.ApplicantsComponent),
           },
           {

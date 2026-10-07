@@ -23,11 +23,20 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Delivery',
     items: [
       { label: 'Programs', route: '/operations/programs', icon: 'calendar', permissions: ['programs.view'] },
-      { label: 'Applicants', route: '/admin/applicants', icon: 'graduation', permissions: ['applications.view'] },
-      /* Scrutiny belongs to the Operation Manager, and the tiers above it
-         oversee the queue. An agency or a coordinator has no part in who is
-         let into a discipline, and the register holds applicants' names and
-         the reasons they were turned down. */
+      /* The register of everybody who has signed up, and the queue of
+         profiles waiting on a decision, both belong to the Operation
+         Manager and the tiers above it that oversee the queue. An agency
+         or a coordinator has no part in who is let into a discipline, and
+         both screens hold applicants' names, their PANs and the reasons
+         they were turned down. An agency sees the candidates on its own
+         batches, which is what it runs. */
+      {
+        label: 'Applicants',
+        route: '/admin/applicants',
+        icon: 'graduation',
+        permissions: ['applications.view'],
+        roles: ['SuperAdmin', 'Ministry', 'Admin', 'OperationManager'],
+      },
       {
         label: 'Profile scrutiny',
         route: '/admin/profile-scrutiny',
