@@ -598,14 +598,25 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
         var seesProfiles = currentUser.HasPermission(Permissions.ApplicationsView);
         var seesProgrammes = currentUser.HasPermission(Permissions.ProgramsView);
 
+        /* The headline counts the scheme, so it belongs to the tiers that
+           answer for the scheme. An agency runs the batches it raises and a
+           coordinator records the one it was given; neither is answerable
+           for how many profiles arrived or how many candidates the country
+           certified, and a row of totals they cannot act on reads as though
+           it were their own tally. They keep the map and the charts, which
+           are the same picture without the scoreboard. */
+        var answersForTheScheme = currentUser.Tier
+            is BaseRole.SuperAdmin or BaseRole.Ministry
+            or BaseRole.Admin or BaseRole.OperationManager;
+
         var kpis = new List<DashboardKpiDto>();
-        if (seesProfiles)
+        if (answersForTheScheme && seesProfiles)
         {
             kpis.Add(new() { Key = "profiles", Label = "Profiles received", Value = profilesReceived, Tone = "primary", Icon = "inbox" });
             kpis.Add(new() { Key = "profilesApproved", Label = "Profiles approved", Value = profilesApproved, Tone = "success", Icon = "check" });
         }
 
-        if (seesProgrammes)
+        if (answersForTheScheme && seesProgrammes)
         {
             kpis.Add(new() { Key = "programs", Label = "Programs conducted", Value = conducted, Tone = "info", Icon = "calendar" });
             kpis.Add(new() { Key = "participated", Label = "Candidates participated", Value = participated, Tone = "primary", Icon = "users" });

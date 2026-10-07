@@ -186,6 +186,52 @@ public static class RoleHierarchy
         };
 
     /// <summary>
+    /// The most a tier may hold, where naming what it may not is the wrong
+    /// way round.
+    ///
+    /// At the foot of the chain the safe default is nothing. A deny list has
+    /// to be remembered: every key added to the catalogue afterwards arrives
+    /// granted unless somebody thinks to bar it, and a role record saved
+    /// with the whole catalogue ticked then hands a Coordinator the roles
+    /// screen, the masters and the system settings. A Coordinator records
+    /// what happened on a batch it was given -- the sessions, the
+    /// attendance, the marks, the trainer who was in the room -- and settles
+    /// nothing about the scheme. So that is written down, and anything else
+    /// is not theirs however it was granted.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<BaseRole, string[]> Ceiling =
+        new Dictionary<BaseRole, string[]>
+        {
+            [BaseRole.Coordinator] =
+            [
+                Permissions.ProgramsView,
+                Permissions.ProgramsManage,
+                /* The faculty register: a trainer is put on the record by
+                   the coordinator who was in the room. */
+                Permissions.TrainersView,
+                Permissions.TrainersManage,
+                Permissions.MaterialsView,
+                Permissions.ReportsView,
+            ],
+        };
+
+    /// <summary>
+    /// Whether this tier may hold this key at all: inside its ceiling, where
+    /// it has one, and not on its deny list.
+    /// </summary>
+    public static bool Holdable(BaseRole tier, string permission)
+    {
+        if (Ceiling.TryGetValue(tier, out var ceiling)
+            && !ceiling.Contains(permission, StringComparer.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return !Withheld.TryGetValue(tier, out var barred)
+               || !barred.Contains(permission, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// The permissions a role actually confers on this tier: what was
     /// granted, less what the tier may never hold.
     /// </summary>
@@ -195,10 +241,9 @@ public static class RoleHierarchy
 
     public static List<string> Effective(BaseRole? tier, IEnumerable<string> granted)
     {
-        if (tier is not { } role || !Withheld.TryGetValue(role, out var barred))
-            return [.. granted];
+        if (tier is not { } role) return [.. granted];
 
-        return [.. granted.Where(p => !barred.Contains(p, StringComparer.OrdinalIgnoreCase))];
+        return [.. granted.Where(p => Holdable(role, p))];
     }
 
     /// <summary>
