@@ -84,6 +84,15 @@ public class PortalUser : AuditableStatusEntity
     /// </summary>
     public string? Pincode { get; set; }
 
+    /// <summary>
+    /// Who the person is, for the record: the coordinators and trainers
+    /// a programme is run by are paid and certified against these. Held in
+    /// the format the document has and checked on the way in, and optional,
+    /// because every account made before the field has neither.
+    /// </summary>
+    public string? Pan { get; set; }
+    public string? Aadhaar { get; set; }
+
     public ICollection<UserCategory> Categories { get; set; } = [];
     public ICollection<UserSubCategory> SubCategories { get; set; } = [];
     public ICollection<UserProgramType> ProgramTypes { get; set; } = [];

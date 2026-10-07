@@ -35,7 +35,12 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
 import { StatusToggleComponent } from '../../shared/components/status-toggle.component';
 import { ScopePickerComponent } from '../../shared/components/scope-picker.component';
 import { TimelineComponent } from '../../shared/components/timeline.component';
-import { describeError, formatValidator, requiredFormat } from '../../core/validation/formats';
+import {
+  describeError,
+  formatValidator,
+  requiredFormat,
+  UppercaseDirective,
+} from '../../core/validation/formats';
 import { ListState, searchTerm } from '../../shared/list-state';
 
 /** The same screen serves "Portal users" and the coordinator-only view. */
@@ -100,6 +105,7 @@ const TIER_DEPTH: Record<string, number> = {
     TimelineComponent,
     ModalComponent,
     IconComponent,
+    UppercaseDirective,
   ],
   template: `
     <app-page-header
@@ -282,44 +288,52 @@ const TIER_DEPTH: Record<string, number> = {
       >
         <div class="dl">
           <div>
-            <dt>Email</dt>
-            <dd>{{ row.email }}</dd>
+            <div class="dl__term">Email</div>
+            <div class="dl__value">{{ row.email }}</div>
           </div>
           <div>
-            <dt>Mobile</dt>
-            <dd>{{ row.mobile || '—' }}</dd>
+            <div class="dl__term">Mobile</div>
+            <div class="dl__value">{{ row.mobile || '—' }}</div>
           </div>
-          @if (row.designation) {
-            <div>
-              <dt>Designation</dt>
-              <dd>{{ row.designation }}</dd>
-            </div>
-          }
+          <div>
+            <div class="dl__term">Designation</div>
+            <div class="dl__value">{{ row.designation || '—' }}</div>
+          </div>
           @if (row.agencyName) {
             <div>
-              <dt>Implementing agency</dt>
-              <dd>{{ row.agencyName }}</dd>
+              <div class="dl__term">Implementing agency</div>
+              <div class="dl__value">{{ row.agencyName }}</div>
             </div>
           }
           <div>
-            <dt>Location</dt>
-            <dd>
-              {{ row.city || '—' }}@if (row.state) {, {{ row.state }}}
-            </dd>
+            <div class="dl__term">PAN</div>
+            <div class="dl__value">{{ row.pan || '—' }}</div>
           </div>
           <div>
-            <dt>Last login</dt>
-            <dd>
+            <div class="dl__term">Aadhaar</div>
+            <div class="dl__value">{{ row.aadhaar ? masked(row.aadhaar) : '—' }}</div>
+          </div>
+          <div>
+            <div class="dl__term">Location</div>
+            <div class="dl__value">
+              {{ row.city || '—' }}@if (row.state) {, {{ row.state }}}@if (row.pincode) {
+                — {{ row.pincode }}
+              }
+            </div>
+          </div>
+          <div>
+            <div class="dl__term">Last login</div>
+            <div class="dl__value">
               {{ row.lastLoginOn ? (row.lastLoginOn | date: 'dd MMM yyyy, HH:mm') : 'Never signed in' }}
-            </dd>
+            </div>
           </div>
           <div>
-            <dt>Status</dt>
-            <dd><app-status-badge [value]="row.status" /></dd>
+            <div class="dl__term">Status</div>
+            <div class="dl__value"><app-status-badge [value]="row.status" /></div>
           </div>
         </div>
 
-        <div modal-footer>
+        <div footer>
           <button type="button" class="btn btn--secondary" (click)="details.set(null)">Close</button>
         </div>
       </app-modal>
@@ -417,6 +431,22 @@ const TIER_DEPTH: Record<string, number> = {
               <input id="uPin" class="input" formControlName="pincode" maxlength="6" inputmode="numeric"
                 [class.is-invalid]="invalid('pincode')" />
               @if (invalid('pincode')) { <span class="field-error">{{ errorFor('pincode', 'Pincode') }}</span> }
+            </div>
+            <div class="field">
+              <label class="field-label" for="uPan">PAN</label>
+              <input id="uPan" class="input" formControlName="pan" maxlength="10"
+                placeholder="ABCDE1234F" appUppercase
+                [class.is-invalid]="invalid('pan')" />
+              @if (invalid('pan')) { <span class="field-error">{{ errorFor('pan', 'PAN') }}</span> }
+            </div>
+            <div class="field">
+              <label class="field-label" for="uAadhaar">Aadhaar</label>
+              <input id="uAadhaar" class="input" formControlName="aadhaar" maxlength="12"
+                inputmode="numeric" placeholder="12 digits"
+                [class.is-invalid]="invalid('aadhaar')" />
+              @if (invalid('aadhaar')) {
+                <span class="field-error">{{ errorFor('aadhaar', 'Aadhaar') }}</span>
+              }
             </div>
             <div class="field">
               <label class="field-label" for="uStatus">Status</label>
@@ -898,6 +928,9 @@ export class UsersComponent {
     districtCode: [null as number | null],
     city: [''],
     pincode: ['', formatValidator('pincode')],
+    /* Optional, and checked where given. */
+    pan: ['', formatValidator('pan')],
+    aadhaar: ['', formatValidator('aadhaar')],
     status: ['Active'],
   });
 
@@ -1016,6 +1049,8 @@ export class UsersComponent {
       districtCode: row?.districtCode ?? null,
       city: row?.city ?? '',
       pincode: row?.pincode ?? '',
+      pan: row?.pan ?? '',
+      aadhaar: row?.aadhaar ?? '',
       status: row?.status ?? 'Active',
     });
     this.lookups.addressDistricts(row?.stateCode ?? null).subscribe((items) => this.districts.set(items));
@@ -1135,6 +1170,16 @@ export class UsersComponent {
   protected readonly statusReason = signal('');
   protected readonly savingStatus = signal(false);
   protected readonly history = signal<UserHistory | null>(null);
+
+  /**
+   * The last four digits of an Aadhaar, the way everything else prints it.
+   *
+   * Enough to tell two records apart, which is all the sheet is read for.
+   * The whole number is in the form for whoever may edit the account.
+   */
+  protected masked(aadhaar: string): string {
+    return aadhaar.length < 4 ? aadhaar : `XXXX XXXX ${aadhaar.slice(-4)}`;
+  }
 
   /** The account whose details are on screen, or null. */
   protected readonly details = signal<PortalUser | null>(null);

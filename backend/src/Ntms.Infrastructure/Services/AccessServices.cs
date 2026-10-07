@@ -43,7 +43,7 @@ public class RoleService(NtmsDbContext db, ICurrentUser currentUser)
     private bool Owns(AdminRole role) => role.OwnerUserId == (currentUser.UserId ?? 0);
 
     /// <summary>
-    /// The role, plus whether this caller may reshape it â€” decided here and
+    /// The role, plus whether this caller may reshape it — decided here and
     /// sent, so the screen withholds an Edit the server would refuse rather
     /// than offering one that fails when pressed.
     /// </summary>
@@ -289,7 +289,7 @@ public class RoleService(NtmsDbContext db, ICurrentUser currentUser)
     /// The same table that governs who may create an account, because it is
     /// the same question: a Super Admin settles what an Admin and the
     /// Ministry may do, an Admin settles what its Operation Managers may do,
-    /// and so down the chain. Outranking is not enough â€” a Super Admin
+    /// and so down the chain. Outranking is not enough — a Super Admin
     /// outranks a Coordinator, but what a Coordinator may do is the agency's
     /// business, not the Super Admin's.
     /// </summary>
@@ -333,7 +333,7 @@ public class RoleService(NtmsDbContext db, ICurrentUser currentUser)
     }
 
     /// <summary>
-    /// "An Admin", "a Super Admin" â€” the article the name actually takes, and
+    /// "An Admin", "a Super Admin" — the article the name actually takes, and
     /// only the article is lower cased. The role's own name is a proper noun
     /// on the screens that show it, so it keeps its capitals here too.
     /// </summary>
@@ -360,7 +360,7 @@ public class RoleService(NtmsDbContext db, ICurrentUser currentUser)
 
         /* Only what is being added. Saving a role replaces its whole permission
            set, so without this an Operation Manager role holding one permission
-           the Admin lacks could never be edited by that Admin at all â€” not even
+           the Admin lacks could never be edited by that Admin at all — not even
            to change its description. Keeping what is already there is not a
            grant; adding to it is. */
         foreach (var existing in alreadyOnTheRole ?? []) held.Add(existing);
@@ -440,7 +440,7 @@ public class UserService(
         /* Not your own row.
 
            Visibility is the subtree plus yourself, because an account has to
-           be able to read its own record â€” for its profile, and wherever it
+           be able to read its own record — for its profile, and wherever it
            is named as somebody's reporting line. The register is a different
            question: it is the list of people this account appoints and
            answers for, and it is where accounts are enabled and disabled.
@@ -536,7 +536,7 @@ public class UserService(
                    ?? throw AppException.NotFound("Role");
 
         /* Editable only by the tier that creates this kind of account, and only
-           into another kind that same tier could have created â€” otherwise an
+           into another kind that same tier could have created — otherwise an
            edit becomes either a way to reach past the chain or a way to promote
            someone past yourself. */
         delegation.EnsureCanEdit(entity.BaseRole, "edit");
@@ -544,7 +544,7 @@ public class UserService(
 
         var scope = await ResolveScopeAsync(role.BaseRole, dto, ct);
 
-        /* UserCode is never touched â€” it is the account's identity. Email is
+        /* UserCode is never touched — it is the account's identity. Email is
            ordinary profile data and may change freely. */
         entity.BaseRole = role.BaseRole;
         Apply(entity, dto);
@@ -574,7 +574,7 @@ public class UserService(
                      ?? throw AppException.NotFound("User");
 
         /* Nobody switches themselves off. Whatever the tier, the account that
-           would have to turn it back on is the one that just went off â€” and
+           would have to turn it back on is the one that just went off — and
            for a sole Admin that is the end of the portal. */
         if (entity.Id == (currentUser.UserId ?? 0))
         {
@@ -584,7 +584,7 @@ public class UserService(
         }
 
         /* The one account that cannot be switched off by anybody. A Super Admin
-           outranks everybody, which includes the Super Admin â€” so without this
+           outranks everybody, which includes the Super Admin — so without this
            the only account of its kind can be disabled, and the account that
            would have to turn it back on is the one that is off. */
         if (entity.BaseRole == BaseRole.SuperAdmin)
@@ -634,7 +634,7 @@ public class UserService(
         entity.Status = next;
 
         /* Every session dies with the account. Leaving them alive would mean a
-           disabled account carries on working until its token expires â€” the
+           disabled account carries on working until its token expires — the
            same hole the permissions had. */
         if (next != RecordStatus.Active)
         {
@@ -778,6 +778,11 @@ public class UserService(
             .Required(dto.FullName, "Full name")
             .Email(dto.Email)
             .Mobile(dto.Mobile)
+            /* Both optional, both checked where given: an account made
+               before the fields existed has neither, and a PAN that is not
+               a PAN is worse than no PAN at all. */
+            .Pan(dto.Pan)
+            .Aadhaar(dto.Aadhaar)
             .When(dto.RoleId <= 0, "Select a role.")
             .ThrowIfInvalid();
 
@@ -794,6 +799,8 @@ public class UserService(
         entity.DistrictCode = dto.DistrictCode;
         entity.City = dto.City;
         entity.Pincode = Formats.Normalise(dto.Pincode);
+        entity.Pan = Formats.Normalise(dto.Pan);
+        entity.Aadhaar = Formats.Normalise(dto.Aadhaar);
         entity.Status = EnumMaps.ToStatus(dto.Status);
     }
 

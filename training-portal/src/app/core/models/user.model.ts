@@ -71,6 +71,9 @@ export interface PortalUser extends AuditInfo {
   district?: string;
   city?: string;
   pincode?: string;
+  /** Who the person is, for the record. Optional, format-checked. */
+  pan?: string;
+  aadhaar?: string;
   lastLoginOn?: string | null;
   status: RecordStatus;
 }

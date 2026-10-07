@@ -540,6 +540,8 @@ public static class DtoMappings
             District = e.District?.Name,
             City = e.City,
             Pincode = e.Pincode,
+            Pan = e.Pan,
+            Aadhaar = e.Aadhaar,
             LastLoginOn = e.LastLoginOn,
             Status = e.Status.ToApi(),
         };

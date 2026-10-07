@@ -83,6 +83,13 @@ public static class Guard
             return this;
         }
 
+        public Collector Aadhaar(string? value, bool required = false, string label = "Aadhaar")
+        {
+            if (required && string.IsNullOrWhiteSpace(value)) _errors.Add($"{label} is required.");
+            else if (!Formats.IsAadhaar(Formats.Normalise(value))) _errors.Add(FORMAT(label, "number"));
+            return this;
+        }
+
         public Collector Pincode(string? value, bool required = true, string label = "Pincode")
         {
             if (required && string.IsNullOrWhiteSpace(value)) _errors.Add($"{label} is required.");
