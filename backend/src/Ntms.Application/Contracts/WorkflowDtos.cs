@@ -380,6 +380,10 @@ public class ProgrammeParticipantDto
 
 public class ProgrammeDto : AuditDto
 {
+    /// <summary>Why the agency has asked for this to be put off, if it has.</summary>
+    public string? PostponementReason { get; set; }
+    public DateTime? PostponementRequestedOn { get; set; }
+
     public int Id { get; set; }
     public string ProgrammeId { get; set; } = string.Empty;
     public string ProgrammeName { get; set; } = string.Empty;
@@ -402,12 +406,15 @@ public class ProgrammeDto : AuditDto
     public string Mode { get; set; } = "Physical";
     public string Venue { get; set; } = string.Empty;
     public string? City { get; set; }
+    public string? Pincode { get; set; }
     public int StateCode { get; set; }
     public string State { get; set; } = string.Empty;
     public string? MeetingPlatform { get; set; }
     public string? MeetingLink { get; set; }
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
+    public string StartTime { get; set; } = "10:00";
+    public string EndTime { get; set; } = "17:00";
     public int MaxParticipants { get; set; }
     public int ParticipantCount { get; set; }
     public decimal? CumulativeFeedback { get; set; }
@@ -430,12 +437,16 @@ public class ProgrammeUpsertDto
     public string Mode { get; set; } = "Physical";
     public string? Venue { get; set; }
     public string? City { get; set; }
+    public string? Pincode { get; set; }
     public int StateCode { get; set; }
     public int? DistrictCode { get; set; }
     public string? MeetingPlatform { get; set; }
     public string? MeetingLink { get; set; }
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
+    /// <summary>The hours of the day the batch runs, as HH:mm.</summary>
+    public string StartTime { get; set; } = "10:00";
+    public string EndTime { get; set; } = "17:00";
     /// <summary>Registrations close by themselves once this many have enrolled.</summary>
     public int MaxParticipants { get; set; } = 30;
     public string? Comments { get; set; }
@@ -445,6 +456,12 @@ public class ProgrammeStatusDto
 {
     public string Status { get; set; } = string.Empty;
     public string? Comments { get; set; }
+}
+
+/// <summary>The agency asking for a batch to be put off, and why.</summary>
+public class PostponementRequestDto
+{
+    public string Reason { get; set; } = string.Empty;
 }
 
 /// <summary>Opening a batch again, and for how many.</summary>

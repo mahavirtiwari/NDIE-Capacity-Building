@@ -70,6 +70,10 @@ export interface ProgramSession {
  * meeting platform and show "Virtual" as their venue on the register.
  */
 export interface Program extends AuditInfo {
+  /** Why the agency has asked for this to be put off, if it has. */
+  postponementReason?: string | null;
+  postponementRequestedOn?: string | null;
+
   id: Id;
   programmeId: string;
   programmeName: string;
@@ -97,10 +101,15 @@ export interface Program extends AuditInfo {
   /** Optional, and what the dashboard drills into below state level. */
   districtCode?: number | null;
   district?: string | null;
+  /** The venue's pincode, for a batch with a room. */
+  pincode?: string | null;
   meetingPlatform?: string;
   meetingLink?: string;
   startDate: string;
   endDate: string;
+  /** The hours of the day the batch runs, as HH:mm. */
+  startTime: string;
+  endTime: string;
   /** Registration closes by itself once participantCount reaches this. */
   maxParticipants: number;
   participantCount: number;
@@ -129,6 +138,7 @@ export function programActions(
   canReopenRegistrations: boolean;
   canSetExamTime: boolean;
   canPostpone: boolean;
+  canAskToPostpone: boolean;
   canMarkConducted: boolean;
 } {
   const open = program.status === 'PermissionAccepted' || program.status === 'CalendarCreated';
@@ -147,6 +157,8 @@ export function programActions(
     canReopenRegistrations: open && !program.registrationsOpen && inTime,
     canSetExamTime: open && !program.registrationsOpen,
     canPostpone: open || program.status === 'New',
+    /* The agency asks; the manager decides. Same batches, different act. */
+    canAskToPostpone: open || program.status === 'New',
     canMarkConducted: open && !!program.examDateTime,
   };
 }
@@ -184,5 +196,6 @@ export interface PublicProgramme {
   agencyName?: string | null;
   minQualificationLabel?: string | null;
   minExperienceYears: number;
+  minParticipants: number;
   isFeeApplicable: boolean;
 }

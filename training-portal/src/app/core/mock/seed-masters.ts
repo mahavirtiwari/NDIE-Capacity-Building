@@ -69,6 +69,7 @@ export const PROGRAM_TYPES: ProgramType[] = PT_SEED.map((p) => ({
   deliveryMode: p.mode,
   minQualification: p.qual,
   minExperienceYears: p.exp,
+  minParticipants: 0,
   certificateValidityMonths: 36,
   isExamMandatory: p.exam,
   isFeeApplicable: p.fee,

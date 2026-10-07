@@ -88,15 +88,21 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
             @if (batch.mode !== 'Virtual') {
               <div>
                 <div class="dl__term">Venue</div>
-                <div class="dl__value">{{ batch.venue }}</div>
+                <div class="dl__value">
+                  {{ batch.venue }}@if (batch.pincode) { &mdash; {{ batch.pincode }} }
+                </div>
               </div>
             }
-            @if (batch.mode !== 'Physical') {
+            @if (batch.mode !== 'Physical' && batch.meetingPlatform) {
               <div>
                 <div class="dl__term">Platform</div>
                 <div class="dl__value">{{ batch.meetingPlatform }}</div>
               </div>
             }
+            <div>
+              <div class="dl__term">Timings</div>
+              <div class="dl__value">{{ batch.startTime }} &ndash; {{ batch.endTime }}</div>
+            </div>
             <div>
               <div class="dl__term">State/UT</div>
               <div class="dl__value">{{ batch.state }}</div>

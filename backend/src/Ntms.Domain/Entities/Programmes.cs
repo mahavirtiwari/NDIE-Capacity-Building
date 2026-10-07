@@ -33,6 +33,8 @@ public class Programme : AuditableEntity
     /// <summary>"Virtual" for online batches, otherwise the physical address.</summary>
     public string Venue { get; set; } = string.Empty;
     public string? City { get; set; }
+    /// <summary>The venue's pincode. Nothing to record for a virtual batch.</summary>
+    public string? Pincode { get; set; }
     public int StateCode { get; set; }
     public LgdState? State { get; set; }
     public int? DistrictCode { get; set; }
@@ -43,11 +45,32 @@ public class Programme : AuditableEntity
 
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
+
+    /// <summary>
+    /// The hours the batch runs each day, which the joining letter and the
+    /// venue booking both need. The sessions keep their own times; these are
+    /// the batch's, from the day it is raised.
+    /// </summary>
+    public TimeOnly StartTime { get; set; } = new(10, 0);
+    public TimeOnly EndTime { get; set; } = new(17, 0);
+
     /// <summary>
     /// The registration cap. Once <see cref="ParticipantCount"/> reaches it,
     /// registrations close on their own — a batch that is full should stop
     /// taking names without anybody having to remember to turn it off.
     /// </summary>
+    /// <summary>
+    /// Why the agency has asked for this batch to be put off, if it has.
+    ///
+    /// A batch is postponed by the Operation Manager, and the agency
+    /// running it is the one that knows the hall has flooded. So the
+    /// agency asks, in writing, and the manager decides — the request
+    /// sits here until it is granted or the batch runs anyway.
+    /// </summary>
+    public string? PostponementReason { get; set; }
+    public DateTime? PostponementRequestedOn { get; set; }
+    public int? PostponementRequestedByUserId { get; set; }
+
     public int MaxParticipants { get; set; }
     public int ParticipantCount { get; set; }
     public decimal? CumulativeFeedback { get; set; }

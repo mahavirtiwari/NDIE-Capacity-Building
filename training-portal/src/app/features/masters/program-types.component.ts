@@ -316,6 +316,16 @@ const COLUMNS: ColumnDef[] = [
               <input id="ptExp" type="number" class="input" formControlName="minExperienceYears" />
             </div>
             <div class="field">
+              <label class="field-label" for="ptMinPax">Minimum participants</label>
+              <input id="ptMinPax" type="number" class="input" min="0" max="10000"
+                formControlName="minParticipants" />
+              <span class="field-hint">
+                The fewest a batch of this type is worth running for. The agency raising
+                one sets the ceiling; this is the floor, and it cannot go under it.
+                Leave at 0 for no floor.
+              </span>
+            </div>
+            <div class="field">
               <label class="field-label" for="ptValidity">Certificate validity (months)</label>
               <input id="ptValidity" type="number" class="input" formControlName="certificateValidityMonths" />
             </div>
@@ -720,6 +730,7 @@ export class ProgramTypesComponent {
     deliveryMode: ['Physical' as ProgramType['deliveryMode']],
     minQualification: ['NONE'],
     minExperienceYears: [0],
+    minParticipants: [0],
     certificateValidityMonths: [36],
     certificationPolicy: ['QualificationOnly' as ProgramType['certificationPolicy']],
     isFeeApplicable: [true],
@@ -817,6 +828,7 @@ export class ProgramTypesComponent {
       deliveryMode: row?.deliveryMode ?? 'Physical',
       minQualification: row?.minQualification ?? 'NONE',
       minExperienceYears: row?.minExperienceYears ?? 0,
+      minParticipants: row?.minParticipants ?? 0,
       certificateValidityMonths: row?.certificateValidityMonths ?? 36,
       certificationPolicy: row?.certificationPolicy ?? 'QualificationOnly',
       isFeeApplicable: row?.isFeeApplicable ?? true,

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Ntms.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Ntms.Infrastructure.Persistence;
 namespace Ntms.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(NtmsDbContext))]
-    partial class NtmsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261007052318_AFloorForABatchAndAPostponementAsked")]
+    partial class AFloorForABatchAndAPostponementAsked
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -3246,9 +3249,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("EndDate")
                         .HasColumnType("date");
 
-                    b.Property<TimeOnly>("EndTime")
-                        .HasColumnType("time");
-
                     b.Property<DateTime?>("ExamDateTime")
                         .HasColumnType("datetime2");
 
@@ -3282,10 +3282,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Property<int>("ParticipantCount")
                         .HasColumnType("int");
 
-                    b.Property<string>("Pincode")
-                        .HasMaxLength(6)
-                        .HasColumnType("nvarchar(6)");
-
                     b.Property<string>("PostponementReason")
                         .HasColumnType("nvarchar(max)");
 
@@ -3313,9 +3309,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
 
                     b.Property<DateOnly>("StartDate")
                         .HasColumnType("date");
-
-                    b.Property<TimeOnly>("StartTime")
-                        .HasColumnType("time");
 
                     b.Property<int>("StateCode")
                         .HasColumnType("int");

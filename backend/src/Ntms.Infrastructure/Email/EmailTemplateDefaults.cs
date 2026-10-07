@@ -41,6 +41,8 @@ public static class EmailTemplateDefaults
     public const string ApplicationSubmitted = "application-submitted";
     public const string ScrutinyOutcome = "scrutiny-outcome";
     public const string ProgrammeSchedule = "programme-schedule";
+    public const string ProgrammeRaised = "programme-raised";
+    public const string PostponementRequested = "postponement-requested";
     public const string AgencyEmpanelled = "agency-empanelled";
     public const string AccountStatusChanged = "account-status-changed";
     public const string AccountUpdated = "account-updated";
@@ -431,6 +433,45 @@ public static class EmailTemplateDefaults
                 """,
             PlainTextBody =
                 "{{agencyName}} ({{agencyCode}}) is empanelled from {{empanelledOn}}. Scope: {{scope}}.",
+        },
+        new()
+        {
+            Key = ProgrammeRaised,
+            Name = "Program awaiting permission",
+            Description =
+                "Sent to the operation manager when an implementing agency raises a batch.",
+            Placeholders = "name,agencyName,programmeName,programmeId,startDate,endDate,venue,state",
+            Subject = "{{programmeId}} is waiting for your permission",
+            HtmlBody =
+                "<p>Dear {{name}},</p>"
+                + "<p>{{agencyName}} has raised a batch, and it is waiting for your "
+                + "permission.</p>"
+                + "<p><strong>{{programmeName}}</strong> ({{programmeId}})<br />"
+                + "{{startDate}} to {{endDate}}<br />{{venue}}, {{state}}</p>"
+                + "<p>It does not open for registration until you permit it.</p>",
+            PlainTextBody =
+                "{{agencyName}} has raised {{programmeId}} ({{programmeName}}), "
+                + "{{startDate}} to {{endDate}} at {{venue}}, {{state}}. "
+                + "It is waiting for your permission.",
+        },
+        new()
+        {
+            Key = PostponementRequested,
+            Name = "Postponement asked for",
+            Description =
+                "Sent to the operation manager when an agency asks for a batch to be put off.",
+            Placeholders = "name,agencyName,programmeName,programmeId,startDate,reason",
+            Subject = "{{agencyName}} has asked to postpone {{programmeId}}",
+            HtmlBody =
+                "<p>Dear {{name}},</p>"
+                + "<p>{{agencyName}} has asked for a batch to be put off.</p>"
+                + "<p><strong>{{programmeName}}</strong> ({{programmeId}}), due to start "
+                + "{{startDate}}.</p>"
+                + "<p>Their reason:</p><blockquote>{{reason}}</blockquote>"
+                + "<p>The batch stands until you postpone it.</p>",
+            PlainTextBody =
+                "{{agencyName}} has asked to postpone {{programmeId}} ({{programmeName}}), "
+                + "due to start {{startDate}}. Reason: {{reason}}",
         },
         new()
         {

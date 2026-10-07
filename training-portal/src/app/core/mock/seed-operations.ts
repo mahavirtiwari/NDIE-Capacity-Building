@@ -249,6 +249,8 @@ export const PROGRAMS: Program[] = Array.from({ length: 26 }, (_, idx) => {
     state: (coordinator.state ?? 'Delhi').toUpperCase(),
     meetingPlatform: mode === 'Virtual' ? PLATFORMS[idx % PLATFORMS.length] : undefined,
     meetingLink: mode === 'Virtual' ? `https://meet.example.gov.in/batch-${id}` : undefined,
+    startTime: '10:00',
+    endTime: '17:00',
     startDate: `2026-${String(month).padStart(2, '0')}-${String(startDay).padStart(2, '0')}`,
     endDate: `2026-${String(month).padStart(2, '0')}-${String(Math.min(28, startDay + days - 1)).padStart(2, '0')}`,
     maxParticipants: capacity,

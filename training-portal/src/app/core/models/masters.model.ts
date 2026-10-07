@@ -71,6 +71,8 @@ export interface ProgramType extends AuditInfo {
   /** Display text for the stored code. */
   minQualificationLabel?: string;
   minExperienceYears: number;
+  /** The fewest candidates a batch of this type is run for. */
+  minParticipants: number;
   certificateValidityMonths: number;
   isExamMandatory: boolean;
   isFeeApplicable: boolean;

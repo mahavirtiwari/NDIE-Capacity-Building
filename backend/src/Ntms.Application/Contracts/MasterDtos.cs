@@ -119,6 +119,8 @@ public class ProgramTypeDto : AuditDto
     /// <summary>Display text for that code, so clients need no lookup.</summary>
     public string? MinQualificationLabel { get; set; }
     public int MinExperienceYears { get; set; }
+    /// <summary>The fewest candidates a batch of this type is run for.</summary>
+    public int MinParticipants { get; set; }
     public int CertificateValidityMonths { get; set; }
     public bool IsExamMandatory { get; set; }
     public bool IsFeeApplicable { get; set; }
@@ -216,6 +218,8 @@ public class ProgramTypeUpsertDto
     public string DeliveryMode { get; set; } = "Physical";
     public string? MinQualification { get; set; }
     public int MinExperienceYears { get; set; }
+    /// <summary>The fewest candidates a batch of this type is run for.</summary>
+    public int MinParticipants { get; set; }
     public int CertificateValidityMonths { get; set; } = 36;
     public bool IsExamMandatory { get; set; } = true;
     public bool IsFeeApplicable { get; set; } = true;

@@ -65,6 +65,16 @@ public class ProgramType : AuditableStatusEntity
     public DeliveryMode DeliveryMode { get; set; } = DeliveryMode.Physical;
     public string? MinQualification { get; set; }
     public int MinExperienceYears { get; set; }
+
+    /// <summary>
+    /// The fewest candidates a batch of this type is worth running for.
+    ///
+    /// Set once by the Super Admin with the rest of the type, and shown to
+    /// the agency as a fact about the type rather than a field to fill in:
+    /// the floor is the scheme's, the ceiling is the agency's. Zero means
+    /// no floor, which is how every type that predates this reads.
+    /// </summary>
+    public int MinParticipants { get; set; }
     public int CertificateValidityMonths { get; set; } = 36;
     /// <summary>
     /// Kept in step with the evaluation scheme rather than set on its own:

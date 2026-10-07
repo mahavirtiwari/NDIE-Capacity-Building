@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
@@ -15,7 +15,7 @@ import {
 } from '../../core/models';
 import { ExamPaperService } from '../../core/services/academics.service';
 import { AuthService } from '../../core/services/auth.service';
-import { LookupService } from '../../core/services/masters.service';
+import { LookupService, ProgramTypeService } from '../../core/services/masters.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ProgramService } from '../../core/services/workflow.service';
@@ -26,6 +26,7 @@ import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
+import { requiredFormat } from '../../core/validation/formats';
 import { ListState, searchTerm } from '../../shared/list-state';
 
 const COLUMNS: ColumnDef[] = [
@@ -249,6 +250,14 @@ const COLUMNS: ColumnDef[] = [
             @if ($any(row).comments) {
               <span class="cell-muted">{{ $any(row).comments }}</span>
             }
+            <!-- An ask that has not been answered sits on the row, so the
+                 manager reads the reason beside the decision. -->
+            @if ($any(row).postponementRequestedOn) {
+              <div class="stack stack-xs">
+                <span class="chip">Postponement asked for</span>
+                <span class="text-xs text-muted">{{ $any(row).postponementReason }}</span>
+              </div>
+            }
             @if (canManage()) {
               <div class="row row-sm row-wrap">
                 @if (canApprove() && actions($any(row)).canAcceptPermission) {
@@ -271,12 +280,56 @@ const COLUMNS: ColumnDef[] = [
                     Postpone
                   </button>
                 }
+                @if (!canApprove() && actions($any(row)).canAskToPostpone) {
+                  <button type="button" class="btn btn--sm btn--secondary" (click)="openAskPostpone($any(row))">
+                    Ask to postpone
+                  </button>
+                }
               </div>
             }
           </div>
         </ng-template>
       </app-data-table>
     </section>
+
+    @if (askPostponeFor(); as programme) {
+      <app-modal title="Ask to postpone this batch?" size="sm" (closed)="askPostponeFor.set(null)">
+        <div class="stack stack-sm">
+          <p class="text-sm">
+            {{ programme.programmeId }} is due to start
+            {{ programme.startDate | date: 'dd MMM yyyy' }}. It stays where it is until
+            the operation manager puts it off.
+          </p>
+          <div class="field">
+            <label class="field-label" for="askReason">Reason <span class="req">*</span></label>
+            <textarea
+              id="askReason"
+              class="textarea"
+              rows="3"
+              maxlength="500"
+              [value]="askReason()"
+              (input)="askReason.set(textValue($event))"
+              placeholder="e.g. The venue has flooded and no other hall is free that week"
+            ></textarea>
+            <span class="field-hint">Sent to the operation manager with the batch.</span>
+          </div>
+        </div>
+        <div footer>
+          <button type="button" class="btn btn--secondary" (click)="askPostponeFor.set(null)">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="btn btn--primary"
+            [disabled]="askReason().trim().length === 0 || asking()"
+            (click)="confirmAskPostpone()"
+          >
+            @if (asking()) { <span class="spinner"></span> }
+            Send request
+          </button>
+        </div>
+      </app-modal>
+    }
 
     @if (reopenFor(); as programme) {
       <!-- Reopening says how many places, because the old number answered a
@@ -301,7 +354,7 @@ const COLUMNS: ColumnDef[] = [
               (input)="reopenPlaces.set(+numberValue($event))"
             />
             <span class="field-hint">
-              Counted from nobody, not added on. {{ programme.participantCount ?? 0 }}
+              Counted from nobody, not added on. {{ programme.participantCount }}
               are already enrolled.
             </span>
           </div>
@@ -355,7 +408,7 @@ const COLUMNS: ColumnDef[] = [
           </div>
           <div class="field">
             <label class="field-label" for="npMode">Mode <span class="req">*</span></label>
-            <select id="npMode" class="select" formControlName="mode">
+            <select id="npMode" class="select" formControlName="mode" (change)="onModeChange()">
               @for (mode of modes; track mode) {
                 <option [value]="mode">{{ mode }}</option>
               }
@@ -396,32 +449,85 @@ const COLUMNS: ColumnDef[] = [
               <label class="field-label" for="npVenue">Venue <span class="req">*</span></label>
               <input id="npVenue" class="input" formControlName="venue" />
             </div>
+            <div class="field">
+              <label class="field-label" for="npPin">Pincode <span class="req">*</span></label>
+              <input
+                id="npPin"
+                class="input"
+                formControlName="pincode"
+                maxlength="6"
+                inputmode="numeric"
+                placeholder="110001"
+              />
+              @if (form.controls.pincode.touched && form.controls.pincode.invalid) {
+                <span class="field-error">Six digits, and it cannot start with a nought.</span>
+              }
+            </div>
           }
           @if (form.value.mode !== 'Physical') {
-            <div class="field">
-              <label class="field-label" for="npPlatform">
-                Meeting platform <span class="req">*</span>
-              </label>
-              <input id="npPlatform" class="input" formControlName="meetingPlatform" placeholder="Microsoft Teams" />
-            </div>
-            <div class="field">
-              <label class="field-label" for="npLink">Meeting link</label>
+            <div class="field field--span-2">
+              <label class="field-label" for="npLink">Meeting link <span class="req">*</span></label>
               <input id="npLink" class="input" formControlName="meetingLink" placeholder="https://" />
+              <span class="field-hint">Where the candidates join. Sent out with the batch.</span>
             </div>
           }
 
+          <!-- A batch is raised to be run, so the picker opens on today and
+               the end date cannot be dragged behind the start. -->
           <div class="field">
             <label class="field-label" for="npStart">Start date <span class="req">*</span></label>
-            <input id="npStart" type="date" class="input" formControlName="startDate" />
+            <input id="npStart" type="date" class="input" [min]="today" formControlName="startDate" />
           </div>
           <div class="field">
             <label class="field-label" for="npEnd">End date <span class="req">*</span></label>
-            <input id="npEnd" type="date" class="input" formControlName="endDate" />
+            <input
+              id="npEnd"
+              type="date"
+              class="input"
+              [min]="form.value.startDate || today"
+              formControlName="endDate"
+            />
+          </div>
+
+          <!-- The hours the batch runs each day. They go on the joining
+               letter, so they are asked for once, here. -->
+          <div class="field">
+            <label class="field-label" for="npStartTime">Start time <span class="req">*</span></label>
+            <input id="npStartTime" type="time" class="input" formControlName="startTime" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="npEndTime">End time <span class="req">*</span></label>
+            <input id="npEndTime" type="time" class="input" formControlName="endTime" />
+            @if (form.value.endTime && form.value.startTime
+                 && form.value.endTime <= form.value.startTime) {
+              <span class="field-error">The day has to end after it starts.</span>
+            }
           </div>
           <div class="field">
             <label class="field-label" for="npSeats">Maximum no. of participants</label>
-            <input id="npSeats" type="number" class="input" min="1" formControlName="maxParticipants" />
-            <span class="field-hint">Registration closes by itself once this many have enrolled.</span>
+            <input
+              id="npSeats"
+              type="number"
+              class="input"
+              [min]="minParticipants() || 1"
+              formControlName="maxParticipants"
+            />
+            <!-- The floor belongs to the program type and is shown as a fact
+                 about it; the ceiling is the agency's to set. -->
+            @if (minParticipants() > 0) {
+              <span class="field-hint">
+                This program type runs for at least <strong>{{ minParticipants() }}</strong>
+                candidates. Registration closes by itself once the maximum have enrolled.
+              </span>
+              @if (form.controls.maxParticipants.value !== null
+                   && +form.controls.maxParticipants.value < minParticipants()) {
+                <span class="field-error">
+                  A batch cannot be opened for fewer than {{ minParticipants() }}.
+                </span>
+              }
+            } @else {
+              <span class="field-hint">Registration closes by itself once this many have enrolled.</span>
+            }
           </div>
         </form>
         <div footer>
@@ -489,6 +595,7 @@ export class ProgramsComponent {
   protected readonly copy = inject(SiteTextService);
   private readonly service = inject(ProgramService);
   private readonly lookups = inject(LookupService);
+  private readonly programTypeService = inject(ProgramTypeService);
   private readonly toast = inject(ToastService);
   private readonly confirm = inject(ConfirmService);
   private readonly auth = inject(AuthService);
@@ -528,6 +635,30 @@ export class ProgramsComponent {
   }
   protected readonly agencies = toSignal(this.lookups.agencies(), { initialValue: [] as LookupItem[] });
   protected readonly programTypes = toSignal(this.lookups.programTypes(null), { initialValue: [] as LookupItem[] });
+
+  /** The floor the chosen program type sets, nought when it sets none. */
+  protected readonly minParticipants = signal(0);
+
+  /**
+   * Reads the floor off the type the moment it is chosen.
+   *
+   * The dropdown is a lookup of names and codes, so the number has to be
+   * fetched; it is a fact about the type rather than something the form
+   * can carry, and the server refuses a batch under it either way.
+   */
+  private applyFloor(id: number | null): void {
+    if (!id) {
+      this.minParticipants.set(0);
+      return;
+    }
+    this.programTypeService.getById(id).subscribe((type) => {
+      this.minParticipants.set(type.minParticipants ?? 0);
+      const seats = Number(this.form.controls.maxParticipants.value ?? 0);
+      if (type.minParticipants > 0 && seats < type.minParticipants) {
+        this.form.controls.maxParticipants.setValue(type.minParticipants);
+      }
+    });
+  }
   protected readonly coordinators = signal<LookupItem[]>([]);
 
   protected readonly list = new ListState<Program>((request) => this.service.list(request), {
@@ -576,18 +707,59 @@ export class ProgramsComponent {
     stateCode: [null as number | null, Validators.required],
     districtCode: [null as number | null],
     venue: [''],
-    meetingPlatform: ['Microsoft Teams'],
-    meetingLink: [''],
+    pincode: [''],
+    meetingLink: ['', Validators.required],
     startDate: ['', Validators.required],
     endDate: ['', Validators.required],
+    startTime: ['10:00', Validators.required],
+    endTime: ['17:00', Validators.required],
     maxParticipants: [30],
   });
+
+  /** Today, as the picker wants it. Nothing before it may be chosen. */
+  protected readonly today = new Date().toISOString().slice(0, 10);
 
   protected term = searchTerm;
   protected value = (event: Event) => (event.target as HTMLInputElement | HTMLSelectElement).value;
 
   constructor() {
     this.list.sortDir.set('desc');
+
+    /* The control, not the element: the options carry ids through ngValue,
+       so the DOM value is an Angular token, and a (change) handler reads
+       the control before the form has been written to. */
+    this.form.controls.programTypeId.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe((id) => this.applyFloor(id));
+  }
+
+  /**
+   * Holds the joining link to the mode.
+   *
+   * A virtual or hybrid batch is joined by its link, so it is not raised
+   * without one; a physical batch has nothing to join and the control is
+   * let go, rather than left invalid and blocking the form.
+   */
+  protected onModeChange(): void {
+    const mode = this.form.value.mode;
+
+    const link = this.form.controls.meetingLink;
+    if (mode === 'Physical') {
+      link.clearValidators();
+      link.setValue('');
+    } else {
+      link.setValidators([Validators.required]);
+    }
+    link.updateValueAndValidity();
+
+    const pin = this.form.controls.pincode;
+    if (mode === 'Virtual') {
+      pin.clearValidators();
+      pin.setValue('');
+    } else {
+      pin.setValidators(requiredFormat('pincode'));
+    }
+    pin.updateValueAndValidity();
   }
 
   protected onAgencyChange(): void {
@@ -604,14 +776,19 @@ export class ProgramsComponent {
       stateCode: null,
       districtCode: null,
       venue: '',
-      meetingPlatform: 'Microsoft Teams',
+      pincode: '',
       meetingLink: '',
       startDate: '',
       endDate: '',
+      startTime: '10:00',
+      endTime: '17:00',
       maxParticipants: 30,
     });
     this.coordinators.set([]);
     this.chosenState.set(null);
+    this.minParticipants.set(0);
+    /* The form opens on Virtual, so the link is asked for from the outset. */
+    this.onModeChange();
     this.formOpen.set(true);
   }
 
@@ -676,6 +853,37 @@ export class ProgramsComponent {
       this.toast.success('Permission accepted', programme.programmeId);
       this.list.reload();
     });
+  }
+
+  /** The batch the agency is asking to have put off, and why. */
+  protected readonly askPostponeFor = signal<Program | null>(null);
+  protected readonly askReason = signal('');
+  protected readonly asking = signal(false);
+
+  protected openAskPostpone(programme: Program): void {
+    this.askReason.set(programme.postponementReason ?? '');
+    this.askPostponeFor.set(programme);
+  }
+
+  protected confirmAskPostpone(): void {
+    const programme = this.askPostponeFor();
+    const reason = this.askReason().trim();
+    if (!programme || reason.length === 0 || this.asking()) return;
+
+    this.asking.set(true);
+    this.service.requestPostponement(programme.id, reason).subscribe({
+      next: () => {
+        this.asking.set(false);
+        this.askPostponeFor.set(null);
+        this.toast.success('Sent to the operation manager', programme.programmeId);
+        this.list.reload();
+      },
+      error: () => this.asking.set(false),
+    });
+  }
+
+  protected textValue(event: Event): string {
+    return (event.target as HTMLTextAreaElement).value;
   }
 
   protected numberValue(event: Event): string {

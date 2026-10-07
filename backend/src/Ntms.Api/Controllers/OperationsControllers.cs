@@ -302,6 +302,21 @@ public class ProgramsController(ProgrammeService service) : ApiControllerBase
         Envelope(await service.ChangeStatusAsync(id, dto, ct));
 
     /// <summary>
+    /// The agency asks for the batch to be put off, and says why.
+    ///
+    /// It does not postpone it. The agency running a batch is the one that
+    /// knows the hall has flooded, and the Operation Manager that permitted
+    /// it is the one that decides — so this records the request, tells the
+    /// manager, and leaves the batch where it is.
+    /// </summary>
+    [HttpPost("{id:int}/postponement-request")]
+    [HasPermission(Permissions.ProgramsManage)]
+    public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> RequestPostponement(
+        int id, [FromBody] PostponementRequestDto dto, CancellationToken ct) =>
+        Envelope(await service.RequestPostponementAsync(id, dto, ct),
+            "Sent to the operation manager.");
+
+    /// <summary>
     /// Opens registration again, with the number of places it is opening
     /// for.
     ///
@@ -316,8 +331,13 @@ public class ProgramsController(ProgrammeService service) : ApiControllerBase
         int id, [FromBody] ReopenRegistrationsDto dto, CancellationToken ct) =>
         Envelope(await service.ReopenRegistrationsAsync(id, dto, ct), "Registrations open again.");
 
+    /// <summary>
+    /// When the batch sits its paper. The Operation Manager's, beside
+    /// permitting and postponing: the agency delivers the training, the
+    /// manager decides when it is examined.
+    /// </summary>
     [HttpPost("{id:int}/exam-time")]
-    [HasPermission(Permissions.ProgramsManage)]
+    [HasPermission(Permissions.ProgramsApprove)]
     public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> SetExamTime(
         int id, [FromBody] SetExamTimeDto dto, CancellationToken ct) =>
         Envelope(await service.SetExamTimeAsync(id, dto, ct), "Exam time set.");

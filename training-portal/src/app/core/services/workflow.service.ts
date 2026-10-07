@@ -92,6 +92,19 @@ export class ProgramService extends CrudService<Program> {
   }
 
   /**
+   * Asks the operation manager to put a batch off, and says why.
+   *
+   * The batch does not move: the agency running it knows the hall has
+   * flooded, and the manager that permitted it decides.
+   */
+  requestPostponement(programId: Id, reason: string): Observable<Program> {
+    return this.api.post<Program>(
+      `${this.resource}/${programId}/postponement-request`,
+      { reason },
+    );
+  }
+
+  /**
    * Opens a batch for registration again, for a stated number of places.
    *
    * There is no closing by hand: a batch closes itself when it fills.

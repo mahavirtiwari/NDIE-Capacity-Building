@@ -35,6 +35,12 @@ public interface INotificationService
     Task SendScrutinyOutcomeAsync(
         TrainingApplication application, string applicantEmail, string applicantName,
         string outcome, string remarks, CancellationToken ct = default);
+    Task SendProgrammeRaisedAsync(
+        Programme programme, string agencyName, string email, string name,
+        CancellationToken ct = default);
+    Task SendPostponementRequestedAsync(
+        Programme programme, string agencyName, string reason, string email, string name,
+        CancellationToken ct = default);
     Task SendProgrammeScheduleAsync(
         Programme programme, string email, string name, CancellationToken ct = default);
     Task SendAgencyEmpanelledAsync(
@@ -265,6 +271,36 @@ public class NotificationService(
             ["applicationNo"] = application.ApplicationNo,
             ["outcome"] = outcome,
             ["remarks"] = remarks,
+        }, ct);
+
+    /// <summary>Tells the manager a batch is waiting on their permission.</summary>
+    public Task SendProgrammeRaisedAsync(
+        Programme programme, string agencyName, string email, string name,
+        CancellationToken ct = default) =>
+        SendAsync(EmailTemplateDefaults.ProgrammeRaised, email, new()
+        {
+            ["name"] = name,
+            ["agencyName"] = agencyName,
+            ["programmeName"] = programme.ProgrammeName,
+            ["programmeId"] = programme.ProgrammeId,
+            ["startDate"] = programme.StartDate.ToString("dd MMM yyyy"),
+            ["endDate"] = programme.EndDate.ToString("dd MMM yyyy"),
+            ["venue"] = programme.Venue,
+            ["state"] = programme.State?.Name ?? string.Empty,
+        }, ct);
+
+    /// <summary>Tells the manager an agency wants a batch put off, and why.</summary>
+    public Task SendPostponementRequestedAsync(
+        Programme programme, string agencyName, string reason, string email, string name,
+        CancellationToken ct = default) =>
+        SendAsync(EmailTemplateDefaults.PostponementRequested, email, new()
+        {
+            ["name"] = name,
+            ["agencyName"] = agencyName,
+            ["programmeName"] = programme.ProgrammeName,
+            ["programmeId"] = programme.ProgrammeId,
+            ["startDate"] = programme.StartDate.ToString("dd MMM yyyy"),
+            ["reason"] = reason,
         }, ct);
 
     public Task SendProgrammeScheduleAsync(

@@ -316,6 +316,7 @@ public class ProgrammeConfiguration : IEntityTypeConfiguration<Programme>
         b.Property(x => x.ProgrammeName).HasMaxLength(250).IsRequired();
         b.Property(x => x.Venue).HasMaxLength(300).IsRequired();
         b.Property(x => x.City).HasMaxLength(120);
+        b.Property(x => x.Pincode).HasMaxLength(6);
         b.Property(x => x.MeetingPlatform).HasMaxLength(120);
         b.Property(x => x.MeetingLink).HasMaxLength(500);
         b.Property(x => x.Comments).HasMaxLength(1000);

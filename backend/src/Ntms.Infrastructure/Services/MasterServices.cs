@@ -373,6 +373,7 @@ public class ProgramTypeService(
         entity.DeliveryMode = EnumMaps.ParseEnum(dto.DeliveryMode, DeliveryMode.Physical);
         entity.MinQualification = QualificationLevels.Normalise(dto.MinQualification);
         entity.MinExperienceYears = dto.MinExperienceYears;
+        entity.MinParticipants = dto.MinParticipants;
         entity.CertificateValidityMonths = dto.CertificateValidityMonths;
         entity.IsFeeApplicable = dto.IsFeeApplicable;
         entity.CertificationPolicy = EnumMaps.ParseEnum(
@@ -576,6 +577,7 @@ public class ProgramTypeService(
                 "Select a minimum educational qualification from the list.")
             .Range(dto.DurationDays, 1, 365, "Duration (days)")
             .Range(dto.MinExperienceYears, 0, 60, "Minimum experience")
+            .Range(dto.MinParticipants, 0, 10000, "Minimum participants")
             .Range(dto.CertificateValidityMonths, 1, 240, "Certificate validity")
             .ThrowIfInvalid();
 

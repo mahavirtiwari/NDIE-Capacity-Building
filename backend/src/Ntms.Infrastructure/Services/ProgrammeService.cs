@@ -99,7 +99,17 @@ public class ProgrammeService(
 
         await EnsureMayRunThereAsync(agency, dto.StateCode, ct);
 
-        Validate(dto);
+        Validate(dto, DateOnly.FromDateTime(DateTime.UtcNow.Date));
+
+        /* The floor belongs to the program type and the ceiling to the
+           agency, so a batch cannot be raised for fewer than the type is
+           worth running for. */
+        if (programType.MinParticipants > 0 && dto.MaxParticipants < programType.MinParticipants)
+        {
+            throw new AppException(
+                $"{programType.Name} runs for at least {programType.MinParticipants} "
+                + $"candidates, so a batch cannot be opened for {dto.MaxParticipants}.");
+        }
 
         var mode = EnumMaps.ParseEnum(dto.Mode, ProgramMode.Physical);
         var entity = new Programme
@@ -121,12 +131,15 @@ public class ProgrammeService(
                purely physical one has nothing to join. */
             Venue = mode == ProgramMode.Virtual ? "Virtual" : (dto.Venue ?? string.Empty).Trim(),
             City = mode == ProgramMode.Virtual ? null : dto.City,
+            Pincode = mode == ProgramMode.Virtual ? null : dto.Pincode?.Trim(),
             StateCode = dto.StateCode,
             DistrictCode = dto.DistrictCode,
             MeetingPlatform = mode == ProgramMode.Physical ? null : dto.MeetingPlatform,
             MeetingLink = mode == ProgramMode.Physical ? null : dto.MeetingLink,
             StartDate = dto.StartDate,
             EndDate = dto.EndDate,
+            StartTime = ParseTime(dto.StartTime, new TimeOnly(10, 0)),
+            EndTime = ParseTime(dto.EndTime, new TimeOnly(17, 0)),
             MaxParticipants = dto.MaxParticipants,
             ParticipantCount = 0,
             RegistrationsOpen = false,
@@ -136,6 +149,14 @@ public class ProgrammeService(
 
         db.Programmes.Add(entity);
         await db.SaveChangesAsync(ct);
+
+        /* The batch is on the manager's register the moment it is raised,
+           and they are told so rather than having to notice. Nothing else
+           moves until they permit it. */
+        entity.Agency = agency;
+        await TellTheManagerAsync(entity, async (manager, agencyName) =>
+            await notifications.SendProgrammeRaisedAsync(
+                entity, agencyName, manager.Email, manager.FullName, ct));
         return await GetAsync(entity.Id, ct);
     }
 
@@ -147,7 +168,9 @@ public class ProgrammeService(
         if (entity.Status is ProgramStatus.Conducted or ProgramStatus.PermissionRejected)
             throw new AppException($"A {entity.Status} program can no longer be edited.");
 
-        Validate(dto);
+        Validate(dto, dto.StartDate == entity.StartDate
+            ? null
+            : DateOnly.FromDateTime(DateTime.UtcNow.Date));
 
         /* The same boundary on the way in as on the way out. Editing a batch
            into a state the caller does not hold is the same hole as creating
@@ -169,12 +192,15 @@ public class ProgrammeService(
         entity.Mode = mode;
         entity.Venue = mode == ProgramMode.Virtual ? "Virtual" : (dto.Venue ?? entity.Venue).Trim();
         entity.City = mode == ProgramMode.Virtual ? null : dto.City;
+        entity.Pincode = mode == ProgramMode.Virtual ? null : dto.Pincode?.Trim();
         entity.StateCode = dto.StateCode;
         entity.DistrictCode = dto.DistrictCode;
         entity.MeetingPlatform = mode == ProgramMode.Physical ? null : dto.MeetingPlatform;
         entity.MeetingLink = mode == ProgramMode.Physical ? null : dto.MeetingLink;
         entity.StartDate = dto.StartDate;
         entity.EndDate = dto.EndDate;
+        entity.StartTime = ParseTime(dto.StartTime, entity.StartTime);
+        entity.EndTime = ParseTime(dto.EndTime, entity.EndTime);
         entity.MaxParticipants = dto.MaxParticipants;
         entity.Comments = dto.Comments ?? entity.Comments;
 
@@ -224,10 +250,92 @@ public class ProgrammeService(
         entity.Comments = dto.Comments ?? entity.Comments;
         if (target == ProgramStatus.PermissionAccepted) entity.RegistrationsOpen = true;
         if (target is ProgramStatus.Postponed or ProgramStatus.QCRejected) entity.RegistrationsOpen = false;
+
+        /* Granted, so the request is answered and stops asking. */
+        if (target == ProgramStatus.Postponed)
+        {
+            entity.PostponementRequestedOn = null;
+            entity.PostponementRequestedByUserId = null;
+        }
         CloseIfFull(entity);
 
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// The agency asks for a batch to be put off, and says why.
+    ///
+    /// The batch does not move. The agency running it knows the hall has
+    /// flooded; the Operation Manager that permitted it decides whether it
+    /// is put off. So the reason is recorded against the batch, the manager
+    /// is told, and the request sits on the row until it is granted or the
+    /// batch runs anyway.
+    /// </summary>
+    public async Task<ProgrammeDto> RequestPostponementAsync(
+        int id, PostponementRequestDto dto, CancellationToken ct)
+    {
+        var entity = await db.Programmes
+                         .Include(p => p.Agency)
+                         .FirstOrDefaultAsync(p => p.Id == id, ct)
+                     ?? throw AppException.NotFound("Program");
+
+        if (entity.Status is ProgramStatus.Conducted or ProgramStatus.Postponed
+            or ProgramStatus.PermissionRejected or ProgramStatus.QCRejected)
+        {
+            throw new AppException(
+                $"A {EnumMaps.ToApi(entity.Status)} batch is not waiting to be put off.");
+        }
+
+        var reason = dto.Reason?.Trim();
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new AppException("Say why the batch should be put off.");
+
+        entity.PostponementReason = reason;
+        entity.PostponementRequestedOn = DateTime.UtcNow;
+        entity.PostponementRequestedByUserId = currentUser.UserId;
+        await db.SaveChangesAsync(ct);
+
+        await TellTheManagerAsync(entity, async (manager, agencyName) =>
+            await notifications.SendPostponementRequestedAsync(
+                entity, agencyName, reason, manager.Email, manager.FullName, ct));
+
+        return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// Finds the Operation Manager answerable for a batch and tells them.
+    ///
+    /// The manager on the batch where one is recorded, and otherwise the one
+    /// that empanelled the agency — which is the same person in all but the
+    /// batches raised before agencies had an owner. Silence where there is
+    /// nobody to tell: a batch with no manager behind it is a gap in the
+    /// chain, not a reason to fail the thing the agency just did.
+    /// </summary>
+    private async Task TellTheManagerAsync(
+        Programme programme, Func<PortalUser, string, Task> tell)
+    {
+        /* Both are asked for, and both are checked. OperationManagerId is
+           filled from the coordinator's reporting line where the raiser did
+           not name one, and a coordinator reports to the agency that
+           appointed it — so taking it on trust sent the agency a message
+           about its own batch. Whoever is found has to actually be an
+           Operation Manager. */
+        var candidates = new[] { programme.OperationManagerId, programme.Agency?.OwnerUserId }
+            .OfType<int>()
+            .Distinct()
+            .ToList();
+        if (candidates.Count == 0) return;
+
+        var manager = await db.Users.AsNoTracking()
+            .Where(u => candidates.Contains(u.Id)
+                        && u.BaseRole == BaseRole.OperationManager
+                        && u.Status == RecordStatus.Active)
+            .FirstOrDefaultAsync();
+
+        if (manager is null || string.IsNullOrWhiteSpace(manager.Email)) return;
+
+        await tell(manager, programme.Agency?.Name ?? "An implementing agency");
     }
 
     /// <summary>
@@ -510,31 +618,55 @@ public class ProgrammeService(
         }
     }
 
-    private static void Validate(ProgrammeUpsertDto dto)
+    /// <summary>
+    /// Checks a batch over, refusing a start date before <paramref name="notBefore"/>.
+    ///
+    /// A batch is raised to be run, so its date is ahead of today. The floor
+    /// is left off where the date is not being moved: a batch already under
+    /// way still has to be editable for its venue or its coordinator.
+    /// </summary>
+    private static void Validate(ProgrammeUpsertDto dto, DateOnly? notBefore)
     {
+        if (notBefore is { } floor && dto.StartDate < floor)
+            throw new AppException("A batch cannot start on a date that has passed.");
         if (dto.EndDate < dto.StartDate)
             throw new AppException("The end date cannot be before the start date.");
+        if (ParseTime(dto.EndTime, new TimeOnly(17, 0))
+            <= ParseTime(dto.StartTime, new TimeOnly(10, 0)))
+        {
+            throw new AppException("The day has to end after it starts.");
+        }
         if (dto.MaxParticipants <= 0)
             throw new AppException("Seat capacity must be at least one.");
 
-        /* Hybrid is held to both halves, because it is both: somebody
-           turning up at the door needs an address and somebody joining
-           from their desk needs a platform, and a hybrid batch missing
-           either one fails half its intake on the day. */
+        /* A physical or hybrid batch needs a venue: somebody turning up at
+           the door needs an address. */
         var mode = EnumMaps.ParseEnum(dto.Mode, ProgramMode.Physical);
 
         if (mode != ProgramMode.Virtual && string.IsNullOrWhiteSpace(dto.Venue))
         {
-            throw new AppException(mode == ProgramMode.Hybrid
-                ? "A hybrid batch needs a venue as well as a meeting platform."
-                : "A physical batch needs a venue.");
+            throw new AppException("A physical batch needs a venue.");
         }
 
-        if (mode != ProgramMode.Physical && string.IsNullOrWhiteSpace(dto.MeetingPlatform))
+        /* A room somebody has to find needs the whole address. An empty
+           pincode passes Formats, which composes with a required check
+           rather than standing in for one, so it is asked for here. */
+        if (mode != ProgramMode.Virtual)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Pincode))
+                throw new AppException("A physical batch needs the venue's pincode.");
+            if (!Formats.IsPincode(dto.Pincode))
+                throw new AppException("The pincode must be 6 digits and cannot start with 0.");
+        }
+
+        /* Nothing is asked about the platform: the joining link says which
+           one it is, and the column stays for the batches that recorded one.
+           The link itself is the batch, for anybody not in the room. */
+        if (mode != ProgramMode.Physical && string.IsNullOrWhiteSpace(dto.MeetingLink))
         {
             throw new AppException(mode == ProgramMode.Hybrid
-                ? "A hybrid batch needs a meeting platform as well as a venue."
-                : "A virtual batch needs a meeting platform.");
+                ? "A hybrid batch needs a meeting link as well as a venue."
+                : "A virtual batch needs a meeting link.");
         }
     }
 
