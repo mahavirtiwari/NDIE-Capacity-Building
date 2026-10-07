@@ -391,10 +391,24 @@ function blankField(): ProfileField {
                             </label>
                           </td>
                           <td>
-                            <input class="input" [value]="fieldRow.key" placeholder="firstName" (input)="patchField(si, fi, { key: inputValue($event) })" />
+                            <input
+                              class="input"
+                              [id]="'fKey-' + si + '-' + fi"
+                              [value]="fieldRow.key"
+                              placeholder="firstName"
+                              [class.is-invalid]="showGaps() && !fieldRow.key.trim()"
+                              (input)="patchField(si, fi, { key: inputValue($event) })"
+                            />
                           </td>
                           <td>
-                            <input class="input" [value]="fieldRow.label" placeholder="First name" (input)="patchField(si, fi, { label: inputValue($event) })" />
+                            <input
+                              class="input"
+                              [id]="'fLabel-' + si + '-' + fi"
+                              [value]="fieldRow.label"
+                              placeholder="First name"
+                              [class.is-invalid]="showGaps() && !fieldRow.label.trim()"
+                              (input)="patchField(si, fi, { label: inputValue($event) })"
+                            />
                           </td>
                           <td>
                             <select class="select" (change)="changeType(si, fi, $event)">
@@ -1184,7 +1198,40 @@ export class ProfileFormsComponent {
   }
 
   /* ---------------- open / save ---------------- */
+  /**
+   * Whether the empty boxes are being pointed at.
+   *
+   * Off until a save has been turned away, so a form being built does not
+   * light up red while it is still being typed; the marks clear themselves
+   * as each box is filled, because they follow the value.
+   */
+  protected readonly showGaps = signal(false);
+
+  /**
+   * The first field missing a key or a label, and where it sits.
+   *
+   * The key comes first where both are empty: it is what the answer is
+   * stored against, and the label follows from it.
+   */
+  private firstGap(): { si: number; fi: number; missing: 'key' | 'label'; named: string } | null {
+    const sections = this.sections();
+    for (let si = 0; si < sections.length; si++) {
+      const fields = sections[si].fields;
+      for (let fi = 0; fi < fields.length; fi++) {
+        const field = fields[fi];
+        if (!field.key.trim()) {
+          return { si, fi, missing: 'key', named: field.label.trim() };
+        }
+        if (!field.label.trim()) {
+          return { si, fi, missing: 'label', named: field.key.trim() };
+        }
+      }
+    }
+    return null;
+  }
+
   protected openBuilder(row?: ProfileForm): void {
+    this.showGaps.set(false);
     this.editing.set(row ?? null);
     this.builderTab.set('design');
     this.headerForm.reset({
@@ -1238,13 +1285,29 @@ export class ProfileFormsComponent {
       this.toast.warning('Select a program type', 'A profile form always belongs to one track.');
       return;
     }
-    const invalidField = this.sections()
-      .flatMap((s) => s.fields)
-      .find((f) => !f.key.trim() || !f.label.trim());
-    if (invalidField) {
-      this.toast.warning('Incomplete field', 'Every field needs a key and a label.');
+    const gap = this.firstGap();
+    if (gap) {
+      /* Marked on the row as well as said in the toast: a form can run to
+         forty fields over six sections, and "every field needs a key and a
+         label" leaves somebody to find the empty box themselves. */
+      this.showGaps.set(true);
+      this.toast.warning(
+        `Section ${gap.si + 1}, field ${gap.fi + 1} needs a ${gap.missing}`,
+        gap.named
+          ? `"${gap.named}" is missing its ${gap.missing}.`
+          : 'Every field needs a key and a label.',
+      );
+      setTimeout(() => {
+        const box = document.getElementById(
+          `${gap.missing === 'key' ? 'fKey' : 'fLabel'}-${gap.si}-${gap.fi}`,
+        );
+        box?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        box?.focus();
+      });
       return;
     }
+
+    this.showGaps.set(false);
 
     this.saving.set(true);
     const raw = this.headerForm.getRawValue();
