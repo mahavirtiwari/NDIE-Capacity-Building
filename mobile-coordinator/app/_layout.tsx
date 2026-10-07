@@ -7,6 +7,7 @@ import { BrandingProvider } from '../src/branding/BrandingContext';
 import { SiteTextProvider } from '../src/content/SiteTextContext';
 import { NetworkProvider } from '../src/offline/NetworkContext';
 import { OutboxNotice } from '../src/offline/OutboxNotice';
+import { InstallGate } from '../src/permissions/InstallGate';
 import { colors } from '../src/theme';
 
 export default function RootLayout() {
@@ -17,6 +18,10 @@ export default function RootLayout() {
           <SiteTextProvider>
           <AuthProvider>
             <StatusBar style="dark" />
+            {/* Nothing is reachable until the phone has given the app what
+                it is made of: the camera, the location, notifications and
+                room for a day of photographs. */}
+            <InstallGate>
             <View style={{ flex: 1 }}>
               <OutboxNotice />
               <Stack
@@ -33,6 +38,7 @@ export default function RootLayout() {
           <Stack.Screen name="workshop/[id]" options={{ headerShown: false }} />
               </Stack>
             </View>
+            </InstallGate>
           </AuthProvider>
           </SiteTextProvider>
         </BrandingProvider>

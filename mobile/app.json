@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "in.gov.msme.ntms.applicant"
+      "bundleIdentifier": "in.gov.msme.ntms.applicant",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Used to show the programmes near you and to stamp where an examination was sat."
+      }
     },
     "android": {
       "package": "in.gov.msme.ntms.applicant",
@@ -25,7 +28,13 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -41,6 +50,18 @@
         {
           "cameraPermission": "Used to photograph you at the start of an examination, so the paper can be shown to have been sat by you.",
           "photosPermission": "Not used to choose an existing picture: the photograph at an examination has to be taken there."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Used to show the programmes near you and to stamp where an examination was sat."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#82232f"
         }
       ]
     ],

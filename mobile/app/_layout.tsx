@@ -7,6 +7,7 @@ import { BrandingProvider } from '../src/branding/BrandingContext';
 import { Loading } from '../src/components/ui';
 import { SiteTextProvider } from '../src/content/SiteTextContext';
 import { NetworkProvider } from '../src/offline/NetworkContext';
+import { InstallGate } from '../src/permissions/InstallGate';
 import { OfflineNotice } from '../src/offline/OfflineNotice';
 import { colors } from '../src/theme';
 
@@ -20,7 +21,12 @@ export default function RootLayout() {
               {/* Light, because every bar in the app is now the dark brand
                   crimson and dark-on-dark cannot be read. */}
               <StatusBar style="light" />
-              <Routes />
+              {/* Nothing is reachable until the phone has given the app what
+                  it is made of: the camera, the location, notifications and
+                  somewhere to put a photograph. */}
+              <InstallGate>
+                <Routes />
+              </InstallGate>
             </AuthProvider>
           </SiteTextProvider>
         </BrandingProvider>

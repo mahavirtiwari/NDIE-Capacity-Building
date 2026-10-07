@@ -31,9 +31,10 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "permissions": [
-        "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.CAMERA"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "predictiveBackGestureEnabled": false
     },
@@ -56,6 +57,12 @@
         {
           "cameraPermission": "Used to photograph the venue, the sessions, the participants and the signed attendance sheets.",
           "photosPermission": "Used to attach a photo you have already taken of the workshop."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#82232f"
         }
       ]
     ],
