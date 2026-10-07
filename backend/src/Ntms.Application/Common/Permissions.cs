@@ -59,6 +59,17 @@ public static class Permissions
     /// </summary>
     public const string ProgramsManage = "programs.manage";
 
+    /// <summary>
+    /// Decide whether a batch may run: accept its permission, postpone it,
+    /// turn it down.
+    ///
+    /// Held apart from running one. The agency that raised a batch runs it
+    /// — sets the exam, records sessions and attendance, enrols — and must
+    /// not be the one that permits it, or the permission means nothing. The
+    /// Operation Manager that empanelled the agency decides.
+    /// </summary>
+    public const string ProgramsApprove = "programs.approve";
+
     public const string CoordinatorsView = "coordinators.view";
     public const string CoordinatorsManage = "coordinators.manage";
 
@@ -85,7 +96,7 @@ public static class Permissions
         UsersView, UsersManage, UsersStatus,
         AgenciesView, AgenciesManage,
         ApplicationsView, ApplicationsScrutinise,
-        ProgramsView, ProgramsCreate, ProgramsManage,
+        ProgramsView, ProgramsCreate, ProgramsManage, ProgramsApprove,
         CoordinatorsView, CoordinatorsManage,
         ReportsView,
         ProfessionalsView,
@@ -115,6 +126,7 @@ public static class Permissions
         CoordinatorsManage,
         ProgramsCreate,
         ProgramsManage,
+        ProgramsApprove,
         ApplicationsScrutinise,
     ];
 
@@ -129,7 +141,7 @@ public static class Permissions
         ("Operations",
         [
             AgenciesView, AgenciesManage, ApplicationsView, ApplicationsScrutinise,
-            ProgramsView, ProgramsCreate, ProgramsManage,
+            ProgramsView, ProgramsCreate, ProgramsManage, ProgramsApprove,
             CoordinatorsView, CoordinatorsManage,
         ]),
         /* Its own group rather than buried in Operations: these are the

@@ -138,7 +138,9 @@ public class DbSeeder(
                        desk by its discipline and the applicant's state, and
                        the manager holding it decides it. */
                     Permissions.ApplicationsView, Permissions.ApplicationsScrutinise,
-                    Permissions.ProgramsView, Permissions.ProgramsManage,
+                    /* Decides whether a batch may run; the agency that
+                       raised it runs it. */
+                    Permissions.ProgramsView, Permissions.ProgramsApprove,
                     Permissions.CoordinatorsView, Permissions.ReportsView,
                     Permissions.ProfessionalsView, Permissions.TrainersView,
                 ]),
@@ -422,9 +424,17 @@ public class DbSeeder(
                  Permissions.UsersView, Permissions.UsersStatus,
                  Permissions.ProfessionalsView, Permissions.TrainersView,
                  Permissions.ApplicationsView, Permissions.ApplicationsScrutinise,
-                 Permissions.RolesView, Permissions.RolesManage], []),
+                 /* Approving moved off programs.manage onto a key of its
+                    own, so the agency can run a batch without permitting
+                    it. */
+                 Permissions.ProgramsApprove,
+                 Permissions.RolesView, Permissions.RolesManage],
+                [Permissions.ProgramsManage]),
             ("AGENCY_ADMIN",
-                [Permissions.UsersStatus, Permissions.RolesView, Permissions.RolesManage], []),
+                [Permissions.UsersStatus, Permissions.RolesView, Permissions.RolesManage,
+                 /* It raises the batch and it runs it: the exam, the
+                    sessions, the attendance, the enrolment. */
+                 Permissions.ProgramsManage], []),
             /* Oversight only: the Ministry must never gain a write key. */
             ("MINISTRY",
                 [Permissions.ProfessionalsView, Permissions.TrainersView],

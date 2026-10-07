@@ -447,6 +447,17 @@ public class ProgrammeStatusDto
     public string? Comments { get; set; }
 }
 
+/// <summary>Opening a batch again, and for how many.</summary>
+public class ReopenRegistrationsDto
+{
+    /// <summary>
+    /// The places the batch is opening for, counted from nobody rather than
+    /// added to what it already holds. A batch that filled at thirty and
+    /// reopens at thirty-five is a batch of thirty-five.
+    /// </summary>
+    public int MaxParticipants { get; set; }
+}
+
 public class SetExamTimeDto
 {
     public DateTime ExamDateTime { get; set; }

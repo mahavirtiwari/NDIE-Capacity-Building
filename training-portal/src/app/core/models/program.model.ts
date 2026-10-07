@@ -122,17 +122,29 @@ export interface AttendanceMark {
 }
 
 /** Actions the register exposes inline, depending on the current status. */
-export function programActions(program: Pick<Program, 'status' | 'registrationsOpen' | 'examDateTime'>): {
+export function programActions(
+  program: Pick<Program, 'status' | 'registrationsOpen' | 'examDateTime' | 'startDate'>,
+): {
   canAcceptPermission: boolean;
-  canCloseRegistrations: boolean;
+  canReopenRegistrations: boolean;
   canSetExamTime: boolean;
   canPostpone: boolean;
   canMarkConducted: boolean;
 } {
   const open = program.status === 'PermissionAccepted' || program.status === 'CalendarCreated';
+
+  /* Registration closes the day before the batch starts, and a batch closes
+     itself the moment it fills. So reopening is offered on a closed batch
+     that has not reached that day — and closing by hand is offered at all,
+     the cap having already done it. */
+  const startsOn = program.startDate ? new Date(program.startDate) : null;
+  const inTime =
+    !!startsOn &&
+    new Date(new Date().toDateString()) < new Date(startsOn.getTime() - 86_400_000);
+
   return {
     canAcceptPermission: program.status === 'New',
-    canCloseRegistrations: open && program.registrationsOpen,
+    canReopenRegistrations: open && !program.registrationsOpen && inTime,
     canSetExamTime: open && !program.registrationsOpen,
     canPostpone: open || program.status === 'New',
     canMarkConducted: open && !!program.examDateTime,

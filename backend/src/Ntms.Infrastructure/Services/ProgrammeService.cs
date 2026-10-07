@@ -230,11 +230,59 @@ public class ProgrammeService(
         return await GetAsync(id, ct);
     }
 
-    public async Task<ProgrammeDto> CloseRegistrationsAsync(int id, CancellationToken ct)
+    /// <summary>
+    /// Opens a batch for registration again, for a stated number of places.
+    ///
+    /// Closing by hand is gone. A batch closes itself the moment it fills,
+    /// which is what the cap is for, and a button that did the same thing
+    /// only invited somebody to close one early by accident.
+    ///
+    /// Reopening stops the day before the batch starts. Somebody enrolling
+    /// the night before has no time to be told where to turn up, and the
+    /// register behind the batch — the trainers, the papers, the venue — is
+    /// settled by then. The cap is given again rather than carried over,
+    /// because reopening is a decision about how many more may come and the
+    /// old number was the answer to a question already asked.
+    /// </summary>
+    public async Task<ProgrammeDto> ReopenRegistrationsAsync(
+        int id, ReopenRegistrationsDto dto, CancellationToken ct)
     {
         var entity = await db.Programmes.FirstOrDefaultAsync(p => p.Id == id, ct)
                      ?? throw AppException.NotFound("Program");
-        entity.RegistrationsOpen = false;
+
+        if (entity.Status is ProgramStatus.Conducted or ProgramStatus.PermissionRejected
+            or ProgramStatus.QCRejected or ProgramStatus.Postponed)
+        {
+            throw new AppException(
+                $"A {EnumMaps.ToApi(entity.Status)} batch does not take registrations.");
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var closesOn = entity.StartDate.AddDays(-1);
+        if (today >= closesOn)
+        {
+            throw new AppException(
+                "Registration closes the day before the batch starts. "
+                + $"{entity.ProgrammeId} starts on {entity.StartDate:dd MMM yyyy}.");
+        }
+
+        if (dto.MaxParticipants <= 0)
+            throw new AppException("Say how many places the batch is opening for.");
+
+        if (dto.MaxParticipants < entity.ParticipantCount)
+        {
+            throw new AppException(
+                $"{entity.ParticipantCount} are already enrolled, so the batch cannot "
+                + $"be opened for {dto.MaxParticipants}.");
+        }
+
+        entity.MaxParticipants = dto.MaxParticipants;
+        entity.RegistrationsOpen = true;
+
+        /* Unless it is already full at the new number, in which case it was
+           never reopened at all. */
+        CloseIfFull(entity);
+
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
     }

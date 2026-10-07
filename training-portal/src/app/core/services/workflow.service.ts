@@ -91,6 +91,18 @@ export class ProgramService extends CrudService<Program> {
     return this.api.patch<Program>(`${this.resource}/${id}/status`, { status, comments });
   }
 
+  /**
+   * Opens a batch for registration again, for a stated number of places.
+   *
+   * There is no closing by hand: a batch closes itself when it fills.
+   */
+  reopenRegistrations(programId: Id, maxParticipants: number): Observable<Program> {
+    return this.api.post<Program>(
+      `${this.resource}/${programId}/reopen-registrations`,
+      { maxParticipants },
+    );
+  }
+
   addSession(programId: Id, session: Record<string, unknown>): Observable<Program> {
     return this.api.post<Program>(`${this.resource}/${programId}/sessions`, session);
   }

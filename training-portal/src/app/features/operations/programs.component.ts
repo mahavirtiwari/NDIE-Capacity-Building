@@ -251,14 +251,14 @@ const COLUMNS: ColumnDef[] = [
             }
             @if (canManage()) {
               <div class="row row-sm row-wrap">
-                @if (actions($any(row)).canAcceptPermission) {
+                @if (canApprove() && actions($any(row)).canAcceptPermission) {
                   <button type="button" class="btn btn--sm btn--secondary" (click)="advance($any(row), 'PermissionAccepted')">
                     Permission accepted
                   </button>
                 }
-                @if (actions($any(row)).canCloseRegistrations) {
-                  <button type="button" class="btn btn--sm btn--secondary" (click)="closeRegistrations($any(row))">
-                    Close registrations
+                @if (actions($any(row)).canReopenRegistrations) {
+                  <button type="button" class="btn btn--sm btn--secondary" (click)="openReopen($any(row))">
+                    Reopen registrations
                   </button>
                 }
                 @if (actions($any(row)).canSetExamTime) {
@@ -266,7 +266,7 @@ const COLUMNS: ColumnDef[] = [
                     Set exam time
                   </button>
                 }
-                @if (actions($any(row)).canPostpone) {
+                @if (canApprove() && actions($any(row)).canPostpone) {
                   <button type="button" class="btn btn--sm btn--subtle-danger" (click)="postpone($any(row))">
                     Postpone
                   </button>
@@ -277,6 +277,51 @@ const COLUMNS: ColumnDef[] = [
         </ng-template>
       </app-data-table>
     </section>
+
+    @if (reopenFor(); as programme) {
+      <!-- Reopening says how many places, because the old number answered a
+           question that has already been asked and settled. -->
+      <app-modal title="Reopen registrations?" size="sm" (closed)="reopenFor.set(null)">
+        <div class="stack stack-sm">
+          <p class="text-sm">
+            {{ programme.programmeId }} starts on
+            {{ programme.startDate | date: 'dd MMM yyyy' }}. Registration closes again
+            the day before, or as soon as the places are taken.
+          </p>
+          <div class="field">
+            <label class="field-label" for="reopenPlaces">
+              Places <span class="req">*</span>
+            </label>
+            <input
+              id="reopenPlaces"
+              type="number"
+              class="input"
+              min="1"
+              [value]="reopenPlaces()"
+              (input)="reopenPlaces.set(+numberValue($event))"
+            />
+            <span class="field-hint">
+              Counted from nobody, not added on. {{ programme.participantCount ?? 0 }}
+              are already enrolled.
+            </span>
+          </div>
+        </div>
+        <div footer>
+          <button type="button" class="btn btn--secondary" (click)="reopenFor.set(null)">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="btn btn--primary"
+            [disabled]="reopenPlaces() <= 0 || reopening()"
+            (click)="confirmReopen()"
+          >
+            @if (reopening()) { <span class="spinner"></span> }
+            Reopen
+          </button>
+        </div>
+      </app-modal>
+    }
 
     @if (formOpen()) {
       <app-modal title="New program" size="lg" (closed)="formOpen.set(false)">
@@ -519,6 +564,10 @@ export class ProgramsComponent {
   /** Run one that exists: permission, registrations, exam time, postponement. */
   protected readonly canManage = computed(() => this.auth.hasPermission('programs.manage'));
 
+  /* Deciding whether a batch may run is not the same as running it. The
+     agency that raised it holds the second and never the first. */
+  protected readonly canApprove = computed(() => this.auth.hasPermission('programs.approve'));
+
   protected readonly form = this.fb.group({
     programTypeId: [null as number | null, Validators.required],
     agencyId: [null as number | null, Validators.required],
@@ -629,16 +678,34 @@ export class ProgramsComponent {
     });
   }
 
-  protected async closeRegistrations(programme: Program): Promise<void> {
-    const confirmed = await this.confirm.ask({
-      title: 'Close registrations?',
-      message: `No further applicants can enrol in ${programme.programmeId} once registrations close.`,
-      confirmLabel: 'Close registrations',
-    });
-    if (!confirmed) return;
-    this.service.update(programme.id, { ...programme, registrationsOpen: false }).subscribe(() => {
-      this.toast.success('Registrations closed', programme.programmeId);
-      this.list.reload();
+  protected numberValue(event: Event): string {
+    return (event.target as HTMLInputElement).value;
+  }
+
+  /** The batch being reopened, and for how many. */
+  protected readonly reopenFor = signal<Program | null>(null);
+  protected readonly reopenPlaces = signal(0);
+  protected readonly reopening = signal(false);
+
+  protected openReopen(programme: Program): void {
+    this.reopenPlaces.set(programme.maxParticipants ?? 0);
+    this.reopenFor.set(programme);
+  }
+
+  protected confirmReopen(): void {
+    const programme = this.reopenFor();
+    const places = Number(this.reopenPlaces());
+    if (!programme || places <= 0 || this.reopening()) return;
+
+    this.reopening.set(true);
+    this.service.reopenRegistrations(programme.id, places).subscribe({
+      next: () => {
+        this.reopening.set(false);
+        this.reopenFor.set(null);
+        this.toast.success('Registrations open again', `${programme.programmeId} · ${places} places`);
+        this.list.reload();
+      },
+      error: () => this.reopening.set(false),
     });
   }
 

@@ -115,6 +115,7 @@ public static class RoleHierarchy
             [
                 Permissions.ProgramsCreate,
                 Permissions.ProgramsManage,
+                Permissions.ProgramsApprove,
                 Permissions.AgenciesManage,
                 Permissions.CoordinatorsManage,
                 Permissions.TrainersManage,
@@ -141,6 +142,8 @@ public static class RoleHierarchy
                    program types and states put it on their desk. An Admin
                    appoints those managers and reads their queue. */
                 Permissions.ApplicationsScrutinise,
+                /* And a batch is permitted by that same manager. */
+                Permissions.ProgramsApprove,
             ],
 
             /* A coordinator is appointed by the agency they work for, which
@@ -165,6 +168,10 @@ public static class RoleHierarchy
                 Permissions.TrainersManage,
                 Permissions.MaterialsManage,
                 Permissions.ApplicationsScrutinise,
+                /* An agency does not permit its own batch. It raises one and
+                   runs it; the manager that empanelled it decides whether it
+                   may go ahead, which is the whole of what permission means. */
+                Permissions.ProgramsApprove,
             ],
 
             /* Training material is the scheme's own, published once by the
@@ -174,6 +181,7 @@ public static class RoleHierarchy
             [
                 Permissions.MaterialsManage,
                 Permissions.ApplicationsScrutinise,
+                Permissions.ProgramsApprove,
             ],
         };
 

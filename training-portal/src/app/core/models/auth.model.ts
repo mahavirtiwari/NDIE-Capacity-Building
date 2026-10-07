@@ -38,7 +38,7 @@ export type Permission =
   | 'agencies.view' | 'agencies.manage'
   | 'users.view' | 'users.manage' | 'users.status'
   | 'applications.view' | 'applications.scrutinise'
-  | 'programs.view' | 'programs.create' | 'programs.manage'
+  | 'programs.view' | 'programs.create' | 'programs.manage' | 'programs.approve'
   | 'coordinators.view' | 'coordinators.manage'
   | 'reports.view'
   | 'professionals.view'
@@ -98,7 +98,8 @@ export const PERMISSION_CATALOGUE: PermissionGroup[] = [
          running it belongs to the tier above. Two permissions, because
          they are two jobs. */
       { key: 'programs.create', label: 'Raise a new program' },
-      { key: 'programs.manage', label: 'Permit & run programs, attendance' },
+      { key: 'programs.manage', label: 'Run programs: exam, sessions, attendance, enrolment' },
+      { key: 'programs.approve', label: 'Permit or postpone a program' },
       { key: 'coordinators.view', label: 'View coordinators' },
       { key: 'coordinators.manage', label: 'Manage coordinators' },
     ],

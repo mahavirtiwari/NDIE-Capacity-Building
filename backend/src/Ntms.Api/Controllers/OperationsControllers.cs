@@ -296,16 +296,25 @@ public class ProgramsController(ProgrammeService service) : ApiControllerBase
 
     /// <summary>Moves the batch along the register's workflow.</summary>
     [HttpPatch("{id:int}/status")]
-    [HasPermission(Permissions.ProgramsManage)]
+    [HasPermission(Permissions.ProgramsApprove)]
     public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> SetStatus(
         int id, [FromBody] ProgrammeStatusDto dto, CancellationToken ct) =>
         Envelope(await service.ChangeStatusAsync(id, dto, ct));
 
-    [HttpPost("{id:int}/close-registrations")]
+    /// <summary>
+    /// Opens registration again, with the number of places it is opening
+    /// for.
+    ///
+    /// Closing by hand is gone: a batch closes itself when it fills, which
+    /// is what the cap is for. Reopening is the deliberate act, and it says
+    /// how many places — a batch that filled and is being opened again is
+    /// being opened for a stated number, not indefinitely.
+    /// </summary>
+    [HttpPost("{id:int}/reopen-registrations")]
     [HasPermission(Permissions.ProgramsManage)]
-    public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> CloseRegistrations(
-        int id, CancellationToken ct) =>
-        Envelope(await service.CloseRegistrationsAsync(id, ct), "Registrations closed.");
+    public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> ReopenRegistrations(
+        int id, [FromBody] ReopenRegistrationsDto dto, CancellationToken ct) =>
+        Envelope(await service.ReopenRegistrationsAsync(id, dto, ct), "Registrations open again.");
 
     [HttpPost("{id:int}/exam-time")]
     [HasPermission(Permissions.ProgramsManage)]
