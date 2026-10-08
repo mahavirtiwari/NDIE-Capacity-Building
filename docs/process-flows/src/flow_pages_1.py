@@ -54,21 +54,21 @@ def journey_a():
     b.append(mail(x0 + 60, 200, 'Verification code'))
     b.append(mail(x0 + (bw + gap) + 48, 200, 'Applicant ID + password'))
     b.append(box(x0 + 4 * (bw + gap), 192, bw, 46,
-                 ['Draft held on the server', 'A half-filled form survives signing out'], 'system'))
-    qx = 846
-    b.append(box(qx, 192, 215, 46,
-                 ['Placed on one desk', 'By the track and the applicant’s state'], 'system'))
+                 ['Draft held on the server', 'A half-filled form is kept'], 'system'))
+    qx = 920
+    b.append(box(qx, 192, 176, 46,
+                 ['Placed on one desk', 'By the track and the state'], 'system'))
 
     b.append(arrow(x0 + 70, 138, x0 + 70, 200, style='ai', dashed=True))
     b.append(arrow(x0 + (bw + gap) + 70, 138, x0 + (bw + gap) + 58, 200, style='ai', dashed=True))
     b.append(arrow(x0 + 4 * (bw + gap) + 79, 138, x0 + 4 * (bw + gap) + 79, 192,
                    style='ai', dashed=True))
-    b.append(arrow(x0 + 5 * (bw + gap) + 79, 138, qx + 107, 192, style='ai', dashed=True))
+    b.append(arrow(x0 + 5 * (bw + gap) + 79, 138, qx + 88, 192, style='ai', dashed=True))
 
     # --- the manager decides -------------------------------------------
-    b.append(box(qx, 300, 215, 62, ['Scrutiny queue', 'The manager it was placed with,',
-                                    'and nobody else'], 'step', 7))
-    b.append(arrow(qx + 107, 238, qx + 107, 300, style='ai', dashed=True))
+    b.append(box(qx, 300, 176, 62, ['Scrutiny queue', 'The manager it was',
+                                    'placed with, and nobody else'], 'step', 7))
+    b.append(arrow(qx + 88, 238, qx + 88, 300, style='ai', dashed=True))
     b.append(diamond(660, 331, 150, 80, ['Decide', 'accept or reject']))
     b.append(arrow(qx, 331, 740, 331))
 
@@ -76,7 +76,8 @@ def journey_a():
     b.append(chip(420, 356, 'Rejected, with the reason', 'bad', 158))
     b.append(arrow(600, 316, 556, 308, style='ag'))
     b.append(arrow(600, 348, 580, 360, style='ar'))
-    b.append(mail(170, 358, 'Outcome e-mailed to the applicant'))
+    b.append(mail(216, 358, 'Outcome e-mailed to the applicant'))
+    b.append(arrow(416, 364, 390, 364, style='ai', dashed=True))
 
     # --- the status rail -------------------------------------------------
     b.append(f'<text x="40" y="474" font-size="11" font-weight="700" fill="{C["brand"]}">'
@@ -108,7 +109,7 @@ def journey_b():
     c = [50 + i * step for i in range(7)]
     mid = [x + bw / 2 for x in c]
 
-    b.append(box(c[0], 72, bw, 62, ['Programmes open to you', 'Only on tracks whose',
+    b.append(box(c[0], 72, bw, 62, ['Programmes for you', 'Only on tracks whose',
                                     'profile was accepted'], 'step', 8))
     b.append(box(c[1], 72, bw, 62, ['Register for a batch', 'Seats are first come,',
                                     'first served'], 'step', 9))
@@ -125,7 +126,7 @@ def journey_b():
     b.append(arrow(c[0] + bw, 103, c[1], 103))
     b.append(arrow(c[1] + bw, 103, mid[2] - 70, 103))
     b.append(arrow(mid[2] + 70, 103, c[3], 103, 'yes'))
-    b.append(arrow(mid[2], 68, mid[4] - 20, 68, 'no fee'))
+    b.append(arrow(mid[2], 66, mid[4], 72, 'no fee', bend='h'))
     b.append(arrow(c[3] + bw, 103, c[4], 103))
     b.append(arrow(c[4] + bw, 103, c[5], 103))
     b.append(arrow(c[5] + bw, 103, c[6], 103))

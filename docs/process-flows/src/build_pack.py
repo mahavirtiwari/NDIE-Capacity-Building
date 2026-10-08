@@ -8,6 +8,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent))
 from flow_pages_1 import cover, journey_a, journey_b          # noqa: E402
 from flow_pages_2 import programme, reporting                 # noqa: E402
 from flow_pages_3 import chain, channels, scopes              # noqa: E402
+from flow_pages_4 import app_features, coordinator_day, profile_builder  # noqa: E402
 
 OUT = pathlib.Path('docs/process-flows')
 
@@ -45,6 +46,48 @@ MATRIX = [
 
 CELL = {'V+M': Y + ' read &amp; edit', 'V+S': Y + ' read, on/off', 'V': Y + ' read',
         'M': Y + ' do it', '-': N}
+
+# Every entry in the portal's navigation, and who sees it. Y where the
+# seeded role holds the permission the entry is gated on.
+TABS = [
+    ('Overview', 'Dashboard', '&mdash;', 'YYYYYY'),
+    ('Delivery', 'Programs', 'programs.view', 'YYYYYY'),
+    ('Delivery', 'Applicants', 'applications.view + tier', 'YYYY--'),
+    ('Delivery', 'Profile scrutiny', 'applications.view + tier', 'YYYY--'),
+    ('Delivery', 'Qualified professionals', 'professionals.view', 'YYYY--'),
+    ('People and access', 'Portal users', 'users.view', 'YYYYY-'),
+    ('People and access', 'Notifications', 'notifications.view', 'Y-Y---'),
+    ('People and access', 'Roles &amp; permissions', 'roles.view', 'Y--YY-'),
+    ('People and access', 'Implementing agencies', 'agencies.view', 'YYYY--'),
+    ('People and access', 'Coordinators', 'coordinators.view', 'YYYYY-'),
+    ('Reports', 'View reports', 'reports.view', 'YYYYYY'),
+    ('Reports', 'Trainers', 'trainers.view', 'YYYYYY'),
+    ('Program setup', 'Categories, sub-categories, program types', 'masters.manage', 'Y-----'),
+    ('Program setup', 'Sign-up form, profile forms', 'masters.manage', 'Y-----'),
+    ('Program setup', 'Feedback forms, curriculum', 'curriculum.manage', 'Y-----'),
+    ('Program setup', 'Fee structures', 'fees.view', 'YYY---'),
+    ('Program setup', 'Choice lists, qualifications, skills', 'masters.manage', 'Y-----'),
+    ('Program setup', 'Exam papers', 'exams.view', 'YYY---'),
+    ('Program setup', 'Training material', 'materials.view', 'YYYYYY'),
+    ('Configuration', 'Branding, site text, e-mail, system settings', 'settings.manage', 'Y-----'),
+]
+
+
+def tabs_table():
+    head = ''.join(f'<th class="c">{t}</th>' for t in TIERS)
+    rows, last = [], None
+    for group, name, key, seen in TABS:
+        shown = group if group != last else ''
+        last = group
+        cells = ''.join(f'<td class="c">{Y if ch == "Y" else N}</td>' for ch in seen)
+        rows.append(f'<tr><td>{shown}</td><td><b>{name}</b></td>'
+                    f'<td><code>{key}</code></td>{cells}</tr>')
+    return ('<div class="tight"><table>'
+            '<caption>The portal, tab by tab, and who sees each one</caption>'
+            '<thead><tr><th style="width:13%">Group</th><th style="width:25%">Tab</th>'
+            f'<th style="width:16%">Gated on</th>{head}</tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table></div>')
+
 
 EMAILS = [
     ('otp', 'Email verification code', 'Sign-up, and any change of e-mail',
@@ -195,7 +238,12 @@ def build():
               ('A report never shows more than the reader may see',
                'The scoping is on the query, not the screen, so a narrower account cannot reach a '
                'wider report by changing the address.', 'ok')]),
-        page('Flow 3 of 5 &middot; page 1', 'Who the users are, and what each one is for',
+        page('Flow 3 of 5 &middot; page 1', 'The portal, tab by tab',
+             'Every entry in the navigation, what it is gated on, and which tiers it appears for. '
+             'The entry and the route carry the same key, so a tab somebody cannot see is one they '
+             'cannot reach by typing the address either.',
+             tabs_table(), None, None),
+        page('Flow 3 of 5 &middot; page 2', 'Who the users are, and what each one is for',
              'Six portal tiers and one app account. Each is created by the tier above it, and each is '
              'allocated a slice of the scheme to work inside.',
              chain(), None,
@@ -209,7 +257,7 @@ def build():
               ('A coordinator is capped, not merely ungranted',
                'The narrowest tier is held to a ceiling &mdash; its batches, its faculty, its material '
                'and its reports &mdash; so a mis-saved role cannot hand it the scheme.', 'bad')]),
-        page('Flow 3 of 5 &middot; page 2', 'What each tier is allocated, and what that narrows',
+        page('Flow 3 of 5 &middot; page 3', 'What each tier is allocated, and what that narrows',
              'A permission says what a screen offers. The allocation says whom it may be used on — '
              'and an account allocated nothing on an axis reaches nothing on it.',
              scopes(), None,
@@ -221,6 +269,38 @@ def build():
                'fields and the second is the one that governs.', 'warn'),
               ('The district axis is the coordinator’s alone',
                'It is the narrowest rung, and the only one that works at district level.', 'ok')]),
+        page('Flow 3 of 5 &middot; page 4', 'A coordinator&rsquo;s day on the handset',
+             'From signing in to sealing the record. A workshop opens on four tabs: registration, '
+             'program, submission and exit. Everything recorded is queued on the phone and sent '
+             'when the signal comes back.',
+             coordinator_day(), None,
+             [('Only the batches in their name',
+               'The list is the server&rsquo;s answer about who the batch was given to, not a filter '
+               'applied on the screen.', 'ok'),
+              ('The server says what is still missing',
+               'No venue photograph, no geo-tag, no trainer, a session with nobody marked. The '
+               'submit button stays shut until that list is empty.', 'warn'),
+              ('Sealing cannot be undone',
+               'Not by the agency and not by the back office. That is what makes the record '
+               'evidence rather than a draft.', 'bad')]),
+        page('Flow 3 of 5 &middot; page 5', 'What the two apps do',
+             'The applicant&rsquo;s app and the coordinator&rsquo;s, feature by feature. Two builds, '
+             'two sign-ins, one API behind both.',
+             app_features(), None, None),
+        page('Flow 3 of 5 &middot; page 6', 'Building a profile form',
+             'The form an applicant fills in is not written in code. It is built per track in the '
+             'portal, and one definition drives the app, the server&rsquo;s checking and the '
+             'scrutiny screen.',
+             profile_builder(), LEGEND,
+             [('A key and a label, every time',
+               'The key is what the answer is stored against; the label is what the applicant '
+               'reads. A field missing either is refused by name, and the row is marked.', 'warn'),
+              ('Scrutiny is set per track',
+               'Turn it off and the programmes under that sub-category open without a profile '
+               'having to be decided first.', 'ok'),
+              ('Forms carry a version',
+               'Answers stay against the version they were given under, so a question added in '
+               'March does not make February&rsquo;s profiles incomplete.', 'ok')]),
         page('Flow 4 of 5 &middot; page 1', 'Roles and permissions &mdash; the operation',
              'What every tier may do, by permission key. Read this with the chain two pages back: '
              'the key says what the screen offers, the chain says whom it may be used on.',

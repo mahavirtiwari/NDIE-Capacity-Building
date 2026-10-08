@@ -173,6 +173,12 @@ code {
 
 /* ---------------------------------------------------------- notes */
 
+/* A long register — twenty rows of navigation — needs to sit on one page,
+   and a row that wraps is what pushes it onto two. */
+.tight table { font-size: 8pt; }
+.tight th, .tight td { padding: 1.05mm 1.6mm; }
+.tight caption { padding-bottom: 1mm; }
+
 .notes {
   margin-top: 3mm;
   display: grid;

@@ -22,7 +22,7 @@ def programme():
                                     'or link, dates, seats'], 'step', 1))
     b.append(box(c[1], 68, bw, 62, ['Floor and ceiling', 'At least the type’s',
                                     'minimum; agency sets max'], 'state'))
-    b.append(box(c[2], 68, bw, 62, ['Ask to put it off', 'In writing, with a reason.',
+    b.append(box(c[2], 68, bw, 62, ['Ask to put it off', 'A reason, in writing.',
                                     'The batch does not move.'], 'warn', 9))
     b.append(arrow(c[0] + bw, 99, c[1], 99))
     b.append(arrow(c[1] + bw, 99, c[2], 99))
@@ -81,8 +81,8 @@ def programme():
         b.append(arrow(rail[i][2] + len(rail[i][0]) * 5.6 + 18, 442, rail[i + 1][2] - 4, 442))
     for text, x in [('Permission rejected', 660), ('Postponed', 800), ('QC rejected', 898)]:
         b.append(chip(x, 434, text, 'bad'))
-    b.append(f'<text x="1000" y="446" font-size="9.5" fill="{C["ink6"]}">'
-             'The three ways it stops.</text>')
+    b.append(f'<text x="996" y="446" font-size="9.5" fill="{C["ink6"]}">'
+             'Three ways it stops.</text>')
     return svg(W, 458, ''.join(b))
 
 

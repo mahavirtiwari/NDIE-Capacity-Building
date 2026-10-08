@@ -31,6 +31,18 @@ KIND = {
 }
 
 
+NODES = []
+
+
+def reset():
+    NODES.clear()
+
+
+def _track(kind, label, x, y, w, h):
+    NODES.append({'kind': kind, 'label': label, 'x': float(x), 'y': float(y),
+                  'w': float(w), 'h': float(h)})
+
+
 def esc(t):
     return html.escape(str(t))
 
@@ -60,6 +72,7 @@ def lane(x, y, w, h, label, tint='#ffffff'):
 
 
 def box(x, y, w, h, lines, kind='step', num=None, small=False):
+    _track('box', lines[0], x, y, w, h)
     fill, stroke, ink = KIND[kind]
     out = [f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="5" fill="{fill}" '
            f'stroke="{stroke}" stroke-width="1.2"/>']
@@ -87,6 +100,10 @@ def box(x, y, w, h, lines, kind='step', num=None, small=False):
 
 
 def diamond(cx, cy, w, h, lines, kind='warn'):
+    # The inner box of a diamond: the corners are empty, so half the width
+    # and half the height is what actually has ink and text in it.
+    _track('diamond', lines[0], cx - w / 4, cy - h / 4, w / 2, h / 2)
+    NODES[-1]['full'] = (cx - w / 2, cy - h / 2, w, h)
     fill, stroke, ink = KIND[kind]
     pts = f'{cx},{cy - h / 2} {cx + w / 2},{cy} {cx},{cy + h / 2} {cx - w / 2},{cy}'
     out = [f'<polygon points="{pts}" fill="{fill}" stroke="{stroke}" stroke-width="1.2"/>']
@@ -125,6 +142,7 @@ def arrow(x1, y1, x2, y2, label=None, style='a', dashed=False, bend=None, above=
 
 def mail(x, y, text):
     """An envelope marker: where the system writes to somebody."""
+    _track('mail', text, x, y, 21 + len(text) * 4.9, 13)
     return (
         f'<g><rect x="{x}" y="{y}" width="17" height="12" rx="2" fill="#fff" '
         f'stroke="{C["info"]}" stroke-width="1.2"/>'
@@ -137,6 +155,7 @@ def mail(x, y, text):
 def chip(x, y, text, kind='state', w=None):
     fill, stroke, ink = KIND[kind]
     w = w or (len(text) * 5.6 + 16)
+    _track('chip', text, x, y, w, 17)
     return (
         f'<rect x="{x}" y="{y}" width="{w}" height="17" rx="8.5" fill="{fill}" stroke="{stroke}"/>'
         f'<text x="{x + w / 2}" y="{y + 9}" text-anchor="middle" dominant-baseline="middle" '

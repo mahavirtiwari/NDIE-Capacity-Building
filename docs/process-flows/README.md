@@ -1,8 +1,9 @@
 # Process flow pack
 
-`CBMS-process-flows.pdf` — twelve pages, A4 landscape, covering the applicant's
-journey, a programme from raised to reported, who each kind of user is, roles and
-permissions, and every letter the system sends.
+`CBMS-process-flows.pdf` — sixteen pages, A4 landscape, covering the applicant's
+journey, a programme from raised to reported, the portal tab by tab, a
+coordinator's day on the handset, what both mobile apps do, how a profile form is
+built, roles and permissions, and every letter the system sends.
 
 It is generated, not drawn by hand, so it can be brought back into line when the
 system changes rather than slowly becoming a description of a system that no
@@ -35,6 +36,8 @@ Any browser that prints to PDF will do; the page size and margins are in
 | `src/flow_pages_1.py` | Cover, and the applicant's journey in two halves |
 | `src/flow_pages_2.py` | The programme lifecycle, and what a report is made of |
 | `src/flow_pages_3.py` | The delegation chain, the allocation axes, the three channels |
+| `src/flow_pages_4.py` | The coordinator's day, both apps' features, the form builder |
+| `src/check_overlaps.py` | Finds boxes sitting on each other and text running out of its box |
 | `src/build_pack.py` | The page order, the permission matrix and the e-mail catalogue |
 | `_styles.css` | Print styles — page size, margins, colours, tables |
 
@@ -45,5 +48,15 @@ The permission matrix in `build_pack.py` mirrors the seeded roles in
 mirrors `EmailTemplateDefaults.cs`. Change either of those and this pack needs
 the same change, or it starts telling people something that is not so.
 
-A section that runs past one page silently becomes two, which is how a lane gets
-split down the middle. After rebuilding, check the page count is still twelve.
+Two things to run after any edit:
+
+```
+python docs/process-flows/src/check_overlaps.py
+```
+
+That reports two boxes on top of each other, a label wider than the box it was
+written into, and anything off the edge of the canvas — the faults that are hard
+to see until the page is printed. It exits non-zero when it finds any.
+
+Then check the page count is still sixteen. A section that runs past one page
+silently becomes two, which is how a lane ends up split down the middle.
