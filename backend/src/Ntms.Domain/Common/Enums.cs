@@ -268,6 +268,27 @@ public enum ProgramStatus
     Postponed = 7,
 }
 
+/// <summary>
+/// Where a conducted programme's report stands with quality control.
+///
+/// The coordinator closes the programme from the app, which seals the
+/// record and forwards it to the Operation Manager; it waits here until
+/// the manager has read it. Only the manager moves it, and only once —
+/// approval is what opens the report to the rest of the office, so it is
+/// not a decision to be taken twice.
+/// </summary>
+public enum QcStatus
+{
+    /// <summary>Submitted by the coordinator, waiting on the manager.</summary>
+    Pending = 1,
+
+    /// <summary>Read and accepted. The report can be opened from Reports.</summary>
+    Approved = 2,
+
+    /// <summary>Sent back with a reason. The batch is marked QC rejected.</summary>
+    Rejected = 3,
+}
+
 public enum ParticipantResult
 {
     Pending = 1,

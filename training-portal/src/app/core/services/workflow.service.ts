@@ -10,9 +10,13 @@ import {
   Id,
   Program,
   ProfileDecision,
+  PagedResult,
   ProfilePhoto,
   ProfileScrutinyCounts,
   ProfileSubmission,
+  QcCounts,
+  QcDecision,
+  QcProgramme,
   ScrutinyDecision,
   StateCoverageResult,
 } from '../models';
@@ -260,5 +264,51 @@ export class RejectionReasonService {
 
   remove(id: Id): Observable<boolean> {
     return this.api.delete<boolean>(`${this.resource}/${id}`);
+  }
+}
+
+/**
+ * Quality control on conducted programmes.
+ *
+ * Three queues over one register. The decision is the Operation
+ * Manager's; everybody else reads, which is enforced on the server and
+ * only reflected here.
+ */
+@Injectable({ providedIn: 'root' })
+export class QcService {
+  private readonly api = inject(ApiService);
+  private readonly http = inject(HttpClient);
+
+  list(query: Record<string, unknown>): Observable<PagedResult<QcProgramme>> {
+    return this.api.get<PagedResult<QcProgramme>>('qc/programmes', query);
+  }
+
+  counts(query: Record<string, unknown>): Observable<QcCounts> {
+    return this.api.get<QcCounts>('qc/counts', query);
+  }
+
+  get(programmeId: Id): Observable<QcProgramme> {
+    return this.api.get<QcProgramme>(`qc/programmes/${programmeId}`);
+  }
+
+  approve(programmeId: Id, decision: QcDecision): Observable<QcProgramme> {
+    return this.api.post<QcProgramme>(`qc/programmes/${programmeId}/approve`, decision);
+  }
+
+  reject(programmeId: Id, decision: QcDecision): Observable<QcProgramme> {
+    return this.api.post<QcProgramme>(`qc/programmes/${programmeId}/reject`, decision);
+  }
+
+  /**
+   * The report, as a page.
+   *
+   * Fetched rather than linked: the endpoint needs the bearer token,
+   * which a plain anchor cannot carry. The caller makes an object URL of
+   * what comes back — to open it in a tab, or to save it.
+   */
+  report(programmeId: Id, download = false): Observable<Blob> {
+    return this.http.get(
+      this.api.fileUrl(`qc/programmes/${programmeId}/report`),
+      { params: download ? { download: true } : undefined, responseType: 'blob' });
   }
 }

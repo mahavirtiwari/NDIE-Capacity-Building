@@ -144,6 +144,7 @@ public static class DependencyInjection
            design, so kept apart from the administrative ProgrammeService. */
         services.AddScoped<ProgrammeCatalogueService>();
         services.AddScoped<MonitoringService>();
+        services.AddScoped<QcService>();
 
         return services;
     }

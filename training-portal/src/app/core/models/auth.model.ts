@@ -39,6 +39,7 @@ export type Permission =
   | 'users.view' | 'users.manage' | 'users.status'
   | 'applications.view' | 'applications.scrutinise'
   | 'programs.view' | 'programs.create' | 'programs.manage' | 'programs.approve'
+  | 'programs.qc'
   | 'coordinators.view' | 'coordinators.manage'
   | 'reports.view'
   | 'professionals.view'
@@ -101,6 +102,7 @@ export const PERMISSION_CATALOGUE: PermissionGroup[] = [
       { key: 'programs.create', label: 'Raise a new program' },
       { key: 'programs.manage', label: 'Run programs: exam, sessions, attendance, enrolment' },
       { key: 'programs.approve', label: 'Permit or postpone a program' },
+      { key: 'programs.qc', label: "Quality check a conducted program's report" },
       { key: 'coordinators.view', label: 'View coordinators' },
       { key: 'coordinators.manage', label: 'Manage coordinators' },
     ],

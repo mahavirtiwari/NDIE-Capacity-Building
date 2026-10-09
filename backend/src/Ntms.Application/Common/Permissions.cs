@@ -70,6 +70,21 @@ public static class Permissions
     /// </summary>
     public const string ProgramsApprove = "programs.approve";
 
+    /// <summary>
+    /// Quality control on a conducted programme's report.
+    ///
+    /// Separate from approving the batch in the first place, although in
+    /// practice the same manager holds both: permitting a batch to run is
+    /// a decision about a plan, and this is a decision about what was
+    /// actually done. One is taken months before the other, and a scheme
+    /// may well want to move the second without moving the first.
+    ///
+    /// Everyone with programs.view reads the QC screens. Only this key
+    /// decides, and it is withheld from Super Admin for the same reason
+    /// the other operational decisions are.
+    /// </summary>
+    public const string ProgramsQc = "programs.qc";
+
     public const string CoordinatorsView = "coordinators.view";
     public const string CoordinatorsManage = "coordinators.manage";
 
@@ -104,7 +119,7 @@ public static class Permissions
         UsersView, UsersManage, UsersStatus,
         AgenciesView, AgenciesManage,
         ApplicationsView, ApplicationsScrutinise,
-        ProgramsView, ProgramsCreate, ProgramsManage, ProgramsApprove,
+        ProgramsView, ProgramsCreate, ProgramsManage, ProgramsApprove, ProgramsQc,
         CoordinatorsView, CoordinatorsManage,
         ReportsView,
         ProfessionalsView,
@@ -136,6 +151,7 @@ public static class Permissions
         ProgramsCreate,
         ProgramsManage,
         ProgramsApprove,
+        ProgramsQc,
         ApplicationsScrutinise,
     ];
 
@@ -150,7 +166,7 @@ public static class Permissions
         ("Operations",
         [
             AgenciesView, AgenciesManage, ApplicationsView, ApplicationsScrutinise,
-            ProgramsView, ProgramsCreate, ProgramsManage, ProgramsApprove,
+            ProgramsView, ProgramsCreate, ProgramsManage, ProgramsApprove, ProgramsQc,
             CoordinatorsView, CoordinatorsManage,
         ]),
         /* Its own group rather than buried in Operations: these are the

@@ -658,9 +658,24 @@ public class MonitoringService(
             PresentCount = participants.Count(p => p.IsPresent == true),
             PhotoCount = allPhotos.Count,
             Remarks = dto.Remarks?.Trim(),
+            /* Closing the programme is what forwards it. There is no
+               second act of sending, so nothing can sit conducted and
+               unsent while everybody assumes somebody else posted it. */
+            QcStatus = QcStatus.Pending,
         };
 
         db.ProgrammeSubmissions.Add(submission);
+
+        /* The batch is conducted because the coordinator who ran it says
+           so and has handed in the evidence. It used to be moved by hand
+           from the portal afterwards, which meant the register disagreed
+           with the record for as long as nobody got round to it. */
+        var programme = await db.Programmes.FirstOrDefaultAsync(p => p.Id == programmeId, ct);
+        if (programme is not null && programme.Status != ProgramStatus.Conducted)
+        {
+            programme.Status = ProgramStatus.Conducted;
+            programme.RegistrationsOpen = false;
+        }
 
         try
         {

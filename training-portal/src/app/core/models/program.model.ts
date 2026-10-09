@@ -207,3 +207,63 @@ export interface PublicProgramme {
   minParticipants: number;
   isFeeApplicable: boolean;
 }
+
+/* --------------------------------------------------------- quality control */
+
+/** Where a conducted programme's report stands with the Operation Manager. */
+export type QcStatus = 'Pending' | 'Approved' | 'Rejected';
+
+export const QC_STATUSES: QcStatus[] = ['Pending', 'Approved', 'Rejected'];
+
+export const QC_STATUS_LABELS: Record<QcStatus, string> = {
+  Pending: 'Pending programmes',
+  Approved: 'Approved programmes',
+  Rejected: 'Rejected programmes',
+};
+
+/**
+ * A conducted programme as the QC queues show it.
+ *
+ * Carries the programme's identity, what the coordinator handed in, and
+ * the manager's decision — enough for a row and for the sheet that opens
+ * from it, without a second call per programme.
+ */
+export interface QcProgramme {
+  programmeId: Id;
+  programmeCode: string;
+  programmeName: string;
+  programTypeId: Id;
+  programTypeName?: string | null;
+  agencyId?: Id | null;
+  agencyName?: string | null;
+  venue?: string | null;
+  mode?: string | null;
+  state?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+
+  submittedOn: string;
+  submittedBy?: string | null;
+  trainerCount: number;
+  sessionCount: number;
+  participantCount: number;
+  presentCount: number;
+  photoCount: number;
+  remarks?: string | null;
+
+  qcStatus: QcStatus;
+  qcOn?: string | null;
+  qcBy?: string | null;
+  qcRemarks?: string | null;
+}
+
+export interface QcCounts {
+  pending: number;
+  approved: number;
+  rejected: number;
+}
+
+export interface QcDecision {
+  /** Required on a rejection, optional on an approval. */
+  remarks?: string | null;
+}

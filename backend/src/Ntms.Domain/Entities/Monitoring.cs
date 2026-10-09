@@ -223,5 +223,43 @@ public class ProgrammeSubmission : AuditableEntity
     public int PresentCount { get; set; }
     public int PhotoCount { get; set; }
 
+    /// <summary>What the coordinator wanted to say when closing it.</summary>
     public string? Remarks { get; set; }
+
+    /* ------------------------------------------------------------ QC */
+
+    /// <summary>
+    /// Where this report stands with the Operation Manager.
+    ///
+    /// Pending the moment the coordinator closes the programme: closing
+    /// it is what forwards the report, so there is no separate act of
+    /// sending and nothing can be conducted but unsent.
+    /// </summary>
+    public QcStatus QcStatus { get; set; } = QcStatus.Pending;
+
+    public int? QcByUserId { get; set; }
+    public PortalUser? QcBy { get; set; }
+
+    /// <summary>
+    /// Named as well as keyed, like a scrutiny decision.
+    ///
+    /// The account that did the QC may be closed years before anybody
+    /// reads the report again, and "approved by (deleted user)" is not a
+    /// record of who approved it.
+    /// </summary>
+    public string? QcByUserName { get; set; }
+
+    public DateTime? QcOn { get; set; }
+
+    /// <summary>
+    /// The manager's note. Required on a rejection — the agency is being
+    /// told its report is not good enough and has to know what to fix.
+    /// </summary>
+    public string? QcRemarks { get; set; }
+
+    /* The report itself is not kept. It is built from this record when
+       somebody asks for it, the way a certificate is: the monitoring
+       record is sealed at submission and cannot drift, so a stored copy
+       would be a second thing to keep, back up and account for, and it
+       would answer no question the record cannot. */
 }

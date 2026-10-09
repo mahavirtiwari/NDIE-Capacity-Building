@@ -144,6 +144,12 @@ public class ProgrammeSubmissionConfiguration : IEntityTypeConfiguration<Program
     {
         b.ToTable("ProgrammeSubmissions");
         b.Property(x => x.Remarks).HasMaxLength(1000);
+        b.Property(x => x.QcRemarks).HasMaxLength(1000);
+        b.Property(x => x.QcByUserName).HasMaxLength(200);
+
+        /* The queue is read by status far more often than by anything
+           else: a manager opens this screen to see what is waiting. */
+        b.HasIndex(x => x.QcStatus);
 
         /* A programme is submitted once. The unique index is what actually
            prevents a second submission racing the first. */
@@ -152,6 +158,8 @@ public class ProgrammeSubmissionConfiguration : IEntityTypeConfiguration<Program
         b.HasOne(x => x.Programme).WithMany().HasForeignKey(x => x.ProgrammeId)
             .OnDelete(DeleteBehavior.Cascade);
         b.HasOne(x => x.SubmittedBy).WithMany().HasForeignKey(x => x.SubmittedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.QcBy).WithMany().HasForeignKey(x => x.QcByUserId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

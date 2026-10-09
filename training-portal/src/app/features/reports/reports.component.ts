@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   effect,
   inject,
@@ -14,6 +15,7 @@ import { LookupService } from '../../core/services/masters.service';
 import { ReportService } from '../../core/services/report.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
+import { QcService } from '../../core/services/workflow.service';
 import {
   CellTemplateDirective,
   ColumnDef,
@@ -39,7 +41,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'venue', header: 'Venue' },
   { key: 'dates', header: 'From – to', width: '190px' },
   { key: 'participantCount', header: 'Enrolled', align: 'center', sortable: true, width: '100px' },
-  { key: 'actions', header: '', align: 'right', width: '120px' },
+  { key: 'actions', header: '', align: 'right', width: '230px' },
 ];
 
 @Component({
@@ -195,10 +197,33 @@ const COLUMNS: ColumnDef[] = [
           <span class="tabular">{{ $any(row).startDate }} – {{ $any(row).endDate }}</span>
         </ng-template>
 
+<!-- Two different things, which were one button before the
+             programme report existed: the figures this screen holds, and
+             the report of what was actually done on the day. -->
         <ng-template appCell="actions" let-row>
-          <button type="button" class="btn btn--sm btn--secondary" (click)="open($any(row))">
-            <app-icon name="eye" [size]="14" /> Report
-          </button>
+          <div class="row row-sm" style="justify-content: flex-end">
+            <button type="button" class="btn btn--sm btn--secondary" (click)="open($any(row))">
+              <app-icon name="eye" [size]="14" /> Figures
+            </button>
+            <button
+              type="button"
+              class="btn btn--sm btn--secondary"
+              title="The programme report, as checked"
+              [disabled]="fetching()"
+              (click)="report($any(row))"
+            >
+              <app-icon name="file" [size]="14" /> Report
+            </button>
+            <button
+              type="button"
+              class="btn btn--icon"
+              title="Download the report"
+              [disabled]="fetching()"
+              (click)="report($any(row), true)"
+            >
+              <app-icon name="download" [size]="15" />
+            </button>
+          </div>
         </ng-template>
       </app-data-table>
     </section>
@@ -297,6 +322,8 @@ export class ReportsComponent {
   private readonly service = inject(ReportService);
   private readonly lookups = inject(LookupService);
   private readonly toast = inject(ToastService);
+  private readonly qc = inject(QcService);
+  private readonly destroyRef = inject(DestroyRef);
 
   private readonly frame = viewChild<ElementRef<HTMLIFrameElement>>('frame');
 
@@ -320,11 +347,21 @@ export class ReportsComponent {
   protected readonly viewing = signal<ProgrammeReport | null>(null);
   private readonly documentHtml = signal('');
 
+  /** True while a programme report is on its way from the server. */
+  protected readonly fetching = signal(false);
+
   /** undefined until looked up; null once we know there is not one. */
   private logoDataUrl: string | null | undefined = undefined;
 
   constructor() {
     this.loadProgramTypes(null);
+
+    /* Every object URL made for a programme report is a handle on memory
+       the browser only releases when told. */
+    this.destroyRef.onDestroy(() => {
+      for (const url of this.held) URL.revokeObjectURL(url);
+      this.held.length = 0;
+    });
 
     /* The iframe does not exist until the report section has rendered, which
        happens after the signal that reveals it is set — not by the next
@@ -356,6 +393,43 @@ export class ReportsComponent {
       this.programTypes.set(items.map((item) => ({ id: item.id, name: item.name })));
     });
   }
+
+  /**
+   * The programme's own report: what was done on the day, as checked.
+   *
+   * Distinct from the figures this screen builds. That document is
+   * assembled here from the numbers; this one is built by the server
+   * from the sealed monitoring record and is the thing quality control
+   * signed off, so it is fetched rather than reconstructed.
+   *
+   * Opened in a tab, or saved. The endpoint needs the bearer token, so
+   * it is fetched and handed to the browser as an object URL.
+   */
+  protected report(row: ReportProgramme, download = false): void {
+    this.fetching.set(true);
+
+    this.qc.report(row.id, download).subscribe({
+      next: (blob) => {
+        this.fetching.set(false);
+        const url = URL.createObjectURL(blob);
+        this.held.push(url);
+
+        if (download) {
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${row.programmeCode}-report.html`;
+          link.click();
+        } else {
+          window.open(url, '_blank', 'noopener');
+        }
+      },
+      /* A programme whose report has not passed QC is refused by the
+         server, which says so; the interceptor shows it. */
+      error: () => this.fetching.set(false),
+    });
+  }
+
+  private readonly held: string[] = [];
 
   protected open(row: ReportProgramme): void {
     this.service.programme(row.id).subscribe(async (report) => {

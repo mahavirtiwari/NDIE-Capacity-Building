@@ -141,6 +141,8 @@ public class DbSeeder(
                     /* Decides whether a batch may run; the agency that
                        raised it runs it. */
                     Permissions.ProgramsView, Permissions.ProgramsApprove,
+                    /* And reads the report of what was actually run. */
+                    Permissions.ProgramsQc,
                     Permissions.CoordinatorsView, Permissions.ReportsView,
                     Permissions.ProfessionalsView, Permissions.TrainersView,
                 ]),

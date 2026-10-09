@@ -334,6 +334,17 @@ export const routes: Routes = [
                 (m) => m.ProgramDetailComponent,
               ),
           },
+          /* Reading the QC queues takes programs.view; deciding one takes
+             programs.qc, which the screen and the server both check. */
+          {
+            path: 'qc-approval',
+            title: 'QC approval · CBMS',
+            canActivate: [permissionGuard('programs.view')],
+            loadComponent: () =>
+              import('./features/operations/qc-approval.component').then(
+                (m) => m.QcApprovalComponent,
+              ),
+          },
         ],
       },
 

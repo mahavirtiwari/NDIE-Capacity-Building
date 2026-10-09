@@ -226,3 +226,60 @@ public class FacultyDto : TrainerDto
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
 }
+
+/* ------------------------------------------------------- quality control */
+
+/// <summary>
+/// A conducted programme as the QC queues show it.
+///
+/// The programme's own identity, what the coordinator handed in, and
+/// where the manager has got to with it — enough to fill a row of any of
+/// the three queues and the sheet that opens from it, without a second
+/// call per programme.
+/// </summary>
+public class QcProgrammeDto
+{
+    public int ProgrammeId { get; set; }
+    public string ProgrammeCode { get; set; } = string.Empty;
+    public string ProgrammeName { get; set; } = string.Empty;
+    public int ProgramTypeId { get; set; }
+    public string? ProgramTypeName { get; set; }
+    public int? AgencyId { get; set; }
+    public string? AgencyName { get; set; }
+    public string? Venue { get; set; }
+    public string? Mode { get; set; }
+    public string? State { get; set; }
+    public DateOnly? StartDate { get; set; }
+    public DateOnly? EndDate { get; set; }
+
+    /* What was handed in. */
+    public DateTime SubmittedOn { get; set; }
+    public string? SubmittedBy { get; set; }
+    public int TrainerCount { get; set; }
+    public int SessionCount { get; set; }
+    public int ParticipantCount { get; set; }
+    public int PresentCount { get; set; }
+    public int PhotoCount { get; set; }
+    public string? Remarks { get; set; }
+
+    /* Where the manager has got to. */
+    public string QcStatus { get; set; } = "Pending";
+    public DateTime? QcOn { get; set; }
+    public string? QcBy { get; set; }
+    public string? QcRemarks { get; set; }
+}
+
+/// <summary>How many sit in each QC queue, for the tab counts.</summary>
+public class QcCountsDto
+{
+    public int Pending { get; set; }
+    public int Approved { get; set; }
+    public int Rejected { get; set; }
+}
+
+/// <summary>The manager's decision on a report.</summary>
+public class QcDecisionDto
+{
+    /// <summary>Required on a rejection, optional on an approval.</summary>
+    public string? Remarks { get; set; }
+}

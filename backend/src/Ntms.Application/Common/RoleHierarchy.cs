@@ -211,7 +211,13 @@ public static class RoleHierarchy
                 Permissions.TrainersView,
                 Permissions.TrainersManage,
                 Permissions.MaterialsView,
-                Permissions.ReportsView,
+                /* Not reports. A coordinator captures one programme at a
+                   time from a phone; the reports screen is the register
+                   of every programme in the scheme, which is the office's
+                   view and not theirs. It was inside this ceiling, so a
+                   coordinator role could be granted it — the ceiling is
+                   where that has to be stopped, because a role record is
+                   editable and this is not. */
             ],
         };
 

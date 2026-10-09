@@ -23,6 +23,20 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Delivery',
     items: [
       { label: 'Programs', route: '/operations/programs', icon: 'calendar', permissions: ['programs.view'] },
+      /* Where a conducted programme's report is read before the office
+         works from it. Sits beside Programs because it is the last step
+         of the same journey, and above Reports because nothing reaches
+         Reports until it has been through here.
+
+         Keyed on programs.view rather than on the QC key: the agency
+         that ran a batch has a legitimate interest in whether its report
+         passed, and reading the queues is not deciding them. */
+      {
+        label: 'QC approval',
+        route: '/operations/qc-approval',
+        icon: 'shield',
+        permissions: ['programs.view'],
+      },
       /* The register of everybody who has signed up, and the queue of
          profiles waiting on a decision, both belong to the Operation
          Manager and the tiers above it that oversee the queue. An agency
@@ -67,7 +81,18 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     label: 'Reports',
     items: [
-      { label: 'View reports', route: '/reports', icon: 'file', permissions: ['reports.view'] },
+      /* A coordinator never sees this. They hold no reports.view — the
+         permission is outside their tier's ceiling now, so no role record
+         can grant it to them either — and the role list here says the
+         same thing a second time, where somebody reading the sidebar
+         config can see it. */
+      {
+        label: 'View reports',
+        route: '/reports',
+        icon: 'file',
+        permissions: ['reports.view'],
+        roles: ['SuperAdmin', 'Ministry', 'Admin', 'OperationManager', 'AgencyAdmin'],
+      },
       { label: 'Trainers', route: '/trainers', icon: 'user-check', permissions: ['trainers.view'] },
     ],
   },
