@@ -465,18 +465,48 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
         padding: 0.85rem;
         background: var(--surface-muted);
       }
+      /* One entry inside a repeating section. Related to the section
+         heading above it and plainly subordinate to it, so the gold
+         accent rather than a second crimson bar. */
       .entry__head {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 0.5rem;
-        margin-bottom: 0.6rem;
+        margin: -0.85rem -0.85rem 0.6rem;
+        padding: 0.4rem 0.6rem;
+        background: var(--accent-100);
+        border-left: 3px solid var(--accent-500);
+        border-radius: var(--radius) var(--radius) 0 0;
       }
       .entry__title {
         font-size: var(--fs-sm);
         font-weight: 600;
-        color: var(--ink-700);
+        color: var(--accent-700);
       }
+
+      /* Where one section ends and the next begins.
+
+         A long profile is a run of white cards down a white page, and
+         the only thing separating "Basic details" from "Educational
+         qualification" was a gap. A tinted band and a bar in the brand
+         give each section a visible top edge, so somebody scrolling can
+         see the joins without reading the headings.
+
+         These selectors reach only this component's own section cards —
+         Angular scopes a component's styles to its own template — so no
+         other card in the portal is touched. */
+      .card__header {
+        background: var(--brand-50);
+        border-left: 3px solid var(--brand-600);
+        border-top-left-radius: inherit;
+        border-top-right-radius: inherit;
+      }
+      .card__title {
+        color: var(--brand-800);
+        font-weight: 600;
+      }
+      .card__subtitle { color: var(--ink-600); }
 
       /* An answer, set as text under its label.
 
@@ -550,8 +580,9 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
         font-weight: 600;
         color: var(--ink-700);
       }
-      .shot__where { color: var(--brand-600); text-decoration: none; }
-      .shot__where:hover { text-decoration: underline; }
+      /* A link, so it takes the link colour rather than the brand's. */
+      .shot__where { color: var(--link-600); text-decoration: none; }
+      .shot__where:hover { color: var(--link-700); text-decoration: underline; }
     `,
   ],
 })
