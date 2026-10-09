@@ -243,6 +243,7 @@ public class MonitoringService(
             .Required(dto.FullName, "Trainer name")
             .Mobile(dto.Mobile)
             .Email(dto.Email, required: false)
+            .Aadhaar(dto.Aadhaar)
             .ThrowIfInvalid();
 
         var trainer = new ProgrammeTrainer
@@ -255,6 +256,7 @@ public class MonitoringService(
             Organisation = dto.Organisation?.Trim(),
         };
 
+        Apply(trainer, dto);
         db.ProgrammeTrainers.Add(trainer);
         await db.SaveChangesAsync(ct);
         return ToDto(trainer);
@@ -271,6 +273,7 @@ public class MonitoringService(
             .Required(dto.FullName, "Trainer name")
             .Mobile(dto.Mobile)
             .Email(dto.Email, required: false)
+            .Aadhaar(dto.Aadhaar)
             .ThrowIfInvalid();
 
         trainer.FullName = dto.FullName.Trim();
@@ -279,9 +282,66 @@ public class MonitoringService(
         trainer.Designation = dto.Designation?.Trim();
         trainer.Organisation = dto.Organisation?.Trim();
 
+        Apply(trainer, dto);
+
         await db.SaveChangesAsync(ct);
         return ToDto(trainer);
     }
+
+    /// <summary>
+    /// The fields the faculty record gained, set the same way on both
+    /// paths so a trainer edited cannot end up shaped differently from
+    /// one registered.
+    ///
+    /// Experience is clamped rather than refused: a slip of the thumb on
+    /// a phone keypad should not reject the whole form, and no trainer
+    /// has eighty years of it.
+    /// </summary>
+    private static void Apply(ProgrammeTrainer trainer, TrainerUpsertDto dto)
+    {
+        trainer.Engagement =
+            Enum.TryParse<TrainerEngagement>(dto.Engagement, ignoreCase: true, out var how)
+                ? how
+                : null;
+
+        trainer.YearsExperience = dto.YearsExperience is { } years
+            ? Math.Clamp(years, 0, 70)
+            : null;
+
+        trainer.Qualification = string.IsNullOrWhiteSpace(dto.Qualification)
+            ? null
+            : dto.Qualification.Trim();
+
+        /* Only where one was sent. Nothing hands the stored number back
+           to a screen, so a blank field means "unchanged" rather than
+           "remove it" — read the other way round, every correction to a
+           trainer's telephone number would quietly erase their Aadhaar.
+
+           Clearing one is therefore not something these forms can do,
+           which is the right trade: it is a correction nobody has asked
+           for, against a mistake that would be silent. */
+        if (!string.IsNullOrWhiteSpace(dto.Aadhaar))
+            trainer.Aadhaar = dto.Aadhaar.Trim();
+    }
+
+    /// <summary>
+    /// The qualifications a trainer may be recorded against.
+    ///
+    /// From the masters, so the faculty register does not accumulate
+    /// "Post Graduate", "PG" and "Post-graduate" as three answers to the
+    /// same question. Served here rather than from the masters endpoint
+    /// because a coordinator holds no masters key and should not need
+    /// one to fill in a form.
+    ///
+    /// Active only: a qualification that has been retired is not offered
+    /// again, though records already carrying it keep reading.
+    /// </summary>
+    public async Task<List<string>> QualificationsAsync(CancellationToken ct) =>
+        await db.Qualifications.AsNoTracking()
+            .Where(q => q.Status == RecordStatus.Active)
+            .OrderByDescending(q => q.Rank).ThenBy(q => q.Label)
+            .Select(q => q.Label)
+            .ToListAsync(ct);
 
     /* ---------------------------------------------------------- sessions */
 
@@ -876,6 +936,15 @@ public class MonitoringService(
         Email = t.Email,
         Designation = t.Designation,
         Organisation = t.Organisation,
+        Engagement = t.Engagement?.ToString(),
+        YearsExperience = t.YearsExperience,
+        Qualification = t.Qualification,
+        /* The last four and no more. Aadhaar is deliberately absent from
+           what goes back: the app sends it once and never needs it
+           again, and a faculty list that returns everybody's is a list
+           that leaks it to every caller. */
+        Aadhaar = null,
+        AadhaarLast4 = t.Aadhaar is { Length: >= 4 } whole ? whole[^4..] : null,
     };
 
     private static VenueDto ToDto(ProgrammeVenue v, List<MonitoringPhoto> photos) => new()

@@ -57,6 +57,32 @@ public class ProgrammeTrainer : AuditableEntity
     public string? Email { get; set; }
     public string? Designation { get; set; }
     public string? Organisation { get; set; }
+
+    /// <summary>Full time or part time, where the coordinator said.</summary>
+    public TrainerEngagement? Engagement { get; set; }
+
+    /// <summary>Years in the field, as declared. Null where not asked.</summary>
+    public int? YearsExperience { get; set; }
+
+    /// <summary>
+    /// The highest qualification, as its label rather than a key.
+    ///
+    /// The same choice the programme types make: a qualification renamed
+    /// or retired in the masters leaves this record saying what it said
+    /// at the time, instead of being silently emptied or made to read as
+    /// something nobody entered.
+    /// </summary>
+    public string? Qualification { get; set; }
+
+    /// <summary>
+    /// The trainer's Aadhaar, where it was collected.
+    ///
+    /// Held because the scheme identifies its faculty by it, and shown
+    /// as the last four digits everywhere it is displayed — including in
+    /// the programme report, which is a document that gets mailed around
+    /// and filed. The whole number is not printed anywhere.
+    /// </summary>
+    public string? Aadhaar { get; set; }
 }
 
 /// <summary>

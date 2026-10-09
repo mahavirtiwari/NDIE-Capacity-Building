@@ -47,6 +47,8 @@ public class ProgrammeTrainerConfiguration : IEntityTypeConfiguration<ProgrammeT
         b.Property(x => x.Email).HasMaxLength(200);
         b.Property(x => x.Designation).HasMaxLength(160);
         b.Property(x => x.Organisation).HasMaxLength(200);
+        b.Property(x => x.Qualification).HasMaxLength(120);
+        b.Property(x => x.Aadhaar).HasMaxLength(12);
 
         b.HasIndex(x => x.ProgrammeId);
 

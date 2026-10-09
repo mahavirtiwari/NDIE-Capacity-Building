@@ -49,6 +49,7 @@ export const isEmail = (value?: string | null) => matchesFormat('email', value);
 export const isMobile = (value?: string | null) => matchesFormat('mobile', value);
 export const isPan = (value?: string | null) => matchesFormat('pan', value?.toUpperCase());
 export const isTan = (value?: string | null) => matchesFormat('tan', value?.toUpperCase());
+export const isAadhaar = (value?: string | null) => matchesFormat('aadhaar', value);
 
 /** Validates one dynamic form value against its field type. */
 export function formatErrorFor(type: string, value: string): string | null {

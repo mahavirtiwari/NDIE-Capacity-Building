@@ -89,6 +89,25 @@ export interface Trainer {
   email?: string | null;
   designation?: string | null;
   organisation?: string | null;
+  engagement?: 'FullTime' | 'PartTime' | null;
+  yearsExperience?: number | null;
+  qualification?: string | null;
+  /** The last four digits. The whole number is never sent back. */
+  aadhaarLast4?: string | null;
+}
+
+/** What is sent when a trainer is registered or corrected. */
+export interface TrainerUpsert {
+  fullName: string;
+  mobile: string;
+  email?: string;
+  designation?: string;
+  organisation?: string;
+  engagement?: 'FullTime' | 'PartTime';
+  yearsExperience?: number;
+  qualification?: string;
+  /** Sent whole, once. Nothing reads it back. */
+  aadhaar?: string;
 }
 
 export interface MonitoringSession {

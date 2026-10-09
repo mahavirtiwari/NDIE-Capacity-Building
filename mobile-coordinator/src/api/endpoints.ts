@@ -15,6 +15,7 @@ import type {
   SessionTopic,
   Submission,
   Trainer,
+  TrainerUpsert,
   Venue,
   Workshop,
   WorkshopDetail,
@@ -154,7 +155,7 @@ export const venue = {
 };
 
 export const trainers = {
-  add: (id: number, body: Omit<Trainer, 'id'>) => {
+  add: (id: number, body: TrainerUpsert) => {
     const localId = newLocalId();
     return writeOrQueue<Trainer>({
       label: 'Trainer',
@@ -162,18 +163,34 @@ export const trainers = {
       path: `coordinator/programmes/${id}/trainers`,
       body,
       localId,
-      provisional: { id: localId, ...body },
+      /* The row shown while the write is queued. Aadhaar is dropped and
+         only its last four kept, so a trainer registered offline looks
+         on screen exactly as it will once the server answers — and the
+         whole number does not sit in the outbox longer than it must. */
+      provisional: { ...provisional(body), id: localId },
     });
   },
-  update: (trainerId: number, body: Omit<Trainer, 'id'>) =>
+  update: (trainerId: number, body: TrainerUpsert) =>
     writeOrQueue<Trainer>({
       label: 'Trainer',
       method: 'PUT',
       path: `coordinator/trainers/${trainerId}`,
       body,
-      provisional: { id: trainerId, ...body },
+      provisional: { ...provisional(body), id: trainerId },
     }),
+
+  /** The qualifications a trainer may be recorded against. */
+  qualifications: () => api.get<string[]>('coordinator/qualifications'),
 };
+
+/** A trainer row as it will read once the server has it. */
+function provisional(body: TrainerUpsert): Omit<Trainer, 'id'> {
+  const { aadhaar, ...rest } = body;
+  return {
+    ...rest,
+    aadhaarLast4: aadhaar && aadhaar.length >= 4 ? aadhaar.slice(-4) : null,
+  };
+}
 
 export const sessions = {
   add: (

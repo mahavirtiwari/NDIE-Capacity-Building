@@ -77,6 +77,17 @@ public class CoordinatorController(MonitoringService service, MarksheetService m
 
     /* --------------------------------------------------------- trainers */
 
+    /// <summary>
+    /// The qualifications a trainer may be recorded against.
+    ///
+    /// Not on the programme, because the list is the same for all of
+    /// them and the app caches it once.
+    /// </summary>
+    [HttpGet("qualifications")]
+    public async Task<ActionResult<ApiEnvelope<List<string>>>> Qualifications(
+        CancellationToken ct) =>
+        Envelope(await service.QualificationsAsync(ct));
+
     [HttpPost("programmes/{id:int}/trainers")]
     public async Task<ActionResult<ApiEnvelope<TrainerDto>>> AddTrainer(
         int id, [FromBody] TrainerUpsertDto dto, CancellationToken ct) =>

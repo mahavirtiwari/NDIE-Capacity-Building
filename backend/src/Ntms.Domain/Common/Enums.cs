@@ -269,6 +269,20 @@ public enum ProgramStatus
 }
 
 /// <summary>
+/// How a trainer is engaged on a programme.
+///
+/// Asked because the scheme reports on it: a panel carried by full-time
+/// faculty and one assembled from part-time consultants are different
+/// things to fund and to assure, and the distinction is not recoverable
+/// from anything else on the record.
+/// </summary>
+public enum TrainerEngagement
+{
+    FullTime = 1,
+    PartTime = 2,
+}
+
+/// <summary>
 /// Where a conducted programme's report stands with quality control.
 ///
 /// The coordinator closes the programme from the app, which seals the

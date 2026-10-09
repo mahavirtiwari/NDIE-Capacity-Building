@@ -80,6 +80,15 @@ public class FacultyService(NtmsDbContext db, ICurrentUser currentUser)
                 Email = t.Email,
                 Designation = t.Designation,
                 Organisation = t.Organisation,
+                Engagement = t.Engagement == null ? null : t.Engagement.ToString(),
+                YearsExperience = t.YearsExperience,
+                Qualification = t.Qualification,
+                /* The last four. The register lists every trainer in the
+                   scheme, and handing back a column of Aadhaar numbers
+                   to anybody who can open it is the whole problem. */
+                AadhaarLast4 = t.Aadhaar == null || t.Aadhaar.Length < 4
+                    ? null
+                    : t.Aadhaar.Substring(t.Aadhaar.Length - 4),
 
                 ProgrammeId = t.ProgrammeId,
                 ProgrammeCode = t.Programme!.ProgrammeId,
@@ -186,6 +195,15 @@ public class FacultyService(NtmsDbContext db, ICurrentUser currentUser)
                 Email = t.Email,
                 Designation = t.Designation,
                 Organisation = t.Organisation,
+                Engagement = t.Engagement == null ? null : t.Engagement.ToString(),
+                YearsExperience = t.YearsExperience,
+                Qualification = t.Qualification,
+                /* The last four. The register lists every trainer in the
+                   scheme, and handing back a column of Aadhaar numbers
+                   to anybody who can open it is the whole problem. */
+                AadhaarLast4 = t.Aadhaar == null || t.Aadhaar.Length < 4
+                    ? null
+                    : t.Aadhaar.Substring(t.Aadhaar.Length - 4),
 
                 ProgrammeId = t.ProgrammeId,
                 ProgrammeCode = t.Programme!.ProgrammeId,

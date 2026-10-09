@@ -275,10 +275,27 @@ public static class ProgrammeReportRenderer
             html.Append("<div class=\"entry\"><h3>Trainer ").Append(n).Append("</h3>");
             html.Append("<table><tbody>");
             Row(html, "Name", t.FullName);
+            Row(html, "Engagement", t.Engagement switch
+            {
+                TrainerEngagement.FullTime => "Full time",
+                TrainerEngagement.PartTime => "Part time",
+                _ => null,
+            });
+            Row(html, "Years of experience", t.YearsExperience?.ToString());
+            Row(html, "Qualification", t.Qualification);
             Row(html, "Designation", t.Designation);
             Row(html, "Organisation", t.Organisation);
             Row(html, "Email", t.Email);
             Row(html, "Contact", t.Mobile);
+            /* The last four digits. The scheme's own report prints the
+               whole number; this one does not. A programme report is
+               mailed between offices and filed, and a trainer's Aadhaar
+               is not something to spread around in order to identify
+               them on a page that already carries their name, their
+               employer and their telephone number. */
+            Row(html, "Aadhaar", t.Aadhaar is { Length: >= 4 } whole
+                ? "XXXX XXXX " + whole[^4..]
+                : null);
             html.Append("</tbody></table></div>");
         }
 

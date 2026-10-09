@@ -364,6 +364,11 @@ export interface Faculty {
   email?: string | null;
   designation?: string | null;
   organisation?: string | null;
+  engagement?: 'FullTime' | 'PartTime' | null;
+  yearsExperience?: number | null;
+  qualification?: string | null;
+  /** The last four digits. The whole number is never sent to a screen. */
+  aadhaarLast4?: string | null;
 
   programmeId: Id;
   programmeCode?: string | null;

@@ -1,9 +1,9 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Faculty, Id } from '../../core/models';
+import { Faculty, Id, Qualification } from '../../core/models';
 import { FacultyService } from '../../core/services/report.service';
-import { LookupService } from '../../core/services/masters.service';
+import { LookupService, QualificationService } from '../../core/services/masters.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import {
@@ -16,7 +16,7 @@ import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { ListState, searchTerm } from '../../shared/list-state';
-import { describeError, requiredFormat } from '../../core/validation/formats';
+import { describeError, formatValidator, requiredFormat } from '../../core/validation/formats';
 
 const COLUMNS: ColumnDef[] = [
   { key: 'fullName', header: 'Trainer', sortable: true, variant: 'primary' },
@@ -249,6 +249,59 @@ const COLUMNS: ColumnDef[] = [
             <label class="field-label" for="tfOrg">Organisation</label>
             <input id="tfOrg" class="input" formControlName="organisation" />
           </div>
+
+          <div class="field">
+            <label class="field-label" for="tfEngagement">Engagement</label>
+            <select id="tfEngagement" class="select" formControlName="engagement">
+              <option [ngValue]="null">Not stated</option>
+              <option value="FullTime">Full time</option>
+              <option value="PartTime">Part time</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="tfYears">Years of experience</label>
+            <input
+              id="tfYears"
+              class="input"
+              type="number"
+              min="0"
+              max="70"
+              formControlName="yearsExperience"
+            />
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="tfQual">Qualification</label>
+            <select id="tfQual" class="select" formControlName="qualification">
+              <option [ngValue]="null">Not stated</option>
+              @for (option of qualifications(); track option.id) {
+                <option [value]="option.label">{{ option.label }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="tfAadhaar">Aadhaar</label>
+            <input
+              id="tfAadhaar"
+              class="input"
+              formControlName="aadhaar"
+              inputmode="numeric"
+              maxlength="12"
+              [placeholder]="editing()?.aadhaarLast4
+                ? 'Held, ending ' + editing()!.aadhaarLast4
+                : '12 digit number'"
+            />
+            <!-- The stored number is never sent back, so the box starts
+                 empty on an edit and leaving it empty keeps what is
+                 there. Typing replaces it. -->
+            <span class="field-hint">
+              {{ editing()?.aadhaarLast4
+                ? 'Leave blank to keep the number already held.'
+                : 'Shown as the last four digits everywhere.' }}
+            </span>
+          </div>
         </form>
         <div footer>
           <button type="button" class="btn btn--secondary" (click)="closeForm()">Cancel</button>
@@ -267,6 +320,8 @@ export class TrainersComponent {
   private readonly lookups = inject(LookupService);
   private readonly toast = inject(ToastService);
   private readonly fb = inject(FormBuilder);
+
+  private readonly qualificationService = inject(QualificationService);
 
   protected readonly columns = COLUMNS;
   protected readonly list = new ListState<Faculty>((request) => this.service.list(request), {
@@ -293,6 +348,15 @@ export class TrainersComponent {
     email: [''],
     designation: [''],
     organisation: [''],
+    engagement: [null as string | null],
+    yearsExperience: [null as number | null],
+    qualification: [null as string | null],
+    aadhaar: ['', formatValidator('aadhaar')],
+  });
+
+  /* The same ladder the app offers, so the two agree. */
+  protected readonly qualifications = toSignal(this.qualificationService.all({ status: 'Active' }), {
+    initialValue: [] as Qualification[],
   });
 
   constructor() {
@@ -342,6 +406,12 @@ export class TrainersComponent {
       email: row?.email ?? '',
       designation: row?.designation ?? '',
       organisation: row?.organisation ?? '',
+      engagement: row?.engagement ?? null,
+      yearsExperience: row?.yearsExperience ?? null,
+      qualification: row?.qualification ?? null,
+      /* Always blank. The stored number is never sent to a screen, so
+         there is nothing to put here; blank on save means keep it. */
+      aadhaar: '',
     });
     this.formOpen.set(true);
   }
@@ -375,6 +445,14 @@ export class TrainersComponent {
       email: raw.email || null,
       designation: raw.designation || null,
       organisation: raw.organisation || null,
+      engagement: raw.engagement || null,
+      yearsExperience: raw.yearsExperience ?? null,
+      qualification: raw.qualification || null,
+      /* Sent only when something was typed. An empty box on an edit
+         means "leave the number alone", not "delete it" — the screen
+         never had it to show back, so treating blank as a clear would
+         wipe it every time anybody corrected a telephone number. */
+      aadhaar: raw.aadhaar?.trim() || undefined,
     };
 
     this.saving.set(true);

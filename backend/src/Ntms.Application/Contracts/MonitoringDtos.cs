@@ -88,11 +88,30 @@ public class TrainerUpsertDto
     public string? Email { get; set; }
     public string? Designation { get; set; }
     public string? Organisation { get; set; }
+
+    /// <summary>"FullTime" or "PartTime".</summary>
+    public string? Engagement { get; set; }
+    public int? YearsExperience { get; set; }
+
+    /// <summary>The label from the qualifications master, not its key.</summary>
+    public string? Qualification { get; set; }
+
+    /// <summary>Twelve digits. Sent whole, never sent back whole.</summary>
+    public string? Aadhaar { get; set; }
 }
 
 public class TrainerDto : TrainerUpsertDto
 {
     public int Id { get; set; }
+
+    /// <summary>
+    /// The last four digits, which is all any screen or report shows.
+    ///
+    /// The whole number goes up when a trainer is registered and is not
+    /// returned by anything: a register of faculty that hands back
+    /// everybody's Aadhaar to every caller is a register that leaks it.
+    /// </summary>
+    public string? AadhaarLast4 { get; set; }
 }
 
 /* ---------------------------------------------------------------- session */

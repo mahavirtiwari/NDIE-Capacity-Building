@@ -1,9 +1,17 @@
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { ApiError } from '../../../src/api/client';
 import { trainers as trainersApi } from '../../../src/api/endpoints';
 import { Banner, Button, Card, Field } from '../../../src/components/ui';
-import { isEmail, isMobile } from '../../../src/validation/formats';
+import { isAadhaar, isEmail, isMobile } from '../../../src/validation/formats';
 import { colors, radius, spacing } from '../../../src/theme';
 import { useWorkshop } from '../../../src/workshop/WorkshopContext';
 
@@ -22,6 +30,31 @@ export default function RegisterTrainer() {
   const [email, setEmail] = useState('');
   const [designation, setDesignation] = useState('');
   const [organisation, setOrganisation] = useState('');
+  const [engagement, setEngagement] = useState<'FullTime' | 'PartTime' | ''>('');
+  const [experience, setExperience] = useState('');
+  const [qualification, setQualification] = useState('');
+  const [aadhaar, setAadhaar] = useState('');
+
+  /* The ladder from the masters, so the register does not collect
+     "Post Graduate", "PG" and "Post-graduate" as three answers to one
+     question. Fetched once; an empty list leaves the field free text
+     rather than blocking the form on a lookup. */
+  const [qualifications, setQualifications] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await trainersApi.qualifications();
+        if (!cancelled) setQualifications(list);
+      } catch {
+        /* Offline, or nothing configured. The field still accepts typing. */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failure, setFailure] = useState<string | null>(null);
@@ -33,6 +66,10 @@ export default function RegisterTrainer() {
     if (!mobile.trim()) found.mobile = 'Mobile is required.';
     else if (!isMobile(mobile)) found.mobile = 'Enter a 10 digit number starting with 6-9.';
     if (email.trim() && !isEmail(email)) found.email = 'Enter a valid email address.';
+    if (aadhaar.trim() && !isAadhaar(aadhaar)) found.aadhaar = 'Enter the 12 digit number.';
+    if (experience.trim() && !/^\d{1,2}$/.test(experience.trim())) {
+      found.experience = 'Enter the number of years.';
+    }
 
     setErrors(found);
     if (Object.keys(found).length > 0) return;
@@ -46,6 +83,10 @@ export default function RegisterTrainer() {
         email: email.trim() || undefined,
         designation: designation.trim() || undefined,
         organisation: organisation.trim() || undefined,
+        engagement: engagement || undefined,
+        yearsExperience: experience.trim() ? Number(experience.trim()) : undefined,
+        qualification: qualification.trim() || undefined,
+        aadhaar: aadhaar.trim() || undefined,
       });
       await refresh();
       setFullName('');
@@ -53,6 +94,10 @@ export default function RegisterTrainer() {
       setEmail('');
       setDesignation('');
       setOrganisation('');
+      setEngagement('');
+      setExperience('');
+      setQualification('');
+      setAadhaar('');
     } catch (caught) {
       setFailure(caught instanceof ApiError ? caught.message : 'Could not add the trainer.');
     } finally {
@@ -75,7 +120,18 @@ export default function RegisterTrainer() {
               <View key={trainer.id} style={styles.trainer}>
                 <Text style={styles.trainerName}>{trainer.fullName}</Text>
                 <Text style={styles.trainerMeta}>
-                  {[trainer.designation, trainer.organisation, trainer.mobile]
+                  {[
+                    trainer.designation,
+                    trainer.organisation,
+                    trainer.qualification,
+                    trainer.engagement === 'FullTime'
+                      ? 'Full time'
+                      : trainer.engagement === 'PartTime'
+                        ? 'Part time'
+                        : null,
+                    trainer.yearsExperience != null ? `${trainer.yearsExperience} yrs` : null,
+                    trainer.mobile,
+                  ]
                     .filter(Boolean)
                     .join(' · ')}
                 </Text>
@@ -123,6 +179,84 @@ export default function RegisterTrainer() {
               onChangeText={setDesignation}
               placeholder="e.g. Master Trainer"
             />
+            {/* Two buttons rather than a dropdown: there are exactly two
+                answers and a picker for two answers is a tap wasted. */}
+            <View style={styles.group}>
+              <Text style={styles.groupLabel}>Engagement</Text>
+              <View style={styles.choices}>
+                {([
+                  ['FullTime', 'Full time'],
+                  ['PartTime', 'Part time'],
+                ] as const).map(([value, label]) => (
+                  <Pressable
+                    key={value}
+                    style={[styles.choice, engagement === value && styles.choiceOn]}
+                    onPress={() => setEngagement(engagement === value ? '' : value)}
+                  >
+                    <Text
+                      style={[styles.choiceText, engagement === value && styles.choiceTextOn]}
+                    >
+                      {label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            <Field
+              label="Years of experience"
+              value={experience}
+              onChangeText={setExperience}
+              placeholder="e.g. 12"
+              keyboardType="number-pad"
+              maxLength={2}
+              error={errors.experience}
+            />
+
+            {/* The ladder from the masters where it loaded, typing where
+                it did not: a coordinator in a basement should not be
+                stopped from registering a trainer by a lookup. */}
+            {qualifications.length > 0 ? (
+              <View style={styles.group}>
+                <Text style={styles.groupLabel}>Qualification</Text>
+                <View style={styles.choices}>
+                  {qualifications.map((value) => (
+                    <Pressable
+                      key={value}
+                      style={[styles.choice, qualification === value && styles.choiceOn]}
+                      onPress={() => setQualification(qualification === value ? '' : value)}
+                    >
+                      <Text
+                        style={[
+                          styles.choiceText,
+                          qualification === value && styles.choiceTextOn,
+                        ]}
+                      >
+                        {value}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            ) : (
+              <Field
+                label="Qualification"
+                value={qualification}
+                onChangeText={setQualification}
+                placeholder="e.g. Post Graduate"
+              />
+            )}
+
+            <Field
+              label="Aadhaar"
+              value={aadhaar}
+              onChangeText={setAadhaar}
+              placeholder="12 digit number"
+              keyboardType="number-pad"
+              maxLength={12}
+              error={errors.aadhaar}
+            />
+
             <Field
               label="Organisation"
               value={organisation}
@@ -141,6 +275,24 @@ export default function RegisterTrainer() {
 }
 
 const styles = StyleSheet.create({
+  /* A labelled row of choices, for the questions with a short fixed set
+     of answers. Wraps rather than scrolls: a qualification ladder is
+     read all at once, unlike the day tabs on the register. */
+  group: { gap: 6 },
+  groupLabel: { fontSize: 13, fontWeight: '600', color: colors.ink700 },
+  choices: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  choice: {
+    paddingVertical: 7,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+  },
+  choiceOn: { backgroundColor: colors.brand600, borderColor: colors.brand600 },
+  choiceText: { fontSize: 13, color: colors.ink700 },
+  choiceTextOn: { color: '#fff', fontWeight: '600' },
+
   flex: { flex: 1, backgroundColor: colors.page },
   content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
   card: { gap: spacing.md },
