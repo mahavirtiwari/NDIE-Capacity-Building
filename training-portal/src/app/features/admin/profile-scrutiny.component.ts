@@ -14,6 +14,7 @@ import {
 } from '../../core/models';
 import { LookupService } from '../../core/services/masters.service';
 import { ProfileFormService } from '../../core/services/academics.service';
+import { AuthService } from '../../core/services/auth.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import {
@@ -314,10 +315,13 @@ const COLUMNS: ColumnDef[] = [
             </div>
           }
 
-          @if (row.status === 'Submitted' || row.status === 'UnderScrutiny') {
+<!-- The decision is the Operation Manager's. Everyone else reads the
+               sheet: the answers, what has happened, and the outcome once
+               there is one. -->
+          @if (canDecide(row)) {
             <form [formGroup]="decision" class="stack stack-sm">
               <div class="field">
-                <label class="field-label" for="psReason">Reason, if turning it down</label>
+                <label class="field-label" for="psReason">Reason, if rejecting</label>
                 <select id="psReason" class="select" formControlName="rejectionReasonId">
                   <option [ngValue]="null">Select a reason</option>
                   @for (reason of reasons(); track reason.id) {
@@ -325,7 +329,7 @@ const COLUMNS: ColumnDef[] = [
                   }
                 </select>
                 <span class="field-hint">
-                  Required to turn a profile down, so the applicant is told why and can put it
+                  Required to reject a profile, so the applicant is told why and can put it
                   right. Ignored when accepting.
                 </span>
               </div>
@@ -346,14 +350,14 @@ const COLUMNS: ColumnDef[] = [
           <button type="button" class="btn btn--secondary" (click)="reading.set(null)">
             Close
           </button>
-          @if (row.status === 'Submitted' || row.status === 'UnderScrutiny') {
+          @if (canDecide(row)) {
             <button
               type="button"
               class="btn btn--subtle-danger"
               [disabled]="deciding()"
               (click)="reject(row)"
             >
-              Turn down
+              Reject
             </button>
             <button
               type="button"
@@ -445,8 +449,22 @@ export class ProfileScrutinyComponent {
   private readonly reasonService = inject(RejectionReasonService);
   private readonly lookups = inject(LookupService);
   private readonly forms = inject(ProfileFormService);
+  private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
   private readonly fb = inject(FormBuilder);
+
+  /**
+   * Whether this account may decide the profile in front of it.
+   *
+   * Open, and the Operation Manager's. The queue already shows a manager
+   * only their own desk, so for them this is the status check; for the
+   * tiers above, who see every profile in the scheme, it is what keeps the
+   * sheet to reading.
+   */
+  protected canDecide(row: ProfileSubmission): boolean {
+    return (row.status === 'Submitted' || row.status === 'UnderScrutiny')
+      && this.auth.hasRole('OperationManager');
+  }
 
   protected readonly columns = COLUMNS;
   protected readonly statuses = PROFILE_STATUSES;
@@ -637,7 +655,7 @@ export class ProfileScrutinyComponent {
   protected reject(row: ProfileSubmission): void {
     const reasonId = this.decision.value.rejectionReasonId;
     if (!reasonId) {
-      this.toast.error('Choose a reason', 'A profile cannot be turned down without one.');
+      this.toast.error('Choose a reason', 'A profile cannot be rejected without one.');
       return;
     }
 
@@ -649,7 +667,7 @@ export class ProfileScrutinyComponent {
           this.deciding.set(false);
           this.reading.set(null);
           this.toast.success(
-            'Profile turned down',
+            'Profile rejected',
             'The applicant can correct it and send it again.',
           );
           this.list.reload();

@@ -55,4 +55,38 @@ public class ProfileAttachment : AuditableEntity
 
     /// <summary>When it was taken, or when it was chosen.</summary>
     public DateTime CapturedOn { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// When it reached the server.
+    ///
+    /// Kept apart from CapturedOn, which is the phone's clock at the
+    /// shutter. The two differ by however long the handset was out of
+    /// signal, and that gap is the useful part: a picture taken on site at
+    /// nine and synced at six is a different thing from one taken at six.
+    /// </summary>
+    public DateTime SyncedOn { get; set; } = DateTime.UtcNow;
+
+    /* Where the phone said it was. Null when the applicant refused the
+       permission or no fix was had indoors — a picture without a position
+       is still the picture, and refusing it would cost the evidence to
+       gain a field. Same precision as the coordinator's monitoring shots,
+       so the two read alike. */
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+
+    /* What took it. "Android", the model as the handset reports it, and
+       the OS version — enough to tell one person's submissions apart, and
+       to recognise a camera that is producing unreadable files. */
+    public string? DevicePlatform { get; set; }
+    public string? DeviceModel { get; set; }
+    public string? DeviceOsVersion { get; set; }
+
+    /// <summary>
+    /// Whether the date, time and position were drawn into the image.
+    ///
+    /// Recorded because it can fail — an unreadable frame is stored as it
+    /// arrived rather than thrown away — and a picture without the mark
+    /// should not be read as one whose mark was removed.
+    /// </summary>
+    public bool Stamped { get; set; }
 }

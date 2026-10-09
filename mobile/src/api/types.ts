@@ -455,6 +455,26 @@ export interface PhotoStanding {
   limit: number;
 }
 
+/**
+ * One picture in a field's set, without its bytes.
+ *
+ * Read so the applicant can see what they have actually sent, and when
+ * and where each was taken. The image itself is fetched by position.
+ */
+export interface PhotoShot {
+  displayOrder: number;
+  contentType: string;
+  capturedOn: string;
+  syncedOn: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  devicePlatform?: string | null;
+  deviceModel?: string | null;
+  deviceOsVersion?: string | null;
+  stamped: boolean;
+  sizeBytes: number;
+}
+
 /* --------------------------------------------------------- profile form */
 
 /**

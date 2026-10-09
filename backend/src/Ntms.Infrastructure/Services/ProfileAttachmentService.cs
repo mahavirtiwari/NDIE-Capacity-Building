@@ -1,10 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Ntms.Application.Common;
 using Ntms.Domain.Common;
 using Ntms.Domain.Entities;
 using Ntms.Infrastructure.Persistence;
-using PdfSharp.Drawing;
-using PdfSharp.Pdf;
 
 namespace Ntms.Infrastructure.Services;
 
@@ -12,8 +11,11 @@ namespace Ntms.Infrastructure.Services;
 /// What an applicant attaches to a field of their profile form.
 ///
 /// Two kinds, one store. A camera field takes several pictures — that is
-/// how a phone photographs a certificate — and they come back merged into
-/// one PDF in the order taken, because nobody wants to read five images.
+/// how a phone photographs a certificate — and they are kept and given
+/// back as pictures, one by one, in the order they were taken. They used
+/// to be merged into a single PDF on the way out, which turned five
+/// photographs into one document that had to be downloaded and opened
+/// before anybody could see whether the first of them was in focus.
 /// A file field takes one document and gives it back as it arrived, under
 /// the name the applicant knew it by.
 ///
@@ -21,7 +23,10 @@ namespace Ntms.Infrastructure.Services;
 /// a field changed from one to the other behaves correctly the moment it
 /// is republished.
 /// </summary>
-public class ProfileAttachmentService(NtmsDbContext db, ProfileFormService forms)
+public class ProfileAttachmentService(
+    NtmsDbContext db,
+    ProfileFormService forms,
+    ILogger<ProfileAttachmentService> logger)
 {
     /// <summary>Where a field sets no limit of its own.</summary>
     private const int DefaultLimit = 5;
@@ -30,6 +35,35 @@ public class ProfileAttachmentService(NtmsDbContext db, ProfileFormService forms
     private const int MaxBytes = 6 * 1024 * 1024;
 
     public sealed record Standing(string FieldKey, int Count, int Limit);
+
+    /// <summary>
+    /// What the handset knew when the shutter went.
+    ///
+    /// Every part optional. A phone indoors gets no fix, an applicant may
+    /// refuse the location permission, and a web client has no model name
+    /// to give — none of which is a reason to refuse the photograph.
+    /// </summary>
+    public sealed record Capture(
+        DateTime? CapturedOn = null,
+        decimal? Latitude = null,
+        decimal? Longitude = null,
+        string? Platform = null,
+        string? Model = null,
+        string? OsVersion = null);
+
+    /// <summary>One picture in a field's set, without its bytes.</summary>
+    public sealed record Shot(
+        int DisplayOrder,
+        string ContentType,
+        DateTime CapturedOn,
+        DateTime SyncedOn,
+        decimal? Latitude,
+        decimal? Longitude,
+        string? DevicePlatform,
+        string? DeviceModel,
+        string? DeviceOsVersion,
+        bool Stamped,
+        int SizeBytes);
 
     /// <summary>How many pictures are held for a field, and how many it takes.</summary>
     public async Task<Standing> StandingAsync(int applicantId, int subCategoryId, string fieldKey, CancellationToken ct)
@@ -50,7 +84,7 @@ public class ProfileAttachmentService(NtmsDbContext db, ProfileFormService forms
     /// </summary>
     public async Task<Standing> AddAsync(
         int applicantId, int subCategoryId, string fieldKey, byte[] content, string? contentType,
-        CancellationToken ct)
+        Capture? capture, CancellationToken ct)
     {
         if (content.Length == 0) throw new AppException("The picture is empty.");
         if (content.Length > MaxBytes)
@@ -70,15 +104,37 @@ public class ProfileAttachmentService(NtmsDbContext db, ProfileFormService forms
         if (existing.Count >= limit)
             throw new AppException($"This field takes {limit} picture{(limit == 1 ? "" : "s")}.");
 
+        var now = DateTime.UtcNow;
+        var facts = capture ?? new Capture();
+
+        /* The phone's clock, but not blindly. A handset with the date wrong
+           would otherwise stamp a photograph with a time that makes the
+           evidence look tampered with; anything that is not within a day of
+           now is treated as no answer and the arrival time stands. */
+        var capturedOn = facts.CapturedOn is { } said
+                         && Math.Abs((now - said).TotalHours) <= 24
+            ? said
+            : now;
+
+        var stamp = PhotoStamp.Apply(
+            content, capturedOn, facts.Latitude, facts.Longitude, logger);
+
         db.ProfileAttachments.Add(new ProfileAttachment
         {
             ApplicantId = applicantId,
             SubCategoryId = subCategoryId,
             FieldKey = fieldKey,
             DisplayOrder = existing.Count == 0 ? 1 : existing.Max(p => p.DisplayOrder) + 1,
-            ContentType = type,
-            Content = content,
-            CapturedOn = DateTime.UtcNow,
+            ContentType = stamp.Stamped ? stamp.ContentType : type,
+            Content = stamp.Content,
+            CapturedOn = capturedOn,
+            SyncedOn = now,
+            Latitude = facts.Latitude,
+            Longitude = facts.Longitude,
+            DevicePlatform = Trimmed(facts.Platform, 40),
+            DeviceModel = Trimmed(facts.Model, 120),
+            DeviceOsVersion = Trimmed(facts.OsVersion, 40),
+            Stamped = stamp.Stamped,
         });
 
         await db.SaveChangesAsync(ct);
@@ -142,59 +198,39 @@ public class ProfileAttachmentService(NtmsDbContext db, ProfileFormService forms
     }
 
     /// <summary>
-    /// Every picture for a field, as one PDF, a page each.
+    /// Every picture held for a field, in the order taken, without bytes.
     ///
-    /// Each page is sized to its picture rather than forced onto A4: these
-    /// are photographs of documents at whatever aspect the camera gave, and
-    /// letterboxing them into a portrait page wastes half the paper and
-    /// makes the writing smaller.
+    /// Replaces the merged PDF. A scrutiny officer wants to look at the
+    /// photographs — and at where and when each was taken, which a single
+    /// document flattened away — so the register of them is read first and
+    /// each image fetched by its position.
     /// </summary>
-    public async Task<byte[]> PdfAsync(int applicantId, int subCategoryId, string fieldKey, CancellationToken ct)
-    {
-        var photos = await db.ProfileAttachments.AsNoTracking()
+    public async Task<IReadOnlyList<Shot>> ShotsAsync(
+        int applicantId, int subCategoryId, string fieldKey, CancellationToken ct) =>
+        await db.ProfileAttachments.AsNoTracking()
             .Where(p => p.ApplicantId == applicantId && p.SubCategoryId == subCategoryId
                         && p.FieldKey == fieldKey)
             .OrderBy(p => p.DisplayOrder)
+            .Select(p => new Shot(
+                p.DisplayOrder,
+                p.ContentType,
+                p.CapturedOn,
+                p.SyncedOn,
+                p.Latitude,
+                p.Longitude,
+                p.DevicePlatform,
+                p.DeviceModel,
+                p.DeviceOsVersion,
+                p.Stamped,
+                p.Content.Length))
             .ToListAsync(ct);
 
-        if (photos.Count == 0) throw AppException.NotFound("Pictures for this field");
-
-        using var document = new PdfDocument();
-        document.Info.Title = fieldKey;
-
-        foreach (var photo in photos)
-        {
-            using var stream = new MemoryStream(photo.Content);
-
-            XImage image;
-            try
-            {
-                image = XImage.FromStream(stream);
-            }
-            catch (Exception)
-            {
-                /* One unreadable picture must not cost the whole document.
-                   The page is skipped and the rest still open. */
-                continue;
-            }
-
-            using (image)
-            {
-                var page = document.AddPage();
-                page.Width = XUnit.FromPoint(image.PixelWidth * 72.0 / Math.Max(image.HorizontalResolution, 1));
-                page.Height = XUnit.FromPoint(image.PixelHeight * 72.0 / Math.Max(image.VerticalResolution, 1));
-
-                using var gfx = XGraphics.FromPdfPage(page);
-                gfx.DrawImage(image, 0, 0, page.Width.Point, page.Height.Point);
-            }
-        }
-
-        if (document.PageCount == 0)
-            throw new AppException("None of the pictures for this field could be read.");
-
-        using var output = new MemoryStream();
-        document.Save(output, false);
-        return output.ToArray();
+    /// <summary>Trimmed to what the column holds, or null if there is nothing.</summary>
+    private static string? Trimmed(string? value, int max)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var clean = value.Trim();
+        return clean.Length <= max ? clean : clean[..max];
     }
 
     /* ------------------------------------------------------------ files */

@@ -138,7 +138,18 @@ public class NtmsDbContext(DbContextOptions<NtmsDbContext> options, ICurrentUser
                     property.SetColumnType("varchar(40)");
                 }
 
-                if (type == typeof(decimal))
+                /* Money, by default: two places is right for a fee and
+                   wrong for almost nothing else here.
+
+                   Only where an entity has not said otherwise. This pass
+                   runs after ApplyConfigurationsFromAssembly and used to
+                   overwrite whatever it found, so a property configured
+                   as decimal(9,6) was silently given two decimal places
+                   instead of six — which is how the latitude and
+                   longitude on a monitoring photograph came to be rounded
+                   to about a kilometre despite the configuration asking
+                   for a tenth of a metre. An explicit type now wins. */
+                if (type == typeof(decimal) && property.GetColumnType() is null)
                 {
                     property.SetColumnType("decimal(18,2)");
                 }

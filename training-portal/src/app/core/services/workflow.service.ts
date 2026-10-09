@@ -1,3 +1,4 @@
+import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
@@ -9,6 +10,7 @@ import {
   Id,
   Program,
   ProfileDecision,
+  ProfilePhoto,
   ProfileScrutinyCounts,
   ProfileSubmission,
   ScrutinyDecision,
@@ -27,6 +29,10 @@ import { CrudService } from './crud.service';
 export class ProfileSubmissionService extends CrudService<ProfileSubmission> {
   protected readonly resource = 'profile-submissions';
 
+  /* Straight to HttpClient for the image bytes: ApiService unwraps the
+     envelope every other call comes in, and a JPEG has no envelope. */
+  private readonly http = inject(HttpClient);
+
   approve(id: Id, decision: ProfileDecision): Observable<ProfileSubmission> {
     return this.api.post<ProfileSubmission>(`${this.resource}/${id}/approve`, decision);
   }
@@ -43,6 +49,32 @@ export class ProfileSubmissionService extends CrudService<ProfileSubmission> {
   /** The counters over the queue, under the same filters as the list. */
   counts(query: Record<string, unknown>): Observable<ProfileScrutinyCounts> {
     return this.api.get<ProfileScrutinyCounts>(`${this.resource}/counts`, query);
+  }
+
+  /**
+   * The pictures held for one camera field, in the order they were taken.
+   *
+   * Metadata only. Each image is fetched separately, because the officer
+   * may never scroll as far as the fifth one and a profile with twenty
+   * photographs should not be twenty megabytes of response.
+   */
+  photos(id: Id, fieldKey: string): Observable<ProfilePhoto[]> {
+    return this.api.get<ProfilePhoto[]>(
+      `${this.resource}/${id}/photos/${encodeURIComponent(fieldKey)}`);
+  }
+
+  /**
+   * One of those pictures.
+   *
+   * Fetched rather than pointed at: the endpoint needs the bearer token
+   * and an <img src> would not carry one. The caller makes an object URL
+   * of what comes back and revokes it when the screen closes.
+   */
+  photo(id: Id, fieldKey: string, displayOrder: number): Observable<Blob> {
+    return this.http.get(
+      this.api.fileUrl(
+        `${this.resource}/${id}/photos/${encodeURIComponent(fieldKey)}/${displayOrder}`),
+      { responseType: 'blob' });
   }
 }
 

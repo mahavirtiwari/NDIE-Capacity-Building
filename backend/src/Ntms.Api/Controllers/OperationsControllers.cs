@@ -620,25 +620,46 @@ public class ProfileSubmissionsController(ProfileSubmissionService service) : Ap
 
         return Envelope(
             await service.RejectAsync(id, reasonId, dto.Remarks, Who, Role, ct),
-            "Profile turned down. The applicant can correct it and send it again.");
+            "Profile rejected. The applicant can correct it and send it again.");
     }
 
     /// <summary>
-    /// The pictures an applicant took for one field, merged.
+    /// The pictures an applicant took for one field, listed.
     ///
-    /// The whole point of the field is that the officer reads the document
-    /// they add up to, so there is no route here for a single image.
+    /// These used to be merged into a PDF and handed over as one file, on
+    /// the reasoning that the officer wants the document the pictures add
+    /// up to. They do not always add up to a document — a selfie is one
+    /// photograph of one person — and merging them hid the date, the time
+    /// and the position each was taken at, which is most of what makes a
+    /// photograph worth asking for. Listed and shown individually instead.
     /// </summary>
-    [HttpGet("{id:int}/photos/{fieldKey}/pdf")]
+    [HttpGet("{id:int}/photos/{fieldKey}")]
     [HasPermission(Permissions.ApplicationsView)]
-    public async Task<IActionResult> Photos(
-        int id, string fieldKey, [FromServices] ProfileAttachmentService photos, CancellationToken ct)
+    public async Task<ActionResult<ApiEnvelope<IReadOnlyList<ProfileAttachmentService.Shot>>>>
+        Photos(
+            int id, string fieldKey, [FromServices] ProfileAttachmentService photos,
+            CancellationToken ct)
     {
         var submission = await service.GetAsync(id, ct);
-        return File(
-            await photos.PdfAsync(submission.ApplicantId, submission.SubCategoryId, fieldKey, ct),
-            "application/pdf",
-            $"{submission.ApplicantCode}-{fieldKey}.pdf");
+        return Envelope(await photos.ShotsAsync(
+            submission.ApplicantId, submission.SubCategoryId, fieldKey, ct));
+    }
+
+    /// <summary>One of those pictures, as it is stored.</summary>
+    [HttpGet("{id:int}/photos/{fieldKey}/{displayOrder:int}")]
+    [HasPermission(Permissions.ApplicationsView)]
+    public async Task<IActionResult> Photo(
+        int id, string fieldKey, int displayOrder,
+        [FromServices] ProfileAttachmentService photos, CancellationToken ct)
+    {
+        var submission = await service.GetAsync(id, ct);
+        var (content, type) = await photos.OneAsync(
+            submission.ApplicantId, submission.SubCategoryId, fieldKey, displayOrder, ct);
+
+        /* Not rendered as a document, and not sniffed into one. The same
+           rule the logo is served under, for the same reason. */
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+        return File(content, type);
     }
 
     /// <summary>The file an applicant attached to one field.</summary>

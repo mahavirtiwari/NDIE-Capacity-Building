@@ -1,4 +1,5 @@
 import { api, API_BASE_URL, download } from './client';
+import { asFields, type CaptureFacts } from '../files/captureFacts';
 import type {
   Applicant,
   ApplicantBatch,
@@ -20,6 +21,7 @@ import type {
   PaymentInitiation,
   PaymentSummary,
   PaymentTransaction,
+  PhotoShot,
   PhotoStanding,
   ProfileForm,
   FeedbackForm,
@@ -174,16 +176,31 @@ export const me = {
     api.getLive<PhotoStanding>(
       `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}`),
 
+  /**
+   * Sends one picture with what the phone knew when it was taken.
+   *
+   * The facts travel with the image rather than in a call of their own:
+   * two requests could be separated by a dropped connection, and a
+   * position stored against a photograph that never arrived is worse
+   * than no position at all.
+   */
   addPhoto: (
     subCategoryId: number,
     fieldKey: string,
     picture: { uri: string; type: string },
+    facts?: CaptureFacts,
   ) =>
     api.uploadFile<PhotoStanding>(
       `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}`,
       'picture',
       { uri: picture.uri, name: 'picture.jpg', type: picture.type },
+      facts ? asFields(facts) : {},
     ),
+
+  /** Every picture held for a field, in the order taken. */
+  photoList: (subCategoryId: number, fieldKey: string) =>
+    api.getLive<PhotoShot[]>(
+      `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}/all`),
 
   /** Where one picture can be fetched from, for the thumbnail beside the field. */
   photoUri: (subCategoryId: number, fieldKey: string, displayOrder: number) =>
@@ -217,11 +234,6 @@ export const me = {
       `me/profile-files/${subCategoryId}/${encodeURIComponent(fieldKey)}/download`, fieldKey),
 
   /** Every picture for the field, merged, in the order taken. */
-  photoPdf: (subCategoryId: number, fieldKey: string) =>
-    download(
-      `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}/pdf`,
-      `${fieldKey}.pdf`),
-
   /** The form one sub-category asks. */
   /**
    * Null where no form has been published for the discipline. That is a

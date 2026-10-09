@@ -117,9 +117,19 @@ public class ProfileAttachmentConfiguration : IEntityTypeConfiguration<ProfileAt
         b.Property(x => x.FileName).HasMaxLength(260);
         b.Property(x => x.ContentType).HasMaxLength(100).IsRequired();
 
+        /* Same precision as the coordinator's monitoring shots: six decimal
+           places is a tenth of a metre, which is past what a handset knows
+           and well past what anybody reading this needs. */
+        b.Property(x => x.Latitude).HasColumnType("decimal(9,6)");
+        b.Property(x => x.Longitude).HasColumnType("decimal(9,6)");
+
+        b.Property(x => x.DevicePlatform).HasMaxLength(40);
+        b.Property(x => x.DeviceModel).HasMaxLength(120);
+        b.Property(x => x.DeviceOsVersion).HasMaxLength(40);
+
         /* One per position per field per discipline, so a set of pictures
-           has no gaps and no duplicates and the PDF's page order is the
-           stored order. A file field only ever uses position one. */
+           has no gaps and no duplicates and reads in the order it was
+           taken. A file field only ever uses position one. */
         b.HasIndex(x => new { x.ApplicantId, x.SubCategoryId, x.FieldKey, x.DisplayOrder })
             .IsUnique();
 

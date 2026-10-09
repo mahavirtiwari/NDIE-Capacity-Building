@@ -368,6 +368,7 @@ public class ProfileSubmissionService(
         {
             submission.AssignedToUserId = await PickScrutinyOfficerAsync(
                 subCategoryId, applicant.StateCode, ct);
+            submission.AssignedOn = submission.AssignedToUserId is null ? null : now;
         }
 
         submission.History.Add(new ProfileScrutinyEvent
@@ -498,12 +499,20 @@ public class ProfileSubmissionService(
     /// list. An empty allocation covers nothing, which is the rule
     /// everywhere else here.
     ///
-    /// Among those, whoever is holding the fewest open profiles — otherwise
-    /// the first manager created takes every case in their patch. Ties go to
-    /// the lower id so the choice is repeatable.
+    /// Among those, in turn: the one who has gone longest without being
+    /// given a profile in this discipline takes the next one, and a manager
+    /// who has never been given one comes before all of them. Over a run of
+    /// profiles that deals them round the qualifying managers evenly, which
+    /// is what a rota is, and it does not depend on anybody clearing their
+    /// desk — the count of open cases, which decided this before, let a
+    /// manager who worked through their queue be handed every new arrival.
+    ///
+    /// Ties go to the lower id, so two profiles arriving together are
+    /// placed in a defined order rather than an arbitrary one.
     ///
     /// Null when nobody qualifies. That is not a failure to hide: the
-    /// profile stays in the register, unassigned, for a tier above to place.
+    /// profile stays in the register, unassigned, until a manager who
+    /// covers it is appointed, and is then placed by itself.
     /// </summary>
     private async Task<int?> PickScrutinyOfficerAsync(
         int subCategoryId, int? applicantState, CancellationToken ct)
@@ -522,19 +531,26 @@ public class ProfileSubmissionService(
             candidates = candidates.Where(u => u.States.Any(s => s.StateCode == state));
         }
 
-        var lightest = await candidates
+        /* Whose turn it is. Measured per discipline rather than across the
+           scheme: a manager covering two sub-categories would otherwise be
+           skipped in one because they had just been given a case in the
+           other, and the rota in each would drift apart. */
+        var next = await candidates
             .Select(u => new
             {
                 u.Id,
-                Open = db.ProfileSubmissions.Count(s =>
-                    s.AssignedToUserId == u.Id
-                    && (s.Status == ProfileSubmissionStatus.Submitted
-                        || s.Status == ProfileSubmissionStatus.UnderScrutiny)),
+                LastGiven = db.ProfileSubmissions
+                    .Where(s => s.AssignedToUserId == u.Id && s.SubCategoryId == subCategoryId)
+                    .Max(s => (DateTime?)s.AssignedOn),
             })
-            .OrderBy(x => x.Open).ThenBy(x => x.Id)
+            /* Never given one sorts first: null is the smallest value SQL
+               Server orders ascending, which is the behaviour wanted here
+               and is written down because it is not the behaviour of every
+               database this might one day run on. */
+            .OrderBy(x => x.LastGiven).ThenBy(x => x.Id)
             .FirstOrDefaultAsync(ct);
 
-        return lightest?.Id;
+        return next?.Id;
     }
 
     public async Task<PagedResult<ProfileSubmissionDto>> QueueAsync(
@@ -576,8 +592,9 @@ public class ProfileSubmissionService(
 
         if (waiting.Count == 0) return;
 
-        var placed = false;
-        foreach (var row in waiting)
+        /* Oldest first, so a backlog is dealt out in the order it arrived
+           rather than in whatever order the rows came back. */
+        foreach (var row in waiting.OrderBy(w => w.Id))
         {
             var officer = await PickScrutinyOfficerAsync(row.SubCategoryId, row.StateCode, ct);
             if (officer is null) continue;
@@ -587,10 +604,15 @@ public class ProfileSubmissionService(
             if (entity is null) continue;
 
             entity.AssignedToUserId = officer;
-            placed = true;
-        }
+            entity.AssignedOn = DateTime.UtcNow;
 
-        if (placed) await db.SaveChangesAsync(ct);
+            /* Saved inside the loop, deliberately. The rota is read from
+               the database, so until this row is written the next pick
+               cannot see that this manager has just been given one — and a
+               backlog of ten would go to the same desk in a single pass,
+               which is the opposite of taking them in turn. */
+            await db.SaveChangesAsync(ct);
+        }
     }
 
     /// <summary>
@@ -746,6 +768,20 @@ public class ProfileSubmissionService(
         return rejections.Max(s => s.DecidedOn)!.Value.AddMonths(settings.BlockMonths);
     }
 
+    /// <summary>
+    /// The profile this account is about to decide, or a refusal.
+    ///
+    /// Scrutiny is the Operation Manager's work, and specifically the one
+    /// the profile was placed with. This used to read the whole register
+    /// and check only that nobody had decided already, so any account
+    /// holding the scrutinise permission — the tiers above it included —
+    /// could accept or reject a profile that was never on their desk. The
+    /// screens have stopped offering it; a screen is not where that is
+    /// settled.
+    ///
+    /// Three refusals rather than one, because "no" on its own leaves the
+    /// manager guessing which of them it was.
+    /// </summary>
     private async Task<ProfileSubmission> Decidable(int id, CancellationToken ct)
     {
         var submission = await Base.FirstOrDefaultAsync(s => s.Id == id, ct)
@@ -755,6 +791,28 @@ public class ProfileSubmissionService(
             or ProfileSubmissionStatus.Rejected)
         {
             throw new AppException("This profile has already been decided.");
+        }
+
+        if (currentUser.Tier != BaseRole.OperationManager)
+        {
+            throw new AppException(
+                "Only the Operation Manager a profile is placed with can decide it.");
+        }
+
+        /* Unassigned is its own case: nobody covers the discipline and
+           state yet, and the profile is waiting for an appointment rather
+           than for a decision. Taking it would put the case on a desk that
+           the allocation did not choose. */
+        if (submission.AssignedToUserId is null)
+        {
+            throw new AppException(
+                "This profile has not been allocated yet. It is placed automatically "
+                + "once an Operation Manager covers its sub-category and state.");
+        }
+
+        if (submission.AssignedToUserId != currentUser.UserId)
+        {
+            throw new AppException("This profile is on another Operation Manager's desk.");
         }
 
         return submission;

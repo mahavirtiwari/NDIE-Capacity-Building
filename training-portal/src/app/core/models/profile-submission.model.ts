@@ -95,3 +95,39 @@ export interface ProfileDecision {
   rejectionReasonId?: Id | null;
   remarks?: string | null;
 }
+
+/**
+ * One photograph an applicant took for a camera field.
+ *
+ * These used to be handed over merged into a single PDF, which meant the
+ * officer downloaded a document to find out whether a selfie was in focus
+ * and never saw when or where any of it was taken. Each picture is its own
+ * record now, and carries what the handset knew at the shutter.
+ */
+export interface ProfilePhoto {
+  displayOrder: number;
+  contentType: string;
+  /** The phone's clock when the shutter went. */
+  capturedOn: string;
+  /** When it reached the server, which may be much later. */
+  syncedOn: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  devicePlatform?: string | null;
+  deviceModel?: string | null;
+  deviceOsVersion?: string | null;
+  /** Whether the time and position were drawn into the image itself. */
+  stamped: boolean;
+  sizeBytes: number;
+}
+
+/**
+ * A picture ready to put in an `<img>`.
+ *
+ * The API needs the session's token, which a plain `src` cannot carry, so
+ * the bytes are fetched and handed to the browser as an object URL. The
+ * component that made it is the one that must revoke it.
+ */
+export interface LoadedPhoto extends ProfilePhoto {
+  url: string;
+}

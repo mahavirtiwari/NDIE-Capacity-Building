@@ -55,15 +55,26 @@ public class ProfileSubmission : AuditableEntity
     /// Chosen when the profile is handed in, from the managers whose
     /// allocation actually covers it — a program type in this discipline and
     /// the applicant's state — because a queue everybody can see is a queue
-    /// nobody owns. Where several qualify it goes to whoever is holding the
-    /// fewest, so one desk does not take the lot.
+    /// nobody owns. Where several qualify they are taken in turn, so one
+    /// desk does not take the lot.
     ///
     /// Null where nobody qualified. The profile is still in the register for
-    /// the tiers above to see and hand to somebody; it is not lost, it is
-    /// waiting for an owner.
+    /// the tiers above to see; it is not lost, it is waiting for a manager
+    /// who covers it to be appointed, and is placed by itself once one is.
     /// </summary>
     public int? AssignedToUserId { get; set; }
     public PortalUser? AssignedToUser { get; set; }
+
+    /// <summary>
+    /// When it was put on that desk.
+    ///
+    /// The rota is read from this: whoever has gone longest without a
+    /// profile in a discipline takes the next one. SubmittedOn will not do,
+    /// because a profile that waited unplaced for a manager to be appointed
+    /// is allocated long after it was handed in, and counting it from the
+    /// hand-in would give that manager a backlog's worth of turns at once.
+    /// </summary>
+    public DateTime? AssignedOn { get; set; }
 
     public DateTime? SubmittedOn { get; set; }
     public DateTime? DecidedOn { get; set; }

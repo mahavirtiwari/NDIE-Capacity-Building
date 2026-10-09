@@ -1,4 +1,4 @@
-import { NgTemplateOutlet } from '@angular/common';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import {
   AbstractControl,
@@ -10,7 +10,13 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
-import { FieldType, ProfileField, ProfileForm, ProfileSection } from '../../core/models';
+import {
+  FieldType,
+  LoadedPhoto,
+  ProfileField,
+  ProfileForm,
+  ProfileSection,
+} from '../../core/models';
 import { FORMAT_MESSAGES, FORMAT_PATTERNS } from '../../core/validation/formats';
 import { IconComponent } from './icon.component';
 
@@ -58,7 +64,7 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
 @Component({
   selector: 'app-dynamic-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, IconComponent, NgTemplateOutlet],
+  imports: [DatePipe, ReactiveFormsModule, IconComponent, NgTemplateOutlet],
   template: `
     <form [formGroup]="form()" (ngSubmit)="submitted.emit(form().getRawValue())" class="stack stack-lg">
       @for (section of enabledSections(); track section.id) {
@@ -223,6 +229,61 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
                 }
               </div>
             }
+<!-- Pictures taken on the phone. Without this the switch fell
+                 through to a text box holding the answer, which for a camera
+                 field is the number of pictures taken — so a selfie read as
+                 a disabled input containing "1", and the photographs the
+                 applicant was asked for could not be seen at all. -->
+            @case ('photos') {
+              @if (shots(field.key); as pictures) {
+                <div class="shots">
+                  @for (shot of pictures; track shot.displayOrder) {
+                    <figure class="shot">
+                      <a [href]="shot.url" target="_blank" rel="noopener">
+                        <img
+                          [src]="shot.url"
+                          [alt]="field.label + ', picture ' + shot.displayOrder"
+                          loading="lazy"
+                        />
+                      </a>
+                      <figcaption>
+                        <span class="shot__n">{{ shot.displayOrder }}</span>
+                        <span>{{ shot.capturedOn | date: 'dd MMM yyyy, h:mm a' }}</span>
+                        @if (shot.latitude != null && shot.longitude != null) {
+                          <a
+                            class="shot__where"
+                            [href]="
+                              'https://www.openstreetmap.org/?mlat=' + shot.latitude +
+                              '&mlon=' + shot.longitude + '#map=17/' +
+                              shot.latitude + '/' + shot.longitude
+                            "
+                            target="_blank"
+                            rel="noopener"
+                          >
+                            {{ shot.latitude }}, {{ shot.longitude }}
+                          </a>
+                        } @else {
+                          <span class="text-muted">Location not recorded</span>
+                        }
+                        @if (shot.deviceModel) {
+                          <span class="text-muted">{{ shot.deviceModel }}</span>
+                        }
+                        <span class="text-muted">
+                          Synced {{ shot.syncedOn | date: 'dd MMM yyyy, h:mm a' }}
+                        </span>
+                      </figcaption>
+                    </figure>
+                  }
+                </div>
+              } @else {
+                <div class="file-box">
+                  <app-icon name="camera" [size]="16" />
+                  <span class="text-sm">
+                    {{ taken(group, field.key) }}
+                  </span>
+                </div>
+              }
+            }
             @case ('date') {
               <input
                 type="date"
@@ -305,6 +366,43 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
         font-weight: 600;
         color: var(--ink-700);
       }
+
+      /* Wide enough that a photograph of a certificate can be read without
+         opening it, and a grid so a set of five does not become a column
+         the length of the page. */
+      .shots {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+        gap: 0.75rem;
+      }
+      .shot {
+        margin: 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        background: var(--surface-2, var(--surface));
+      }
+      .shot img {
+        display: block;
+        width: 100%;
+        height: 170px;
+        object-fit: cover;
+        background: var(--ink-100, #eee);
+      }
+      .shot figcaption {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+        padding: 0.45rem 0.55rem;
+        font-size: 0.75rem;
+        line-height: 1.35;
+      }
+      .shot__n {
+        font-weight: 600;
+        color: var(--ink-700);
+      }
+      .shot__where { color: var(--brand-600); text-decoration: none; }
+      .shot__where:hover { text-decoration: underline; }
     `,
   ],
 })
@@ -322,7 +420,36 @@ export class DynamicFormComponent {
    * scrutiny screen, where an empty section means exactly that.
    */
   readonly preview = input(false);
+
+  /**
+   * The pictures held for each camera field, keyed by field key.
+   *
+   * Passed in rather than fetched here, because the form has no idea whose
+   * profile it is rendering — the screen that does knows, and is also the
+   * one that has to revoke the object URLs afterwards.
+   */
+  readonly photos = input<Record<string, LoadedPhoto[]>>({});
+
   readonly submitted = output<Record<string, unknown>>();
+
+  /** The pictures for one field, or null where there are none to show. */
+  protected shots(fieldKey: string): LoadedPhoto[] | null {
+    const held = this.photos()[fieldKey];
+    return held && held.length > 0 ? held : null;
+  }
+
+  /**
+   * What to say when there are no pictures to show.
+   *
+   * The answer on a camera field is the count, so it can say that some
+   * were taken even on a screen that has not been given the images —
+   * the form builder's preview, for one, where there is no applicant.
+   */
+  protected taken(group: FormGroup, key: string): string {
+    const count = Number(this.value(group, key)) || 0;
+    if (count === 0) return 'No pictures taken';
+    return count === 1 ? '1 picture taken' : `${count} pictures taken`;
+  }
 
   private readonly formSignal = signal<FormGroup>(this.fb.group({}));
   readonly form = computed(() => this.formSignal());

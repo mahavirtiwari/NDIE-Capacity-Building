@@ -202,17 +202,36 @@ public class ApplicantAppController(
     /* --------------------------------------------------- pictures ----
        A field of the profile form can ask for photographs rather than a
        file, because a phone is what the applicant has. They go up one at
-       a time and come back as a single PDF. */
+       a time, carrying what the handset knew when the shutter went, and
+       come back one at a time as the pictures they are. */
 
     [HttpGet("profile-photos/{subCategoryId:int}/{fieldKey}")]
     public async Task<ActionResult<ApiEnvelope<ProfileAttachmentService.Standing>>> Photos(
         int subCategoryId, string fieldKey, CancellationToken ct) =>
         Envelope(await photos.StandingAsync(ApplicantId, subCategoryId, fieldKey, ct));
 
+    /// <summary>
+    /// Adds one picture, with what the phone knew about it.
+    ///
+    /// The position and the handset come as form fields beside the file
+    /// rather than in a body of their own, because a multipart upload is
+    /// what a phone can send in one go without holding the image in
+    /// memory twice. All of them are optional: a refused location
+    /// permission must not cost somebody their photograph.
+    /// </summary>
     [HttpPost("profile-photos/{subCategoryId:int}/{fieldKey}")]
     [RequestSizeLimit(8_388_608)]
     public async Task<ActionResult<ApiEnvelope<ProfileAttachmentService.Standing>>> AddPhoto(
-        int subCategoryId, string fieldKey, IFormFile picture, CancellationToken ct)
+        int subCategoryId,
+        string fieldKey,
+        IFormFile picture,
+        CancellationToken ct,
+        [FromForm] DateTime? capturedOn = null,
+        [FromForm] decimal? latitude = null,
+        [FromForm] decimal? longitude = null,
+        [FromForm] string? platform = null,
+        [FromForm] string? model = null,
+        [FromForm] string? osVersion = null)
     {
         if (picture is null || picture.Length == 0)
             throw new AppException("Take a picture to add.");
@@ -220,8 +239,12 @@ public class ApplicantAppController(
         using var buffer = new MemoryStream();
         await picture.CopyToAsync(buffer, ct);
 
+        var capture = new ProfileAttachmentService.Capture(
+            capturedOn, latitude, longitude, platform, model, osVersion);
+
         return Envelope(await photos.AddAsync(
-            ApplicantId, subCategoryId, fieldKey, buffer.ToArray(), picture.ContentType, ct));
+            ApplicantId, subCategoryId, fieldKey, buffer.ToArray(), picture.ContentType,
+            capture, ct));
     }
 
     [HttpDelete("profile-photos/{subCategoryId:int}/{fieldKey}/{displayOrder:int}")]
@@ -239,12 +262,16 @@ public class ApplicantAppController(
         return File(content, type);
     }
 
-    /// <summary>Every picture for the field, merged, in the order taken.</summary>
-    [HttpGet("profile-photos/{subCategoryId:int}/{fieldKey}/pdf")]
-    public async Task<IActionResult> PhotoPdf(
-        int subCategoryId, string fieldKey, CancellationToken ct) =>
-        File(await photos.PdfAsync(ApplicantId, subCategoryId, fieldKey, ct),
-            "application/pdf", $"{fieldKey}.pdf");
+    /// <summary>
+    /// Every picture for the field, as a list, in the order taken.
+    ///
+    /// Where the merged PDF used to be. The app draws the thumbnails from
+    /// this and fetches each image by its position.
+    /// </summary>
+    [HttpGet("profile-photos/{subCategoryId:int}/{fieldKey}/all")]
+    public async Task<ActionResult<ApiEnvelope<IReadOnlyList<ProfileAttachmentService.Shot>>>>
+        PhotoList(int subCategoryId, string fieldKey, CancellationToken ct) =>
+        Envelope(await photos.ShotsAsync(ApplicantId, subCategoryId, fieldKey, ct));
 
     /* ------------------------------------------------------ files ----
        A file field used to record only the name of what the applicant

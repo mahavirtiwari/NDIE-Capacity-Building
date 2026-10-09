@@ -14,7 +14,7 @@ export type IconName =
   | 'refresh' | 'clock' | 'inbox' | 'award' | 'alert' | 'info' | 'lock' | 'mail'
   | 'phone' | 'save' | 'copy' | 'grip' | 'external' | 'arrow-up' | 'arrow-down'
   | 'more' | 'play' | 'link' | 'help' | 'sliders' | 'graduation' | 'flag' | 'send'
-  | 'printer';
+  | 'printer' | 'camera';
 
 const PATHS: Record<IconName, string> = {
   dashboard: '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
@@ -53,6 +53,7 @@ const PATHS: Record<IconName, string> = {
   download: '<path d="M12 3v12M7.5 11 12 15.5 16.5 11M4 20h16"/>',
   printer: '<path d="M7 9V3.5h10V9M7 18H5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2"/><rect x="7" y="14.5" width="10" height="6" rx="1"/>',
   upload: '<path d="M12 16V4M7.5 8.5 12 4l4.5 4.5M4 20h16"/>',
+  camera: '<path d="M3 8.5A1.5 1.5 0 0 1 4.5 7H7l1.5-2h7L17 7h2.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/><circle cx="12" cy="13" r="3.5"/>',
   filter: '<path d="M3 5h18l-7 8v6l-4 2v-8L3 5Z"/>',
   refresh: '<path d="M20 11a8 8 0 1 0-1.3 5.4"/><path d="M20 5v6h-6"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/>',

@@ -10,11 +10,12 @@ import {
   useState,
 } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import type { ProfileField, ProfileForm, ProfileSection } from '../api/types';
+import type { PhotoShot, ProfileField, ProfileForm, ProfileSection } from '../api/types';
 import { colors, font, radius, spacing } from '../theme';
 import { MAX_LENGTHS, UPPERCASE_TYPES, dateBoundsError, formatErrorFor } from '../validation/formats';
 import { authHeaders } from '../api/client';
 import { me } from '../api/endpoints';
+import { captureFacts } from '../files/captureFacts';
 import { saveAndShare } from '../files/saveAndShare';
 import { Card, Chip, Field } from './ui';
 import { DateField } from './DateField';
@@ -1031,6 +1032,13 @@ function FileField({
  * What the answer holds is the count. That is what makes "required" mean
  * something — a field asking for pictures is answered by having taken
  * some — and the pictures themselves are fetched by field key.
+ *
+ * Each picture stays a picture. They used to be openable only as a single
+ * PDF, which meant an applicant who wanted to check one photograph
+ * downloaded a document of all of them; they are listed individually and
+ * tapped to open. Where a field takes more than one, "Add another" keeps
+ * appearing until the limit is reached and then stops, so the number
+ * allowed is visible in the buttons rather than only in the rules.
  */
 function PhotosField({
   field,
@@ -1047,6 +1055,7 @@ function PhotosField({
 
   const subCategoryId = useSubCategoryId();
   const [count, setCount] = useState(() => Number(value) || 0);
+  const [shots, setShots] = useState<PhotoShot[]>([]);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   /* Bumped whenever the set changes, so a thumbnail is re-fetched rather
@@ -1060,13 +1069,14 @@ function PhotosField({
     let cancelled = false;
     (async () => {
       try {
-        const standing = await me.photoStanding(subCategoryId, field.key);
+        const held = await me.photoList(subCategoryId, field.key);
         if (cancelled) return;
-        setCount(standing.count);
-      setStamp(Date.now());
+        setShots(held);
+        setCount(held.length);
+        setStamp(Date.now());
         /* Nothing on the server is no answer. Writing "0" here is what made
            opening a section enough to complete it. */
-        onChange(standing.count > 0 ? String(standing.count) : '');
+        onChange(held.length > 0 ? String(held.length) : '');
       } catch {
         /* Offline, or the field is new. The local count stands. */
       }
@@ -1092,17 +1102,39 @@ function PhotosField({
     setBusy(true);
     try {
       const asset = shot.assets[0];
-      const standing = await me.addPhoto(subCategoryId, field.key, {
-        uri: asset.uri,
-        type: asset.mimeType ?? 'image/jpeg',
-      });
+
+      /* Asked for after the picture is in hand, not before: a fix takes a
+         few seconds and nobody should wait for one with the camera open.
+         It gives up on its own if there is none to be had. */
+      const facts = await captureFacts();
+
+      const standing = await me.addPhoto(
+        subCategoryId,
+        field.key,
+        { uri: asset.uri, type: asset.mimeType ?? 'image/jpeg' },
+        facts,
+      );
+
       setCount(standing.count);
       setStamp(Date.now());
       onChange(standing.count > 0 ? String(standing.count) : '');
+      void refresh();
     } catch (caught) {
       setFailure(caught instanceof Error ? caught.message : 'Could not add the picture.');
     } finally {
       setBusy(false);
+    }
+  };
+
+  /** Re-reads the set, so the captions under the thumbnails are current. */
+  const refresh = async () => {
+    try {
+      const held = await me.photoList(subCategoryId, field.key);
+      setShots(held);
+      setCount(held.length);
+      setStamp(Date.now());
+    } catch {
+      /* The count from the write stands. */
     }
   };
 
@@ -1115,20 +1147,9 @@ function PhotosField({
       setCount(standing.count);
       setStamp(Date.now());
       onChange(standing.count > 0 ? String(standing.count) : '');
+      void refresh();
     } catch (caught) {
       setFailure(caught instanceof Error ? caught.message : 'Could not remove the picture.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const view = async () => {
-    setBusy(true);
-    setFailure(null);
-    try {
-      await saveAndShare(await me.photoPdf(subCategoryId, field.key), field.label);
-    } catch (caught) {
-      setFailure(caught instanceof Error ? caught.message : 'Could not open the pictures.');
     } finally {
       setBusy(false);
     }
@@ -1144,29 +1165,52 @@ function PhotosField({
       {count === 0 ? (
         <View style={[styles.photoBox, error ? styles.fileBoxInvalid : null]}>
           <Ionicons name="camera-outline" size={20} color={colors.ink500} />
-          <Text style={styles.fileText}>{`No pictures yet · up to ${limit}`}</Text>
+          <Text style={styles.fileText}>
+            {limit === 1 ? 'No picture yet' : `No pictures yet · up to ${limit}`}
+          </Text>
         </View>
       ) : (
-        /* The pictures, not a count of them. Somebody who has just taken a
-           photograph of themselves wants to see that it came out; a line
-           reading "1 of 1 taken" tells them only that something happened. */
-        <View style={[styles.photoStrip, error ? styles.fileBoxInvalid : null]}>
-          {Array.from({ length: count }, (_, i) => i + 1).map((order) => (
-            <Image
-              key={`${order}-${stamp}`}
-              source={{
-                uri: `${me.photoUri(subCategoryId, field.key, order)}?v=${stamp}`,
-                headers: authHeaders(),
-              }}
-              style={styles.photoThumb}
-              accessibilityLabel={`${field.label}, picture ${order} of ${count}`}
-            />
-          ))}
-          <Text style={styles.photoCount}>{`${count} of ${limit}`}</Text>
+        /* Each picture on its own row with what it was taken at, rather
+           than a strip of thumbnails that could only be opened as one
+           PDF between them. Somebody who has just photographed a
+           certificate wants to see that that picture came out. */
+        <View style={error ? styles.fileBoxInvalid : undefined}>
+          {Array.from({ length: count }, (_, i) => i + 1).map((order) => {
+            const shot = shots.find((held) => held.displayOrder === order);
+            return (
+              <View key={`${order}-${stamp}`} style={styles.shotRow}>
+                <Image
+                  source={{
+                    uri: `${me.photoUri(subCategoryId, field.key, order)}?v=${stamp}`,
+                    headers: authHeaders(),
+                  }}
+                  style={styles.photoThumb}
+                  accessibilityLabel={`${field.label}, picture ${order} of ${count}`}
+                />
+                <View style={styles.shotFacts}>
+                  <Text style={styles.shotTitle}>{`Picture ${order} of ${limit}`}</Text>
+                  {shot ? (
+                    <>
+                      <Text style={styles.shotDetail}>{whenTaken(shot.capturedOn)}</Text>
+                      <Text style={styles.shotDetail}>
+                        {shot.latitude != null && shot.longitude != null
+                          ? `${shot.latitude.toFixed(6)}, ${shot.longitude.toFixed(6)}`
+                          : 'Location not recorded'}
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={styles.shotDetail}>Sent</Text>
+                  )}
+                </View>
+              </View>
+            );
+          })}
         </View>
       )}
 
       <View style={styles.photoRow}>
+        {/* Gone once the limit is reached, so the number allowed is plain
+            from the buttons and not only from the error if you exceed it. */}
         {count < limit ? (
           <Pressable
             accessibilityRole="button"
@@ -1175,33 +1219,27 @@ function PhotosField({
             onPress={take}
           >
             <Ionicons name="camera" size={16} color={colors.brand600} />
-            <Text style={styles.photoActionText}>{busy ? 'Working…' : 'Take a picture'}</Text>
+            <Text style={styles.photoActionText}>
+              {busy ? 'Working…' : count === 0 ? 'Take a picture' : 'Add another'}
+            </Text>
           </Pressable>
-        ) : null}
+        ) : (
+          <Text style={styles.photoCount}>
+            {limit === 1 ? 'One picture, taken.' : `All ${limit} pictures taken.`}
+          </Text>
+        )}
 
         {count > 0 ? (
-          <>
-            <Pressable
-              accessibilityRole="button"
-              style={styles.photoAction}
-              disabled={busy}
-              onPress={view}
-            >
-              <Ionicons name="document-text-outline" size={16} color={colors.brand600} />
-              <Text style={styles.photoActionText}>View as PDF</Text>
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Remove the last picture"
-              style={styles.photoAction}
-              disabled={busy}
-              onPress={removeLast}
-            >
-              <Ionicons name="trash-outline" size={16} color={colors.danger500} />
-              <Text style={[styles.photoActionText, styles.photoRemoveText]}>Remove last</Text>
-            </Pressable>
-          </>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Remove the last picture"
+            style={styles.photoAction}
+            disabled={busy}
+            onPress={removeLast}
+          >
+            <Ionicons name="trash-outline" size={16} color={colors.danger500} />
+            <Text style={[styles.photoActionText, styles.photoRemoveText]}>Remove last</Text>
+          </Pressable>
         ) : null}
       </View>
 
@@ -1211,6 +1249,26 @@ function PhotosField({
     </View>
   );
 }
+
+/**
+ * The time a picture was taken, as a line under its thumbnail.
+ *
+ * The server stamps the same instant into the image itself; this is the
+ * copy that can be read without opening it. Local time, because the
+ * applicant took it where they are standing.
+ */
+const whenTaken = (iso: string): string => {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return 'Taken';
+
+  return at.toLocaleString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
 
 const mimeFor = (extension: string): string => {
   const map: Record<string, string> = {
@@ -1306,17 +1364,6 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     backgroundColor: colors.ink50,
   },
-  photoStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    padding: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.white,
-  },
   photoThumb: {
     width: 72,
     height: 96,
@@ -1324,6 +1371,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.ink100,
     resizeMode: 'cover',
   },
+
+  /* One picture, with what it was taken at beside it. */
+  shotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+  },
+  shotFacts: { flex: 1, gap: 2 },
+  shotTitle: { fontSize: font.sm, fontWeight: '600', color: colors.ink700 },
+  shotDetail: { fontSize: font.xs, color: colors.ink600 },
   photoCount: { fontSize: font.sm, color: colors.ink600 },
 
   photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: 2 },

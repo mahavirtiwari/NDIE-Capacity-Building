@@ -247,6 +247,10 @@ async function uploadFile<T>(
   path: string,
   fieldName: string,
   file: { uri: string; name: string; type: string },
+  /* Fields sent beside the file: where the phone was, what it is, when
+     the shutter went. Strings, because that is all a multipart part can
+     be — the server parses them back. */
+  fields: Record<string, string> = {},
 ): Promise<T> {
   const url = `${API_BASE_URL}/${path.replace(/^\//, '')}`;
 
@@ -254,6 +258,7 @@ async function uploadFile<T>(
     const body = new FormData();
     const blob = await (await fetch(file.uri)).blob();
     body.append(fieldName, blob, file.name);
+    for (const [key, value] of Object.entries(fields)) body.append(key, value);
     return postForm<T>(path, body);
   }
 
@@ -264,7 +269,7 @@ async function uploadFile<T>(
       uploadType: FileSystem.FileSystemUploadType.MULTIPART,
       fieldName,
       mimeType: file.type,
-      parameters: {},
+      parameters: fields,
       headers: { Accept: 'application/json', ...authHeaders() },
     });
   } catch (caught) {
