@@ -10,6 +10,14 @@ cd E:\NDIE-Capacity-Building-main\deploy
 .\release-staging.ps1 -Plan        # what that would do, without doing it
 ```
 
+On this server the database backup is taken by hand, so the release that does
+not take one has its own name:
+
+```powershell
+.\windows\10-backup.ps1 -SkipFiles -Label 'before-release'   # first, by hand
+.\release-staging-nobackup.ps1                               # then release
+```
+
 Each part also has its own command, for a release that touches only one:
 
 ```powershell
@@ -35,7 +43,19 @@ it happened.
 .\release-staging.ps1 -WebOnly -SkipMigrations   # no schema change either
 .\release-staging.ps1 -AppsOnly                  # mobile-only, server untouched
 .\release-staging.ps1 -NoPull                    # a second attempt, same commit
+.\release-staging-nobackup.ps1                   # the backup was taken by hand
 ```
+
+`release-staging-nobackup.ps1` is `-SkipBackup` with a name instead of a flag:
+a release that took no backup is then visible in the shell history rather than
+having to be inferred from an argument three scripts deep. Every other flag
+still works and is passed straight through. It skips the database backup and
+nothing else — the running build is still kept, and verification failing still
+puts it back.
+
+Take the backup first where the release has a migration that writes rows.
+`21-rollback.ps1` can revert a schema change, but reverting the column a
+migration wrote to does not un-write the rows it put there.
 
 It stops before building the apps if the web release fails — an APK pointed at
 a server that is not running the matching commit is worse than no APK. If an
@@ -74,7 +94,7 @@ version still on the phones.
 | | `release-web.ps1` | the two app scripts |
 | --- | --- | --- |
 | Pulls the repository | yes | yes |
-| Backs up the database | yes, before migrating | n/a |
+| Backs up the database | yes, before migrating (not with `-SkipBackup`) | n/a |
 | Keeps the previous build | yes, for rollback | n/a — the old APK is still on the phone |
 | Applies migrations | yes | n/a |
 | Stops the site | yes, briefly | no |
@@ -86,6 +106,7 @@ version still on the phones.
 | Script | What it is for |
 | --- | --- |
 | `release-staging.ps1` | The whole release, in order, from one commit. |
+| `release-staging-nobackup.ps1` | The same, where the backup is taken by hand. |
 | `release-web.ps1` | The API and portal on their own. |
 | `release-applicant-app.ps1` | One APK. |
 | `release-coordinator-app.ps1` | The other. |
