@@ -282,6 +282,19 @@ import { TimelineComponent } from '../../shared/components/timeline.component';
         gap: 1rem;
         align-items: start;
       }
+      /* The side stays where it is while the form scrolls past it.
+
+         A profile runs to several screens, and the two things a reader
+         keeps glancing at — where it stands, and what was decided — were
+         at the top of a column that had already gone. Only where there is
+         the height to do it; on a short window a stuck panel is a panel
+         with its own scrollbar, which is worse than one that moves. */
+      @media (min-width: 1101px) and (min-height: 720px) {
+        .detail-grid > aside {
+          position: sticky;
+          top: 1rem;
+        }
+      }
       @media (max-width: 1100px) {
         .detail-grid { grid-template-columns: minmax(0, 1fr); }
       }

@@ -76,9 +76,12 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
                 <span class="card__subtitle">{{ section.description }}</span>
               }
             </div>
+<!-- How many entries a repeating section holds is worth knowing.
+                 How many fields a plain one has is not — it tells a reader
+                 the size of what is already in front of them. -->
             @if (section.isRepeatable) {
               <span class="chip">{{ entriesOf(section).length }} of {{ maxEntries(section) }}</span>
-            } @else {
+            } @else if (!reading()) {
               <span class="chip">
                 {{ enabledFields(section).length }}
                 {{ enabledFields(section).length === 1 ? 'field' : 'fields' }}
@@ -158,6 +161,113 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
          one entry of a repeating section. -->
     <ng-template #fieldTpl let-field="field" let-group="group">
       @if (isVisible(field, group)) {
+        <!-- Being read, not filled in.
+
+             A scrutiny officer meets this screen to decide whether what
+             somebody wrote is right, and every answer arrived as a grey
+             disabled box: thirty identical rounded rectangles down the
+             page, the writing in them dimmed because the control was
+             switched off. Answers are the thing on this page, so they are
+             set in plain text under their labels and the boxes are gone.
+
+             Not in the form builder's preview, which exists to show what
+             the applicant will meet and must therefore keep the inputs. -->
+        @if (reading()) {
+          <div class="read-field" [class.field--span-2]="field.colSpan === 2">
+            <div class="read-field__label">{{ field.label }}</div>
+
+            @switch (field.type) {
+              @case ('photos') {
+                @if (shots(field.key); as pictures) {
+                  <div class="shots">
+                    @for (shot of pictures; track shot.displayOrder) {
+                      <figure class="shot">
+                        <a [href]="shot.url" target="_blank" rel="noopener">
+                          <img
+                            [src]="shot.url"
+                            [alt]="field.label + ', picture ' + shot.displayOrder"
+                            loading="lazy"
+                          />
+                        </a>
+                        <figcaption>
+                          <span class="shot__n">{{ shot.displayOrder }}</span>
+                          <span>{{ shot.capturedOn | date: 'dd MMM yyyy, h:mm a' }}</span>
+                          @if (shot.latitude != null && shot.longitude != null) {
+                            <a
+                              class="shot__where"
+                              [href]="
+                                'https://www.openstreetmap.org/?mlat=' + shot.latitude +
+                                '&mlon=' + shot.longitude + '#map=17/' +
+                                shot.latitude + '/' + shot.longitude
+                              "
+                              target="_blank"
+                              rel="noopener"
+                            >
+                              {{ place(shot) }}
+                            </a>
+                          } @else {
+                            <span class="text-muted">Location not recorded</span>
+                          }
+                          @if (shot.deviceModel) {
+                            <span class="text-muted">{{ shot.deviceModel }}</span>
+                          }
+                          <span class="text-muted">
+                            Synced {{ shot.syncedOn | date: 'dd MMM yyyy, h:mm a' }}
+                          </span>
+                        </figcaption>
+                      </figure>
+                    }
+                  </div>
+                } @else {
+                  <div class="read-field__value is-empty">{{ taken(group, field.key) }}</div>
+                }
+              }
+              @case ('multiselect') {
+                @if (chosen(group, field) .length > 0) {
+                  <div class="read-chips">
+                    @for (label of chosen(group, field); track label) {
+                      <span class="chip">{{ label }}</span>
+                    }
+                  </div>
+                } @else {
+                  <div class="read-field__value is-empty">Not answered</div>
+                }
+              }
+              @case ('textarea') {
+                @if (shown(group, field)) {
+                  <!-- Tight against the tags on purpose: this value is
+                       rendered with pre-wrap so the applicant's own line
+                       breaks survive, which means the template's
+                       indentation would survive with them. -->
+                  <div
+                    class="read-field__value read-field__value--flow"
+                  >{{ shown(group, field) }}</div>
+                } @else {
+                  <div class="read-field__value is-empty">Not answered</div>
+                }
+              }
+              @case ('file') {
+                <div class="read-field__value">
+                  @if (value(group, field.key)) {
+                    <span class="read-file">
+                      <app-icon name="file" [size]="14" />
+                      {{ value(group, field.key) }}
+                    </span>
+                  } @else {
+                    <span class="is-empty">Not uploaded</span>
+                  }
+                </div>
+              }
+              @default {
+                @if (shown(group, field)) {
+                  <div class="read-field__value">{{ shown(group, field) }}</div>
+                } @else {
+                  <div class="read-field__value is-empty">Not answered</div>
+                }
+              }
+            }
+          </div>
+        } @else {
         <div class="field" [class.field--span-2]="field.colSpan === 2">
           <label class="field-label" [for]="idFor(field, group)">
             {{ field.label }}
@@ -326,6 +436,7 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
             <span class="field-error">{{ errorFor(group, field) }}</span>
           }
         </div>
+        }
       }
     </ng-template>
   `,
@@ -366,6 +477,44 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
         font-weight: 600;
         color: var(--ink-700);
       }
+
+      /* An answer, set as text under its label.
+
+         Two columns like the form it mirrors, so a profile read here sits
+         where it sat when it was filled in and the eye can go back to the
+         same place. The rule under each one does the separating that the
+         input borders used to, at a fraction of the weight. */
+      .read-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        padding-bottom: 0.6rem;
+        border-bottom: 1px solid var(--border);
+        min-width: 0;
+      }
+      .read-field__label {
+        font-size: var(--fs-xs);
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        color: var(--ink-500);
+      }
+      .read-field__value {
+        font-size: var(--fs-sm);
+        color: var(--ink-800);
+        /* A long unbroken answer — a URL, a run of digits — must wrap
+           rather than push the column wide and the one beside it off. */
+        overflow-wrap: anywhere;
+      }
+      /* A paragraph answer keeps the line breaks the applicant typed. */
+      .read-field__value--flow { white-space: pre-wrap; }
+      .read-field__value .is-empty,
+      .read-field__value.is-empty {
+        color: var(--ink-400, var(--ink-500));
+        font-style: italic;
+      }
+      .read-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+      .read-file { display: inline-flex; align-items: center; gap: 0.35rem; }
 
       /* Wide enough that a photograph of a certificate can be read without
          opening it, and a grid so a set of five does not become a column
@@ -432,6 +581,68 @@ export class DynamicFormComponent {
 
   readonly submitted = output<Record<string, unknown>>();
 
+  /**
+   * Whether this is somebody reading a filled-in profile.
+   *
+   * Read-only on its own is not enough to decide: the form builder's
+   * preview is also read-only, and there the point is to show the
+   * applicant's experience, controls and all.
+   */
+  protected readonly reading = computed(() => this.readonly() && !this.preview());
+
+  /**
+   * One field's answer, in the words the form used.
+   *
+   * A dropdown stores a code and displays a label; reading the control
+   * back gives the code, so a question answered "Graduation" would be
+   * reported to the scrutiny officer as "grad_3". Options are resolved
+   * to their labels, dates are written out, and a yes/no says which.
+   */
+  protected shown(group: FormGroup, field: ProfileField): string {
+    const raw = group.get(field.key)?.value;
+    if (raw === null || raw === undefined || raw === '') return '';
+
+    if (typeof raw === 'boolean') return raw ? 'Yes' : 'No';
+
+    if (field.type === 'select' || field.type === 'radio') {
+      return field.options?.find((o) => o.value === String(raw))?.label ?? String(raw);
+    }
+
+    if (field.type === 'date') {
+      const at = new Date(String(raw));
+      if (!Number.isNaN(at.getTime())) {
+        return at.toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        });
+      }
+    }
+
+    return String(raw);
+  }
+
+  /**
+   * A picture's position, to a fixed six places.
+   *
+   * Printed raw the two halves disagree with each other — a latitude
+   * ending in a zero loses it and sits a character short of the
+   * longitude beside it, which reads as less precision rather than as a
+   * trailing nought.
+   */
+  protected place(shot: LoadedPhoto): string {
+    return `${(shot.latitude ?? 0).toFixed(6)}, ${(shot.longitude ?? 0).toFixed(6)}`;
+  }
+
+  /** The labels of whatever was ticked on a multi-select. */
+  protected chosen(group: FormGroup, field: ProfileField): string[] {
+    const raw = group.get(field.key)?.value;
+    if (!Array.isArray(raw)) return [];
+    return raw.map(
+      (v) => field.options?.find((o) => o.value === String(v))?.label ?? String(v),
+    );
+  }
+
   /** The pictures for one field, or null where there are none to show. */
   protected shots(fieldKey: string): LoadedPhoto[] | null {
     const held = this.photos()[fieldKey];
@@ -477,12 +688,12 @@ export class DynamicFormComponent {
         /* Read-only shows exactly what was answered. While filling, the
            smallest allowed number of entries is on screen from the start, so
            a required section is never an empty card with a button. */
-        const shown = this.readonly() && !this.preview()
+        const entries = this.reading()
           ? answered.length
           : Math.max(answered.length, this.minEntries(section), 1);
 
         group[this.keyOf(section)] = this.fb.array(
-          Array.from({ length: shown }, (_, index) =>
+          Array.from({ length: entries }, (_, index) =>
             this.entryGroup(fields, answered[index] ?? {}),
           ),
         );
