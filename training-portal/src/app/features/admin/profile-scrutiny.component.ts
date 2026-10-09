@@ -32,16 +32,23 @@ import { PageHeaderComponent } from '../../shared/components/page-header.compone
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
 import { ListState, searchTerm } from '../../shared/list-state';
 
+/*
+ * The Reason column is gone from here and folded into Status.
+ *
+ * It held a value on rejected rows and an em dash on every other one,
+ * which on a healthy queue is almost all of them — two hundred pixels
+ * of nothing, in the middle of the table, to carry the occasional line.
+ * A rejection now says why underneath its badge, where the two belong
+ * together anyway.
+ */
 const COLUMNS: ColumnDef[] = [
-  { key: 'applicant', header: 'Applicant', variant: 'primary' },
+  { key: 'applicant', header: 'Applicant', variant: 'primary', width: '230px' },
   { key: 'categoryName', header: 'Category', width: '150px' },
-  { key: 'subCategoryName', header: 'Sub-category', width: '180px' },
-  { key: 'attemptNo', header: 'Attempt', width: '90px', align: 'center' },
-  { key: 'submittedOn', header: 'Sent', sortable: true, width: '130px' },
-  { key: 'assignedToName', header: 'Assigned to', width: '160px', variant: 'muted' },
-  { key: 'status', header: 'Status', width: '140px' },
-  { key: 'rejectionReasonLabel', header: 'Reason', width: '200px', variant: 'muted' },
-  { key: 'actions', header: '', width: '150px', align: 'right' },
+  { key: 'subCategoryName', header: 'Sub-category', width: '170px' },
+  { key: 'attemptNo', header: 'Attempt', width: '100px', align: 'center' },
+  { key: 'submittedOn', header: 'Sent', sortable: true, width: '120px' },
+  { key: 'assignedToName', header: 'Assigned to', width: '170px' },
+  { key: 'status', header: 'Status', width: '260px' },
 ];
 
 /**
@@ -196,6 +203,7 @@ const COLUMNS: ColumnDef[] = [
 
       <app-data-table
         exportName="Profile submissions"
+        minWidth="1150px"
         [columns]="columns"
         [rows]="list.rows()"
         [total]="list.total()"
@@ -211,39 +219,62 @@ const COLUMNS: ColumnDef[] = [
         (pageSizeChange)="list.setPageSize($event)"
         (sortChange)="list.setSort($event)"
       >
+<!-- The name opens the profile. It was plain bold text beside a
+             filled button at the far right of the row, so the one thing a
+             reader looks at was not the thing they could click, and the
+             button repeated down the page in the brand colour pulled the
+             eye away from the names. -->
         <ng-template appCell="applicant" let-row>
           <div class="stack stack-xs">
-            <strong>{{ $any(row).applicantName }}</strong>
+            <a class="cell-link" [routerLink]="['/admin/profile-scrutiny', $any(row).id]">
+              {{ $any(row).applicantName }}
+            </a>
             <span class="cell-muted">{{ $any(row).applicantCode }}</span>
           </div>
+        </ng-template>
+<!-- A first attempt is the ordinary case and reads as a plain
+             number. A second or third is somebody who was turned down and
+             has come back, which is worth seeing from the register. -->
+        <ng-template appCell="attemptNo" let-row>
+          @if ($any(row).attemptNo > 1) {
+            <span class="chip chip--warn">{{ $any(row).attemptNo }}</span>
+          } @else {
+            <span class="cell-muted">1</span>
+          }
         </ng-template>
         <ng-template appCell="submittedOn" let-row>
           {{ $any(row).submittedOn | date: 'dd MMM yyyy' }}
         </ng-template>
+<!-- Unassigned is not a quiet absence: it means nobody's program
+             types and states cover this profile, so it is sitting in the
+             register waiting for a manager to be appointed. Said plainly
+             rather than greyed out. -->
         <ng-template appCell="assignedToName" let-row>
           @if ($any(row).assignedToName) {
-            {{ $any(row).assignedToName }}
+            <span>{{ $any(row).assignedToName }}</span>
           } @else {
-            <span class="cell-muted">Unassigned</span>
+            <span class="chip chip--warn">Unassigned</span>
           }
         </ng-template>
+<!-- The badge and, where there is one, the reason under it. A
+             rejection that does not say why makes the officer open the
+             profile to find out, which is the one thing the register
+             exists to save them. -->
         <ng-template appCell="status" let-row>
-          <app-status-badge [value]="$any(row).status" />
-        </ng-template>
-        <ng-template appCell="rejectionReasonLabel" let-row>
-          @if ($any(row).rejectionReasonLabel) {
-            <span class="wrap-text">{{ $any(row).rejectionReasonLabel }}</span>
-          } @else {
-            <span class="cell-muted">&mdash;</span>
-          }
-        </ng-template>
-        <ng-template appCell="actions" let-row>
-          <!-- A page, not a sheet. The whole form read section by section,
-               with the decision beside it, is the same job the application
-               sheet did and reads the same way. -->
-          <a class="btn btn--sm btn--primary" [routerLink]="['/admin/profile-scrutiny', $any(row).id]">
-            <app-icon name="eye" [size]="14" /> View details
-          </a>
+          <div class="stack stack-xs">
+            <app-status-badge [value]="$any(row).status" />
+            @if ($any(row).rejectionReasonLabel) {
+              <span class="text-xs text-danger wrap-text">
+                {{ $any(row).rejectionReasonLabel }}
+              </span>
+            }
+            @if ($any(row).decidedOn) {
+              <span class="text-xs cell-muted">
+                {{ $any(row).decidedOn | date: 'dd MMM yyyy' }}
+                @if ($any(row).decidedByUserName) { · {{ $any(row).decidedByUserName }} }
+              </span>
+            }
+          </div>
         </ng-template>
       </app-data-table>
     </section>

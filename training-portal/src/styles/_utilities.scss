@@ -66,6 +66,16 @@
   border: 1px dashed var(--border);
 }
 
+/* And louder: for something true of this row that is not wrong but does
+   want noticing — a profile nobody holds, a third attempt at the same
+   discipline. The gold accent, because the danger red is reserved for
+   what has actually gone wrong. */
+.chip--warn {
+  background: var(--accent-100);
+  color: var(--accent-700);
+  font-weight: 600;
+}
+
 .avatar {
   width: 34px;
   height: 34px;
