@@ -56,8 +56,15 @@ public static class DependencyInjection
 
         /* Through the factory so the handler is pooled and the timeout is the
            one in settings rather than the default hundred seconds. */
-        services.AddHttpClient(nameof(PanVerifier));
-        services.AddHttpClient(nameof(InvoiceFetcher));
+        services.AddHttpClient(nameof(PanVerifier))
+            .ConfigurePrimaryHttpMessageHandler(() =>
+                new HttpClientHandler { AllowAutoRedirect = false });
+        /* Redirects are not followed. A 302 is the other way the far end
+           names the next host, and a custom API-key header is not stripped
+           across one the way Authorization is. */
+        services.AddHttpClient(nameof(InvoiceFetcher))
+            .ConfigurePrimaryHttpMessageHandler(() =>
+                new HttpClientHandler { AllowAutoRedirect = false });
         services.AddScoped<IPanVerifier, PanVerifier>();
         services.AddScoped<OtpService>();
         services.AddScoped<DbSeeder>();

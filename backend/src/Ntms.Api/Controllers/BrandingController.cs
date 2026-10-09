@@ -44,6 +44,12 @@ public class BrandingController(BrandingService service) : ApiControllerBase
         if (logo is null) return NotFound();
 
         Response.Headers.CacheControl = "public, max-age=31536000, immutable";
+        /* Never rendered as a document. An <img> tag ignores the
+           disposition and still draws it, which is the only way the portal
+           uses it; a tab opened at this address downloads instead of
+           executing whatever the file turns out to be. */
+        Response.Headers.ContentDisposition = "attachment";
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
         return File(logo.Value.Content, logo.Value.ContentType);
     }
 

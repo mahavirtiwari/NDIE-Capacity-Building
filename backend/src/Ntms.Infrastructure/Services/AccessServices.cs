@@ -480,6 +480,22 @@ public class UserService(
         (await Base.FirstOrDefaultAsync(u => u.Id == id, ct)
          ?? throw AppException.NotFound("User")).ToDto();
 
+    /// <summary>
+    /// The whole Aadhaar for one account, for the form that edits it.
+    ///
+    /// Its own call, rather than a field on the register: a number that is
+    /// only ever typed into one dialog has no business travelling with
+    /// every row of a list to everyone who may read the list.
+    /// </summary>
+    public async Task<string?> AadhaarAsync(int id, CancellationToken ct)
+    {
+        var row = await Base.Where(u => u.Id == id)
+                      .Select(u => new { u.Aadhaar })
+                      .FirstOrDefaultAsync(ct)
+                  ?? throw AppException.NotFound("User");
+        return row.Aadhaar;
+    }
+
     public async Task<(PortalUserDto User, GeneratedCredentialsDto Credentials)> CreateAsync(
         PortalUserUpsertDto dto, CancellationToken ct)
     {

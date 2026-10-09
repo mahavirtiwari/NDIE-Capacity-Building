@@ -10,7 +10,9 @@ import { IconComponent } from '../../shared/components/icon.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 
 /** Matches the server-side allow-list in BrandingService. */
-const ACCEPTED = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp'];
+/* Raster only. An SVG is a document that can carry script, and the portal
+   is served from the same origin as the API that hands the logo back. */
+const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp'];
 const MAX_BYTES = 512 * 1024;
 
 /**
@@ -76,7 +78,7 @@ const MAX_BYTES = 512 * 1024;
               (change)="pick($event)"
             />
             <span class="field-hint">
-              PNG, JPEG, SVG or WebP up to 512&nbsp;KB. A transparent PNG at roughly 240&times;80
+              PNG, JPEG or WebP up to 512&nbsp;KB. A transparent PNG at roughly 240&times;80
               works best. Crop the transparent margin, or the mark will sit
               visibly inset from the text beside it.
             </span>
@@ -142,7 +144,7 @@ const MAX_BYTES = 512 * 1024;
               (change)="pick($event, 'reversed')"
             />
             <span class="field-hint">
-              Same limits as above. A transparent PNG or an SVG drawn in white works best —
+              Same limits as above. A transparent PNG drawn in white works best —
               check it against the preview, which uses the real sidebar colour.
             </span>
             @if (reversedFileError(); as error) {
@@ -498,7 +500,7 @@ export class BrandingComponent {
     if (!file) return;
 
     if (!ACCEPTED.includes(file.type)) {
-      error.set('Use a PNG, JPEG, SVG or WebP image.');
+      error.set('Use a PNG, JPEG or WebP image.');
       input.value = '';
       return;
     }

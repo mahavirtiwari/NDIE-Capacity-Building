@@ -14,6 +14,19 @@ public class JwtTokenService(IOptions<JwtOptions> options) : ITokenService
 
     /// <summary>Claim carrying one permission key; one claim per permission.</summary>
     public const string PermissionClaim = "perm";
+
+    /// <summary>
+    /// Which population this token belongs to: <c>portal</c> or <c>applicant</c>.
+    ///
+    /// Stated outright rather than inferred. The two populations have separate
+    /// tables with separate identity sequences, so an applicant's row id and a
+    /// portal user's row id are the same small integers; anything that reads a
+    /// bare subject as "the user" will read one as the other. Everything that
+    /// resolves a portal account now checks this first.
+    /// </summary>
+    public const string PrincipalTypeClaim = "principal";
+    public const string PortalPrincipal = "portal";
+    public const string ApplicantPrincipal = "applicant";
     public const string UserCodeClaim = "user_code";
     public const string ApplicantCodeClaim = "applicant_code";
     public const string ApplicantIdClaim = "applicant_id";
@@ -44,6 +57,7 @@ public class JwtTokenService(IOptions<JwtOptions> options) : ITokenService
                because that, not the e-mail, is the account's public identity. */
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
+            new(PrincipalTypeClaim, PortalPrincipal),
             new(UserCodeClaim, user.UserCode),
             new(ClaimTypes.Name, user.FullName),
             new(ClaimTypes.Role, user.BaseRole.ToString()),
@@ -91,8 +105,12 @@ public class JwtTokenService(IOptions<JwtOptions> options) : ITokenService
 
         var claims = new List<Claim>
         {
-            new(JwtRegisteredClaimNames.Sub, applicant.Id.ToString()),
+            /* Prefixed, so it cannot parse as an integer and be mistaken for a
+               portal user's primary key. The applicant's own id travels in
+               ApplicantIdClaim, which is the only thing that reads it. */
+            new(JwtRegisteredClaimNames.Sub, $"{ApplicantPrincipal}:{applicant.Id}"),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
+            new(PrincipalTypeClaim, ApplicantPrincipal),
             /* The applicant code is the public identity, exactly as the user
                code is for portal users. */
             new(ApplicantCodeClaim, applicant.ApplicantCode),

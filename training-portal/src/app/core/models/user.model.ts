@@ -73,7 +73,9 @@ export interface PortalUser extends AuditInfo {
   pincode?: string;
   /** Who the person is, for the record. Optional, format-checked. */
   pan?: string;
-  aadhaar?: string;
+  /** The last four digits. The whole number is fetched only to edit it. */
+  aadhaarLast4?: string;
+  hasAadhaar?: boolean;
   /** The body the account belongs to, and whose PAN is held above. */
   organisationName?: string;
   lastLoginOn?: string | null;

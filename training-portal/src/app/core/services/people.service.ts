@@ -53,6 +53,17 @@ export class UserService extends CrudService<PortalUser> {
   protected readonly resource = 'users';
 
   /**
+   * The whole Aadhaar for one account, for the form that edits it.
+   *
+   * Its own call, held to users.manage on the server. The register carries
+   * only the last four digits, because a number nobody is shown in full has
+   * no reason to travel with every row of a list.
+   */
+  aadhaar(id: Id): Observable<string | null> {
+    return this.api.get<string | null>(`${this.resource}/${id}/aadhaar`);
+  }
+
+  /**
    * Overridden to carry the reason.
    *
    * Switching an account off is the one master change somebody is asked about

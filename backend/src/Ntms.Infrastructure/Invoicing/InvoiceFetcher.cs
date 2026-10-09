@@ -151,6 +151,20 @@ public class InvoiceFetcher(
         if (Uri.TryCreate(value, UriKind.Absolute, out var link)
             && (link.Scheme == Uri.UriSchemeHttp || link.Scheme == Uri.UriSchemeHttps))
         {
+            /* The address came out of the ERP's reply, so the ERP was
+               choosing which host this server would call next — from
+               inside the network, with the ERP key attached, and the
+               answer handed back to whichever applicant asked for their
+               invoice. It may only point at itself. */
+            if (!SameHostAsConfigured(link, row.ErpInvoiceEndpoint))
+            {
+                logger.LogWarning(
+                    "ERP document link pointed at {Host}, which is not the configured "
+                    + "invoicing host. Refused.", link.Host);
+                return InvoiceFetchResult.No(
+                    "The invoice could not be downloaded. Try again shortly.");
+            }
+
             using var follow = new HttpRequestMessage(HttpMethod.Get, link);
             if (!string.IsNullOrWhiteSpace(row.ErpApiKey))
             {
@@ -195,6 +209,24 @@ public class InvoiceFetcher(
             logger.LogWarning("ERP PDF field was neither an address nor base64.");
             return InvoiceFetchResult.No("The invoicing system gave an answer we could not read.");
         }
+    }
+
+    /// <summary>
+    /// Whether a link the ERP handed back points at the ERP.
+    ///
+    /// Host and port must match what an administrator configured. A reply
+    /// naming anywhere else is the remote end steering this server, which
+    /// is the whole of the attack: loopback, the cloud metadata address,
+    /// or an internal service that trusts anything inside the perimeter.
+    /// </summary>
+    private static bool SameHostAsConfigured(Uri link, string? configured)
+    {
+        if (string.IsNullOrWhiteSpace(configured)) return false;
+        if (!Uri.TryCreate(configured.Trim(), UriKind.Absolute, out var home)) return false;
+
+        return string.Equals(link.Host, home.Host, StringComparison.OrdinalIgnoreCase)
+               && link.Port == home.Port
+               && string.Equals(link.Scheme, home.Scheme, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? NameFrom(HttpResponseMessage response) =>

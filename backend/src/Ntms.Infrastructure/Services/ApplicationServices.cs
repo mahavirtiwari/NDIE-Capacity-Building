@@ -29,6 +29,16 @@ public class ApplicantService(
         .Include(a => a.District)
         .WithinScope(currentUser);
 
+    /* The same query without the scope filter, for reading back a row this
+       very call just created. Sign-up is anonymous: there is no principal
+       to scope by, and the applicant is entitled to the record they have
+       just made. Used nowhere else — every other read goes through Base. */
+    private IQueryable<Applicant> Unscoped => db.Applicants.AsNoTracking()
+        .Include(a => a.Category)
+        .Include(a => a.SubCategory)
+        .Include(a => a.State)
+        .Include(a => a.District);
+
     /* The statuses that make up each standing, named once so the filter and
        the value shown can never drift apart. */
     private static readonly ApplicationStatus[] Settled =
@@ -258,7 +268,20 @@ public class ApplicantService(
            arrives with the password instead, once the OTP is accepted,
            which is the first moment it is any use. */
 
-        return await GetAsync(entity.Id, ct);
+        return await JustCreatedAsync(entity.Id, ct);
+    }
+
+    /// <summary>
+    /// Reads back a row this call has just written, without the scope
+    /// filter. Sign-up has no signed-in principal to scope by.
+    /// </summary>
+    private async Task<ApplicantDto> JustCreatedAsync(int id, CancellationToken ct)
+    {
+        var dto = (await Unscoped.Include(a => a.Answers)
+                       .FirstOrDefaultAsync(a => a.Id == id, ct)
+                   ?? throw AppException.NotFound("Applicant")).ToDto();
+        await FillStandingAsync([dto], ct);
+        return dto;
     }
 
     /// <summary>

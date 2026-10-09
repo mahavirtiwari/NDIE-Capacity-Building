@@ -57,6 +57,19 @@ public class PermissionHandler(IHttpContextAccessor accessor)
            on its role decorative, and the one tier nobody can hold to
            account the one tier nothing could stop. */
 
+        /* An applicant holds no portal permission, whatever is on the
+           request. Checked here as well as in the middleware so a route
+           that forgets its role attribute is still shut: a permission key
+           is the portal's currency and the applicant app does not deal in
+           it. */
+        if (context.User.HasClaim(JwtTokenService.PrincipalTypeClaim,
+                                  JwtTokenService.ApplicantPrincipal)
+            || context.User.FindFirst(JwtTokenService.ApplicantIdClaim) is not null
+            || context.User.IsInRole("Applicant"))
+        {
+            return Task.CompletedTask;
+        }
+
         if (PermissionSet.Current(accessor) is { } granted)
         {
             /* The role as it stands now, loaded this request. A permission
@@ -93,11 +106,34 @@ public class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser, ICurrent
 {
     private ClaimsPrincipal? Principal => accessor.HttpContext?.User;
 
+    /// <summary>
+    /// The portal account behind this request, or null.
+    ///
+    /// Null for an applicant even though their token has a subject: the two
+    /// id spaces overlap, and reading one as the other handed an applicant
+    /// the permissions of whichever portal user shared their row number.
+    /// </summary>
     public int? UserId =>
-        int.TryParse(Principal?.FindFirstValue(ClaimTypes.NameIdentifier)
-                     ?? Principal?.FindFirstValue("sub"), out var id)
-            ? id
-            : null;
+        IsApplicant
+            ? null
+            : int.TryParse(Principal?.FindFirstValue(ClaimTypes.NameIdentifier)
+                           ?? Principal?.FindFirstValue("sub"), out var id)
+                ? id
+                : null;
+
+    /// <summary>
+    /// Whether this is a token from the applicant app rather than the portal.
+    ///
+    /// Belt and braces: the principal marker, the applicant id and the role
+    /// name are all checked, so a token minted before the marker existed is
+    /// still recognised for what it is.
+    /// </summary>
+    public bool IsApplicant =>
+        Principal?.HasClaim(JwtTokenService.PrincipalTypeClaim,
+                            JwtTokenService.ApplicantPrincipal) == true
+        || Principal?.FindFirstValue(JwtTokenService.ApplicantIdClaim) is not null
+        || string.Equals(Principal?.FindFirstValue(ClaimTypes.Role), "Applicant",
+                         StringComparison.OrdinalIgnoreCase);
 
     public string? UserCode => Principal?.FindFirstValue(JwtTokenService.UserCodeClaim)
                                ?? Principal?.FindFirstValue(JwtTokenService.ApplicantCodeClaim);

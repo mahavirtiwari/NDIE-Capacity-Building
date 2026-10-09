@@ -79,6 +79,16 @@ public class UpdateContactDto
 {
     public string Email { get; set; } = string.Empty;
     public string Mobile { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The account's current password.
+    ///
+    /// The e-mail on a portal account is where a reset code is sent, so
+    /// changing it is changing where the account can be recovered from.
+    /// That is the same act as changing the password and is asked for in
+    /// the same way.
+    /// </summary>
+    public string CurrentPassword { get; set; } = string.Empty;
 }
 
 /* ------------------------------------------------------------------ roles */
@@ -179,7 +189,18 @@ public class PortalUserDto : AuditDto
     public string? City { get; set; }
     public string? Pincode { get; set; }
     public string? Pan { get; set; }
-    public string? Aadhaar { get; set; }
+
+    /// <summary>
+    /// The last four digits, which is all any screen shows.
+    ///
+    /// The whole number used to travel with every row of the register, to
+    /// every account holding users.view — the Ministry and an Operation
+    /// Manager among them, neither of whom is ever shown it. Masking it in
+    /// the browser hid it from the page and not from the response. The
+    /// whole number is served on its own, to whoever may edit the account.
+    /// </summary>
+    public string? AadhaarLast4 { get; set; }
+    public bool HasAadhaar { get; set; }
     public string? OrganisationName { get; set; }
     public DateTime? LastLoginOn { get; set; }
     public string Status { get; set; } = "Active";

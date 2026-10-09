@@ -52,6 +52,19 @@ public class AuthService(
             .AsSplitQuery()
             .FirstOrDefaultAsync(u => u.UserCode == userCode, ct);
 
+        /* The lock is read before the password, not after it. Checked
+           afterwards, the only caller who ever reached it was one who had
+           just supplied the right password — so the lockout fell on the
+           account holder and never on whoever was guessing. Failures
+           during a live lock are not counted either, or an attacker could
+           hold the holder out indefinitely by guessing wrongly on. */
+        if (user?.LockedOutUntil is { } until && until > DateTime.UtcNow)
+        {
+            logger.LogWarning("Sign-in attempt on a locked account {UserCode}", userCode);
+            throw new AppException(
+                $"Too many failed attempts. Try again after {until:HH:mm} UTC.", 423);
+        }
+
         /* One message for every failure, so the response never reveals whether
            a given user ID exists. */
         if (user is null || !passwords.Verify(user.PasswordHash, request.Password))
@@ -59,12 +72,6 @@ public class AuthService(
             if (user is not null) await RecordFailureAsync(user, ct);
             logger.LogWarning("Failed sign-in attempt for {UserCode}", userCode);
             throw new AppException("Invalid user ID or password.", 401);
-        }
-
-        if (user.LockedOutUntil is { } until && until > DateTime.UtcNow)
-        {
-            throw new AppException(
-                $"Too many failed attempts. Try again after {until:HH:mm} UTC.", 423);
         }
 
         if (user.Status != RecordStatus.Active)
@@ -351,9 +358,35 @@ public class AuthService(
         if (!Formats.IsMobile(dto.Mobile))
             throw new AppException("Mobile must be 10 digits starting 6-9.");
 
+        /* The e-mail is where a reset code is sent, so whoever changes it
+           can take the account over. Held to the same proof as changing
+           the password itself, which this sat beside and did not ask for. */
+        if (!passwords.Verify(user.PasswordHash, dto.CurrentPassword))
+            throw new AppException("That password is not right.", 403);
+
+        var wasEmail = user.Email;
+
         user.Email = dto.Email.Trim();
         user.Mobile = dto.Mobile.Trim();
         await db.SaveChangesAsync(ct);
+
+        /* Both addresses hear about it. The new one because it is now the
+           account's, and the old one because if this was not the holder's
+           doing, that is the only channel still reaching them. */
+        await notifications.SendAccountUpdatedAsync(user, ct);
+        if (!string.Equals(wasEmail, user.Email, StringComparison.OrdinalIgnoreCase))
+        {
+            await notifications.SendAccountUpdatedAsync(
+                new PortalUser
+                {
+                    Id = user.Id,
+                    UserCode = user.UserCode,
+                    FullName = user.FullName,
+                    Email = wasEmail,
+                    Mobile = user.Mobile,
+                },
+                ct);
+        }
 
         return await MeAsync(userId, ct);
     }
@@ -364,7 +397,8 @@ public class AuthService(
         if (user.FailedLoginCount >= MaxFailedAttempts)
         {
             user.LockedOutUntil = DateTime.UtcNow.Add(LockoutWindow);
-            user.FailedLoginCount = 0;
+            /* Cleared on a successful sign-in, not here: zeroing it with the
+               lock gave the next window a fresh five guesses. */
         }
         await db.SaveChangesAsync(ct);
     }

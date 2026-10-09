@@ -26,11 +26,23 @@ public class UserScopeMiddleware(RequestDelegate next)
     {
         var principal = context.User;
 
+        /* An applicant's token carries a subject too, and the two id spaces
+           overlap: applicant 1 and portal user 1 are different people. Read
+           one as the other and the applicant is handed that user's
+           permissions, unscoped. So the population is established first and
+           nothing is looked up for the wrong one. */
+        var isApplicant =
+            principal?.HasClaim(JwtTokenService.PrincipalTypeClaim,
+                                JwtTokenService.ApplicantPrincipal) == true
+            || principal?.FindFirst(JwtTokenService.ApplicantIdClaim) is not null
+            || principal?.IsInRole("Applicant") == true;
+
         var scoped = principal?.HasClaim(JwtTokenService.ScopedClaim, "1") == true;
-        var hasId = int.TryParse(
+        var userId = 0;
+        var hasId = !isApplicant && int.TryParse(
             principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
             ?? principal?.FindFirst("sub")?.Value,
-            out var userId);
+            out userId);
 
         if (scoped && hasId)
         {
@@ -44,8 +56,8 @@ public class UserScopeMiddleware(RequestDelegate next)
            skipping the load would leave it with no permissions at all rather
            than with its own.
 
-           Still not an applicant, whose token carries no user id and who has
-           no role to read permissions from. */
+           Still not an applicant: hasId is false for one, by the check
+           above. */
         if (hasId)
         {
             context.Items[PermissionsKey] =

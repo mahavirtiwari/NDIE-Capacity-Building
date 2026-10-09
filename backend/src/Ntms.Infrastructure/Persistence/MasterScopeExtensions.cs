@@ -50,12 +50,26 @@ public static class MasterScopeExtensions
         _ => user.ScopeDistrictCodes,
     };
 
+    /// <summary>
+    /// Whether this principal is one of the two tiers that are unscoped by
+    /// design, and may therefore see the whole estate.
+    ///
+    /// "Not scoped" used to be taken to mean "sees everything", which is
+    /// true of a Super Admin and the Ministry and of nobody else. A token
+    /// with no scope marker at all — one from the applicant app, or one
+    /// this code does not recognise — fell into the same branch and was
+    /// handed the lot. The question is now asked the other way round: a
+    /// principal is allowed past only if it is named here.
+    /// </summary>
+    private static bool SeesEverything(ICurrentUser user) =>
+        user.Tier is Domain.Common.BaseRole.SuperAdmin or Domain.Common.BaseRole.Ministry;
+
     private enum ScopeAxisKind { Category, SubCategory, ProgramType, State, District }
 
     public static IQueryable<TrainingApplication> WithinScope(
         this IQueryable<TrainingApplication> query, ICurrentUser user)
     {
-        if (!user.IsMasterScoped) return query;
+        if (!user.IsMasterScoped) return SeesEverything(user) ? query : query.Where(_ => false);
 
         /* A tier allocated on an axis with nothing selected sees nothing at
            all, so the whole query collapses rather than widening. */
@@ -85,7 +99,7 @@ public static class MasterScopeExtensions
     public static IQueryable<Programme> WithinScope(
         this IQueryable<Programme> query, ICurrentUser user)
     {
-        if (!user.IsMasterScoped) return query;
+        if (!user.IsMasterScoped) return SeesEverything(user) ? query : query.Where(_ => false);
 
         if (Denies(user, ScopeAxisKind.Category) || Denies(user, ScopeAxisKind.SubCategory)
             || Denies(user, ScopeAxisKind.ProgramType) || Denies(user, ScopeAxisKind.State))
@@ -151,7 +165,7 @@ public static class MasterScopeExtensions
     public static IQueryable<Applicant> WithinScope(
         this IQueryable<Applicant> query, ICurrentUser user)
     {
-        if (!user.IsMasterScoped) return query;
+        if (!user.IsMasterScoped) return SeesEverything(user) ? query : query.Where(_ => false);
 
         if (Denies(user, ScopeAxisKind.Category) || Denies(user, ScopeAxisKind.SubCategory)
             || Denies(user, ScopeAxisKind.State))
@@ -253,7 +267,7 @@ public static class MasterScopeExtensions
     public static IQueryable<ImplementingAgency> WithinScope(
         this IQueryable<ImplementingAgency> query, ICurrentUser user)
     {
-        if (!user.IsMasterScoped) return query;
+        if (!user.IsMasterScoped) return SeesEverything(user) ? query : query.Where(_ => false);
 
         if (user.Tier == Domain.Common.BaseRole.AgencyAdmin)
         {

@@ -6,6 +6,12 @@ using Ntms.Infrastructure.Services;
 
 namespace Ntms.Api.Controllers;
 
+/// <summary>
+/// The portal's own sign-in. Not the applicant app's, which has its own
+/// controller and its own account table: an applicant reaching
+/// <c>me</c> or <c>contact</c> here would be acting on whichever portal
+/// account shares its row number.
+/// </summary>
 [Route("api/auth")]
 public class AuthController(AuthService auth) : ApiControllerBase
 {

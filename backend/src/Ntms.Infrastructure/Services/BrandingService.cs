@@ -11,8 +11,46 @@ public class BrandingService(NtmsDbContext db)
     /// <summary>A logo has to fit comfortably in a header, so keep it small.</summary>
     private const int MaxLogoBytes = 512 * 1024;
 
+    /* Raster only. SVG is a document: it carries script, and the portal is
+       served from this same origin, so a logo opened in a tab ran that
+       script against whoever opened it — with their token in reach. A mark
+       in the header has no need of it. */
     private static readonly string[] AllowedTypes =
-        ["image/png", "image/jpeg", "image/svg+xml", "image/webp"];
+        ["image/png", "image/jpeg", "image/webp"];
+
+    /// <summary>
+    /// What each accepted type actually begins with.
+    ///
+    /// The browser tells us the type of what it is uploading and has no
+    /// reason to tell the truth. The first bytes of the file do.
+    /// </summary>
+    private static readonly (string Type, byte[] Magic)[] Signatures =
+    [
+        ("image/png", [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
+        ("image/jpeg", [0xFF, 0xD8, 0xFF]),
+        ("image/webp", [0x52, 0x49, 0x46, 0x46]),
+    ];
+
+    /// <summary>The type the bytes say they are, or null if they say nothing.</summary>
+    private static string? SniffType(byte[] content)
+    {
+        foreach (var (type, magic) in Signatures)
+        {
+            if (content.Length < magic.Length) continue;
+            if (content.AsSpan(0, magic.Length).SequenceEqual(magic))
+            {
+                /* RIFF is also WAV and AVI; WEBP says so four bytes later. */
+                if (type != "image/webp") return type;
+                if (content.Length >= 12
+                    && content.AsSpan(8, 4).SequenceEqual("WEBP"u8))
+                {
+                    return type;
+                }
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>Shipped values, used until Super Admin saves their own.</summary>
     private static BrandingSetting Defaults() => new()
@@ -111,12 +149,19 @@ public class BrandingService(NtmsDbContext db)
         if (length > MaxLogoBytes)
             throw new AppException($"The logo must be {MaxLogoBytes / 1024} KB or smaller.");
 
-        var type = (contentType ?? string.Empty).ToLowerInvariant();
-        if (!AllowedTypes.Contains(type))
-            throw new AppException("Upload a PNG, JPEG, SVG or WebP image.");
+        var claimed = (contentType ?? string.Empty).ToLowerInvariant();
+        if (!AllowedTypes.Contains(claimed))
+            throw new AppException("Upload a PNG, JPEG or WebP image.");
 
         using var buffer = new MemoryStream();
         await content.CopyToAsync(buffer, ct);
+        var bytes = buffer.ToArray();
+
+        /* The served type is the one the bytes prove, not the one the upload
+           claimed, so nothing can be stored under a type it is not. */
+        var type = SniffType(bytes)
+                   ?? throw new AppException(
+                       "That file is not a PNG, JPEG or WebP image.");
 
         var entity = await LoadAsync(ct);
         var name = Path.GetFileName(fileName);
@@ -124,7 +169,7 @@ public class BrandingService(NtmsDbContext db)
         switch (slot)
         {
             case LogoSlot.Primary:
-                entity.LogoData = buffer.ToArray();
+                entity.LogoData = bytes;
                 entity.LogoFileName = name;
                 entity.LogoContentType = type;
                 /* Clients cache the logo by URL, so the version is what busts it. */
@@ -132,14 +177,14 @@ public class BrandingService(NtmsDbContext db)
                 break;
 
             case LogoSlot.Reversed:
-                entity.ReversedLogoData = buffer.ToArray();
+                entity.ReversedLogoData = bytes;
                 entity.ReversedLogoFileName = name;
                 entity.ReversedLogoContentType = type;
                 entity.ReversedLogoVersion++;
                 break;
 
             default:
-                entity.PartnerLogoData = buffer.ToArray();
+                entity.PartnerLogoData = bytes;
                 entity.PartnerLogoFileName = name;
                 entity.PartnerLogoContentType = type;
                 entity.PartnerLogoVersion++;

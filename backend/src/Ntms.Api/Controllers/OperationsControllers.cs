@@ -99,6 +99,18 @@ public class UsersController(UserService service) : ApiControllerBase
         Envelope(await service.GetAsync(id, ct));
 
     /// <summary>
+    /// The whole Aadhaar, for the form that edits this account.
+    ///
+    /// Separate from the record and held to users.manage: reading the
+    /// register is not the same as being trusted with a government
+    /// identifier in full.
+    /// </summary>
+    [HttpGet("{id:int}/aadhaar")]
+    [HasPermission(Permissions.UsersManage)]
+    public async Task<ActionResult<ApiEnvelope<string?>>> Aadhaar(int id, CancellationToken ct) =>
+        Envelope(await service.AadhaarAsync(id, ct));
+
+    /// <summary>
     /// Creates the account and returns the generated user ID with a one-time
     /// password. The caller must pass these to the user out of band.
     /// </summary>
@@ -505,7 +517,11 @@ public class LookupsController(LookupService service) : ApiControllerBase
 [Route("api/dashboard")]
 public class DashboardController(DashboardService service) : ApiControllerBase
 {
+    /* Keyed, like the coverage route below it. It was the one read on the
+       controller with nothing in front of it, so any authenticated caller
+       reached the whole query before the tile gating inside got a say. */
     [HttpGet]
+    [HasPermission(Permissions.ProgramsView)]
     public async Task<ActionResult<ApiEnvelope<DashboardDto>>> Get(
         [FromQuery] DashboardFilterDto filter, CancellationToken ct) =>
         Envelope(await service.LoadAsync(filter, ct));

@@ -54,8 +54,31 @@ public interface IEmailSender
 public class SmtpEmailSender(
     IEmailSettingsProvider settings,
     Persistence.NtmsDbContext db,
+    Microsoft.Extensions.Hosting.IHostEnvironment environment,
     ILogger<SmtpEmailSender> logger) : IEmailSender
 {
+    /// <summary>
+    /// Templates whose subject or body carries a credential.
+    ///
+    /// A one-time code and a first password are the whole of what the
+    /// message is for, so neither the subject nor the body can be written
+    /// anywhere a credential should not go.
+    /// </summary>
+    private static readonly HashSet<string> Secretive = new(StringComparer.OrdinalIgnoreCase)
+    {
+        EmailTemplateDefaults.Otp,
+        EmailTemplateDefaults.PasswordReset,
+        EmailTemplateDefaults.ApplicantCredentials,
+        EmailTemplateDefaults.PortalCredentials,
+        EmailTemplateDefaults.AdminCredentials,
+        EmailTemplateDefaults.MinistryCredentials,
+        EmailTemplateDefaults.OpsManagerCredentials,
+        EmailTemplateDefaults.AgencyCredentials,
+        EmailTemplateDefaults.CoordinatorCredentials,
+    };
+
+    private static bool CarriesASecret(EmailMessage message) =>
+        message.TemplateKey is { } key && Secretive.Contains(key);
     /// <summary>
     /// Records the attempt. Written on its own so a logging failure can never
     /// take down the send it was describing.
@@ -70,7 +93,12 @@ public class SmtpEmailSender(
             {
                 TemplateKey = message.TemplateKey ?? string.Empty,
                 Recipient = recipient,
-                Subject = message.Subject.Length > 300 ? message.Subject[..300] : message.Subject,
+                /* The OTP template puts the code in the subject line, so
+                   the subject of a credential-bearing message is not kept
+                   either. The template key says what was sent. */
+                Subject = CarriesASecret(message)
+                    ? "(withheld: this message carries a credential)"
+                    : message.Subject.Length > 300 ? message.Subject[..300] : message.Subject,
                 Status = status,
                 Error = error is { Length: > 2000 } ? error[..2000] : error,
                 Host = host,
@@ -95,11 +123,33 @@ public class SmtpEmailSender(
 
         if (!_options.Enabled || string.IsNullOrWhiteSpace(_options.Host))
         {
-            /* Development default: log the mail rather than sending it, so the
-               OTP is visible without wiring up a real mailbox. */
-            logger.LogInformation(
-                "Email suppressed (sending disabled). To: {To}; Subject: {Subject}\n{Body}",
-                recipient, message.Subject, message.PlainTextBody ?? message.HtmlBody);
+            /* The whole message used to go to the log here, so that an OTP
+               was readable without wiring up a mailbox. That is a fair
+               trade on a developer's machine and a credential leak
+               anywhere else — and sending is off by default, so anywhere
+               else is where it mostly ran. The body is written only in
+               Development now, and never for a message whose point is the
+               secret inside it. */
+            if (string.Equals(environment.EnvironmentName, "Development", StringComparison.OrdinalIgnoreCase) && !CarriesASecret(message))
+            {
+                logger.LogInformation(
+                    "Email suppressed (sending disabled). To: {To}; Subject: {Subject}\n{Body}",
+                    recipient, message.Subject, message.PlainTextBody ?? message.HtmlBody);
+            }
+            else if (string.Equals(environment.EnvironmentName, "Development", StringComparison.OrdinalIgnoreCase))
+            {
+                logger.LogInformation(
+                    "Email suppressed (sending disabled). To: {To}; Template: {Template}. "
+                    + "Body withheld: it carries a credential.",
+                    recipient, message.TemplateKey);
+            }
+            else
+            {
+                logger.LogWarning(
+                    "Email suppressed: sending is not configured. To: {To}; Template: {Template}. "
+                    + "Nothing was delivered.",
+                    recipient, message.TemplateKey);
+            }
 
             /* Recorded, not just logged. A silently suppressed message is the
                hardest kind to diagnose: nothing arrives and nothing says why. */

@@ -344,7 +344,7 @@ const TIER_DEPTH: Record<string, number> = {
               <div>
                 <div class="dl__term">Aadhaar</div>
                 <div class="dl__value tabular">
-                  {{ row.aadhaar ? masked(row.aadhaar) : '—' }}
+                  {{ row.aadhaarLast4 ? masked(row.aadhaarLast4) : '—' }}
                 </div>
               </div>
             </div>
@@ -1158,11 +1158,23 @@ export class UsersComponent {
       city: row?.city ?? '',
       pincode: row?.pincode ?? '',
       pan: row?.pan ?? '',
-      aadhaar: row?.aadhaar ?? '',
+      /* Filled below from its own call: the register does not carry it. */
+      aadhaar: '',
       organisationName: row?.organisationName ?? '',
       status: row?.status ?? 'Active',
     });
     this.lookups.addressDistricts(row?.stateCode ?? null).subscribe((items) => this.districts.set(items));
+
+    /* Fetched here rather than carried on the row, so the number reaches
+       only the account that may edit this one. A reader without that key
+       gets nothing back and the field opens empty. */
+    if (row?.hasAadhaar && row.id) {
+      this.service.aadhaar(row.id).subscribe({
+        next: (full) => this.form.controls.aadhaar.setValue(full ?? ''),
+        error: () => this.form.controls.aadhaar.setValue(''),
+      });
+    }
+
     /* The dialog may open on a role already chosen -- editing, or the
        coordinator screen, which picks the only role there is. */
     this.applyRecordRules();
@@ -1345,8 +1357,15 @@ export class UsersComponent {
     return (first + last).toUpperCase();
   }
 
-  protected masked(aadhaar: string): string {
-    return aadhaar.length < 4 ? aadhaar : `XXXX XXXX ${aadhaar.slice(-4)}`;
+  /**
+   * The last four, as the server sends them.
+   *
+   * The server masks it now. This used to take the whole number and hide
+   * the front of it, which hid it from the page and not from the response
+   * the page was drawn from.
+   */
+  protected masked(last4: string): string {
+    return `XXXX XXXX ${last4}`;
   }
 
   /** The account whose details are on screen, or null. */
