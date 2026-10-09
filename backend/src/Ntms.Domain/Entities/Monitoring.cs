@@ -125,8 +125,30 @@ public class OnSpotParticipant : AuditableEntity
 
     /* Attendance is ticked on a separate screen after registration, so an
        unmarked row means "not yet taken", not "absent". */
+
+    /// <summary>
+    /// Whether this person attended the programme at all.
+    ///
+    /// A roll-up of <see cref="Days"/>, kept on the row because most of
+    /// the system asks the simple question: the submission counts who
+    /// came, the feedback screen asks who may give it, the dashboard
+    /// counts heads. True where they were present on any day.
+    ///
+    /// Still the only answer for a one-day programme, and for every
+    /// programme recorded before attendance was taken per day.
+    /// </summary>
     public bool? IsPresent { get; set; }
     public DateTime? AttendanceMarkedOn { get; set; }
+
+    /// <summary>
+    /// The register, a row per day of the programme.
+    ///
+    /// A five-day programme is five separate questions — somebody who
+    /// came on Monday and not on Thursday did not attend the programme
+    /// the way a single tick claims — and the report has to show which
+    /// days each person was there.
+    /// </summary>
+    public ICollection<OnSpotAttendance> Days { get; set; } = [];
 
     /// <summary>1 to 5, optional — feedback is never compulsory.</summary>
     public int? FeedbackRating { get; set; }
@@ -134,6 +156,44 @@ public class OnSpotParticipant : AuditableEntity
     public DateTime? FeedbackOn { get; set; }
 
     public ICollection<MonitoringPhoto> Photos { get; set; } = [];
+}
+
+/// <summary>
+/// One person, on one day of a programme.
+///
+/// Keyed on the day rather than on a session: attendance is taken at the
+/// door in the morning, and tying it to a curriculum session would mean
+/// a coordinator ticking the same row four times because the day had
+/// four sessions in it.
+///
+/// A missing row is "not taken", which is a different thing from a row
+/// saying absent. The register has to be able to say that nobody marked
+/// Thursday, or an unmarked day reads as a day everybody missed.
+/// </summary>
+public class OnSpotAttendance
+{
+    public int Id { get; set; }
+
+    public int ParticipantId { get; set; }
+    public OnSpotParticipant? Participant { get; set; }
+
+    /// <summary>
+    /// Carried as well as reached through the participant.
+    ///
+    /// The report and the register both read a whole programme's
+    /// attendance at once, and going through the participants to do it
+    /// is a join this saves on every one of those reads.
+    /// </summary>
+    public int ProgrammeId { get; set; }
+    public Programme? Programme { get; set; }
+
+    /// <summary>The day of the programme, not the day it was recorded.</summary>
+    public DateOnly Day { get; set; }
+
+    public bool IsPresent { get; set; }
+
+    public DateTime MarkedOn { get; set; } = DateTime.UtcNow;
+    public string? MarkedBy { get; set; }
 }
 
 /// <summary>

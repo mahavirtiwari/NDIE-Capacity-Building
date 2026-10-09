@@ -143,6 +143,7 @@ public class MonitoringService(
             .OrderBy(s => s.Id)
             .ToListAsync(ct);
         var participants = await db.OnSpotParticipants.AsNoTracking()
+            .Include(x => x.Days)
             .Where(x => x.ProgrammeId == programmeId)
             .OrderBy(x => x.Id)
             .ToListAsync(ct);
@@ -412,28 +413,106 @@ public class MonitoringService(
     /// because attendance is taken in one pass on a device that may be offline
     /// between passes.
     /// </summary>
+    /// <summary>
+    /// Marks the register for one or more days.
+    ///
+    /// Sent as a list because attendance is a single pass down a row of
+    /// chairs, often with no signal: a request per tick would strand it
+    /// half done. A mark that already exists for that person on that day
+    /// is corrected rather than added again, so a second pass fixes the
+    /// first instead of recording them twice.
+    ///
+    /// Days outside the programme's own dates are refused. A register
+    /// for a day the programme did not run is not a correction anybody
+    /// meant to make.
+    /// </summary>
     public async Task<int> MarkAttendanceAsync(
         int programmeId, List<OnSpotAttendanceMarkDto> marks, CancellationToken ct)
     {
-        await ForWriteAsync(programmeId, ct);
+        var programme = await ForWriteAsync(programmeId, ct);
+        if (marks.Count == 0) return 0;
 
-        var byId = marks.ToDictionary(m => m.ParticipantId, m => m.IsPresent);
-        var rows = await db.OnSpotParticipants
-            .Where(x => x.ProgrammeId == programmeId && byId.Keys.Contains(x.Id))
+        var days = DaysOf(programme);
+        var offDays = marks.Select(m => m.Day).Distinct().Where(d => !days.Contains(d)).ToList();
+        if (offDays.Count > 0)
+        {
+            throw new AppException(
+                "The programme did not run on "
+                + string.Join(", ", offDays.Select(d => d.ToString("dd MMM yyyy")))
+                + ".");
+        }
+
+        var wanted = marks.Select(m => m.ParticipantId).Distinct().ToList();
+        var people = await db.OnSpotParticipants
+            .Include(x => x.Days)
+            .Where(x => x.ProgrammeId == programmeId && wanted.Contains(x.Id))
             .ToListAsync(ct);
 
-        if (rows.Count != byId.Count)
+        if (people.Count != wanted.Count)
             throw new AppException("Some of those participants are not registered on this workshop.");
 
         var now = DateTime.UtcNow;
-        foreach (var row in rows)
+        var who = currentUser.DisplayName;
+
+        foreach (var mark in marks)
         {
-            row.IsPresent = byId[row.Id];
-            row.AttendanceMarkedOn = now;
+            var person = people.First(x => x.Id == mark.ParticipantId);
+            var existing = person.Days.FirstOrDefault(d => d.Day == mark.Day);
+
+            if (existing is null)
+            {
+                person.Days.Add(new OnSpotAttendance
+                {
+                    ParticipantId = person.Id,
+                    ProgrammeId = programmeId,
+                    Day = mark.Day,
+                    IsPresent = mark.IsPresent,
+                    MarkedOn = now,
+                    MarkedBy = who,
+                });
+            }
+            else
+            {
+                existing.IsPresent = mark.IsPresent;
+                existing.MarkedOn = now;
+                existing.MarkedBy = who;
+            }
+        }
+
+        /* The roll-up the rest of the system reads. Present on any day
+           counts as having attended — the alternative, requiring every
+           day, would mark somebody who missed an afternoon as never
+           having come. */
+        foreach (var person in people)
+        {
+            person.IsPresent = person.Days.Any(d => d.IsPresent);
+            person.AttendanceMarkedOn = now;
         }
 
         await db.SaveChangesAsync(ct);
-        return rows.Count;
+        return marks.Count;
+    }
+
+    /// <summary>
+    /// Every day the programme runs, first to last.
+    ///
+    /// Derived from its dates rather than stored: the register has a
+    /// column per day and the dates are what say how many. A programme
+    /// with no end date is one day long, which is what a one-day
+    /// programme looks like in the data.
+    /// </summary>
+    private static List<DateOnly> DaysOf(Programme programme)
+    {
+        var start = programme.StartDate;
+        var end = programme.EndDate >= start ? programme.EndDate : start;
+
+        /* Capped. A pair of dates mistyped by a century should not turn
+           into a register with forty thousand columns in it. */
+        var days = new List<DateOnly>();
+        for (var day = start; day <= end && days.Count < 60; day = day.AddDays(1))
+            days.Add(day);
+
+        return days;
     }
 
     public async Task<OnSpotParticipantDto> SaveFeedbackAsync(
@@ -846,6 +925,17 @@ public class MonitoringService(
         DistrictCode = x.DistrictCode,
         IsPresent = x.IsPresent,
         AttendanceMarkedOn = x.AttendanceMarkedOn,
+        Days =
+        [
+            .. x.Days
+                .OrderBy(d => d.Day)
+                .Select(d => new OnSpotAttendanceDayDto
+                {
+                    Day = d.Day,
+                    IsPresent = d.IsPresent,
+                    MarkedOn = d.MarkedOn,
+                }),
+        ],
         FeedbackRating = x.FeedbackRating,
         FeedbackComments = x.FeedbackComments,
         Photo = photos.Where(p => p.ParticipantId == x.Id).Select(ToDto).FirstOrDefault(),

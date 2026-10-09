@@ -153,8 +153,18 @@ public class OnSpotParticipantUpsertDto
 public class OnSpotParticipantDto : OnSpotParticipantUpsertDto
 {
     public int Id { get; set; }
+
+    /// <summary>Present on any day. The roll-up, not the register.</summary>
     public bool? IsPresent { get; set; }
     public DateTime? AttendanceMarkedOn { get; set; }
+
+    /// <summary>
+    /// The days this person was marked on, present or absent.
+    ///
+    /// A day with no entry has not been taken, which the app shows as
+    /// untouched rather than as an absence.
+    /// </summary>
+    public List<OnSpotAttendanceDayDto> Days { get; set; } = [];
     public int? FeedbackRating { get; set; }
     public string? FeedbackComments { get; set; }
     public MonitoringPhotoDto? Photo { get; set; }
@@ -163,7 +173,24 @@ public class OnSpotParticipantDto : OnSpotParticipantUpsertDto
 public class OnSpotAttendanceMarkDto
 {
     public int ParticipantId { get; set; }
+
+    /// <summary>
+    /// Which day of the programme this mark is for.
+    ///
+    /// Required. A five-day programme is five registers, and a mark
+    /// without a day could only be written to one of them by guessing.
+    /// </summary>
+    public DateOnly Day { get; set; }
+
     public bool IsPresent { get; set; }
+}
+
+/// <summary>One person's mark on one day, read back.</summary>
+public class OnSpotAttendanceDayDto
+{
+    public DateOnly Day { get; set; }
+    public bool IsPresent { get; set; }
+    public DateTime MarkedOn { get; set; }
 }
 
 public class OnSpotFeedbackDto

@@ -102,7 +102,39 @@ public static class ProgrammeReportRenderer
               }
               section { margin: 0 0 26px; page-break-inside: auto; }
               .lede { color: var(--muted); margin: 0 0 2px; }
-              .cover { border-bottom: 2px solid var(--brand); padding-bottom: 14px; margin-bottom: 24px; }
+              /* A page of its own. The height keeps the three blocks
+                 apart on screen; the page break puts the sections after
+                 it when this is printed. */
+              .cover {
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                min-height: 86vh;
+                padding-bottom: 20px;
+                margin-bottom: 28px;
+                border-bottom: 2px solid var(--brand);
+                page-break-after: always;
+              }
+              .cover__top { border-bottom: 1px solid var(--rule); padding-bottom: 12px; }
+              .cover__org { margin: 0; font-size: 15px; font-weight: 600; color: var(--brand); }
+              .cover__sub { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+              .cover__mid { padding: 32px 0; }
+              .cover__kicker {
+                margin: 0 0 6px; font-size: 11px; font-weight: 600;
+                letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+              }
+              .cover h1 { font-size: 27px; line-height: 1.25; margin: 0 0 4px; }
+              .cover__code {
+                margin: 0 0 22px; font-size: 14px; font-weight: 600;
+                letter-spacing: 0.04em; color: var(--brand);
+              }
+              .cover__facts { margin: 0; }
+              .cover__facts th { width: 190px; }
+              .cover__foot { margin: 0; font-size: 11px; color: var(--muted); }
+
+              /* One column per day of the programme: narrow, centred,
+                 and never wrapped onto a second line. */
+              td.day, th.day { width: 52px; text-align: center; white-space: nowrap; }
               table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
               th, td { border: 1px solid var(--rule); padding: 5px 8px; text-align: left; vertical-align: top; }
               th { background: #f4f6fa; font-weight: 600; }
@@ -128,6 +160,9 @@ public static class ProgrammeReportRenderer
                 body { padding: 0; }
                 h2 { page-break-after: avoid; }
                 section { page-break-before: auto; }
+                /* On paper the cover takes the sheet it is printed on,
+                   which vh does not describe. */
+                .cover { min-height: 0; height: auto; }
               }
             </style>
             """);
@@ -135,38 +170,61 @@ public static class ProgrammeReportRenderer
         html.Append("</head><body>");
     }
 
+    /// <summary>
+    /// The cover, on a page of its own.
+    ///
+    /// A report that is handed on, printed and filed wants a front:
+    /// which programme this is, who ran it, when and where, with nothing
+    /// else competing for the first thing a reader sees. The sections
+    /// start on the page after it.
+    /// </summary>
     private static void Cover(StringBuilder html, Source s)
     {
         var p = s.Programme;
 
         html.Append("<div class=\"cover\">");
+
+        html.Append("<div class=\"cover__top\">");
+        html.Append("<p class=\"cover__org\">Ministry of Micro, Small and Medium Enterprises</p>");
+        html.Append("<p class=\"cover__sub\">Capacity Building Management System</p>");
+        html.Append("</div>");
+
+        html.Append("<div class=\"cover__mid\">");
+        html.Append("<p class=\"cover__kicker\">Programme report</p>");
         html.Append("<h1>").Append(E(p.ProgrammeName)).Append("</h1>");
+        html.Append("<p class=\"cover__code\">").Append(E(p.ProgrammeId)).Append("</p>");
 
-        html.Append("<p class=\"lede\">Agency: ").Append(E(p.Agency?.Name ?? "—"))
-            .Append("  |  Coordinator: ").Append(E(s.CoordinatorName ?? "—")).Append("</p>");
-
-        html.Append("<p class=\"lede\">Programme ID: ").Append(E(p.ProgrammeId))
-            .Append("  |  Programme date: ").Append(E(Range(p.StartDate, p.EndDate))).Append("</p>");
+        html.Append("<table class=\"cover__facts\"><tbody>");
+        Row(html, "Programme type", p.ProgramType?.Name);
+        Row(html, "Implementing agency", p.Agency?.Name);
+        Row(html, "Coordinator", s.CoordinatorName);
+        Row(html, "Held", Range(p.StartDate, p.EndDate));
+        Row(html, "Mode", p.Mode.ToString());
 
         var where = new List<string>();
         if (!string.IsNullOrWhiteSpace(s.Venue?.Name)) where.Add(s.Venue!.Name);
         else if (!string.IsNullOrWhiteSpace(p.Venue)) where.Add(p.Venue!);
         if (!string.IsNullOrWhiteSpace(s.Venue?.Address)) where.Add(s.Venue!.Address);
         if (!string.IsNullOrWhiteSpace(p.State?.Name)) where.Add(p.State!.Name);
+        Row(html, "Venue", where.Count > 0 ? string.Join(", ", where) : null);
 
-        html.Append("<p class=\"lede\">Venue: ")
-            .Append(E(where.Count > 0 ? string.Join(", ", where) : "—"))
-            .Append(" (").Append(E(p.Mode.ToString())).Append(")</p>");
+        Row(html, "Position",
+            s.Venue?.Latitude is { } lat && s.Venue?.Longitude is { } lon
+                ? $"{Six(lat)}, {Six(lon)}"
+                : null);
 
-        if (s.Venue?.Latitude is { } lat && s.Venue?.Longitude is { } lon)
-        {
-            html.Append("<p class=\"lede\">Latitude: ").Append(Six(lat))
-                .Append("  |  Longitude: ").Append(Six(lon)).Append("</p>");
-        }
+        Row(html, "Participants",
+            $"{s.Participants.Count(x => x.IsPresent == true)} present of {s.Participants.Count} registered");
 
-        html.Append("<p class=\"lede\">Report generated ")
+        Row(html, "Quality check", s.Submission.QcStatus.ToString()
+            + (s.Submission.QcOn is { } on ? ", " + Email.IndianTime.Format(on) : string.Empty));
+        html.Append("</tbody></table>");
+        html.Append("</div>");
+
+        html.Append("<p class=\"cover__foot\">Generated ")
             .Append(E(Email.IndianTime.Format(DateTime.UtcNow)))
-            .Append("</p>");
+            .Append(" from the sealed monitoring record.</p>");
+
         html.Append("</div>");
     }
 
@@ -228,12 +286,17 @@ public static class ProgrammeReportRenderer
     }
 
     /// <summary>
-    /// Who came.
+    /// The register: a column per day of the programme.
     ///
-    /// A single present-or-absent per person, because that is what the
-    /// app records: the coordinator marks the register once for the
-    /// programme rather than once per day. A grid of dates here would be
-    /// a grid of guesses.
+    /// A five-day programme is five separate questions, and somebody who
+    /// came on Monday and not on Thursday did not attend it the way a
+    /// single tick would claim. A one-day programme gets one column,
+    /// which is the same table with nothing special about it.
+    ///
+    /// Three states per cell, not two. A day nobody marked is blank — it
+    /// means the register was not taken, which is a different thing from
+    /// a day everybody missed, and a report that confuses the two is
+    /// evidence of the wrong thing.
     /// </summary>
     private static void Attendance(StringBuilder html, Source s, ref long budget)
     {
@@ -245,12 +308,24 @@ public static class ProgrammeReportRenderer
             return;
         }
 
+        var days = Days(s.Programme);
         var present = s.Participants.Count(p => p.IsPresent == true);
+
         html.Append("<p class=\"muted\">").Append(present).Append(" present of ")
-            .Append(s.Participants.Count).Append(" registered.</p>");
+            .Append(s.Participants.Count).Append(" registered, over ")
+            .Append(days.Count).Append(days.Count == 1 ? " day." : " days.").Append("</p>");
 
         html.Append("<table><thead><tr><th class=\"n\">S.No</th><th>Participant</th>")
-            .Append("<th>Enterprise</th><th>Attendance</th></tr></thead><tbody>");
+            .Append("<th>Enterprise</th>");
+
+        foreach (var day in days)
+        {
+            html.Append("<th class=\"day\">")
+                .Append(E(day.ToString("dd MMM", CultureInfo.InvariantCulture)))
+                .Append("</th>");
+        }
+
+        html.Append("<th class=\"day\">Days</th></tr></thead><tbody>");
 
         var n = 0;
         foreach (var p in s.Participants)
@@ -258,22 +333,46 @@ public static class ProgrammeReportRenderer
             n++;
             html.Append("<tr><td class=\"n\">").Append(n).Append("</td><td>")
                 .Append(E(p.FullName)).Append("</td><td>")
-                .Append(E(p.EnterpriseName)).Append("</td><td>");
+                .Append(E(p.EnterpriseName)).Append("</td>");
 
-            html.Append(p.IsPresent switch
+            var came = 0;
+            foreach (var day in days)
             {
-                true => "<span class=\"yes\">Present</span>",
-                false => "<span class=\"no\">Absent</span>",
-                _ => "<span class=\"none\">Not marked</span>",
-            });
+                var mark = p.Days.FirstOrDefault(d => d.Day == day);
+                if (mark?.IsPresent == true) came++;
 
-            html.Append("</td></tr>");
+                html.Append("<td class=\"day\">").Append(mark switch
+                {
+                    { IsPresent: true } => "<span class=\"yes\">P</span>",
+                    { IsPresent: false } => "<span class=\"no\">A</span>",
+                    /* Not taken. An em dash rather than a blank, so an
+                       empty cell cannot be read as a printing fault. */
+                    _ => "<span class=\"none\">—</span>",
+                }).Append("</td>");
+            }
+
+            html.Append("<td class=\"day\">").Append(came).Append(" / ").Append(days.Count)
+                .Append("</td></tr>");
         }
 
         html.Append("</tbody></table>");
+        html.Append("<p class=\"note\">P present · A absent · — not taken</p>");
 
         Shots(html, s, [MonitoringPhotoKind.AttendanceSheet], "Signed sheet", ref budget);
         html.Append("</section>");
+    }
+
+    /// <summary>Every day the programme ran, first to last.</summary>
+    private static List<DateOnly> Days(Programme programme)
+    {
+        var start = programme.StartDate;
+        var end = programme.EndDate >= start ? programme.EndDate : start;
+
+        var days = new List<DateOnly>();
+        for (var day = start; day <= end && days.Count < 60; day = day.AddDays(1))
+            days.Add(day);
+
+        return days;
     }
 
     private static void Sessions(StringBuilder html, Source s, ref long budget)

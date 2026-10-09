@@ -217,7 +217,10 @@ public class QcService(NtmsDbContext db, ICurrentUser currentUser)
             .Include(x => x.CurriculumTopic)
             .Where(x => x.ProgrammeId == programmeId).OrderBy(x => x.Id).ToListAsync(ct);
 
+        /* With the register, which the report prints a column of per
+           day of the programme. */
         var participants = await db.OnSpotParticipants.AsNoTracking()
+            .Include(x => x.Days)
             .Where(x => x.ProgrammeId == programmeId).OrderBy(x => x.Id).ToListAsync(ct);
 
         var shots = await db.MonitoringPhotos.AsNoTracking()

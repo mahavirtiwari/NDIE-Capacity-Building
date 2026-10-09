@@ -104,6 +104,13 @@ export interface MonitoringSession {
   photo?: MonitoringPhoto | null;
 }
 
+/** One person's mark on one day, as yyyy-MM-dd. */
+export interface AttendanceDay {
+  day: string;
+  isPresent: boolean;
+  markedOn: string;
+}
+
 export interface Participant {
   id: number;
   fullName: string;
@@ -114,8 +121,16 @@ export interface Participant {
   udyamNumber: string;
   gender?: string | null;
   socialCategory?: string | null;
+  /** Present on any day of the programme. The roll-up, not the register. */
   isPresent?: boolean | null;
   attendanceMarkedOn?: string | null;
+  /**
+   * The days this person has been marked on, present or absent.
+   *
+   * A day missing from this list has not been taken yet, which the
+   * register shows as untouched rather than as an absence.
+   */
+  days?: AttendanceDay[];
   feedbackRating?: number | null;
   feedbackComments?: string | null;
   photo?: MonitoringPhoto | null;

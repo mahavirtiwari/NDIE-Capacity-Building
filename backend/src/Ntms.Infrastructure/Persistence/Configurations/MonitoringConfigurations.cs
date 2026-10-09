@@ -138,6 +138,35 @@ public class MonitoringPhotoConfiguration : IEntityTypeConfiguration<MonitoringP
     }
 }
 
+public class OnSpotAttendanceConfiguration : IEntityTypeConfiguration<OnSpotAttendance>
+{
+    public void Configure(EntityTypeBuilder<OnSpotAttendance> b)
+    {
+        b.ToTable("OnSpotAttendance");
+        b.Property(x => x.MarkedBy).HasMaxLength(200);
+
+        /* One answer per person per day. A second pass down the row of
+           chairs corrects the first rather than recording the same
+           person twice, and the index is what actually enforces it when
+           two taps race on a slow connection. */
+        b.HasIndex(x => new { x.ParticipantId, x.Day }).IsUnique();
+
+        /* The report reads a whole programme's register at once. */
+        b.HasIndex(x => new { x.ProgrammeId, x.Day });
+
+        b.HasOne(x => x.Participant).WithMany(p => p.Days)
+            .HasForeignKey(x => x.ParticipantId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        /* NoAction: the participant already cascades from the programme,
+           and two cascade paths to the same table is the error SQL
+           Server will not have. */
+        b.HasOne(x => x.Programme).WithMany()
+            .HasForeignKey(x => x.ProgrammeId)
+            .OnDelete(DeleteBehavior.NoAction);
+    }
+}
+
 public class ProgrammeSubmissionConfiguration : IEntityTypeConfiguration<ProgrammeSubmission>
 {
     public void Configure(EntityTypeBuilder<ProgrammeSubmission> b)

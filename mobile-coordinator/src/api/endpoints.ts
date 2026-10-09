@@ -230,7 +230,13 @@ export const participants = {
   },
 
   /** The whole register in one call, so a pass of the room lands together. */
-  attendance: (id: number, marks: { participantId: number; isPresent: boolean }[]) =>
+  /* A mark belongs to a day: a five-day programme keeps five
+     registers, and one without a day could only land in one of them
+     by guessing. */
+  attendance: (
+    id: number,
+    marks: { participantId: number; day: string; isPresent: boolean }[],
+  ) =>
     writeOrQueue<number>({
       label: 'Attendance',
       method: 'PUT',

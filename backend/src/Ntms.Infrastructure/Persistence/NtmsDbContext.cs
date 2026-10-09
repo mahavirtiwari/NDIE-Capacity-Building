@@ -112,6 +112,7 @@ public class NtmsDbContext(DbContextOptions<NtmsDbContext> options, ICurrentUser
     public DbSet<ProgrammeTrainer> ProgrammeTrainers => Set<ProgrammeTrainer>();
     public DbSet<MonitoringSession> MonitoringSessions => Set<MonitoringSession>();
     public DbSet<OnSpotParticipant> OnSpotParticipants => Set<OnSpotParticipant>();
+    public DbSet<OnSpotAttendance> OnSpotAttendance => Set<OnSpotAttendance>();
     public DbSet<MonitoringPhoto> MonitoringPhotos => Set<MonitoringPhoto>();
     public DbSet<ProgrammeSubmission> ProgrammeSubmissions => Set<ProgrammeSubmission>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
