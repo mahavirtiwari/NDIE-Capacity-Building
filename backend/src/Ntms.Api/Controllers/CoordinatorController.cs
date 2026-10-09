@@ -57,6 +57,10 @@ public class CoordinatorController(MonitoringService service, MarksheetService m
         IFormFile file,
         [FromQuery] decimal? latitude,
         [FromQuery] decimal? longitude,
+        [FromQuery] DateTime? capturedOn,
+        [FromQuery] string? platform,
+        [FromQuery] string? model,
+        [FromQuery] string? osVersion,
         CancellationToken ct)
     {
         var kind = slot?.ToLowerInvariant() switch
@@ -66,7 +70,9 @@ public class CoordinatorController(MonitoringService service, MarksheetService m
             _ => throw new AppException("Photo slot must be 'exterior' or 'interior'."),
         };
 
-        return Envelope(await Upload(id, kind, null, file, latitude, longitude, ct));
+        return Envelope(await Upload(
+            id, kind, null, file,
+            CaptureFrom(capturedOn, latitude, longitude, platform, model, osVersion), ct));
     }
 
     /* --------------------------------------------------------- trainers */
@@ -92,9 +98,16 @@ public class CoordinatorController(MonitoringService service, MarksheetService m
     [RequestSizeLimit(16 * 1024 * 1024)]
     public async Task<ActionResult<ApiEnvelope<MonitoringPhotoDto>>> SessionPhoto(
         int id, int sessionId, IFormFile file,
-        [FromQuery] decimal? latitude, [FromQuery] decimal? longitude,
+        [FromQuery] decimal? latitude,
+        [FromQuery] decimal? longitude,
+        [FromQuery] DateTime? capturedOn,
+        [FromQuery] string? platform,
+        [FromQuery] string? model,
+        [FromQuery] string? osVersion,
         CancellationToken ct) =>
-        Envelope(await Upload(id, MonitoringPhotoKind.Session, sessionId, file, latitude, longitude, ct));
+        Envelope(await Upload(
+            id, MonitoringPhotoKind.Session, sessionId, file,
+            CaptureFrom(capturedOn, latitude, longitude, platform, model, osVersion), ct));
 
     /* ----------------------------------------------------- participants */
 
@@ -108,10 +121,16 @@ public class CoordinatorController(MonitoringService service, MarksheetService m
     [RequestSizeLimit(16 * 1024 * 1024)]
     public async Task<ActionResult<ApiEnvelope<MonitoringPhotoDto>>> ParticipantPhoto(
         int id, int participantId, IFormFile file,
-        [FromQuery] decimal? latitude, [FromQuery] decimal? longitude,
+        [FromQuery] decimal? latitude,
+        [FromQuery] decimal? longitude,
+        [FromQuery] DateTime? capturedOn,
+        [FromQuery] string? platform,
+        [FromQuery] string? model,
+        [FromQuery] string? osVersion,
         CancellationToken ct) =>
         Envelope(await Upload(
-            id, MonitoringPhotoKind.Participant, participantId, file, latitude, longitude, ct));
+            id, MonitoringPhotoKind.Participant, participantId, file,
+            CaptureFrom(capturedOn, latitude, longitude, platform, model, osVersion), ct));
 
     /// <summary>The register, sent as one list so a whole pass lands together.</summary>
     [HttpPut("programmes/{id:int}/attendance")]
@@ -124,10 +143,16 @@ public class CoordinatorController(MonitoringService service, MarksheetService m
     [RequestSizeLimit(16 * 1024 * 1024)]
     public async Task<ActionResult<ApiEnvelope<MonitoringPhotoDto>>> AttendancePhoto(
         int id, IFormFile file,
-        [FromQuery] decimal? latitude, [FromQuery] decimal? longitude,
+        [FromQuery] decimal? latitude,
+        [FromQuery] decimal? longitude,
+        [FromQuery] DateTime? capturedOn,
+        [FromQuery] string? platform,
+        [FromQuery] string? model,
+        [FromQuery] string? osVersion,
         CancellationToken ct) =>
         Envelope(await Upload(
-            id, MonitoringPhotoKind.AttendanceSheet, null, file, latitude, longitude, ct));
+            id, MonitoringPhotoKind.AttendanceSheet, null, file,
+            CaptureFrom(capturedOn, latitude, longitude, platform, model, osVersion), ct));
 
     [HttpPut("participants/{participantId:int}/feedback")]
     public async Task<ActionResult<ApiEnvelope<OnSpotParticipantDto>>> Feedback(
@@ -182,9 +207,17 @@ public class CoordinatorController(MonitoringService service, MarksheetService m
 
     /* ---------------------------------------------------------- helpers */
 
+    /// <summary>
+    /// Stores one photograph with what the handset knew about it.
+    ///
+    /// The facts come from the query string rather than the form, because
+    /// the app's offline queue replays a photograph by its URL: a fix and
+    /// a capture time written into the path survive being sent hours
+    /// later, which is exactly the case a field visit produces.
+    /// </summary>
     private async Task<MonitoringPhotoDto> Upload(
         int programmeId, MonitoringPhotoKind kind, int? ownerId, IFormFile? file,
-        decimal? latitude, decimal? longitude, CancellationToken ct)
+        MonitoringService.Capture capture, CancellationToken ct)
     {
         if (file is null || file.Length == 0)
             throw new AppException("Attach a photo.");
@@ -192,6 +225,12 @@ public class CoordinatorController(MonitoringService service, MarksheetService m
         await using var stream = file.OpenReadStream();
         return await service.AddPhotoAsync(
             programmeId, kind, ownerId, stream, file.ContentType, file.Length,
-            latitude, longitude, ct);
+            capture, ct);
     }
+
+    /// <summary>The capture facts as this request carried them.</summary>
+    private static MonitoringService.Capture CaptureFrom(
+        DateTime? capturedOn, decimal? latitude, decimal? longitude,
+        string? platform, string? model, string? osVersion) =>
+        new(capturedOn, latitude, longitude, platform, model, osVersion);
 }

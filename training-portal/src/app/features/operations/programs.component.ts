@@ -39,8 +39,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'startDate', header: 'Start date', sortable: true, width: '120px' },
   { key: 'endDate', header: 'End date', width: '120px' },
   { key: 'participantCount', header: 'Participants', align: 'center', width: '110px' },
-  { key: 'cumulativeFeedback', header: 'Cumulative feedback', align: 'center', width: '150px' },
-  { key: 'comments', header: 'Comments', width: '260px' },
+  { key: 'comments', header: 'Comments', width: '280px' },
 ];
 
 @Component({
@@ -211,25 +210,18 @@ const COLUMNS: ColumnDef[] = [
         <ng-template appCell="serial" let-row>
           <span class="cell-muted tabular">{{ $any(row).serial }}</span>
         </ng-template>
+<!-- It always opened the batch; it did not look as though it would.
+             Coloured and underlined on hover so the one clickable thing in
+             the row is visibly the clickable thing. -->
         <ng-template appCell="programmeId" let-row>
-          <a class="cell-primary" [routerLink]="['/operations/programs', $any(row).id]">
+          <a class="cell-link" [routerLink]="['/operations/programs', $any(row).id]">
             {{ $any(row).programmeId }}
           </a>
         </ng-template>
+<!-- The word alone. The icon repeated what the text beside it
+             already said, in three shapes nobody had been taught. -->
         <ng-template appCell="venue" let-row>
-          <div class="row row-sm">
-            <app-icon
-              [name]="
-                $any(row).mode === 'Virtual'
-                  ? 'monitor'
-                  : $any(row).mode === 'Hybrid'
-                    ? 'layers'
-                    : 'map-pin'
-              "
-              [size]="14"
-            />
-            <span>{{ $any(row).venue }}</span>
-          </div>
+          <span>{{ $any(row).venue }}</span>
         </ng-template>
         <ng-template appCell="startDate" let-row>
           {{ $any(row).startDate | date: 'dd MMM yyyy' }}
@@ -237,17 +229,21 @@ const COLUMNS: ColumnDef[] = [
         <ng-template appCell="endDate" let-row>
           {{ $any(row).endDate | date: 'dd MMM yyyy' }}
         </ng-template>
-        <ng-template appCell="cumulativeFeedback" let-row>
-          @if ($any(row).cumulativeFeedback) {
-            <span class="chip">{{ $any(row).cumulativeFeedback }} / 5</span>
-          } @else {
-            <span class="cell-muted">—</span>
-          }
-        </ng-template>
+<!-- Where the batch has got to, and what was said when it got
+             there. The badge alone named a state; what the register is
+             read for is the step — who proposed it, whether permission
+             was given, why it was refused, whether it ran. -->
         <ng-template appCell="comments" let-row>
           <div class="stack stack-xs">
             <app-status-badge [value]="$any(row).status" />
-            @if ($any(row).comments) {
+
+            <span class="text-xs text-muted">{{ story($any(row)) }}</span>
+
+            <!-- A refusal has to carry its reason, or the agency is told
+                 no and not told what to put right. -->
+            @if (refused($any(row)) && $any(row).comments) {
+              <span class="text-xs text-danger">{{ $any(row).comments }}</span>
+            } @else if ($any(row).comments) {
               <span class="cell-muted">{{ $any(row).comments }}</span>
             }
             <!-- An ask that has not been answered sits on the row, so the
@@ -600,6 +596,39 @@ export class ProgramsComponent {
   private readonly confirm = inject(ConfirmService);
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
+
+  /**
+   * The step this batch is at, in a sentence.
+   *
+   * Reads from the status rather than from a log, because the status is
+   * the one thing every row has: a batch imported before any of these
+   * screens existed still says where it stands.
+   */
+  protected story(row: Program): string {
+    switch (row.status) {
+      case 'New':
+        return 'Created by the implementing agency. Waiting on the operation manager.';
+      case 'PermissionAccepted':
+        return 'Permission accepted. Registrations are open.';
+      case 'PermissionRejected':
+        return 'Permission rejected by the operation manager.';
+      case 'CalendarCreated':
+        return 'Calendar created. Waiting to be conducted.';
+      case 'Conducted':
+        return 'Conducted. Closed from the coordinator\'s app.';
+      case 'Postponed':
+        return 'Postponed by the operation manager.';
+      case 'QCRejected':
+        return 'Turned back at quality check.';
+      default:
+        return '';
+    }
+  }
+
+  /** Whether the remark on this row is a reason for refusing it. */
+  protected refused(row: Program): boolean {
+    return row.status === 'PermissionRejected' || row.status === 'QCRejected';
+  }
 
   protected readonly columns = COLUMNS;
 

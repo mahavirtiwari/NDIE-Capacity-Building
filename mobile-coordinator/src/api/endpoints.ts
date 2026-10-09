@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { ApiError, API_BASE_URL, api, readAuthToken, readUserCode } from './client';
 import { enqueue, keepPhoto, newLocalId } from '../offline/outbox';
+import { appendFacts, deviceFacts, factsQuery, type DeviceFacts } from './captureFacts';
 import type {
   Branding,
   LoginResponse,
@@ -281,8 +282,14 @@ export interface Fix {
  * the Content-Type header is deliberately left unset.
  */
 async function upload(path: string, image: CapturedImage, fix?: Fix | null): Promise<MonitoringPhoto> {
+  /* Read once, here, so the online attempt and the queued retry below
+     describe the same moment. Generated inside send() they would be the
+     time of whichever attempt happened to succeed, which on a field visit
+     can be hours after the photograph was taken. */
+  const facts = deviceFacts();
+
   try {
-    return await send(path, image, fix);
+    return await send(path, image, fix, facts);
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 0) throw error;
 
@@ -294,10 +301,9 @@ async function upload(path: string, image: CapturedImage, fix?: Fix | null): Pro
     const name = image.fileName ?? `photo-${Date.now()}.jpg`;
     const kept = await keepPhoto(image.uri, name, image.mimeType ?? 'image/jpeg');
 
-    const query = fix ? `?latitude=${fix.latitude}&longitude=${fix.longitude}` : '';
-    const withFix = path.includes('?')
-      ? `${path}${fix ? `&latitude=${fix.latitude}&longitude=${fix.longitude}` : ''}`
-      : `${path}${query}`;
+    const geo = fix ? `latitude=${fix.latitude}&longitude=${fix.longitude}&` : '';
+    const tail = `${geo}${factsQuery(facts)}`;
+    const withFix = path.includes('?') ? `${path}&${tail}` : `${path}?${tail}`;
 
     await enqueue({
       owner: readUserCode() ?? 'unknown',
@@ -315,7 +321,7 @@ async function upload(path: string, image: CapturedImage, fix?: Fix | null): Pro
       sizeBytes: 0,
       latitude: fix?.latitude ?? null,
       longitude: fix?.longitude ?? null,
-      capturedOn: NOW(),
+      capturedOn: facts.capturedOn,
       /* The local copy, so the screen shows the photo that was just taken
          rather than a gap where the server's copy will eventually be. */
       url: kept.uri,
@@ -323,12 +329,18 @@ async function upload(path: string, image: CapturedImage, fix?: Fix | null): Pro
   }
 }
 
-async function send(path: string, image: CapturedImage, fix?: Fix | null): Promise<MonitoringPhoto> {
+async function send(
+  path: string,
+  image: CapturedImage,
+  fix?: Fix | null,
+  facts: DeviceFacts = deviceFacts(),
+): Promise<MonitoringPhoto> {
   const url = new URL(`${API_BASE_URL}/${path}`);
   if (fix) {
     url.searchParams.set('latitude', String(fix.latitude));
     url.searchParams.set('longitude', String(fix.longitude));
   }
+  appendFacts(url, facts);
 
   const token = readAuthToken();
 

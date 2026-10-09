@@ -83,12 +83,15 @@
   background: none;
   font: inherit;
   font-weight: 600;
-  color: var(--brand-600);
+  color: var(--link-600);
   text-align: left;
   cursor: pointer;
 }
 
-.table .cell-link:hover { text-decoration: underline; }
+.table .cell-link:hover {
+  color: var(--link-700);
+  text-decoration: underline;
+}
 
 .table .cell-muted {
   color: var(--ink-500);

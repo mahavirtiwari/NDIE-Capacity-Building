@@ -28,8 +28,16 @@ export const PROGRAM_STATUSES: ProgramStatus[] = [
   'Postponed',
 ];
 
+/**
+ * The states in the words the office uses for them.
+ *
+ * "New program" said what the row was rather than what had happened to
+ * it, which is the question the register is read to answer: a batch at
+ * this point has been proposed by the agency running it and is waiting
+ * on the manager above.
+ */
 export const PROGRAM_STATUS_LABELS: Record<ProgramStatus, string> = {
-  New: 'New program',
+  New: 'Program created by IA',
   PermissionAccepted: 'Permission accepted',
   CalendarCreated: 'Calendar created',
   Conducted: 'Conducted',

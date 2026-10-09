@@ -116,6 +116,10 @@ public class MonitoringPhotoConfiguration : IEntityTypeConfiguration<MonitoringP
         b.Property(x => x.Latitude).HasColumnType("decimal(9,6)");
         b.Property(x => x.Longitude).HasColumnType("decimal(9,6)");
 
+        b.Property(x => x.DevicePlatform).HasMaxLength(40);
+        b.Property(x => x.DeviceModel).HasMaxLength(120);
+        b.Property(x => x.DeviceOsVersion).HasMaxLength(40);
+
         b.HasIndex(x => new { x.ProgrammeId, x.Kind });
 
         b.HasOne(x => x.Programme).WithMany().HasForeignKey(x => x.ProgrammeId)

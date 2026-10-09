@@ -168,7 +168,35 @@ public class MonitoringPhoto : AuditableEntity
 
     public decimal? Latitude { get; set; }
     public decimal? Longitude { get; set; }
+
+    /// <summary>
+    /// When the shutter went, as the coordinator's handset had it.
+    ///
+    /// Was the moment the server received the file, which is a different
+    /// thing on a field visit: the app queues photographs taken out of
+    /// signal and sends them when it next has a connection, so the two
+    /// can be hours apart. The time drawn into the picture has to be the
+    /// first of those or it is not evidence of when anybody was there.
+    /// </summary>
     public DateTime CapturedOn { get; set; } = DateTime.UtcNow;
+
+    /// <summary>When it reached the server. The other end of that gap.</summary>
+    public DateTime SyncedOn { get; set; } = DateTime.UtcNow;
+
+    /* What took it, as the handset reports itself. */
+    public string? DevicePlatform { get; set; }
+    public string? DeviceModel { get; set; }
+    public string? DeviceOsVersion { get; set; }
+
+    /// <summary>
+    /// Whether the time and position were drawn into the image.
+    ///
+    /// False for everything taken before this existed, and for a frame
+    /// the drawing could not read — which is stored as it arrived rather
+    /// than thrown away, because the photograph is the evidence and the
+    /// stamp is a convenience.
+    /// </summary>
+    public bool Stamped { get; set; }
 }
 
 /// <summary>

@@ -28,8 +28,24 @@ namespace Ntms.Infrastructure.Services;
 public class MonitoringService(
     NtmsDbContext db,
     ICurrentUser currentUser,
-    MonitoringPhotoStore photos)
+    MonitoringPhotoStore photos,
+    Microsoft.Extensions.Logging.ILogger<MonitoringService> logger)
 {
+    /// <summary>
+    /// What the coordinator's handset knew when it took the photograph.
+    ///
+    /// All optional. A field visit happens where the signal does not, so
+    /// a missing fix is ordinary rather than exceptional, and no part of
+    /// this is worth refusing a photograph over.
+    /// </summary>
+    public sealed record Capture(
+        DateTime? CapturedOn = null,
+        decimal? Latitude = null,
+        decimal? Longitude = null,
+        string? Platform = null,
+        string? Model = null,
+        string? OsVersion = null);
+
     /* ------------------------------------------------------------ access */
 
     /// <summary>
@@ -459,19 +475,34 @@ public class MonitoringService(
         Stream content,
         string? contentType,
         long length,
-        decimal? latitude,
-        decimal? longitude,
+        Capture capture,
         CancellationToken ct)
     {
         await ForWriteAsync(programmeId, ct);
+
+        var now = DateTime.UtcNow;
+
+        /* The handset's clock, but only if it is plausible. A phone with
+           the date wrong would otherwise stamp a site visit with a time
+           that makes the evidence look altered. Twenty-four hours is wide
+           enough for a photograph queued overnight out of signal and
+           narrow enough to catch a clock that is simply wrong. */
+        var capturedOn = capture.CapturedOn is { } said
+                         && Math.Abs((now - said).TotalHours) <= 24
+            ? said
+            : now;
 
         var photo = new MonitoringPhoto
         {
             ProgrammeId = programmeId,
             Kind = kind,
-            Latitude = latitude,
-            Longitude = longitude,
-            CapturedOn = DateTime.UtcNow,
+            Latitude = capture.Latitude,
+            Longitude = capture.Longitude,
+            CapturedOn = capturedOn,
+            SyncedOn = now,
+            DevicePlatform = Trimmed(capture.Platform, 40),
+            DeviceModel = Trimmed(capture.Model, 120),
+            DeviceOsVersion = Trimmed(capture.OsVersion, 40),
         };
 
         switch (kind)
@@ -530,7 +561,30 @@ public class MonitoringService(
                 throw new AppException("Unknown photo type.");
         }
 
-        var stored = await photos.SaveAsync(content, contentType, length, programmeId, kind.ToString(), ct);
+        /* Read whole before it is written, because the stamp is drawn
+           into the pixels and that needs the image rather than a stream
+           being poured into a file. These are capped well below what is
+           worth worrying about holding in memory. */
+        using var buffer = new MemoryStream();
+        await content.CopyToAsync(buffer, ct);
+        var bytes = buffer.ToArray();
+
+        var stamp = PhotoStamp.Apply(
+            bytes, photo.CapturedOn, photo.Latitude, photo.Longitude, logger);
+
+        photo.Stamped = stamp.Stamped;
+
+        await using var toStore = new MemoryStream(stamp.Content);
+        var stored = await photos.SaveAsync(
+            toStore,
+            /* The type the stamp produced where it worked, and whatever
+               arrived where it did not — a PNG stored unmarked is still a
+               PNG and must not be recorded as a JPEG. */
+            stamp.Stamped ? stamp.ContentType : contentType,
+            stamp.Content.Length,
+            programmeId,
+            kind.ToString(),
+            ct);
 
         photo.RelativePath = stored.RelativePath;
         photo.FileName = stored.FileName;
@@ -541,6 +595,14 @@ public class MonitoringService(
         await db.SaveChangesAsync(ct);
 
         return ToDto(photo);
+    }
+
+    /// <summary>Trimmed to what the column holds, or null if there is nothing.</summary>
+    private static string? Trimmed(string? value, int max)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var clean = value.Trim();
+        return clean.Length <= max ? clean : clean[..max];
     }
 
     /// <summary>Opens a stored photograph, for an account allowed to see it.</summary>
