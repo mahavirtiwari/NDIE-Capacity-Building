@@ -46,6 +46,19 @@ export const PROGRAM_STATUS_LABELS: Record<ProgramStatus, string> = {
   Postponed: 'Postponed',
 };
 
+/**
+ * The states that carry a reason with them.
+ *
+ * A refusal and a postponement are the two a reader cannot act on
+ * without knowing why, so the register prints the reason beside the
+ * badge instead of making somebody open the batch to find it.
+ */
+export function statusNeedsReason(status: ProgramStatus): boolean {
+  return status === 'PermissionRejected'
+    || status === 'QCRejected'
+    || status === 'Postponed';
+}
+
 export interface ProgramParticipant {
   id: Id;
   applicantId: Id;

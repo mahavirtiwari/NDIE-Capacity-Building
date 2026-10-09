@@ -29,17 +29,25 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
 import { requiredFormat } from '../../core/validation/formats';
 import { ListState, searchTerm } from '../../shared/list-state';
 
+/*
+ * Widths sized to what the cells actually hold.
+ *
+ * Venue had 190 pixels for the word "Virtual", which left a hand's
+ * breadth of nothing in the middle of every row, and the total pushed
+ * the table past a screen so the register scrolled sideways to show
+ * white space. A date needs 110; a participant count needs 90.
+ */
 const COLUMNS: ColumnDef[] = [
-  { key: 'serial', header: 'S.No', width: '64px', align: 'center' },
-  { key: 'programmeId', header: 'Program ID', sortable: true, width: '140px' },
-  { key: 'agencyName', header: 'Agency name', width: '210px' },
-  { key: 'programmeName', header: 'Program', variant: 'primary', width: '230px' },
-  { key: 'venue', header: 'Venue', width: '190px', variant: 'muted' },
-  { key: 'state', header: 'State/UT', width: '130px' },
-  { key: 'startDate', header: 'Start date', sortable: true, width: '120px' },
-  { key: 'endDate', header: 'End date', width: '120px' },
-  { key: 'participantCount', header: 'Participants', align: 'center', width: '110px' },
-  { key: 'comments', header: 'Comments', width: '280px' },
+  { key: 'serial', header: 'S.No', width: '56px', align: 'center' },
+  { key: 'programmeId', header: 'Program ID', sortable: true, width: '130px' },
+  { key: 'agencyName', header: 'Agency name', width: '180px' },
+  { key: 'programmeName', header: 'Program', variant: 'primary', width: '220px' },
+  { key: 'venue', header: 'Venue', width: '120px', variant: 'muted' },
+  { key: 'state', header: 'State/UT', width: '115px' },
+  { key: 'startDate', header: 'Start date', sortable: true, width: '110px' },
+  { key: 'endDate', header: 'End date', width: '110px' },
+  { key: 'participantCount', header: 'Participants', align: 'center', width: '90px' },
+  { key: 'comments', header: 'Comments', width: '260px' },
 ];
 
 @Component({
@@ -200,7 +208,7 @@ const COLUMNS: ColumnDef[] = [
         [sortBy]="list.sortBy()"
         [sortDir]="list.sortDir()"
         [compact]="true"
-        minWidth="1560px"
+        minWidth="1400px"
         emptyTitle="No programs"
         emptyIcon="calendar"
         (pageChange)="list.goToPage($event)"
@@ -229,22 +237,27 @@ const COLUMNS: ColumnDef[] = [
         <ng-template appCell="endDate" let-row>
           {{ $any(row).endDate | date: 'dd MMM yyyy' }}
         </ng-template>
-<!-- Where the batch has got to, and what was said when it got
-             there. The badge alone named a state; what the register is
-             read for is the step — who proposed it, whether permission
-             was given, why it was refused, whether it ran. -->
+<!-- Where the batch has got to.
+
+             The badge says it and nothing repeats it. A sentence under
+             every row explaining what "Permission accepted" means was
+             three lines of furniture per row saying what the badge had
+             already said, which is what made this column the tallest
+             thing on the page.
+
+             A reason appears only where there is one to give: a refusal
+             the agency has to act on, or a postponement somebody has to
+             account for. -->
         <ng-template appCell="comments" let-row>
           <div class="stack stack-xs">
             <app-status-badge [value]="$any(row).status" />
 
-            <span class="text-xs text-muted">{{ story($any(row)) }}</span>
-
-            <!-- A refusal has to carry its reason, or the agency is told
-                 no and not told what to put right. -->
-            @if (refused($any(row)) && $any(row).comments) {
-              <span class="text-xs text-danger">{{ $any(row).comments }}</span>
-            } @else if ($any(row).comments) {
-              <span class="cell-muted">{{ $any(row).comments }}</span>
+            @if (reason($any(row)); as why) {
+              <span
+                class="text-xs wrap-text"
+                [class.text-danger]="refused($any(row))"
+                [class.cell-muted]="!refused($any(row))"
+              >{{ why }}</span>
             }
             <!-- An ask that has not been answered sits on the row, so the
                  manager reads the reason beside the decision. -->
@@ -597,35 +610,28 @@ export class ProgramsComponent {
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
 
-  /**
-   * The step this batch is at, in a sentence.
+/**
+   * Why this batch is where it is, where that needs saying.
    *
-   * Reads from the status rather than from a log, because the status is
-   * the one thing every row has: a batch imported before any of these
-   * screens existed still says where it stands.
+   * Only for the states a reader cannot act on without it. Everything
+   * else is told by the badge, and a sentence restating the badge is
+   * noise in a column that has to stay narrow.
+   *
+   * A postponement carries the reason it was asked for; the manager's
+   * own note at the decision is used in preference where there is one,
+   * because that is the later word on it.
    */
-  protected story(row: Program): string {
-    switch (row.status) {
-      case 'New':
-        return 'Created by the implementing agency. Waiting on the operation manager.';
-      case 'PermissionAccepted':
-        return 'Permission accepted. Registrations are open.';
-      case 'PermissionRejected':
-        return 'Permission rejected by the operation manager.';
-      case 'CalendarCreated':
-        return 'Calendar created. Waiting to be conducted.';
-      case 'Conducted':
-        return 'Conducted. Closed from the coordinator\'s app.';
-      case 'Postponed':
-        return 'Postponed by the operation manager.';
-      case 'QCRejected':
-        return 'Turned back at quality check.';
-      default:
-        return '';
+  protected reason(row: Program): string | null {
+    const note = row.comments?.trim();
+
+    if (row.status === 'Postponed') {
+      return note || row.postponementReason?.trim() || null;
     }
+
+    return this.refused(row) ? note || null : null;
   }
 
-  /** Whether the remark on this row is a reason for refusing it. */
+  /** Whether the reason on this row is a refusal, and so reads in red. */
   protected refused(row: Program): boolean {
     return row.status === 'PermissionRejected' || row.status === 'QCRejected';
   }

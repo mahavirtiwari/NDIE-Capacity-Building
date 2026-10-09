@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { PROGRAM_STATUS_LABELS } from '../../core/models/program.model';
 
 type Tone = 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'info';
 
@@ -42,15 +43,20 @@ const TONE_BY_VALUE: Record<string, Tone> = {
   Hybrid: 'warning',
 };
 
+/*
+ * What each state is called.
+ *
+ * The programme states come from the model that defines them rather
+ * than being written out a second time here. They were duplicated, and
+ * the two copies disagreed the moment one was changed: the register was
+ * relabelled "Program created by IA" and every badge on it went on
+ * saying "New program", because the badge was reading this list.
+ */
 const LABELS: Record<string, string> = {
   UnderScrutiny: 'Under scrutiny',
   NotApplicable: 'Not applicable',
-  New: 'New program',
-  PermissionAccepted: 'Permission accepted',
-  CalendarCreated: 'Calendar created',
   ApplicationReceived: 'Application received',
-  PermissionRejected: 'Permission rejected',
-  QCRejected: 'QC rejected',
+  ...PROGRAM_STATUS_LABELS,
 };
 
 @Component({
