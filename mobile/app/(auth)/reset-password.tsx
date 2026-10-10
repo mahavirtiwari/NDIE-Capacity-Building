@@ -3,7 +3,15 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../src/api/client';
 import { auth } from '../../src/api/endpoints';
-import { Banner, Button, Card, Field, Subtitle, Title } from '../../src/components/ui';
+import {
+  Banner,
+  Button,
+  Card,
+  Field,
+  KeyboardAvoider,
+  Subtitle,
+  Title,
+} from '../../src/components/ui';
 import { useSiteText } from '../../src/content/SiteTextContext';
 import { colors, font, radius, spacing } from '../../src/theme';
 
@@ -98,98 +106,100 @@ export default function ResetPassword() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={styles.header}>
-        <Title>{text('app.reset.title', 'Check your email')}</Title>
-        <Subtitle>
-          {text('app.reset.subtitle', 'Enter the code we sent, then choose a new password')}
-        </Subtitle>
-      </View>
-
-      {masked ? (
-        <View style={styles.delivery}>
-          <Text style={styles.deliveryLabel}>DELIVERED TO</Text>
-          <Text style={styles.deliveryValue}>{masked}</Text>
+    <KeyboardAvoider>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.header}>
+          <Title>{text('app.reset.title', 'Check your email')}</Title>
+          <Subtitle>
+            {text('app.reset.subtitle', 'Enter the code we sent, then choose a new password')}
+          </Subtitle>
         </View>
-      ) : null}
 
-      <Card style={styles.card}>
-        <Field
-          label={text('app.otp.label', 'Verification code')}
-          required
-          value={code}
-          onChangeText={(next) => setCode(next.replace(/[^0-9]/g, ''))}
-          placeholder={text('app.otp.placeholder', 'Enter OTP')}
-          keyboardType="number-pad"
-          maxLength={6}
-          style={[styles.codeInput, code.length === 0 && styles.codeInputEmpty]}
-          error={touched ? codeError : null}
-        />
+        {masked ? (
+          <View style={styles.delivery}>
+            <Text style={styles.deliveryLabel}>DELIVERED TO</Text>
+            <Text style={styles.deliveryValue}>{masked}</Text>
+          </View>
+        ) : null}
 
-        <Field
-          label="New password"
-          required
-          secure
-          value={password}
-          onChangeText={setPassword}
-          autoCapitalize="none"
-          autoCorrect={false}
-          error={touched ? passwordError : null}
-          hint="At least 8 characters."
-        />
+        <Card style={styles.card}>
+          <Field
+            label={text('app.otp.label', 'Verification code')}
+            required
+            value={code}
+            onChangeText={(next) => setCode(next.replace(/[^0-9]/g, ''))}
+            placeholder={text('app.otp.placeholder', 'Enter OTP')}
+            keyboardType="number-pad"
+            maxLength={6}
+            style={[styles.codeInput, code.length === 0 && styles.codeInputEmpty]}
+            error={touched ? codeError : null}
+          />
 
-        <Field
-          label="Confirm new password"
-          required
-          secure
-          value={confirm}
-          onChangeText={setConfirm}
-          autoCapitalize="none"
-          autoCorrect={false}
-          error={touched || confirm.length > 0 ? confirmError : null}
-          onSubmitEditing={submit}
-        />
+          <Field
+            label="New password"
+            required
+            secure
+            value={password}
+            onChangeText={setPassword}
+            autoCapitalize="none"
+            autoCorrect={false}
+            error={touched ? passwordError : null}
+            hint="At least 8 characters."
+          />
 
-        {error ? <Banner tone="danger">{error}</Banner> : null}
+          <Field
+            label="Confirm new password"
+            required
+            secure
+            value={confirm}
+            onChangeText={setConfirm}
+            autoCapitalize="none"
+            autoCorrect={false}
+            error={touched || confirm.length > 0 ? confirmError : null}
+            onSubmitEditing={submit}
+          />
 
-        <Button
-          label={text('app.reset.action', 'Set new password')}
-          onPress={submit}
-          loading={busy}
-        />
+          {error ? <Banner tone="danger">{error}</Banner> : null}
+
+          <Button
+            label={text('app.reset.action', 'Set new password')}
+            onPress={submit}
+            loading={busy}
+          />
+
+          <Pressable
+            onPress={resend}
+            disabled={countdown > 0 || resending}
+            accessibilityRole="button"
+            style={styles.resend}
+          >
+            <Text style={[styles.resendText, countdown > 0 && styles.resendDisabled]}>
+              {resending
+                ? 'Sending…'
+                : countdown > 0
+                  ? `Resend code in ${countdown}s`
+                  : 'Resend code'}
+            </Text>
+          </Pressable>
+        </Card>
+
+        <Text style={styles.note}>
+          {text(
+            'app.reset.note',
+            'The code is valid for {minutes} minutes and can be used once. Check your spam folder if it has not arrived.',
+            { minutes },
+          )}
+        </Text>
 
         <Pressable
-          onPress={resend}
-          disabled={countdown > 0 || resending}
+          onPress={() => router.replace('/(auth)/sign-in')}
           accessibilityRole="button"
-          style={styles.resend}
+          style={styles.back}
         >
-          <Text style={[styles.resendText, countdown > 0 && styles.resendDisabled]}>
-            {resending
-              ? 'Sending…'
-              : countdown > 0
-                ? `Resend code in ${countdown}s`
-                : 'Resend code'}
-          </Text>
+          <Text style={styles.backText}>Back to sign in</Text>
         </Pressable>
-      </Card>
-
-      <Text style={styles.note}>
-        {text(
-          'app.reset.note',
-          'The code is valid for {minutes} minutes and can be used once. Check your spam folder if it has not arrived.',
-          { minutes },
-        )}
-      </Text>
-
-      <Pressable
-        onPress={() => router.replace('/(auth)/sign-in')}
-        accessibilityRole="button"
-        style={styles.back}
-      >
-        <Text style={styles.backText}>Back to sign in</Text>
-      </Pressable>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoider>
   );
 }
 

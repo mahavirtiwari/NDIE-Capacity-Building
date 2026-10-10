@@ -1,16 +1,8 @@
 import { useEffect, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../../src/api/client';
 import { trainers as trainersApi } from '../../../src/api/endpoints';
-import { Banner, Button, Card, Field } from '../../../src/components/ui';
+import { Banner, Button, Card, Field, KeyboardAvoider } from '../../../src/components/ui';
 import { isAadhaar, isEmail, isMobile } from '../../../src/validation/formats';
 import { colors, radius, spacing } from '../../../src/theme';
 import { useWorkshop } from '../../../src/workshop/WorkshopContext';
@@ -106,10 +98,7 @@ export default function RegisterTrainer() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoider style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {locked ? <Banner tone="info">Finally submitted — read only.</Banner> : null}
 
@@ -270,7 +259,7 @@ export default function RegisterTrainer() {
           </Card>
         ) : null}
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoider>
   );
 }
 

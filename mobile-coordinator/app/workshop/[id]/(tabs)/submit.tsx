@@ -3,7 +3,15 @@ import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../../../src/api/client';
 import { workshops } from '../../../../src/api/endpoints';
-import { Banner, Button, Card, DetailRow, Field, Loading } from '../../../../src/components/ui';
+import {
+  Banner,
+  Button,
+  Card,
+  DetailRow,
+  Field,
+  KeyboardAvoider,
+  Loading,
+} from '../../../../src/components/ui';
 import { colors, radius, spacing } from '../../../../src/theme';
 import { useWorkshop } from '../../../../src/workshop/WorkshopContext';
 
@@ -74,60 +82,62 @@ export default function FinalSubmission() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.lead}>
-        Check the record before sealing it. Nothing can be edited afterwards.
-      </Text>
+    <KeyboardAvoider>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.lead}>
+          Check the record before sealing it. Nothing can be edited afterwards.
+        </Text>
 
-      <Card style={styles.card}>
-        <DetailRow label="Venue" value={p?.venueRegistered ? 'Registered' : 'Missing'} />
-        <DetailRow label="Geo-tag" value={p?.venueGeoTagged ? 'Captured' : 'Missing'} />
-        <DetailRow
-          label="Venue photos"
-          value={`${[p?.venueExteriorPhoto, p?.venueInteriorPhoto].filter(Boolean).length} of 2`}
+        <Card style={styles.card}>
+          <DetailRow label="Venue" value={p?.venueRegistered ? 'Registered' : 'Missing'} />
+          <DetailRow label="Geo-tag" value={p?.venueGeoTagged ? 'Captured' : 'Missing'} />
+          <DetailRow
+            label="Venue photos"
+            value={`${[p?.venueExteriorPhoto, p?.venueInteriorPhoto].filter(Boolean).length} of 2`}
+          />
+          <DetailRow label="Trainers" value={String(p?.trainerCount ?? 0)} />
+          <DetailRow label="Sessions" value={String(p?.sessionCount ?? 0)} />
+          <DetailRow label="Participants" value={String(p?.participantCount ?? 0)} />
+          <DetailRow
+            label="Attendance"
+            value={`${p?.attendanceMarkedCount ?? 0} marked · ${p?.presentCount ?? 0} present`}
+          />
+          <DetailRow label="Signed sheets" value={String(p?.attendanceSheetCount ?? 0)} />
+          <DetailRow label="Feedback" value={`${p?.feedbackCount ?? 0} given (optional)`} />
+        </Card>
+
+        {blockers.length > 0 ? (
+          <View style={styles.blockers}>
+            <Text style={styles.blockersTitle}>Still to do</Text>
+            {blockers.map((item) => (
+              <Text key={item} style={styles.blocker}>
+                • {item}
+              </Text>
+            ))}
+          </View>
+        ) : (
+          <Banner tone="success">Everything required has been captured.</Banner>
+        )}
+
+        <Field
+          label="Remarks"
+          value={remarks}
+          onChangeText={setRemarks}
+          placeholder="Anything the reviewer should know (optional)"
+          multiline
         />
-        <DetailRow label="Trainers" value={String(p?.trainerCount ?? 0)} />
-        <DetailRow label="Sessions" value={String(p?.sessionCount ?? 0)} />
-        <DetailRow label="Participants" value={String(p?.participantCount ?? 0)} />
-        <DetailRow
-          label="Attendance"
-          value={`${p?.attendanceMarkedCount ?? 0} marked · ${p?.presentCount ?? 0} present`}
+
+        {failure ? <Banner tone="danger">{failure}</Banner> : null}
+
+        <Button
+          label="Submit finally"
+          onPress={submit}
+          loading={busy}
+          disabled={blockers.length > 0}
+          variant="danger"
         />
-        <DetailRow label="Signed sheets" value={String(p?.attendanceSheetCount ?? 0)} />
-        <DetailRow label="Feedback" value={`${p?.feedbackCount ?? 0} given (optional)`} />
-      </Card>
-
-      {blockers.length > 0 ? (
-        <View style={styles.blockers}>
-          <Text style={styles.blockersTitle}>Still to do</Text>
-          {blockers.map((item) => (
-            <Text key={item} style={styles.blocker}>
-              • {item}
-            </Text>
-          ))}
-        </View>
-      ) : (
-        <Banner tone="success">Everything required has been captured.</Banner>
-      )}
-
-      <Field
-        label="Remarks"
-        value={remarks}
-        onChangeText={setRemarks}
-        placeholder="Anything the reviewer should know (optional)"
-        multiline
-      />
-
-      {failure ? <Banner tone="danger">{failure}</Banner> : null}
-
-      <Button
-        label="Submit finally"
-        onPress={submit}
-        loading={busy}
-        disabled={blockers.length > 0}
-        variant="danger"
-      />
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoider>
   );
 }
 

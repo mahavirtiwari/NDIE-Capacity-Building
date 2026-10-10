@@ -4,7 +4,16 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { ApiError } from '../../../src/api/client';
 import { marksheet as marksheetApi } from '../../../src/api/endpoints';
 import type { Marksheet, MarksheetRow, MarksheetRowSave } from '../../../src/api/types';
-import { Banner, Button, Card, EmptyState, Field, Loading, StatusPill } from '../../../src/components/ui';
+import {
+  Banner,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  KeyboardAvoider,
+  Loading,
+  StatusPill,
+} from '../../../src/components/ui';
 import { Picker } from '../../../src/components/Picker';
 import { useSiteText } from '../../../src/content/SiteTextContext';
 import { colors, radius, spacing } from '../../../src/theme';
@@ -242,83 +251,85 @@ function CandidateSheet({
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.sheet}>
-      <View style={styles.sheetHead}>
-        <View style={styles.rowText}>
-          <Text style={styles.sheetName}>{row.name}</Text>
-          <Text style={styles.rowMeta}>{row.applicationNo}</Text>
+    <KeyboardAvoider>
+      <ScrollView contentContainerStyle={styles.sheet}>
+        <View style={styles.sheetHead}>
+          <View style={styles.rowText}>
+            <Text style={styles.sheetName}>{row.name}</Text>
+            <Text style={styles.rowMeta}>{row.applicationNo}</Text>
+          </View>
+          <Pressable onPress={onClose} hitSlop={10}>
+            <Ionicons name="close" size={24} color={colors.ink500} />
+          </Pressable>
         </View>
-        <Pressable onPress={onClose} hitSlop={10}>
-          <Ionicons name="close" size={24} color={colors.ink500} />
-        </Pressable>
-      </View>
 
-      {sheet.trainers.length > 0 ? (
-        <Picker
-          label="Marked by"
-          placeholder="Not recorded"
-          value={trainerId === null ? null : String(trainerId)}
-          options={sheet.trainers.map((trainer) => ({
-            value: String(trainer.id),
-            label: trainer.fullName,
-          }))}
-          onChange={(value) => setTrainerId(Number(value))}
-        />
-      ) : null}
+        {sheet.trainers.length > 0 ? (
+          <Picker
+            label="Marked by"
+            placeholder="Not recorded"
+            value={trainerId === null ? null : String(trainerId)}
+            options={sheet.trainers.map((trainer) => ({
+              value: String(trainer.id),
+              label: trainer.fullName,
+            }))}
+            onChange={(value) => setTrainerId(Number(value))}
+          />
+        ) : null}
 
-      {scheme.hasWritten ? (
-        <Field
-          label="Written examination"
-          keyboardType="number-pad"
-          editable={!row.writtenFromExam}
-          value={written}
-          onChangeText={setWritten}
-          hint={
-            row.writtenFromExam
-              ? `From the paper sat online — ${row.examPercentage}% on the best of ` +
-                `${row.examAttempts} attempt${row.examAttempts === 1 ? '' : 's'}.`
-              : `Out of ${scheme.writtenMarks}. Leave blank if the paper is not marked yet.`
-          }
-        />
-      ) : null}
+        {scheme.hasWritten ? (
+          <Field
+            label="Written examination"
+            keyboardType="number-pad"
+            editable={!row.writtenFromExam}
+            value={written}
+            onChangeText={setWritten}
+            hint={
+              row.writtenFromExam
+                ? `From the paper sat online — ${row.examPercentage}% on the best of ` +
+                  `${row.examAttempts} attempt${row.examAttempts === 1 ? '' : 's'}.`
+                : `Out of ${scheme.writtenMarks}. Leave blank if the paper is not marked yet.`
+            }
+          />
+        ) : null}
 
-      {scheme.hasViva
-        ? sheet.skills.map((skill) => (
-            <Field
-              key={skill.id}
-              label={skill.name}
-              keyboardType="number-pad"
-              editable={!skill.isRetired}
-              value={skills[skill.id] ?? ''}
-              onChangeText={(value) => setSkills((prev) => ({ ...prev, [skill.id]: value }))}
-              hint={
-                skill.isRetired
-                  ? 'Retired — kept for the marks already given.'
-                  : skill.description
-                    ? `Out of ${skill.maxMarks}. ${skill.description}`
-                    : `Out of ${skill.maxMarks}.`
-              }
-            />
-          ))
-        : null}
+        {scheme.hasViva
+          ? sheet.skills.map((skill) => (
+              <Field
+                key={skill.id}
+                label={skill.name}
+                keyboardType="number-pad"
+                editable={!skill.isRetired}
+                value={skills[skill.id] ?? ''}
+                onChangeText={(value) => setSkills((prev) => ({ ...prev, [skill.id]: value }))}
+                hint={
+                  skill.isRetired
+                    ? 'Retired — kept for the marks already given.'
+                    : skill.description
+                      ? `Out of ${skill.maxMarks}. ${skill.description}`
+                      : `Out of ${skill.maxMarks}.`
+                }
+              />
+            ))
+          : null}
 
-      {scheme.hasViva ? (
-        <View style={styles.tally}>
-          <Text style={styles.tallyText}>
-            Viva {vivaTotal} of {scheme.vivaMarks}
-          </Text>
-          <Text style={styles.tallyMeta}>
-            {scheme.vivaPassMarks} needed to clear this section
-          </Text>
-        </View>
-      ) : null}
+        {scheme.hasViva ? (
+          <View style={styles.tally}>
+            <Text style={styles.tallyText}>
+              Viva {vivaTotal} of {scheme.vivaMarks}
+            </Text>
+            <Text style={styles.tallyMeta}>
+              {scheme.vivaPassMarks} needed to clear this section
+            </Text>
+          </View>
+        ) : null}
 
-      {problem ? <Banner tone="danger">{problem}</Banner> : null}
-      {failure ? <Banner tone="danger">{failure}</Banner> : null}
+        {problem ? <Banner tone="danger">{problem}</Banner> : null}
+        {failure ? <Banner tone="danger">{failure}</Banner> : null}
 
-      <Button label="Save marks" onPress={save} loading={busy} disabled={!!problem} />
-      <Button label="Cancel" variant="ghost" onPress={onClose} />
-    </ScrollView>
+        <Button label="Save marks" onPress={save} loading={busy} disabled={!!problem} />
+        <Button label="Cancel" variant="ghost" onPress={onClose} />
+      </ScrollView>
+    </KeyboardAvoider>
   );
 }
 

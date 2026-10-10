@@ -1,20 +1,20 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../src/api/client';
 import { auth } from '../../src/api/endpoints';
 import type { Gender, SignupField, SignupForm, SocialCategory } from '../../src/api/types';
 import { GENDER_OPTIONS, SOCIAL_CATEGORY_OPTIONS } from '../../src/api/types';
 import { CheckboxGroup, Picker, RadioGroup, Switch } from '../../src/components/Picker';
-import { Banner, Button, Card, Field, Subtitle, Title } from '../../src/components/ui';
+import {
+  Banner,
+  Button,
+  Card,
+  Field,
+  KeyboardAvoider,
+  Subtitle,
+  Title,
+} from '../../src/components/ui';
 import { colors, font, spacing } from '../../src/theme';
 import { formatErrorFor, MAX_LENGTHS, UPPERCASE_TYPES } from '../../src/validation/formats';
 
@@ -136,10 +136,7 @@ export default function SignUp() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.flex}
-    >
+    <KeyboardAvoider style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Title>Create your account</Title>
@@ -173,7 +170,7 @@ export default function SignUp() {
           <Button label="Submit" onPress={submit} loading={busy} disabled={loading} />
         </Card>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoider>
   );
 }
 

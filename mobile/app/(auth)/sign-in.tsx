@@ -1,20 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApiError } from '../../src/api/client';
 import { useAuth } from '../../src/auth/AuthContext';
 import { BrandLogo, useBranding } from '../../src/branding/BrandingContext';
-import { Banner, Button, Field } from '../../src/components/ui';
+import { Banner, Button, Field, KeyboardAvoider } from '../../src/components/ui';
 import { useSiteText } from '../../src/content/SiteTextContext';
 import { colors, font, radius, spacing } from '../../src/theme';
 import { isApplicantCode } from '../../src/validation/formats';
@@ -81,10 +73,7 @@ export default function SignIn() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.flex}
-      >
+      <KeyboardAvoider style={styles.flex}>
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
@@ -189,7 +178,7 @@ export default function SignIn() {
             </View>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
     </SafeAreaView>
   );
 }

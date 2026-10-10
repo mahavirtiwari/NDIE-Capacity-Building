@@ -3,7 +3,15 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../src/api/client';
 import { auth } from '../../src/api/endpoints';
-import { Banner, Button, Card, Field, Subtitle, Title } from '../../src/components/ui';
+import {
+  Banner,
+  Button,
+  Card,
+  Field,
+  KeyboardAvoider,
+  Subtitle,
+  Title,
+} from '../../src/components/ui';
 import { useSiteText } from '../../src/content/SiteTextContext';
 import { colors, font, spacing } from '../../src/theme';
 
@@ -96,56 +104,58 @@ export default function Verify() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={styles.header}>
-        <Title>Check your email</Title>
-        <Subtitle>{`We sent a 6 digit code to ${email ?? 'your address'}.`}</Subtitle>
-      </View>
+    <KeyboardAvoider>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.header}>
+          <Title>Check your email</Title>
+          <Subtitle>{`We sent a 6 digit code to ${email ?? 'your address'}.`}</Subtitle>
+        </View>
 
-      {isEmailChange ? (
-        <Banner tone="warning">
-          You changed the address on your account, so it has to be confirmed again before you can
-          sign in. Your applicant ID and password are unchanged.
-        </Banner>
-      ) : applicantCode ? (
-        <Banner tone="info">
-          {`Your applicant ID is ${applicantCode}. Keep it safe — it is how you sign in.`}
-        </Banner>
-      ) : null}
+        {isEmailChange ? (
+          <Banner tone="warning">
+            You changed the address on your account, so it has to be confirmed again before you can
+            sign in. Your applicant ID and password are unchanged.
+          </Banner>
+        ) : applicantCode ? (
+          <Banner tone="info">
+            {`Your applicant ID is ${applicantCode}. Keep it safe — it is how you sign in.`}
+          </Banner>
+        ) : null}
 
-      <Card style={styles.card}>
-        <Field
-          label={text('app.otp.label', 'Verification code')}
-          required
-          value={code}
-          onChangeText={(typed) => setCode(typed.replace(/[^0-9]/g, ''))}
-          placeholder={text('app.otp.placeholder', 'Enter OTP')}
-          keyboardType="number-pad"
-          maxLength={6}
-          style={[styles.codeInput, code.length === 0 && styles.codeInputEmpty]}
-          onSubmitEditing={verify}
-        />
+        <Card style={styles.card}>
+          <Field
+            label={text('app.otp.label', 'Verification code')}
+            required
+            value={code}
+            onChangeText={(typed) => setCode(typed.replace(/[^0-9]/g, ''))}
+            placeholder={text('app.otp.placeholder', 'Enter OTP')}
+            keyboardType="number-pad"
+            maxLength={6}
+            style={[styles.codeInput, code.length === 0 && styles.codeInputEmpty]}
+            onSubmitEditing={verify}
+          />
 
-        {error ? <Banner tone="danger">{error}</Banner> : null}
+          {error ? <Banner tone="danger">{error}</Banner> : null}
 
-        <Button label="Verify email" onPress={verify} loading={busy} />
+          <Button label="Verify email" onPress={verify} loading={busy} />
 
-        <Pressable
-          onPress={resend}
-          disabled={countdown > 0 || resending}
-          accessibilityRole="button"
-          style={styles.resend}
-        >
-          <Text style={[styles.resendText, countdown > 0 && styles.resendDisabled]}>
-            {resending
-              ? 'Sending…'
-              : countdown > 0
-                ? `Resend code in ${countdown}s`
-                : 'Resend code'}
-          </Text>
-        </Pressable>
-      </Card>
-    </ScrollView>
+          <Pressable
+            onPress={resend}
+            disabled={countdown > 0 || resending}
+            accessibilityRole="button"
+            style={styles.resend}
+          >
+            <Text style={[styles.resendText, countdown > 0 && styles.resendDisabled]}>
+              {resending
+                ? 'Sending…'
+                : countdown > 0
+                  ? `Resend code in ${countdown}s`
+                  : 'Resend code'}
+            </Text>
+          </Pressable>
+        </Card>
+      </ScrollView>
+    </KeyboardAvoider>
   );
 }
 

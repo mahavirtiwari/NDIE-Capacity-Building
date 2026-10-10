@@ -1,22 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../src/api/client';
 import { me } from '../../src/api/endpoints';
 import type { FeedbackForm, FeedbackQuestion } from '../../src/api/types';
 import { useResource } from '../../src/api/useResource';
 import { Picker, RadioGroup } from '../../src/components/Picker';
-import { Banner, Button, Card, EmptyState, Field, Loading } from '../../src/components/ui';
+import {
+  Banner,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  KeyboardAvoider,
+  Loading,
+} from '../../src/components/ui';
 import { colors, font, radius, spacing } from '../../src/theme';
 
 /**
@@ -85,10 +84,7 @@ export default function FeedbackFormScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.flex}
-    >
+    <KeyboardAvoider style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Card style={styles.card}>
           <Text style={styles.title}>{form.data.title}</Text>
@@ -124,7 +120,7 @@ export default function FeedbackFormScreen() {
           loading={sending}
         />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoider>
   );
 }
 

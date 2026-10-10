@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../../src/api/client';
 import { participants as participantsApi } from '../../../src/api/endpoints';
 import { GENDERS, SOCIAL_CATEGORIES } from '../../../src/api/types';
 import { Picker } from '../../../src/components/Picker';
-import { Banner, Button, Card, Field } from '../../../src/components/ui';
+import { Banner, Button, Card, Field, KeyboardAvoider } from '../../../src/components/ui';
 import { isEmail, isMobile } from '../../../src/validation/formats';
 import { colors, radius, spacing } from '../../../src/theme';
 import { useWorkshop } from '../../../src/workshop/WorkshopContext';
@@ -81,10 +81,7 @@ export default function OnSpotRegistration() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoider style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {locked ? <Banner tone="info">Finally submitted — read only.</Banner> : null}
 
@@ -198,7 +195,7 @@ export default function OnSpotRegistration() {
           </Card>
         ) : null}
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoider>
   );
 }
 

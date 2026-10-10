@@ -1,10 +1,18 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../src/api/client';
 import { useAuth } from '../../src/auth/AuthContext';
 import { BrandLogo, useBranding } from '../../src/branding/BrandingContext';
-import { Banner, Button, Card, Field, Subtitle, Title } from '../../src/components/ui';
+import {
+  Banner,
+  Button,
+  Card,
+  Field,
+  KeyboardAvoider,
+  Subtitle,
+  Title,
+} from '../../src/components/ui';
 import { colors, spacing } from '../../src/theme';
 
 /**
@@ -42,10 +50,7 @@ export default function SignIn() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.flex}
-    >
+    <KeyboardAvoider style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           {/* The organisation's own mark, served by the API and kept on the
@@ -91,7 +96,7 @@ export default function SignIn() {
           Capacity Building Management System · Ministry of MSME
         </Text>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoider>
   );
 }
 

@@ -1,9 +1,9 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../../src/api/client';
 import { photos, venue as venueApi, type CapturedImage } from '../../../src/api/endpoints';
-import { Banner, Button, Card, Field } from '../../../src/components/ui';
+import { Banner, Button, Card, Field, KeyboardAvoider } from '../../../src/components/ui';
 import { PhotoPicker } from '../../../src/components/PhotoPicker';
 import { useGeoFix } from '../../../src/location/useGeoFix';
 import { colors, radius, spacing } from '../../../src/theme';
@@ -82,10 +82,7 @@ export default function RegisterVenue() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoider style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {locked ? <Banner tone="info">Finally submitted — read only.</Banner> : null}
 
@@ -201,7 +198,7 @@ export default function RegisterVenue() {
 
         {!locked ? <Button label="Save venue" onPress={save} loading={busy} /> : null}
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoider>
   );
 }
 

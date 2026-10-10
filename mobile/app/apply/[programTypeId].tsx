@@ -4,9 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   BackHandler,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -37,6 +35,7 @@ import {
   Card,
   EmptyState,
   Field,
+  KeyboardAvoider,
   Loading,
   StatusPill,
   inr,
@@ -291,10 +290,7 @@ export default function Apply() {
     };
 
     return (
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.flex}
-      >
+      <KeyboardAvoider style={styles.flex}>
         <Stack.Screen options={screenOptions} />
 
         {/* Keyed on the section, so moving between sections remounts the
@@ -320,7 +316,7 @@ export default function Apply() {
           />
           <Button label="Back to sections" variant="secondary" onPress={() => leave(null)} />
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
     );
   }
 
@@ -335,10 +331,7 @@ export default function Apply() {
   const showFee = gross > 0 || (fee.data?.components.length ?? 0) > 0;
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.flex}
-    >
+    <KeyboardAvoider style={styles.flex}>
       {/* headerLeft is named even when empty: options are merged, so the
           arrow an open section installed would otherwise survive the return
           to this list and trap the applicant here. */}
@@ -599,7 +592,7 @@ export default function Apply() {
           </Pressable>
         </Modal>
       ) : null}
-    </KeyboardAvoidingView>
+    </KeyboardAvoider>
   );
 }
 

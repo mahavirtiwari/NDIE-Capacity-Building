@@ -1,16 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../src/api/client';
 import { auth as authApi, lookups, me } from '../../src/api/endpoints';
 import type { LookupItem, ProfileStanding } from '../../src/api/types';
@@ -18,7 +9,16 @@ import { useResource } from '../../src/api/useResource';
 import { useAuth } from '../../src/auth/AuthContext';
 import { useBranding } from '../../src/branding/BrandingContext';
 import { Picker } from '../../src/components/Picker';
-import { Banner, Button, Card, DetailRow, Field, Loading, StatusPill } from '../../src/components/ui';
+import {
+  Banner,
+  Button,
+  Card,
+  DetailRow,
+  Field,
+  KeyboardAvoider,
+  Loading,
+  StatusPill,
+} from '../../src/components/ui';
 import { colors, font, radius, spacing } from '../../src/theme';
 import { isEmail, isMobile } from '../../src/validation/formats';
 
@@ -194,10 +194,7 @@ export default function Profile() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.flex}
-    >
+    <KeyboardAvoider style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Card style={styles.card}>
           <View style={styles.identity}>
@@ -360,7 +357,7 @@ export default function Profile() {
           {branding.supportEmail ? `\n${branding.supportEmail}` : ''}
         </Text>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoider>
   );
 }
 

@@ -1,16 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../src/api/client';
 import { me } from '../src/api/endpoints';
 import type {
@@ -34,6 +25,7 @@ import {
   Button,
   Card,
   EmptyState,
+  KeyboardAvoider,
   Loading,
   StatusPill,
   shortDate,
@@ -649,10 +641,7 @@ function ProfileFor({
     };
 
     return (
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.flex}
-      >
+      <KeyboardAvoider style={styles.flex}>
         <Stack.Screen options={screenOptions} />
 
         <ScrollView
@@ -680,7 +669,7 @@ function ProfileFor({
           />
           <Button label="Back to sections" variant="secondary" onPress={backToSections} />
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
     );
   }
 
@@ -693,10 +682,7 @@ function ProfileFor({
   const waiting = where.status === 'Submitted' || where.status === 'UnderScrutiny';
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.flex}
-    >
+    <KeyboardAvoider style={styles.flex}>
       <Stack.Screen options={screenOptions} />
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -893,7 +879,7 @@ function ProfileFor({
         ) : null}
 
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoider>
   );
 }
 

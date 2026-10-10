@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../../src/api/client';
 import {
   photos,
@@ -10,7 +10,7 @@ import {
 import type { SessionTopic } from '../../../src/api/types';
 import { Picker } from '../../../src/components/Picker';
 import { PhotoPicker } from '../../../src/components/PhotoPicker';
-import { Banner, Button, Card, Field, Loading } from '../../../src/components/ui';
+import { Banner, Button, Card, Field, KeyboardAvoider, Loading } from '../../../src/components/ui';
 import { useGeoFix } from '../../../src/location/useGeoFix';
 import { colors, radius, spacing } from '../../../src/theme';
 import { useWorkshop } from '../../../src/workshop/WorkshopContext';
@@ -91,10 +91,7 @@ export default function SessionManagement() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoider style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {locked ? <Banner tone="info">Finally submitted — read only.</Banner> : null}
 
@@ -179,7 +176,7 @@ export default function SessionManagement() {
           </Card>
         ) : null}
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoider>
   );
 }
 

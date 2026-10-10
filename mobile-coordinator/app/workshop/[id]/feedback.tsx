@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ApiError } from '../../../src/api/client';
 import { participants as participantsApi } from '../../../src/api/endpoints';
-import { Banner, Button, Card, EmptyState, Field } from '../../../src/components/ui';
+import { Banner, Button, Card, EmptyState, Field, KeyboardAvoider } from '../../../src/components/ui';
 import { colors, radius, spacing } from '../../../src/theme';
 import { useWorkshop } from '../../../src/workshop/WorkshopContext';
 
@@ -60,10 +60,7 @@ export default function Feedback() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoider style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {locked ? <Banner tone="info">Finally submitted — read only.</Banner> : null}
 
@@ -120,7 +117,7 @@ export default function Feedback() {
           </Card>
         ) : null}
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoider>
   );
 }
 

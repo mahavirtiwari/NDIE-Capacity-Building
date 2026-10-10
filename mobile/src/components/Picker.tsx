@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { colors, font, radius, spacing } from '../theme';
+import { useKeyboardHeight } from './ui';
 
 export interface PickerOption {
   value: string;
@@ -47,6 +48,11 @@ export function Picker({
   searchable,
   onChange,
 }: PickerProps) {
+  /* The dialog is centred in the window, and the window does not
+     shrink for the keyboard any more. Centring it in what is left
+     keeps the search box and the first options reachable. */
+  const keyboard = useKeyboardHeight();
+
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState('');
 
@@ -89,7 +95,10 @@ export function Picker({
       ) : null}
 
       <Modal visible={open} animationType="fade" transparent onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
+        <Pressable
+          style={[styles.backdrop, { paddingBottom: spacing.lg + keyboard }]}
+          onPress={() => setOpen(false)}
+        >
           <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>{label}</Text>

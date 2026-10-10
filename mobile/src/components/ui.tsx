@@ -1,12 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
-import { forwardRef, useState, type ReactNode } from 'react';
+import { forwardRef, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
+  type KeyboardEvent,
+  type StyleProp,
   type TextInputProps,
   type ViewStyle,
 } from 'react-native';
@@ -282,7 +286,103 @@ export const shortDateTime = (value?: string | null): string => {
   });
 };
 
+/* ---------------------------------------------------------- the keyboard */
+
+/**
+ * Keeps the keyboard off the screen below it. A drop-in for
+ * KeyboardAvoidingView, which no longer does the job on Android.
+ *
+ * Android used to do this for us. Up to Android 14 the window shrank when
+ * the keyboard opened — windowSoftInputMode=adjustResize — so a ScrollView
+ * inside it simply had less room, and Android's own ScrollView scrolls the
+ * focused child back into view whenever its size changes. Under the
+ * edge-to-edge display that Android 15 requires, and that this SDK turns on
+ * for every version, the window does not shrink: the keyboard is drawn over
+ * an app that is still full height and nothing moves. Which is exactly what
+ * it looks like — you type, and cannot see what you typed.
+ *
+ * KeyboardAvoidingView did not cover it. Every screen here passed
+ * `behavior={Platform.OS === 'ios' ? 'padding' : undefined}`, and with no
+ * behaviour it renders a plain View and avoids nothing at all. Given
+ * `padding` it does work, but from its own onLayout box, which is measured
+ * against its parent rather than the screen — so under a navigation header
+ * or above a tab bar it is out by the height of them, in the direction that
+ * leaves the field covered.
+ *
+ * So this measures what is actually true: where this screen ends in window
+ * coordinates, and where the keyboard starts. The overlap is held open below
+ * the content, which gives back the shrinking viewport the platform used to
+ * provide — and with it the scrolling-to-the-focused-field that came free
+ * with it, both when the keyboard opens and when focus moves between fields
+ * while it is already up.
+ */
+export function KeyboardAvoider({
+  children,
+  style,
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const frame = useRef<View>(null);
+  const [overlap, setOverlap] = useState(0);
+
+  useEffect(() => {
+    const opened = (event: KeyboardEvent) => {
+      /* This wrapper keeps its full height whatever the keyboard does —
+         the space comes out of the content inside it — so the same
+         measurement means the same thing every time it is taken. */
+      frame.current?.measureInWindow((_x, y, _width, height) => {
+        setOverlap(Math.max(0, y + height - event.endCoordinates.screenY));
+      });
+    };
+    const closed = () => setOverlap(0);
+
+    /* iOS says the keyboard is coming and the layout can travel with it.
+       Android only says so once it has arrived. */
+    const early = Platform.OS === 'ios';
+    const subscriptions = [
+      Keyboard.addListener(early ? 'keyboardWillShow' : 'keyboardDidShow', opened),
+      Keyboard.addListener(early ? 'keyboardWillHide' : 'keyboardDidHide', closed),
+    ];
+    return () => subscriptions.forEach((subscription) => subscription.remove());
+  }, []);
+
+  return (
+    /* collapsable={false} or Android may drop this View from the native
+       tree as a layout-only wrapper, and measuring it then answers for
+       whatever took its place. */
+    <View ref={frame} style={[styles.avoider, style]} collapsable={false}>
+      <View style={styles.avoider}>{children}</View>
+      <View style={{ height: overlap }} />
+    </View>
+  );
+}
+
+/**
+ * How much of the window the keyboard is covering, in points.
+ *
+ * For the places that are not a whole screen — a dialog centred in the
+ * window, which has to be centred in what is left of it instead.
+ */
+export function useKeyboardHeight(): number {
+  const [height, setHeight] = useState(0);
+
+  useEffect(() => {
+    const early = Platform.OS === 'ios';
+    const subscriptions = [
+      Keyboard.addListener(early ? 'keyboardWillShow' : 'keyboardDidShow', (event: KeyboardEvent) =>
+        setHeight(event.endCoordinates.height),
+      ),
+      Keyboard.addListener(early ? 'keyboardWillHide' : 'keyboardDidHide', () => setHeight(0)),
+    ];
+    return () => subscriptions.forEach((subscription) => subscription.remove());
+  }, []);
+
+  return height;
+}
+
 const styles = StyleSheet.create({
+  avoider: { flex: 1 },
   title: { fontSize: font.xl, fontWeight: '700', color: colors.ink900 },
   subtitle: { fontSize: font.sm, color: colors.ink500, marginTop: 2 },
   muted: { fontSize: font.sm, color: colors.ink500, textAlign: 'center' },
