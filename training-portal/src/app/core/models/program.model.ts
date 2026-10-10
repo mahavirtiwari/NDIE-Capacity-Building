@@ -68,6 +68,9 @@ export interface ProgramParticipant {
   mobile: string;
   enrolledOn: string;
   attendancePercent: number;
+  /** The two halves as well as the total, where the type marks both. */
+  writtenMarks?: number | null;
+  vivaMarks?: number | null;
   examScore?: number | null;
   result?: 'Pass' | 'Fail' | 'Pending';
   certificateNo?: string | null;

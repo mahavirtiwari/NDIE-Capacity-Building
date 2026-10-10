@@ -29,7 +29,10 @@ namespace Ntms.Infrastructure.Services;
 /// correction, it is a contradiction — the certificate is revoked first.</item>
 /// </list>
 /// </summary>
-public class MarksheetService(NtmsDbContext db, ICurrentUser currentUser)
+public class MarksheetService(
+    NtmsDbContext db,
+    ICurrentUser currentUser,
+    CertificateService certificates)
 {
     /* ------------------------------------------------------------ access */
 
@@ -361,6 +364,15 @@ public class MarksheetService(NtmsDbContext db, ICurrentUser currentUser)
         }
 
         await db.SaveChangesAsync(ct);
+
+        /* The other half of an assessment. A type marked on a viva as well
+           as a paper is only finished when both are in, and this is the
+           one that finishes it more often than not. */
+        foreach (var participant in participants)
+        {
+            await certificates.IssueIfDueAsync(participant.Id, ct);
+        }
+
         return await GetAsync(programmeId, ct);
     }
 

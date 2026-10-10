@@ -762,6 +762,8 @@ public static class DtoMappings
                     Mobile = p.Applicant?.Mobile ?? string.Empty,
                     EnrolledOn = p.EnrolledOn,
                     AttendancePercent = p.AttendancePercent,
+                    WrittenMarks = p.WrittenMarks,
+                    VivaMarks = p.VivaMarks,
                     ExamScore = p.ExamScore,
                     Result = p.Result.ToApi(),
                     CertificateNo = p.CertificateNo,

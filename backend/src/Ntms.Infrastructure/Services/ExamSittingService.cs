@@ -20,7 +20,10 @@ namespace Ntms.Infrastructure.Services;
 /// that expires — or a phone that dies in the last minute — still counts
 /// everything the candidate had answered.
 /// </summary>
-public class ExamSittingService(NtmsDbContext db, ResultRecorder results)
+public class ExamSittingService(
+    NtmsDbContext db,
+    ResultRecorder results,
+    CertificateService certificates)
 {
     /* ------------------------------------------------------------ access */
 
@@ -520,6 +523,14 @@ public class ExamSittingService(NtmsDbContext db, ResultRecorder results)
 
         await results.RecomputeAsync(participant, ct);
         await db.SaveChangesAsync(ct);
+
+        /* The paper is marked, so the candidate may now be owed something.
+           Issued and e-mailed without anybody pressing a button, under the
+           policy the programme type was given when it was set up. Silent
+           where nothing is due yet — a viva still to be marked, or a
+           programme not yet closed — and it cannot fail the submission,
+           which is the candidate's and already saved. */
+        await certificates.IssueIfDueAsync(participant.Id, ct);
 
         return ToResult(attempt, participant);
     }

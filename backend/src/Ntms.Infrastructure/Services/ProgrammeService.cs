@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Ntms.Application.Common;
 using Ntms.Application.Contracts;
 using Ntms.Domain.Common;
@@ -16,7 +17,9 @@ public class ProgrammeService(
     ICurrentUser currentUser,
     DelegationGuard delegation,
     INotificationService notifications,
-    NotificationBroadcastService broadcasts)
+    NotificationBroadcastService broadcasts,
+    CertificateService certificates,
+    ILogger<ProgrammeService> logger)
 {
     /* Scoped at the source, so no read path can forget it. */
     private IQueryable<Programme> Base => db.Programmes.AsNoTracking()
@@ -261,6 +264,28 @@ public class ProgrammeService(
         CloseIfFull(entity);
 
         await db.SaveChangesAsync(ct);
+
+        /* Conducted is the last thing standing between a marked candidate
+           and the certificate their programme type says they have earned.
+           Everyone whose result was already in gets theirs now, issued and
+           e-mailed; anybody marked afterwards is picked up as they are
+           marked. Certificates are not worth failing the closure over, so
+           a run that cannot finish is logged and the batch still closes —
+           the Certificates tab issues what is left. */
+        if (target == ProgramStatus.Conducted)
+        {
+            try
+            {
+                await certificates.IssueDueAsync(entity.Id, ct);
+            }
+            catch (Exception caught)
+            {
+                logger.LogError(
+                    caught,
+                    "Program {Programme} was marked conducted but its certificates could not be issued.",
+                    entity.Id);
+            }
+        }
 
         /* Permitted means open, and a batch nobody is told about fills up
            with whoever happened to look. Narrowed to the track it belongs

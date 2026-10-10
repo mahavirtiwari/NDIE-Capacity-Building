@@ -381,6 +381,16 @@ public class ProgrammeParticipantDto
     public string Mobile { get; set; } = string.Empty;
     public DateOnly EnrolledOn { get; set; }
     public decimal AttendancePercent { get; set; }
+
+    /// <summary>
+    /// The two halves as well as the total, for a type that marks both.
+    ///
+    /// Each has its own bar to clear, so a single total hides which half
+    /// a candidate failed on — which is the question asked of the
+    /// register rather than of the marksheet.
+    /// </summary>
+    public decimal? WrittenMarks { get; set; }
+    public decimal? VivaMarks { get; set; }
     public decimal? ExamScore { get; set; }
     public string Result { get; set; } = "Pending";
     public string? CertificateNo { get; set; }

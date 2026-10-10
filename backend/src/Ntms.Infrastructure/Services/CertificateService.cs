@@ -1,5 +1,7 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Ntms.Application.Common;
 using Ntms.Application.Contracts;
 using Ntms.Domain.Common;
@@ -24,7 +26,9 @@ public class CertificateService(
     NtmsDbContext db,
     ICurrentUser currentUser,
     CertificateTemplateStore templates,
-    INotificationService notifications)
+    INotificationService notifications,
+    IConfiguration config,
+    ILogger<CertificateService> logger)
 {
     private IQueryable<Certificate> Base => db.Certificates.AsNoTracking()
         .Include(c => c.IssuedBy);
@@ -190,6 +194,127 @@ public class CertificateService(
         }
 
         return await ProgrammeSummaryAsync(programmeId, ct);
+    }
+
+    /* ------------------------------------------------- issuing by itself */
+
+    /// <summary>
+    /// Issues to one participant if their record now entitles them to it,
+    /// and e-mails it.
+    ///
+    /// Quiet on purpose. This runs off the back of somebody submitting an
+    /// examination paper or a trainer saving a marksheet, and neither of
+    /// those should fail because a certificate was not due yet — not due is
+    /// the ordinary case. {@link Assess} decides, so the rule is the same
+    /// one the screen shows and the button applies.
+    /// </summary>
+    public async Task<Certificate?> IssueIfDueAsync(int participantId, CancellationToken ct)
+    {
+        var participant = await db.ProgrammeParticipants
+            .Include(p => p.Applicant)
+            .FirstOrDefaultAsync(p => p.Id == participantId, ct);
+        if (participant is null) return null;
+
+        var programme = await LoadProgrammeAsync(participant.ProgrammeId, ct);
+        var live = await db.Certificates
+            .FirstOrDefaultAsync(c => c.ParticipantId == participantId && c.RevokedOn == null, ct);
+
+        var assessment = Assess(programme, participant, programme.ProgramType!.CertificationPolicy, live);
+        if (!assessment.CanIssue || assessment.Certificate is not null) return null;
+
+        var certificate = await CreateAsync(
+            programme, participant, Enum.Parse<CertificateKind>(assessment.Kind!), ct);
+
+        await EmailAsync(certificate, participant.Applicant, ct);
+        return certificate;
+    }
+
+    /// <summary>
+    /// The same, for everyone on a programme who has become due.
+    ///
+    /// For the other moment a certificate can first fall due: a programme
+    /// being marked conducted, where the results were already in and the
+    /// only thing standing in the way was the programme's own status.
+    /// </summary>
+    public async Task<int> IssueDueAsync(int programmeId, CancellationToken ct)
+    {
+        var programme = await LoadProgrammeAsync(programmeId, ct);
+        var policy = programme.ProgramType!.CertificationPolicy;
+        if (policy == CertificationPolicy.None) return 0;
+
+        var live = await db.Certificates
+            .Where(c => c.ProgrammeId == programmeId && c.RevokedOn == null)
+            .ToListAsync(ct);
+
+        var issued = 0;
+        foreach (var participant in programme.Participants)
+        {
+            var already = live.FirstOrDefault(c => c.ParticipantId == participant.Id);
+            var assessment = Assess(programme, participant, policy, already);
+            if (!assessment.CanIssue || assessment.Certificate is not null) continue;
+
+            var certificate = await CreateAsync(
+                programme, participant, Enum.Parse<CertificateKind>(assessment.Kind!), ct);
+            await EmailAsync(certificate, participant.Applicant, ct);
+            issued++;
+        }
+
+        return issued;
+    }
+
+    /// <summary>
+    /// Sends the holder their certificate and where to verify it.
+    ///
+    /// Never throws. A certificate that was awarded and not e-mailed is a
+    /// certificate — it is on the record, it verifies, and Resend will send
+    /// it again. One that was refused because the mail server was down
+    /// would be neither.
+    /// </summary>
+    private async Task EmailAsync(
+        Certificate certificate, Applicant? applicant, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(applicant?.Email)) return;
+
+        try
+        {
+            var where = PublicBaseUrl();
+            var verifyUrl = string.IsNullOrWhiteSpace(where)
+                ? string.Empty
+                : $"{where.TrimEnd('/')}/verify?number={Uri.EscapeDataString(certificate.Number)}";
+
+            await notifications.SendCertificateAsync(
+                certificate, applicant.Email, applicant.FullName, verifyUrl, ct);
+        }
+        catch (Exception caught)
+        {
+            logger.LogWarning(
+                caught,
+                "Certificate {Number} was issued but could not be e-mailed to {Participant}.",
+                certificate.Number, certificate.ParticipantId);
+        }
+    }
+
+    /// <summary>
+    /// Where the verification link in an automatic e-mail points.
+    ///
+    /// From configuration rather than from the request that happened to
+    /// trigger it. An address in a message outlives the request by years,
+    /// and this layer deliberately knows nothing about HTTP — which is the
+    /// same reason ICurrentUser exists. Set Site:PublicUrl; failing that
+    /// the portal's own origin, which the deployment already configures
+    /// for CORS and which is the address the certificate is verified at.
+    ///
+    /// With neither, the message goes without a link rather than with a
+    /// wrong one. Resend, which is driven by a real request, still sends
+    /// the full thing.
+    /// </summary>
+    private string PublicBaseUrl()
+    {
+        var configured = config["Site:PublicUrl"];
+        if (!string.IsNullOrWhiteSpace(configured)) return configured;
+
+        return config.GetSection("Cors:AllowedOrigins").Get<string[]>()?.FirstOrDefault()
+            ?? string.Empty;
     }
 
     private async Task<Certificate> CreateAsync(

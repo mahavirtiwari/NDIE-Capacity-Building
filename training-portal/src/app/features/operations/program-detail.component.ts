@@ -7,6 +7,7 @@ import {
   Certificate,
   PROGRAM_STATUS_LABELS,
   Program,
+  ProgramType,
   ProgramSession,
   ProgrammeCertificateSummary,
   ProgrammeMonitoring,
@@ -16,6 +17,7 @@ import { ConfirmService } from '../../shared/components/confirm.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { SiteTextService } from '../../core/services/site-text.service';
+import { ProgramTypeService } from '../../core/services/masters.service';
 import { ProgramService } from '../../core/services/workflow.service';
 import { IconComponent } from '../../shared/components/icon.component';
 import { MarksheetComponent } from './marksheet.component';
@@ -598,9 +600,23 @@ type Tab =
                   <th style="width: 150px">Mobile</th>
                   <th style="width: 170px">Application no.</th>
                   <th style="width: 120px" class="text-center">Attendance</th>
-                  <th style="width: 100px" class="text-center">Score</th>
+                  <!-- What a type examines decides what there is to show.
+                       A written-and-viva type is marked in two parts that
+                       each have to clear their own bar, so printing one
+                       total hides the half somebody failed on. -->
+                  @if (scheme(); as marks) {
+                    @if (marks.hasWritten && marks.hasViva) {
+                      <th style="width: 95px" class="text-center">Written</th>
+                      <th style="width: 95px" class="text-center">Viva</th>
+                      <th style="width: 95px" class="text-center">Total</th>
+                    } @else if (marks.kind !== 'None') {
+                      <th style="width: 110px" class="text-center">Score</th>
+                    }
+                  }
                   <th style="width: 110px">Result</th>
-                  <th style="width: 190px">Certificate</th>
+                  @if (awardsCertificates()) {
+                    <th style="width: 190px">Certificate</th>
+                  }
                 </tr>
               </thead>
               <tbody>
@@ -613,17 +629,49 @@ type Tab =
                     <td class="cell-muted tabular">{{ participant.mobile || '—' }}</td>
                     <td class="cell-muted">{{ participant.applicationNo }}</td>
                     <td class="text-center tabular">{{ participant.attendancePercent }}%</td>
-                    <td class="text-center tabular">{{ participant.examScore ?? '—' }}</td>
+                    @if (scheme(); as marks) {
+                      @if (marks.hasWritten && marks.hasViva) {
+                        <!-- The split is on the marksheet, which is the
+                             screen for marking. Here it is read-only and
+                             out of the marks this type sets. -->
+                        <td class="text-center tabular">
+                          {{ participant.writtenMarks ?? '—' }}
+                          <span class="text-xs text-muted">/ {{ marks.writtenMarks }}</span>
+                        </td>
+                        <td class="text-center tabular">
+                          {{ participant.vivaMarks ?? '—' }}
+                          <span class="text-xs text-muted">/ {{ marks.vivaMarks }}</span>
+                        </td>
+                        <td class="text-center tabular">
+                          <strong>{{ participant.examScore ?? '—' }}</strong>
+                          <!-- Non-breaking, because the whitespace between
+                               two elements is stripped at compile time and
+                               the total read "73/ 100". -->
+                          <span class="text-xs text-muted">&nbsp;/ {{ marks.totalMarks }}</span>
+                        </td>
+                      } @else if (marks.kind !== 'None') {
+                        <td class="text-center tabular">
+                          {{ participant.examScore ?? '—' }}
+                          @if (marks.totalMarks > 0) {
+                            <span class="text-xs text-muted">/ {{ marks.totalMarks }}</span>
+                          }
+                        </td>
+                      }
+                    }
                     <td>
                       @if (participant.result) {
                         <app-status-badge [value]="participant.result" />
                       }
                     </td>
-                    <td class="cell-muted">{{ participant.certificateNo || 'Not issued' }}</td>
+                    @if (awardsCertificates()) {
+                      <td class="cell-muted">{{ participant.certificateNo || 'Not issued' }}</td>
+                    }
                   </tr>
                 } @empty {
                   <tr>
-                    <td colspan="7" class="cell-muted text-center">No participants enrolled yet.</td>
+                    <td [attr.colspan]="participantColumns()" class="cell-muted text-center">
+                      No participants enrolled yet.
+                    </td>
                   </tr>
                 }
               </tbody>
@@ -805,6 +853,34 @@ export class ProgramDetailComponent {
    * not fetched here — each one fetches itself when it is rendered.
    */
   protected readonly field = signal<ProgrammeMonitoring | null>(null);
+
+  /* ------------------------------------------- what this type examines */
+
+  /**
+   * The program type behind this batch.
+   *
+   * Read for its evaluation scheme and its award policy, which decide
+   * what the participants register has columns for. The batch itself
+   * carries only the type's id and name: what the type is *for* lives on
+   * the type, and copying it onto every programme would be two answers to
+   * one question the day somebody changed it.
+   */
+  private readonly programTypes = inject(ProgramTypeService);
+  protected readonly programType = signal<ProgramType | null>(null);
+
+  protected readonly scheme = computed(() => this.programType()?.evaluation ?? null);
+
+  /** Whether anything is awarded at the end of it. */
+  protected readonly awardsCertificates = computed(
+    () => (this.programType()?.certificationPolicy ?? 'None') !== 'None',
+  );
+
+  /** How wide the empty row has to be, which depends on both of the above. */
+  protected readonly participantColumns = computed(() => {
+    const marks = this.scheme();
+    const exam = !marks || marks.kind === 'None' ? 0 : marks.hasWritten && marks.hasViva ? 3 : 1;
+    return 5 + exam + (this.awardsCertificates() ? 1 : 0);
+  });
 
   /** The venue's own photographs, in the order somebody would look. */
   protected readonly venuePhotos = computed(() => {
@@ -1031,7 +1107,21 @@ export class ProgramDetailComponent {
       const id = Number(this.id());
       if (!id) return;
 
-      this.service.getById(id).subscribe((row) => this.programme.set(row));
+      this.service.getById(id).subscribe((row) => {
+        this.programme.set(row);
+
+        /* Once the batch says which type it is. Nothing on the page waits
+           for this: the register renders without the exam columns and
+           gains them when the answer lands, which is the right way round
+           for a column that may not exist at all. */
+        this.programType.set(null);
+        if (row.programTypeId) {
+          this.programTypes.getById(row.programTypeId).subscribe({
+            next: (type) => this.programType.set(type),
+            error: () => this.programType.set(null),
+          });
+        }
+      });
 
       /* Alongside, not after. The two are independent reads and the page
          is useful with either: the office's record draws the header and

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Ntms.Application.Common;
 using Ntms.Application.Contracts;
 using Ntms.Domain.Common;
@@ -29,7 +30,8 @@ public class MonitoringService(
     NtmsDbContext db,
     ICurrentUser currentUser,
     MonitoringPhotoStore photos,
-    Microsoft.Extensions.Logging.ILogger<MonitoringService> logger)
+    CertificateService certificates,
+    ILogger<MonitoringService> logger)
 {
     /// <summary>
     /// What the coordinator's handset knew when it took the photograph.
@@ -826,6 +828,26 @@ public class MonitoringService(
                check above — two taps on a slow connection. Report it as the
                conflict it is rather than a server error. */
             throw AppException.Conflict("This program has already been submitted.");
+        }
+
+        /* Conducted, so anybody already marked has earned whatever the
+           programme type awards. This is where a batch is actually closed
+           — the portal's own status change is the rarer path — so it is
+           where the certificates fall due and go out.
+
+           Guarded: the submission is the coordinator's and is saved. A
+           certificate run that cannot finish must not report their work
+           as failed, and the Certificates tab issues what is left. */
+        try
+        {
+            await certificates.IssueDueAsync(programmeId, ct);
+        }
+        catch (Exception caught)
+        {
+            logger.LogError(
+                caught,
+                "Program {Programme} was submitted but its certificates could not be issued.",
+                programmeId);
         }
 
         return new ProgrammeSubmissionDto
