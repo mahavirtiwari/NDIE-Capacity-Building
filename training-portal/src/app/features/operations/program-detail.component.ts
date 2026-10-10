@@ -594,74 +594,25 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
          Thirteen facts in one grid read as thirteen unrelated facts: the
          eye has nothing to group by, so finding the coordinator means
          reading all of them. Grouped under headings it is four short
-         lists, and a reader goes to the one they want. */
+         lists, and a reader goes to the one they want.
+
+         .panel and .fact are in the shared sheet; only the grid they sit
+         in belongs to this screen. */
       .record {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 0.9rem;
         padding: 1rem;
       }
-      /* Each panel draws its own edge. Hairlines made from the grid's
-         background showing through are tidier until the last row is short,
-         and then the empty cells are grey rectangles that read as a
-         rendering fault. Five panels will leave a gap at some width. */
-      .panel {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        overflow: hidden;
-      }
-      .panel--accent { background: var(--brand-50); border-color: var(--brand-200); }
-
-      .panel__head {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        margin: 0;
-        padding: 0.6rem 1rem;
-        font-size: var(--fs-xs);
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--brand-700);
-        background: var(--brand-50);
-        border-bottom: 1px solid var(--border);
-      }
-      .panel--accent .panel__head {
-        background: var(--brand-100);
-        border-bottom-color: var(--brand-200);
-      }
-      .panel__body {
-        padding: 0.85rem 1rem 1rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.7rem;
-      }
-
-      .fact { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
-      .fact__term {
-        font-size: var(--fs-xs);
-        color: var(--ink-500);
-        font-weight: 600;
-      }
-      .fact__value {
-        font-size: var(--fs-base);
-        color: var(--ink-900);
-        word-break: break-word;
-        display: flex;
-        flex-wrap: wrap;
-        align-items: baseline;
-        gap: 0.35rem;
-      }
 
       /* Seven columns do not fit a narrow window, and a table told to fit
          anyway takes the width out of the one flexible column — which is
-         the session title, the column the table is read for. Given a floor
-         it scrolls sideways in .table-wrap instead. The floor has to clear
-         the sum of the fixed columns with room to spare, or the flexible
-         one is still the only thing left to give; at 900 a long title
-         takes a second line on a narrow window and one on a full one,
-         which beats the four it was taking. */
+         the session title, the column the table is read for. Given a
+         floor it scrolls sideways in .table-wrap instead. The floor has to
+         clear the sum of the fixed columns with room to spare, or the
+         flexible one is still the only thing left to give; at 900 a long
+         title takes a second line on a narrow window and one on a full
+         one, which beats the four it was taking. */
       .table--wide { min-width: 900px; }
     `,
     `

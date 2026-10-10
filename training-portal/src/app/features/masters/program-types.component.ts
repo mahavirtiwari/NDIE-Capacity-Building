@@ -189,63 +189,120 @@ const COLUMNS: ColumnDef[] = [
       <app-modal
         [title]="row.name"
         subtitle="How this track is configured. Change any of it from Edit."
-        size="sm"
+        size="md"
         (closed)="configOf.set(null)"
       >
-        <div class="dl">
-          <div>
-            <dt>Examination</dt>
-            <dd>
-              {{ row.evaluation.kindLabel || row.evaluation.kind }}
-              <!-- Marks only once there are some. A track whose paper has not
-                   been set yet said "0 marks, pass 0", which reads as a
-                   setting rather than as nothing set. -->
-              @if (row.evaluation.totalMarks > 0) {
-                · {{ row.evaluation.totalMarks }} marks, pass {{ row.evaluation.overallPassMarks }}
-              } @else if (row.evaluation.kind !== 'None') {
-                · marks not set
+        <div class="config">
+          <section class="panel">
+            <h2 class="panel__head"><app-icon name="clipboard" [size]="14" /> Assessment</h2>
+            <div class="panel__body">
+              <div class="fact">
+                <span class="fact__term">Examination</span>
+                <span class="fact__value">
+                  {{ row.evaluation.kindLabel || row.evaluation.kind }}
+                  <!-- Marks only once there are some. A track whose paper has
+                       not been set yet said "0 marks, pass 0", which reads as
+                       a setting rather than as nothing set. -->
+                  @if (row.evaluation.totalMarks > 0) {
+                    <span class="text-xs text-muted tabular">
+                      {{ row.evaluation.totalMarks }} marks, pass
+                      {{ row.evaluation.overallPassMarks }}
+                    </span>
+                  } @else if (row.evaluation.kind !== 'None') {
+                    <span class="text-xs text-muted">marks not set</span>
+                  }
+                </span>
+              </div>
+
+              <!-- The split is only worth printing where there is a split.
+                   A written-only track said "60 marks, pass 42" twice over,
+                   once as the examination and once as its only part. -->
+              @if (splitWorthShowing(row)) {
+                @if (row.evaluation.hasWritten && row.evaluation.writtenMarks > 0) {
+                  <div class="fact">
+                    <span class="fact__term">Written</span>
+                    <span class="fact__value tabular">
+                      {{ row.evaluation.writtenMarks }} marks, pass
+                      {{ row.evaluation.writtenPassMarks }}
+                    </span>
+                  </div>
+                }
+                @if (row.evaluation.hasViva && row.evaluation.vivaMarks > 0) {
+                  <div class="fact">
+                    <span class="fact__term">Viva or practical</span>
+                    <span class="fact__value tabular">
+                      {{ row.evaluation.vivaMarks }} marks, pass
+                      {{ row.evaluation.vivaPassMarks }}
+                      @if (row.skillCount) {
+                        <span class="text-xs text-muted">{{ row.skillCount }} skills</span>
+                      }
+                    </span>
+                  </div>
+                }
               }
-            </dd>
-          </div>
-          @if (row.evaluation.hasWritten && row.evaluation.writtenMarks > 0) {
-            <div>
-              <dt>Written</dt>
-              <dd>{{ row.evaluation.writtenMarks }} marks, pass {{ row.evaluation.writtenPassMarks }}</dd>
+
+              <div class="fact">
+                <span class="fact__term">Sitting it</span>
+                <span class="fact__value">
+                  @if (row.isExamMandatory) {
+                    <span class="chip chip--warn">Mandatory</span>
+                  } @else {
+                    <span class="chip chip--muted">Optional</span>
+                  }
+                </span>
+              </div>
             </div>
-          }
-          @if (row.evaluation.hasViva && row.evaluation.vivaMarks > 0) {
-            <div>
-              <dt>Viva or practical</dt>
-              <dd>
-                {{ row.evaluation.vivaMarks }} marks, pass {{ row.evaluation.vivaPassMarks }}
-                @if (row.skillCount) { · {{ row.skillCount }} skills }
-              </dd>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel__head"><app-icon name="award" [size]="14" /> Certificate</h2>
+            <div class="panel__body">
+              <div class="fact">
+                <span class="fact__term">Awarded to</span>
+                <span class="fact__value">
+                  {{ row.certificationPolicyLabel || row.certificationPolicy }}
+                </span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Valid for</span>
+                <span class="fact__value tabular">{{ row.certificateValidityMonths }} months</span>
+              </div>
             </div>
-          }
-          <div>
-            <dt>Examination mandatory</dt>
-            <dd>{{ row.isExamMandatory ? 'Yes' : 'No' }}</dd>
-          </div>
-          <div>
-            <dt>Fee</dt>
-            <dd>{{ row.isFeeApplicable ? 'Payable' : 'Not applicable' }}</dd>
-          </div>
-          <div>
-            <dt>Certificate validity</dt>
-            <dd>{{ row.certificateValidityMonths }} months</dd>
-          </div>
-          <div>
-            <dt>Awards</dt>
-            <dd>{{ row.certificationPolicyLabel || row.certificationPolicy }}</dd>
-          </div>
-          <div>
-            <dt>Minimum qualification</dt>
-            <dd>{{ row.minQualificationLabel || row.minQualification || 'Not specified' }}</dd>
-          </div>
-          <div>
-            <dt>Minimum experience</dt>
-            <dd>{{ row.minExperienceYears ? row.minExperienceYears + ' years' : 'None' }}</dd>
-          </div>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel__head"><app-icon name="graduation" [size]="14" /> Who may apply</h2>
+            <div class="panel__body">
+              <div class="fact">
+                <span class="fact__term">Minimum qualification</span>
+                <span class="fact__value">
+                  {{ row.minQualificationLabel || row.minQualification || 'Not specified' }}
+                </span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Minimum experience</span>
+                <span class="fact__value">
+                  {{ row.minExperienceYears ? row.minExperienceYears + ' years' : 'None' }}
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel__head"><app-icon name="rupee" [size]="14" /> Fee</h2>
+            <div class="panel__body">
+              <div class="fact">
+                <span class="fact__term">On applying</span>
+                <span class="fact__value">
+                  @if (row.isFeeApplicable) {
+                    <span class="chip">Payable</span>
+                  } @else {
+                    <span class="chip chip--muted">Not applicable</span>
+                  }
+                </span>
+              </div>
+            </div>
+          </section>
         </div>
 
         <div modal-footer>
@@ -516,6 +573,13 @@ const COLUMNS: ColumnDef[] = [
   `,
   styles: [
     `
+      /* Two columns where the dialog is wide enough for them, one
+         where it is not. The panels themselves are in the shared sheet. */
+      .config {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 0.9rem;
+      }
       .chip.is-off { opacity: 0.4; text-decoration: line-through; }
       .marks-grid {
         display: grid;
@@ -556,6 +620,21 @@ export class ProgramTypesComponent {
 
   /** The row whose configuration is on screen, or null. */
   protected readonly configOf = signal<ProgramType | null>(null);
+
+  /**
+   * Whether the marks are worth breaking down.
+   *
+   * A track with one component has already had that component's marks
+   * printed as the examination's, and saying it again under its own
+   * heading reads as a second requirement rather than the same one.
+   */
+  protected splitWorthShowing(row: ProgramType): boolean {
+    const parts = [
+      row.evaluation.hasWritten && row.evaluation.writtenMarks > 0,
+      row.evaluation.hasViva && row.evaluation.vivaMarks > 0,
+    ].filter(Boolean).length;
+    return parts > 1;
+  }
   protected readonly saving = signal(false);
   protected readonly editing = signal<ProgramType | null>(null);
 
