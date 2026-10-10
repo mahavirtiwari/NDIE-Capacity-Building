@@ -771,14 +771,14 @@ export class ProgramTypesComponent {
     const raw = (event.target as HTMLSelectElement).value;
     this.filterCategoryId.set(raw ? Number(raw) : null);
     this.filterSubCategoryId.set(null);
-    this.list.setFilter('categoryId', raw || null);
-    this.list.setFilter('subCategoryId', null);
+    this.list.stageFilter('categoryId', raw || null);
+    this.list.stageFilter('subCategoryId', null);
   }
 
   protected onSubCategoryFilter(event: Event): void {
     const raw = (event.target as HTMLSelectElement).value;
     this.filterSubCategoryId.set(raw ? Number(raw) : null);
-    this.list.setFilter('subCategoryId', raw || null);
+    this.list.stageFilter('subCategoryId', raw || null);
   }
 
   protected resetFilters(): void {

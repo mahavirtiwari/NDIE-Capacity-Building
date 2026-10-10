@@ -331,23 +331,23 @@ export class CurriculumComponent {
     this.filterCategoryId.set(raw ? Number(raw) : null);
     this.filterSubCategoryId.set(null);
     this.filterProgramTypeId.set(null);
-    this.list.setFilter('categoryId', raw || null);
-    this.list.setFilter('subCategoryId', null);
-    this.list.setFilter('programTypeId', null);
+    this.list.stageFilter('categoryId', raw || null);
+    this.list.stageFilter('subCategoryId', null);
+    this.list.stageFilter('programTypeId', null);
   }
 
   protected onSubCategoryFilter(event: Event): void {
     const raw = (event.target as HTMLSelectElement).value;
     this.filterSubCategoryId.set(raw ? Number(raw) : null);
     this.filterProgramTypeId.set(null);
-    this.list.setFilter('subCategoryId', raw || null);
-    this.list.setFilter('programTypeId', null);
+    this.list.stageFilter('subCategoryId', raw || null);
+    this.list.stageFilter('programTypeId', null);
   }
 
   protected onProgramTypeFilter(event: Event): void {
     const raw = (event.target as HTMLSelectElement).value;
     this.filterProgramTypeId.set(raw ? Number(raw) : null);
-    this.list.setFilter('programTypeId', raw || null);
+    this.list.stageFilter('programTypeId', raw || null);
   }
 
   protected readonly linkedCategory = computed(() => {

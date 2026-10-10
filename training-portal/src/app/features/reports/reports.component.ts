@@ -77,7 +77,12 @@ const COLUMNS: ColumnDef[] = [
 
           <div class="field">
             <label class="field-label" for="rpCategory">Category</label>
-            <select id="rpCategory" class="select" (change)="onCategory(numberOrNull($event))">
+            <select
+              id="rpCategory"
+              class="select"
+              [value]="list.stagedValue('categoryId')"
+              (change)="onCategory(numberOrNull($event))"
+            >
               <option value="">All categories</option>
               @for (option of categories(); track option.id) {
                 <option [value]="option.id">{{ option.name }}</option>
@@ -383,8 +388,8 @@ export class ReportsComponent {
   }
 
   protected onCategory(categoryId: number | null): void {
-    this.list.setFilter('categoryId', categoryId ? String(categoryId) : '');
-    this.list.setFilter('programTypeId', '');
+    this.list.stageFilter('categoryId', categoryId ? String(categoryId) : '');
+    this.list.stageFilter('programTypeId', '');
     this.loadProgramTypes(categoryId);
   }
 

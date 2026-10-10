@@ -73,6 +73,7 @@ const STANDINGS: Record<CertificateStanding, { label: string; tone: string }> = 
             <select
               id="qpCategory"
               class="select"
+              [value]="list.stagedValue('categoryId')"
               (change)="onCategory(numberOrNull($event))"
             >
               <option value="">All categories</option>
@@ -365,12 +366,12 @@ export class QualifiedProfessionalsComponent {
   }
 
   protected onCategory(categoryId: number | null): void {
-    this.list.setFilter('categoryId', categoryId ? String(categoryId) : '');
+    this.list.stageFilter('categoryId', categoryId ? String(categoryId) : '');
     /* A program type or sub-category from another category would filter
        everything away, so the narrower lists are reloaded and the stale
        choices dropped. */
-    this.list.setFilter('programTypeId', '');
-    this.list.setFilter('subCategoryId', '');
+    this.list.stageFilter('programTypeId', '');
+    this.list.stageFilter('subCategoryId', '');
     this.loadProgramTypes(categoryId);
     this.loadSubCategories(categoryId);
   }

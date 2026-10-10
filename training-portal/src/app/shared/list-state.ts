@@ -20,6 +20,9 @@ export class ListState<T> {
   readonly sortDir = signal<'asc' | 'desc'>('asc');
   readonly filters = signal<Record<string, unknown>>({});
 
+  /** The keys the Apply bar has charge of; see {@link applyFilters}. */
+  private readonly owned = new Set<string>();
+
   /**
    * Filter choices made on screen but not yet applied.
    *
@@ -166,6 +169,7 @@ export class ListState<T> {
    * them and ask once.
    */
   stageFilter(key: string, value: unknown): void {
+    this.owned.add(key);
     const current = this.staged();
     const clearing = value === null || value === undefined || value === '';
 
@@ -178,9 +182,23 @@ export class ListState<T> {
     this.staged.set(next);
   }
 
-  /** Runs what was staged. Back to page one: page four of the old list. */
+  /**
+   * Runs what was staged. Back to page one: page four of the old list.
+   *
+   * Only the keys the bar itself stages are replaced. It used to publish
+   * the staged set whole, which quietly dropped every filter set any other
+   * way on the same screen — the view tab above the table, the cascading
+   * category select beside it — so choosing a category and then pressing
+   * Apply showed the unfiltered list back again, which is the opposite of
+   * what the button says. Clearing one of the bar's own boxes still
+   * removes that filter, because the key is cleared here before whatever
+   * the bar now holds is laid over the top.
+   */
   applyFilters(): void {
-    this.filters.set({ ...this.staged() });
+    const next = { ...this.filters() };
+    for (const key of this.owned) delete next[key];
+
+    this.filters.set({ ...next, ...this.staged() });
     this.page.set(1);
     this.reload();
   }
