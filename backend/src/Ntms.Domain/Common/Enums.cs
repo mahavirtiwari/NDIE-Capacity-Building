@@ -166,6 +166,24 @@ public enum ProfileFieldRole
 
     /// <summary>Holds their years of experience, as a number.</summary>
     ExperienceYears = 3,
+
+    /// <summary>
+    /// Holds the enterprise or employer the applicant answers for.
+    ///
+    /// Printed on a programme's participants register, where the question
+    /// being asked of a row is which firm sent this person. Which field
+    /// that is differs by discipline, which is why it is pointed at
+    /// rather than guessed from a name.
+    /// </summary>
+    Organisation = 4,
+
+    /// <summary>
+    /// Holds their Udyam registration — or the UAM, EM-2 or SSI number
+    /// that preceded it, which is the same column on a register and the
+    /// same question with a different answer depending on when the
+    /// enterprise registered.
+    /// </summary>
+    UdyamNumber = 5,
 }
 
 public enum ProfileSubmissionStatus

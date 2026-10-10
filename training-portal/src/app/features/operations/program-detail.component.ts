@@ -598,6 +598,16 @@ type Tab =
                 <tr>
                   <th>Participant</th>
                   <th style="width: 150px">Mobile</th>
+                  <!-- Headed as the discipline's own form asks it: one
+                       asks for the Enterprise name and another for the
+                       Organisation, and imposing either on both would tell
+                       the office it had asked the wrong question. -->
+                  @if (organisationLabel(); as label) {
+                    <th>{{ label }}</th>
+                  }
+                  @if (udyamLabel(); as label) {
+                    <th style="width: 170px">{{ label }}</th>
+                  }
                   <th style="width: 170px">Application no.</th>
                   <th style="width: 120px" class="text-center">Attendance</th>
                   <!-- What a type examines decides what there is to show.
@@ -627,6 +637,12 @@ type Tab =
                       <div class="cell-muted">{{ participant.email }}</div>
                     </td>
                     <td class="cell-muted tabular">{{ participant.mobile || '—' }}</td>
+                    @if (organisationLabel()) {
+                      <td class="cell-muted">{{ participant.organisation || '—' }}</td>
+                    }
+                    @if (udyamLabel()) {
+                      <td class="cell-muted tabular">{{ participant.udyamNumber || '—' }}</td>
+                    }
                     <td class="cell-muted">{{ participant.applicationNo }}</td>
                     <td class="text-center tabular">{{ participant.attendancePercent }}%</td>
                     @if (scheme(); as marks) {
@@ -879,8 +895,18 @@ export class ProgramDetailComponent {
   protected readonly participantColumns = computed(() => {
     const marks = this.scheme();
     const exam = !marks || marks.kind === 'None' ? 0 : marks.hasWritten && marks.hasViva ? 3 : 1;
-    return 5 + exam + (this.awardsCertificates() ? 1 : 0);
+    const profile = (this.organisationLabel() ? 1 : 0) + (this.udyamLabel() ? 1 : 0);
+    return 5 + exam + profile + (this.awardsCertificates() ? 1 : 0);
   });
+
+  /* What this discipline's profile form calls them, where it marks them
+     at all. The server reads the answers; these are only the headings. */
+  protected readonly organisationLabel = computed(
+    () => this.programme()?.participantFields?.organisationLabel ?? null,
+  );
+  protected readonly udyamLabel = computed(
+    () => this.programme()?.participantFields?.udyamLabel ?? null,
+  );
 
   /** The venue's own photographs, in the order somebody would look. */
   protected readonly venuePhotos = computed(() => {

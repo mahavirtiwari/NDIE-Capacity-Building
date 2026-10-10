@@ -108,7 +108,7 @@ public class ProfileField : AuditableEntity
     /// minimum is measured against — so the eligibility check reads a field
     /// somebody nominated rather than one it guessed.
     /// </summary>
-    public ProfileFieldRole EligibilityRole { get; set; } = ProfileFieldRole.None;
+    public ProfileFieldRole Role { get; set; } = ProfileFieldRole.None;
 
     public FieldValidation Validation { get; set; } = new();
 

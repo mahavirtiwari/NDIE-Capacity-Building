@@ -153,8 +153,8 @@ public class ApplicantAuthService(
 
         var mapped = await db.ProfileFields.AsNoTracking()
             .Where(f => f.Section!.FormId == formId
-                        && f.EligibilityRole != ProfileFieldRole.None)
-            .Select(f => new { f.Key, f.EligibilityRole })
+                        && f.Role != ProfileFieldRole.None)
+            .Select(f => new { f.Key, f.Role })
             .ToListAsync(ct);
 
         if (mapped.Count == 0) return (false, 0, false, 0m);
@@ -192,7 +192,7 @@ public class ApplicantAuthService(
 
             if (string.IsNullOrWhiteSpace(text)) continue;
 
-            if (field.EligibilityRole == ProfileFieldRole.Qualification)
+            if (field.Role == ProfileFieldRole.Qualification)
             {
                 var found = QualificationLevels.RankOf(text);
                 /* Rank 0 means the catalogue does not know the value, which
@@ -203,7 +203,7 @@ public class ApplicantAuthService(
                     rank = found;
                 }
             }
-            else if (field.EligibilityRole == ProfileFieldRole.ExperienceYears
+            else if (field.Role == ProfileFieldRole.ExperienceYears
                      && decimal.TryParse(text, out var parsed))
             {
                 hasExperience = true;

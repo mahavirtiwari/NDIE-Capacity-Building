@@ -292,7 +292,7 @@ public static class DtoMappings
                             HelpText = f.HelpText,
                             DisplayOrder = f.DisplayOrder,
                             ColSpan = f.ColSpan,
-                            EligibilityRole = f.EligibilityRole.ToString(),
+                            Role = f.Role.ToString(),
                             /* A field pointing at a shared list is served
                                that list's choices, so a reader of the form
                                sees ordinary options and needs to know

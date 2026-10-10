@@ -181,7 +181,7 @@ public class ProfileFormService(NtmsDbContext db)
                     HelpText = field.HelpText,
                     DisplayOrder = field.DisplayOrder,
                     ColSpan = field.ColSpan,
-                    EligibilityRole = field.EligibilityRole,
+                    Role = field.Role,
                     VisibleWhenFieldKey = field.VisibleWhenFieldKey,
                     VisibleWhenValues = field.VisibleWhenValues,
                     Validation = new FieldValidation
@@ -252,7 +252,7 @@ public class ProfileFormService(NtmsDbContext db)
         }
 
         ValidateRepeats(sections, keys);
-        ValidateEligibilityRoles(sections);
+        ValidateFieldRoles(sections);
 
         /* Which section each field sits in, so a condition can be checked
            against where its trigger lives as well as whether it exists. */
@@ -306,7 +306,7 @@ public class ProfileFormService(NtmsDbContext db)
     /// is one answer, and a section that can be added five times does not
     /// have one.
     /// </summary>
-    private static void ValidateEligibilityRoles(List<ProfileSectionDto> sections)
+    private static void ValidateFieldRoles(List<ProfileSectionDto> sections)
     {
         var claimed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
@@ -314,29 +314,38 @@ public class ProfileFormService(NtmsDbContext db)
         {
             foreach (var field in section.Fields)
             {
-                var role = (field.EligibilityRole ?? "None").Trim();
+                var role = (field.Role ?? "None").Trim();
                 if (role.Length == 0 || role.Equals("None", StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 if (section.IsRepeatable)
                 {
                     throw new AppException(
-                        $"'{field.Label}' is in a repeating section, so it cannot be the " +
-                        "applicant's qualification or experience — there would be one per entry.");
+                        $"'{field.Label}' is in a repeating section, so it cannot hold " +
+                        $"{Meaning(role)} — there would be one per entry.");
                 }
 
                 if (claimed.TryGetValue(role, out var already))
                 {
                     throw new AppException(
-                        $"'{field.Label}' and '{already}' both claim to hold the applicant's " +
-                        $"{(role == "Qualification" ? "qualification" : "experience")}. " +
-                        "Only one field can.");
+                        $"'{field.Label}' and '{already}' both claim to hold " +
+                        $"{Meaning(role)}. Only one field can.");
                 }
 
                 claimed[role] = field.Label;
             }
         }
     }
+
+    /// <summary>The role in the words the message needs it in.</summary>
+    private static string Meaning(string role) => role switch
+    {
+        "Qualification" => "the applicant's qualification",
+        "ExperienceYears" => "the applicant's years of experience",
+        "Organisation" => "the applicant's organisation",
+        "UdyamNumber" => "the applicant's Udyam number",
+        _ => "that meaning",
+    };
 
     private static void ValidateRepeats(
         List<ProfileSectionDto> sections, HashSet<string> fieldKeys)
@@ -455,8 +464,8 @@ public class ProfileFormService(NtmsDbContext db)
                     HelpText = fieldDto.HelpText,
                     DisplayOrder = fieldOrder,
                     ColSpan = fieldDto.ColSpan == 2 ? 2 : 1,
-                    EligibilityRole = EnumMaps.ParseEnum(
-                        fieldDto.EligibilityRole, ProfileFieldRole.None),
+                    Role = EnumMaps.ParseEnum(
+                        fieldDto.Role, ProfileFieldRole.None),
                     /* Zero and null both mean "this field keeps its own
                        options": the browser sends 0 for an empty select. */
                     OptionSetId = fieldDto.OptionSetId is > 0 ? fieldDto.OptionSetId : null,

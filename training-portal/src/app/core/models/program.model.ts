@@ -68,6 +68,13 @@ export interface ProgramParticipant {
   mobile: string;
   enrolledOn: string;
   attendancePercent: number;
+  /**
+   * Off the applicant's accepted profile, for the questions the form's
+   * designer marked as holding them. Absent where the discipline's form
+   * marks no such field, or where it was left blank.
+   */
+  organisation?: string | null;
+  udyamNumber?: string | null;
   /** The two halves as well as the total, where the type marks both. */
   writtenMarks?: number | null;
   vivaMarks?: number | null;
@@ -93,7 +100,23 @@ export interface ProgramSession {
  * A scheduled batch captured by a coordinator. Virtual batches record the
  * meeting platform and show "Virtual" as their venue on the register.
  */
+/**
+ * What this discipline's profile form calls the answers the register
+ * prints beside a name.
+ *
+ * The designer's own wording, because they named the field. Absent where
+ * the form marks no field with that meaning, which is how the column
+ * knows not to appear.
+ */
+export interface ParticipantProfileFields {
+  organisationLabel?: string | null;
+  udyamLabel?: string | null;
+}
+
 export interface Program extends AuditInfo {
+  /** See {@link ParticipantProfileFields}. On the detail only. */
+  participantFields?: ParticipantProfileFields | null;
+
   /** Why the agency has asked for this to be put off, if it has. */
   postponementReason?: string | null;
   postponementRequestedOn?: string | null;

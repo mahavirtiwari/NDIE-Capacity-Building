@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Ntms.Application.Common;
@@ -70,9 +71,115 @@ public class ProgrammeService(
         return [.. rows.Select(p => p.ToDto())];
     }
 
-    public async Task<ProgrammeDto> GetAsync(int id, CancellationToken ct) =>
-        (await Base.FirstOrDefaultAsync(p => p.Id == id, ct)
-         ?? throw AppException.NotFound("Program")).ToDto();
+    public async Task<ProgrammeDto> GetAsync(int id, CancellationToken ct)
+    {
+        var programme = await Base.FirstOrDefaultAsync(p => p.Id == id, ct)
+                        ?? throw AppException.NotFound("Program");
+
+        var dto = programme.ToDto();
+        await AddProfileAnswersAsync(dto, ct);
+        return dto;
+    }
+
+    /// <summary>
+    /// Fills in the answers a register prints beside a name — the
+    /// participant's organisation and Udyam number — from their accepted
+    /// profile.
+    ///
+    /// Nothing is read from a field because of what it is called. A profile
+    /// form's designer marks which answer holds which meaning, the same
+    /// mechanism that decides what a program type's minimum qualification is
+    /// measured against, and this reads whatever they marked. A discipline
+    /// that marks neither gets neither, and the columns do not appear.
+    ///
+    /// Only on the detail of one programme. The register of programmes maps
+    /// through the same ToDto and must not pay for this.
+    /// </summary>
+    private async Task AddProfileAnswersAsync(ProgrammeDto dto, CancellationToken ct)
+    {
+        if (dto.Participants.Count == 0) return;
+
+        var applicantIds = dto.Participants.Select(p => p.ApplicantId).Distinct().ToList();
+
+        /* The profile each of them was accepted on. Highest attempt first,
+           so the one kept per applicant is the one that stands. */
+        var accepted = await db.ProfileSubmissions.AsNoTracking()
+            .Where(s => applicantIds.Contains(s.ApplicantId)
+                        && s.Status == ProfileSubmissionStatus.Approved
+                        && s.ProfileFormId != null)
+            .OrderByDescending(s => s.AttemptNo)
+            .Select(s => new { s.ApplicantId, s.ProfileFormId, s.Responses })
+            .ToListAsync(ct);
+
+        if (accepted.Count == 0) return;
+
+        var byApplicant = accepted
+            .GroupBy(s => s.ApplicantId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var formIds = byApplicant.Values.Select(s => s.ProfileFormId!.Value).Distinct().ToList();
+
+        var marked = await db.ProfileFields.AsNoTracking()
+            .Where(f => f.Section!.FormId != null
+                        && formIds.Contains(f.Section!.FormId)
+                        && (f.Role == ProfileFieldRole.Organisation
+                            || f.Role == ProfileFieldRole.UdyamNumber))
+            .Select(f => new { FormId = f.Section!.FormId, f.Key, f.Label, f.Role })
+            .ToListAsync(ct);
+
+        if (marked.Count == 0) return;
+
+        dto.ParticipantFields = new ParticipantProfileFieldsDto
+        {
+            OrganisationLabel = marked
+                .FirstOrDefault(m => m.Role == ProfileFieldRole.Organisation)?.Label,
+            UdyamLabel = marked
+                .FirstOrDefault(m => m.Role == ProfileFieldRole.UdyamNumber)?.Label,
+        };
+
+        foreach (var participant in dto.Participants)
+        {
+            if (!byApplicant.TryGetValue(participant.ApplicantId, out var submission)) continue;
+
+            Dictionary<string, JsonElement>? answers;
+            try
+            {
+                answers = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
+                    submission.Responses);
+            }
+            catch (JsonException)
+            {
+                /* One unreadable profile must not cost the register. */
+                continue;
+            }
+
+            if (answers is null) continue;
+
+            foreach (var field in marked.Where(m => m.FormId == submission.ProfileFormId))
+            {
+                var text = Answer(answers, field.Key);
+                if (text is null) continue;
+
+                if (field.Role == ProfileFieldRole.Organisation) participant.Organisation = text;
+                else participant.UdyamNumber = text;
+            }
+        }
+    }
+
+    /// <summary>One answer as text, or null where it was not given.</summary>
+    private static string? Answer(Dictionary<string, JsonElement> answers, string key)
+    {
+        if (!answers.TryGetValue(key, out var value)) return null;
+
+        var text = value.ValueKind switch
+        {
+            JsonValueKind.String => value.GetString(),
+            JsonValueKind.Number => value.ToString(),
+            _ => null,
+        };
+
+        return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+    }
 
     public async Task<ProgrammeDto> CreateAsync(ProgrammeUpsertDto dto, CancellationToken ct)
     {

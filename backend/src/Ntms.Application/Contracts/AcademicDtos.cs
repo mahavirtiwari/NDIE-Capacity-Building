@@ -107,7 +107,11 @@ public class ProfileFieldDto
     /// None, Qualification or ExperienceYears. What a program type's
     /// minimum is measured against.
     /// </summary>
-    public string EligibilityRole { get; set; } = "None";
+    /// <summary>
+    /// What this answer means beyond being a question — see
+    /// ProfileFieldRole. "None" for almost everything.
+    /// </summary>
+    public string Role { get; set; } = "None";
     public List<FieldOptionDto> Options { get; set; } = [];
     public FieldValidationDto Validation { get; set; } = new();
     public string? VisibleWhenFieldKey { get; set; }

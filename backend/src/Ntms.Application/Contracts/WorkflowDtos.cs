@@ -392,13 +392,42 @@ public class ProgrammeParticipantDto
     public decimal? WrittenMarks { get; set; }
     public decimal? VivaMarks { get; set; }
     public decimal? ExamScore { get; set; }
+
+    /// <summary>
+    /// Answers off the applicant's accepted profile, for the questions the
+    /// form's designer marked as holding them. Null where the form for
+    /// this discipline marks no such field, or where it was left blank.
+    /// </summary>
+    public string? Organisation { get; set; }
+    public string? UdyamNumber { get; set; }
     public string Result { get; set; } = "Pending";
     public string? CertificateNo { get; set; }
     public int? FeedbackRating { get; set; }
 }
 
+/// <summary>
+/// What the profile form for this discipline calls the answers a register
+/// prints beside a name.
+///
+/// The designer's own wording, because they named the field: one
+/// discipline asks for the "Enterprise name" and another for the
+/// "Organisation", and a register that imposed one of those on both would
+/// be telling the office it had asked the wrong question. Null where the
+/// form marks no field with that meaning, which is how the column knows
+/// not to appear.
+/// </summary>
+public class ParticipantProfileFieldsDto
+{
+    public string? OrganisationLabel { get; set; }
+    public string? UdyamLabel { get; set; }
+}
+
 public class ProgrammeDto : AuditDto
 {
+    /// <summary>See <see cref="ParticipantProfileFieldsDto"/>. Detail only —
+    /// the register of programmes does not print participants.</summary>
+    public ParticipantProfileFieldsDto? ParticipantFields { get; set; }
+
     /// <summary>Why the agency has asked for this to be put off, if it has.</summary>
     public string? PostponementReason { get; set; }
     public DateTime? PostponementRequestedOn { get; set; }

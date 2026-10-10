@@ -78,11 +78,14 @@ export interface ProfileField {
   displayOrder: number;
   colSpan: 1 | 2;
   /**
-   * What this answer means beyond being a question. Pointed at a
-   * qualification or a number of years, it becomes what a program type's
-   * minimum is measured against.
+   * What this answer means beyond being a question.
+   *
+   * Pointed at a qualification or a number of years, it becomes what a
+   * program type's minimum is measured against. Pointed at an
+   * organisation or a Udyam number, it becomes a column on the
+   * participants register of every programme in the discipline.
    */
-  eligibilityRole?: EligibilityRole;
+  role?: ProfileFieldRole;
   /**
    * A shared choice list this field reads instead of holding its own
    * options. When set, `options` is what that list currently offers —
@@ -100,16 +103,27 @@ export interface ProfileField {
 }
 
 /**
- * Nothing is inferred from a field's name: a program type states a minimum
- * qualification and experience, and the designer says which answer holds
- * each. A field nobody points at is never read this way.
+ * Nothing is inferred from a field's name: the designer says which answer
+ * holds each meaning. A field nobody points at is never read this way.
+ *
+ * Every discipline asks these things differently — one form's "Enterprise
+ * name" is another's "Organisation", and the Udyam number is still a UAM
+ * or an EM-2 to an enterprise that registered before 2020. Reading them
+ * off the key would mean one spelling winning and the rest going blank.
  */
-export type EligibilityRole = 'None' | 'Qualification' | 'ExperienceYears';
+export type ProfileFieldRole =
+  | 'None'
+  | 'Qualification'
+  | 'ExperienceYears'
+  | 'Organisation'
+  | 'UdyamNumber';
 
-export const ELIGIBILITY_ROLES: { value: EligibilityRole; label: string }[] = [
+export const PROFILE_FIELD_ROLES: { value: ProfileFieldRole; label: string }[] = [
   { value: 'None', label: 'Just a question' },
   { value: 'Qualification', label: "The applicant's highest qualification" },
   { value: 'ExperienceYears', label: "The applicant's years of experience" },
+  { value: 'Organisation', label: "The applicant's organisation" },
+  { value: 'UdyamNumber', label: "The applicant's Udyam / UAM number" },
 ];
 
 export interface ProfileSection {

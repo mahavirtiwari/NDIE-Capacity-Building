@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
-  ELIGIBILITY_ROLES,
+  PROFILE_FIELD_ROLES,
   FIELD_TYPES,
   FieldType,
   LookupItem,
@@ -519,30 +519,33 @@ function blankField(): ProfileField {
               <input id="feHelp" class="input" [value]="editor.field.helpText || ''" (input)="editField({ helpText: inputValue($event) })" />
             </div>
 
-            <!-- ----------------------------------------- eligibility ----
-                 A program type states a minimum qualification and
-                 experience. This is how the system knows which answer to
-                 measure against it, rather than guessing from the key. -->
+            <!-- --------------------------------------------- meaning ----
+                 Some answers are read by the rest of the system: a program
+                 type's minimum qualification is measured against one, and a
+                 participants register prints another beside a name. This is
+                 how it knows which, rather than guessing from the key. -->
             <div class="field field--span-2">
               <label class="field-label" for="feRole">This answer is</label>
               <select
                 id="feRole"
                 class="select"
-                (change)="editField({ eligibilityRole: $any(inputValue($event)) })"
+                (change)="editField({ role: $any(inputValue($event)) })"
               >
-                @for (role of eligibilityRoles; track role.value) {
+                @for (role of fieldRoles; track role.value) {
                   <option
                     [value]="role.value"
-                    [selected]="(editor.field.eligibilityRole ?? 'None') === role.value"
+                    [selected]="(editor.field.role ?? 'None') === role.value"
                   >
                     {{ role.label }}
                   </option>
                 }
               </select>
               <span class="field-hint">
-                Pointed at a qualification or a number of years, this answer decides which
-                programs an applicant is eligible for once their profile is accepted. Only one
-                field can hold each, and neither can sit in a repeating section.
+                A qualification or a number of years decides which programs an applicant is
+                eligible for once their profile is accepted. An organisation or a Udyam number
+                is printed beside their name on the participants register of every program in
+                this discipline. Only one field can hold each, and none can sit in a repeating
+                section.
               </span>
             </div>
           </div>
@@ -966,7 +969,7 @@ export class ProfileFormsComponent {
     return this.allSubCategories().filter((sc) => sc.id !== sourceId);
   });
 
-  protected readonly eligibilityRoles = ELIGIBILITY_ROLES;
+  protected readonly fieldRoles = PROFILE_FIELD_ROLES;
 
   protected readonly editorHasOptions = computed(() => {
     const editor = this.fieldEditor();
