@@ -20,8 +20,13 @@ import { describeError, formatValidator, requiredFormat } from '../../core/valid
 
 const COLUMNS: ColumnDef[] = [
   { key: 'fullName', header: 'Trainer', sortable: true, variant: 'primary' },
+  /* The implementing agency, by name. It is settled by the programme the
+     trainer took, so there is nothing here to assign. */
+  { key: 'agencyName', header: 'Agency', sortable: true },
   { key: 'organisation', header: 'Organisation', sortable: true },
-  { key: 'contact', header: 'Contact', width: '200px' },
+  { key: 'contact', header: 'Contact', width: '190px' },
+  { key: 'experience', header: 'Experience', align: 'center', width: '110px' },
+  { key: 'qualification', header: 'Qualification', width: '150px' },
   { key: 'programme', header: 'Program', sortable: true },
   { key: 'conducted', header: 'Conducted', sortable: true, width: '190px' },
   { key: 'actions', header: '', align: 'right', width: '90px' },
@@ -157,6 +162,20 @@ const COLUMNS: ColumnDef[] = [
           </div>
         </ng-template>
 
+        <ng-template appCell="agencyName" let-row>
+          {{ $any(row).agencyName || '—' }}
+        </ng-template>
+
+        <ng-template appCell="experience" let-row>
+          <span class="tabular">
+            {{ $any(row).yearsExperience != null ? $any(row).yearsExperience + ' yrs' : '—' }}
+          </span>
+        </ng-template>
+
+        <ng-template appCell="qualification" let-row>
+          <span class="cell-muted">{{ $any(row).qualification || '—' }}</span>
+        </ng-template>
+
         <ng-template appCell="contact" let-row>
           <div class="stack stack-xs">
             <span>{{ $any(row).mobile }}</span>
@@ -256,15 +275,6 @@ const COLUMNS: ColumnDef[] = [
           </div>
 
           <div class="field">
-            <label class="field-label" for="tfEngagement">Engagement</label>
-            <select id="tfEngagement" class="select" formControlName="engagement">
-              <option [ngValue]="null">Not stated</option>
-              <option value="FullTime">Full time</option>
-              <option value="PartTime">Part time</option>
-            </select>
-          </div>
-
-          <div class="field">
             <label class="field-label" for="tfYears">Years of experience</label>
             <input
               id="tfYears"
@@ -353,7 +363,6 @@ export class TrainersComponent {
     email: [''],
     designation: [''],
     organisation: [''],
-    engagement: [null as string | null],
     yearsExperience: [null as number | null],
     qualification: [null as string | null],
     aadhaar: ['', formatValidator('aadhaar')],
@@ -411,7 +420,6 @@ export class TrainersComponent {
       email: row?.email ?? '',
       designation: row?.designation ?? '',
       organisation: row?.organisation ?? '',
-      engagement: row?.engagement ?? null,
       yearsExperience: row?.yearsExperience ?? null,
       qualification: row?.qualification ?? null,
       /* Always blank. The stored number is never sent to a screen, so
@@ -450,7 +458,6 @@ export class TrainersComponent {
       email: raw.email || null,
       designation: raw.designation || null,
       organisation: raw.organisation || null,
-      engagement: raw.engagement || null,
       yearsExperience: raw.yearsExperience ?? null,
       qualification: raw.qualification || null,
       /* Sent only when something was typed. An empty box on an edit

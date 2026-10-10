@@ -33,6 +33,15 @@ export class ProfileFormService extends CrudService<ProfileForm> {
 @Injectable({ providedIn: 'root' })
 export class FeeService extends CrudService<FeeStructure> {
   protected readonly resource = 'fees';
+
+  /**
+   * The structure in force today for one program type, or null where none
+   * is. The same endpoint the applicant app quotes from, so a figure read
+   * here is the figure an applicant would be charged.
+   */
+  current(programTypeId: number): Observable<FeeStructure | null> {
+    return this.api.get<FeeStructure | null>(`fees/current/${programTypeId}`);
+  }
 }
 
 @Injectable({ providedIn: 'root' })

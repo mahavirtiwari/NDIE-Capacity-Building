@@ -1,3 +1,4 @@
+import { CurrencyPipe, DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -17,6 +18,7 @@ import {
   examinesWritten,
   kindsForPolicy,
 } from '../../core/models';
+import { FeeService } from '../../core/services/academics.service';
 import { LookupService, ProgramTypeService } from '../../core/services/masters.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -34,6 +36,7 @@ import {
   describeError,
   formatValidator,
 } from '../../core/validation/formats';
+import { computeFeeTotals, type FeeStructure } from '../../core/models';
 import { abbreviate, composeCode } from '../../core/validation/code-suggest';
 import { ListState, searchTerm } from '../../shared/list-state';
 
@@ -53,6 +56,8 @@ const COLUMNS: ColumnDef[] = [
   selector: 'app-program-types',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CurrencyPipe,
+    DatePipe,
     CanDirective,
     ReactiveFormsModule,
     UppercaseDirective,
@@ -291,16 +296,57 @@ const COLUMNS: ColumnDef[] = [
           <section class="panel">
             <h2 class="panel__head"><app-icon name="rupee" [size]="14" /> Fee</h2>
             <div class="panel__body">
-              <div class="fact">
-                <span class="fact__term">On applying</span>
-                <span class="fact__value">
-                  @if (row.isFeeApplicable) {
-                    <span class="chip">Payable</span>
-                  } @else {
-                    <span class="chip chip--muted">Not applicable</span>
-                  }
+              @if (!row.isFeeApplicable) {
+                <div class="fact">
+                  <span class="fact__term">On applying</span>
+                  <span class="fact__value"><span class="chip chip--muted">Not applicable</span></span>
+                </div>
+              } @else if (feeLoading()) {
+                <span class="text-sm text-muted">Reading the fee…</span>
+              } @else if (fee(); as structure) {
+                <div class="fact">
+                  <span class="fact__term">Payable on applying</span>
+                  <span class="fact__value">
+                    <strong class="amount tabular">{{ feeTotals()!.gross | currency: 'INR' : 'symbol-narrow' : '1.0-2' }}</strong>
+                  </span>
+                </div>
+                <!-- The parts, because a single figure with tax folded into
+                     it is the one somebody queries. -->
+                <div class="fact">
+                  <span class="fact__term">Made up of</span>
+                  <span class="fact__value text-sm">
+                    {{ feeTotals()!.taxable + feeTotals()!.nonTaxable | currency: 'INR' : 'symbol-narrow' : '1.0-2' }}
+                    @if (feeTotals()!.gst > 0) {
+                      <span class="text-xs text-muted">
+                        + {{ structure.gstPercent }}% GST
+                        {{ feeTotals()!.gst | currency: 'INR' : 'symbol-narrow' : '1.0-2' }}
+                      </span>
+                    }
+                  </span>
+                </div>
+                <div class="fact">
+                  <span class="fact__term">Under</span>
+                  <span class="fact__value text-sm">
+                    {{ structure.title }}
+                    <span class="text-xs text-muted">
+                      from {{ structure.effectiveFrom | date: 'dd MMM yyyy' }}
+                    </span>
+                  </span>
+                </div>
+              } @else {
+                <div class="fact">
+                  <span class="fact__term">On applying</span>
+                  <span class="fact__value">
+                    <span class="chip chip--warn">Payable — none set</span>
+                  </span>
+                </div>
+                <!-- Chargeable with no structure in force is a gap somebody
+                     has to close, not a free programme. -->
+                <span class="text-xs text-muted">
+                  This type charges a fee but has no fee structure in force today.
+                  Set one up under Fee structures.
                 </span>
-              </div>
+              }
             </div>
           </section>
         </div>
@@ -580,6 +626,7 @@ const COLUMNS: ColumnDef[] = [
         grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
         gap: 0.9rem;
       }
+      .amount { font-size: var(--fs-xl); color: var(--brand-700); }
       .chip.is-off { opacity: 0.4; text-decoration: line-through; }
       .marks-grid {
         display: grid;
@@ -620,6 +667,17 @@ export class ProgramTypesComponent {
 
   /** The row whose configuration is on screen, or null. */
   protected readonly configOf = signal<ProgramType | null>(null);
+
+  /* The fee in force today for the type on screen. Fetched when the dialog
+     opens: the register does not need it, and most rows are never opened. */
+  private readonly fees = inject(FeeService);
+  protected readonly fee = signal<FeeStructure | null>(null);
+  protected readonly feeLoading = signal(false);
+
+  protected readonly feeTotals = computed(() => {
+    const structure = this.fee();
+    return structure ? computeFeeTotals(structure) : null;
+  });
 
   /**
    * Whether the marks are worth breaking down.
@@ -887,6 +945,27 @@ export class ProgramTypesComponent {
 
   protected showConfig(row: ProgramType): void {
     this.configOf.set(row);
+    this.loadFee(row);
+  }
+
+  private loadFee(row: ProgramType): void {
+    this.fee.set(null);
+    if (!row.isFeeApplicable) return;
+
+    this.feeLoading.set(true);
+    this.fees.current(row.id).subscribe({
+      next: (structure) => {
+        this.fee.set(structure);
+        this.feeLoading.set(false);
+      },
+      /* A fee that will not load must not take the rest of the sheet with
+         it; the panel says none is in force, which is the same thing a
+         reader has to go and check either way. */
+      error: () => {
+        this.fee.set(null);
+        this.feeLoading.set(false);
+      },
+    });
   }
 
   /** Straight from reading it to changing it, without going back to the row. */
