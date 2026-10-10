@@ -9,6 +9,7 @@ import {
   Program,
   ProgramSession,
   ProgrammeCertificateSummary,
+  ProgrammeMonitoring,
 } from '../../core/models';
 import { CertificateService } from '../../core/services/certificate.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
@@ -18,11 +19,24 @@ import { SiteTextService } from '../../core/services/site-text.service';
 import { ProgramService } from '../../core/services/workflow.service';
 import { IconComponent } from '../../shared/components/icon.component';
 import { MarksheetComponent } from './marksheet.component';
+import { MonitoringPhotoComponent } from './monitoring-photo.component';
+import { ProgrammeAttendanceComponent } from './programme-attendance.component';
+import { ProgrammeFeedbackComponent } from './programme-feedback.component';
+import { ProgrammeMonitoringComponent } from './programme-monitoring.component';
+import { ProgrammeTrainersComponent } from './programme-trainers.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
 
-type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
+type Tab =
+  | 'sessions'
+  | 'monitoring'
+  | 'attendance'
+  | 'trainers'
+  | 'participants'
+  | 'feedback'
+  | 'marksheet'
+  | 'certificates';
 
 @Component({
   selector: 'app-program-detail',
@@ -36,6 +50,11 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
     ModalComponent,
     IconComponent,
     MarksheetComponent,
+    MonitoringPhotoComponent,
+    ProgrammeAttendanceComponent,
+    ProgrammeFeedbackComponent,
+    ProgrammeMonitoringComponent,
+    ProgrammeTrainersComponent,
   ],
   template: `
     @if (programme(); as batch) {
@@ -237,7 +256,15 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
               </div>
               <div class="fact">
                 <span class="fact__term">Coordinator</span>
-                <span class="fact__value">{{ batch.coordinatorName || '—' }}</span>
+                <span class="fact__value">
+                  {{ batch.coordinatorName || '—' }}
+                  @if (batch.coordinatorMobile) {
+                    <span class="text-xs text-muted tabular">{{ batch.coordinatorMobile }}</span>
+                  }
+                  @if (batch.coordinatorEmail) {
+                    <span class="text-xs text-muted">{{ batch.coordinatorEmail }}</span>
+                  }
+                </span>
               </div>
               <div class="fact">
                 <span class="fact__term">Operation manager</span>
@@ -266,6 +293,39 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
         </div>
       </section>
 
+      <!-- What the coordinator geo-tagged and photographed, which is the
+           answer to "was it actually held there". Only once there is
+           something to show: an empty frame reads as a venue nobody
+           recorded, which is a different thing from one not yet visited. -->
+      @if (venuePhotos().length > 0) {
+        <section class="card mb-md">
+          <div class="card__header">
+            <h2 class="card__title">
+              <app-icon name="map-pin" [size]="15" /> Venue as recorded
+              @if (field()?.venue2?.geoTaggedOn; as tagged) {
+                <span class="card__subtitle">
+                  geo-tagged {{ tagged | date: 'dd MMM yyyy, HH:mm' }}
+                </span>
+              }
+            </h2>
+            @if (venueMap(); as where) {
+              <a class="btn btn--ghost btn--sm" [href]="where" target="_blank" rel="noopener">
+                <app-icon name="map-pin" [size]="14" /> Open the map
+              </a>
+            }
+          </div>
+          <div class="card__body venue-shots">
+            @for (shot of venuePhotos(); track shot.photo.id) {
+              <app-monitoring-photo
+                [programmeId]="batch.id"
+                [photo]="shot.photo"
+                [caption]="shot.caption"
+              />
+            }
+          </div>
+        </section>
+      }
+
       @if (isPublic()) {
         <section class="card mb-md">
           <div class="card__body share">
@@ -292,8 +352,44 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
           <button type="button" class="tab" [class.is-active]="tab() === 'sessions'" (click)="tab.set('sessions')">
             Sessions ({{ batch.sessions.length }})
           </button>
+          <button
+            type="button"
+            class="tab"
+            [class.is-active]="tab() === 'monitoring'"
+            (click)="openField('monitoring')"
+          >
+            <app-icon name="camera" [size]="14" /> Monitoring{{
+              field() ? ' (' + field()!.sessions.length + ')' : ''
+            }}
+          </button>
+          <button
+            type="button"
+            class="tab"
+            [class.is-active]="tab() === 'attendance'"
+            (click)="openField('attendance')"
+          >
+            <app-icon name="clipboard" [size]="14" /> Attendance
+          </button>
+          <button
+            type="button"
+            class="tab"
+            [class.is-active]="tab() === 'trainers'"
+            (click)="openField('trainers')"
+          >
+            <app-icon name="users" [size]="14" /> Trainers{{
+              field() ? ' (' + field()!.trainers.length + ')' : ''
+            }}
+          </button>
           <button type="button" class="tab" [class.is-active]="tab() === 'participants'" (click)="tab.set('participants')">
             Participants ({{ batch.participants.length }})
+          </button>
+          <button
+            type="button"
+            class="tab"
+            [class.is-active]="tab() === 'feedback'"
+            (click)="tab.set('feedback')"
+          >
+            <app-icon name="award" [size]="14" /> Feedback
           </button>
           <button
             type="button"
@@ -317,6 +413,19 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
              somebody asks for it and re-read fresh next time. -->
         @if (tab() === 'marksheet') {
           <app-marksheet [programmeId]="batch.id" />
+        }
+
+        @if (tab() === 'monitoring') {
+          <app-programme-monitoring [programmeId]="batch.id" [record]="field()" />
+        } @else if (tab() === 'attendance') {
+          <app-programme-attendance [record]="field()" />
+        } @else if (tab() === 'trainers') {
+          <app-programme-trainers [record]="field()" />
+        } @else if (tab() === 'feedback') {
+          <app-programme-feedback
+            [programmeId]="batch.id"
+            [programTypeId]="batch.programTypeId"
+          />
         }
 
         @if (tab() === 'certificates') {
@@ -486,6 +595,7 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
               <thead>
                 <tr>
                   <th>Participant</th>
+                  <th style="width: 150px">Mobile</th>
                   <th style="width: 170px">Application no.</th>
                   <th style="width: 120px" class="text-center">Attendance</th>
                   <th style="width: 100px" class="text-center">Score</th>
@@ -500,6 +610,7 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
                       <div class="cell-primary">{{ participant.name }}</div>
                       <div class="cell-muted">{{ participant.email }}</div>
                     </td>
+                    <td class="cell-muted tabular">{{ participant.mobile || '—' }}</td>
                     <td class="cell-muted">{{ participant.applicationNo }}</td>
                     <td class="text-center tabular">{{ participant.attendancePercent }}%</td>
                     <td class="text-center tabular">{{ participant.examScore ?? '—' }}</td>
@@ -512,7 +623,7 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
                   </tr>
                 } @empty {
                   <tr>
-                    <td colspan="6" class="cell-muted text-center">No participants enrolled yet.</td>
+                    <td colspan="7" class="cell-muted text-center">No participants enrolled yet.</td>
                   </tr>
                 }
               </tbody>
@@ -614,6 +725,12 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
          title takes a second line on a narrow window and one on a full
          one, which beats the four it was taking. */
       .table--wide { min-width: 900px; }
+
+      .venue-shots {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+      }
     `,
     `
       /* Enrolment ------------------------------------------------------- */
@@ -676,6 +793,40 @@ export class ProgramDetailComponent {
 
   protected readonly programme = signal<Program | null>(null);
   protected readonly tab = signal<Tab>('sessions');
+
+  /* ------------------------------------------------- the field record */
+
+  /**
+   * What the coordinator recorded on the ground.
+   *
+   * Fetched with the programme rather than per tab: four of the tabs read
+   * from it, and fetching it four times would mean four answers that could
+   * disagree with each other on one screen. The photographs inside it are
+   * not fetched here — each one fetches itself when it is rendered.
+   */
+  protected readonly field = signal<ProgrammeMonitoring | null>(null);
+
+  /** The venue's own photographs, in the order somebody would look. */
+  protected readonly venuePhotos = computed(() => {
+    const venue = this.field()?.venue2;
+    if (!venue) return [];
+    return [
+      { photo: venue.exteriorPhoto, caption: 'Outside' },
+      { photo: venue.interiorPhoto, caption: 'Inside' },
+    ].filter((shot): shot is { photo: NonNullable<typeof shot.photo>; caption: string } =>
+      shot.photo != null,
+    );
+  });
+
+  protected readonly venueMap = computed(() => {
+    const venue = this.field()?.venue2;
+    if (!venue?.latitude || !venue?.longitude) return null;
+    return `https://www.google.com/maps?q=${Number(venue.latitude).toFixed(6)},${Number(venue.longitude).toFixed(6)}`;
+  });
+
+  protected openField(tab: Tab): void {
+    this.tab.set(tab);
+  }
   protected readonly statusLabels = PROGRAM_STATUS_LABELS;
 
   /* --------------------------------------------------------- the record */
@@ -879,7 +1030,20 @@ export class ProgramDetailComponent {
     effect(() => {
       const id = Number(this.id());
       if (!id) return;
+
       this.service.getById(id).subscribe((row) => this.programme.set(row));
+
+      /* Alongside, not after. The two are independent reads and the page
+         is useful with either: the office's record draws the header and
+         the panels, the field record fills the tabs below them. */
+      this.field.set(null);
+      this.service.monitoring(id).subscribe({
+        next: (record) => this.field.set(record),
+        /* A batch nobody has been out to yet has no field record, and a
+           tab that says so is the right answer — not an error dialog over
+           a page that is otherwise fine. */
+        error: () => this.field.set(null),
+      });
     });
   }
 

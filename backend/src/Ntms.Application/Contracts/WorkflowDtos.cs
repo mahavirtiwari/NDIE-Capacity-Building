@@ -410,6 +410,17 @@ public class ProgrammeDto : AuditDto
     public string? ExamPaperTitle { get; set; }
     public int CoordinatorId { get; set; }
     public string? CoordinatorName { get; set; }
+
+    /// <summary>
+    /// How to reach whoever was in the room.
+    ///
+    /// On the batch rather than looked up per visit: somebody reading a
+    /// programme that has gone wrong wants to ring the coordinator, and
+    /// making them go to the portal users register for a telephone number
+    /// is the sort of thing that gets a batch left alone.
+    /// </summary>
+    public string? CoordinatorMobile { get; set; }
+    public string? CoordinatorEmail { get; set; }
     public int? OperationManagerId { get; set; }
     public string? OperationManagerName { get; set; }
     public string Mode { get; set; } = "Physical";

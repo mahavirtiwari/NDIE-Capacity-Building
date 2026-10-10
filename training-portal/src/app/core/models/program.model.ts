@@ -110,6 +110,8 @@ export interface Program extends AuditInfo {
   agencyName?: string;
   coordinatorId: Id;
   coordinatorName?: string;
+  coordinatorMobile?: string | null;
+  coordinatorEmail?: string | null;
   operationManagerId: Id;
   operationManagerName?: string;
   mode: ProgramMode;

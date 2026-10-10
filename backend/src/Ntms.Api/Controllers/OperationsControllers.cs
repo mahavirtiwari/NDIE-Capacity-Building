@@ -267,8 +267,40 @@ public class ApplicationsController(ApplicationService service) : ApiControllerB
 }
 
 [Route("api/programs")]
-public class ProgramsController(ProgrammeService service) : ApiControllerBase
+public class ProgramsController(ProgrammeService service, MonitoringService monitoring)
+    : ApiControllerBase
 {
+    /// <summary>
+    /// Everything the coordinator recorded on the ground: the venue and its
+    /// photographs, the faculty who took it, every session with its picture,
+    /// the people in the room and the day-by-day register.
+    ///
+    /// The same read the coordinator's own app makes. MonitoringService
+    /// decides for itself who may see a programme — the coordinator it is
+    /// assigned to, or anybody with programs.view whose scope it falls in —
+    /// so this is a route rather than a second set of rules.
+    /// </summary>
+    [HttpGet("{id:int}/monitoring")]
+    [HasPermission(Permissions.ProgramsView)]
+    public async Task<ActionResult<ApiEnvelope<CoordinatorProgrammeDetailDto>>> Monitoring(
+        int id, CancellationToken ct) =>
+        Envelope(await monitoring.GetAsync(id, ct));
+
+    /// <summary>
+    /// One photograph off that record.
+    ///
+    /// By programme as well as by photo, so the address says what is being
+    /// asked for; the service checks the photo's own programme either way.
+    /// </summary>
+    [HttpGet("{id:int}/photos/{photoId:int}")]
+    [HasPermission(Permissions.ProgramsView)]
+    public async Task<IActionResult> Photo(int id, int photoId, CancellationToken ct)
+    {
+        var (content, contentType, fileName) = await monitoring.OpenPhotoAsync(photoId, ct);
+        Response.Headers.CacheControl = "private, max-age=3600";
+        return File(content, contentType, fileName);
+    }
+
     [HttpGet]
     [HasPermission(Permissions.ProgramsView)]
     public async Task<ActionResult<ApiEnvelope<PagedResult<ProgrammeDto>>>> List(

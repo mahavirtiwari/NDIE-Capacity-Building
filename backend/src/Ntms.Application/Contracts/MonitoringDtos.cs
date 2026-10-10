@@ -231,6 +231,23 @@ public class MonitoringPhotoDto
     public decimal? Latitude { get; set; }
     public decimal? Longitude { get; set; }
     public DateTime CapturedOn { get; set; }
+
+    /// <summary>
+    /// When it reached the server, and off what.
+    ///
+    /// Recorded at upload and shown beside the picture, because the gap
+    /// between taking a photograph and handing it in is the thing anybody
+    /// checking a record wants to see — a batch of session photographs all
+    /// synced days later off one handset reads differently from the same
+    /// photographs synced as the sessions happened.
+    /// </summary>
+    public DateTime? SyncedOn { get; set; }
+    public string? DevicePlatform { get; set; }
+    public string? DeviceModel { get; set; }
+
+    /// <summary>Whether the time and place were burnt into the image.</summary>
+    public bool Stamped { get; set; }
+
     /// <summary>Relative API path the app fetches the image from.</summary>
     public string Url { get; set; } = string.Empty;
 }

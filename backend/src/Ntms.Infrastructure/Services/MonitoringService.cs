@@ -1020,6 +1020,10 @@ public class MonitoringService(
         Latitude = p.Latitude,
         Longitude = p.Longitude,
         CapturedOn = p.CapturedOn,
+        SyncedOn = p.SyncedOn == default ? null : p.SyncedOn,
+        DevicePlatform = p.DevicePlatform,
+        DeviceModel = p.DeviceModel,
+        Stamped = p.Stamped,
         Url = $"coordinator/photos/{p.Id}",
     };
 }

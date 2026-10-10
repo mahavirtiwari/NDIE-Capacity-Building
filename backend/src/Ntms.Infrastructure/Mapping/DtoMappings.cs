@@ -710,6 +710,8 @@ public static class DtoMappings
             AgencyName = e.Agency?.Name,
             CoordinatorId = e.CoordinatorId,
             CoordinatorName = e.Coordinator?.FullName,
+            CoordinatorMobile = e.Coordinator?.Mobile,
+            CoordinatorEmail = e.Coordinator?.Email,
             OperationManagerId = e.OperationManagerId,
             OperationManagerName = e.OperationManager?.FullName,
             Mode = e.Mode.ToApi(),

@@ -3,20 +3,21 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   Application,
-  RejectionReasonUpsert,
-  RejectionReason,
   ApplicationCounts,
   AttendanceMark,
   Id,
-  Program,
-  ProfileDecision,
   PagedResult,
+  ProfileDecision,
   ProfilePhoto,
   ProfileScrutinyCounts,
   ProfileSubmission,
+  Program,
+  ProgrammeMonitoring,
   QcCounts,
   QcDecision,
   QcProgramme,
+  RejectionReason,
+  RejectionReasonUpsert,
   ScrutinyDecision,
   StateCoverageResult,
 } from '../models';
@@ -113,6 +114,35 @@ export class ApplicationService extends CrudService<Application> {
 @Injectable({ providedIn: 'root' })
 export class ProgramService extends CrudService<Program> {
   protected readonly resource = 'programs';
+
+  /* Straight to HttpClient for the image bytes: ApiService unwraps the
+     JSON envelope every other response comes in, and a JPEG has none. */
+  private readonly http = inject(HttpClient);
+
+  /**
+   * What the coordinator recorded on the ground for this batch.
+   *
+   * A second call rather than part of the programme: the office's record
+   * of a batch is read on every visit, and the field record — venue,
+   * faculty, sessions, the register and the photographs — is read by the
+   * manager checking it and by nobody else.
+   */
+  monitoring(id: Id): Observable<ProgrammeMonitoring> {
+    return this.api.get<ProgrammeMonitoring>(`${this.resource}/${id}/monitoring`);
+  }
+
+  /**
+   * One photograph off that record.
+   *
+   * Fetched rather than pointed at: the endpoint needs the bearer token
+   * and an <img src> would not carry one. The caller makes an object URL
+   * of what comes back and revokes it when the screen closes.
+   */
+  photo(id: Id, photoId: Id): Observable<Blob> {
+    return this.http.get(
+      this.api.fileUrl(`${this.resource}/${id}/photos/${photoId}`),
+      { responseType: 'blob' });
+  }
 
   /**
    * Moves a batch along its workflow: permission accepted, postponed, and
