@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import {
   AttendanceMark,
   Certificate,
+  PROGRAM_STATUS_LABELS,
   Program,
   ProgramSession,
   ProgrammeCertificateSummary,
@@ -58,102 +59,210 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
         }
       </app-page-header>
 
+      <!-- A refusal and a postponement are the two states nobody can act
+           on without knowing why, so the reason is given here rather than
+           left on the register. Nothing is printed for the states the
+           badge already says in full: a sentence restating a badge is
+           noise where the badge is two inches away. -->
+      @if (reason(batch); as why) {
+        <div
+          class="alert mb-md"
+          [class.alert--danger]="refused(batch)"
+          [class.alert--warning]="!refused(batch)"
+        >
+          <app-icon [name]="refused(batch) ? 'alert' : 'clock'" [size]="16" />
+          <span><strong>{{ statusLabels[batch.status] }}.</strong> {{ why }}</span>
+        </div>
+      }
+
+      <!-- An ask waiting on a decision, which is not a status yet. -->
+      @if (batch.postponementRequestedOn && batch.status !== 'Postponed') {
+        <div class="alert alert--warning mb-md">
+          <app-icon name="clock" [size]="16" />
+          <span>
+            <strong>Postponement asked for</strong>
+            on {{ batch.postponementRequestedOn | date: 'dd MMM yyyy' }}.
+            {{ batch.postponementReason }}
+          </span>
+        </div>
+      }
+
       <section class="card mb-md">
-        <div class="card__body">
-          <div class="dl">
-            <div>
-              <div class="dl__term">Status</div>
-              <div class="dl__value"><app-status-badge [value]="batch.status" /></div>
-            </div>
-            <div>
-              <div class="dl__term">Mode</div>
-              <div class="dl__value">
-                <div class="row row-sm">
-                  <app-icon
-                    [name]="
-                      batch.mode === 'Virtual'
-                        ? 'monitor'
-                        : batch.mode === 'Hybrid'
-                          ? 'layers'
-                          : 'map-pin'
-                    "
-                    [size]="15"
-                  />
-                  <span>{{ batch.mode }}</span>
-                </div>
-              </div>
-            </div>
-            <!-- A hybrid batch is held in a room and joined from a desk, so
-                 it shows both rather than having to pick one. -->
-            @if (batch.mode !== 'Virtual') {
-              <div>
-                <div class="dl__term">Venue</div>
-                <div class="dl__value">
-                  {{ batch.venue }}@if (batch.pincode) { &mdash; {{ batch.pincode }} }
-                </div>
-              </div>
-            }
-            @if (batch.mode !== 'Physical' && batch.meetingPlatform) {
-              <div>
-                <div class="dl__term">Platform</div>
-                <div class="dl__value">{{ batch.meetingPlatform }}</div>
-              </div>
-            }
-            <div>
-              <div class="dl__term">Timings</div>
-              <div class="dl__value">{{ batch.startTime }} &ndash; {{ batch.endTime }}</div>
-            </div>
-            <div>
-              <div class="dl__term">State/UT</div>
-              <div class="dl__value">{{ batch.state }}</div>
-            </div>
-            <div>
-              <div class="dl__term">Dates</div>
-              <div class="dl__value">
-                {{ batch.startDate | date: 'dd MMM yyyy' }} – {{ batch.endDate | date: 'dd MMM yyyy' }}
-              </div>
-            </div>
-            <div>
-              <div class="dl__term">Coordinator</div>
-              <div class="dl__value">{{ batch.coordinatorName }}</div>
-            </div>
-            <div>
-              <div class="dl__term">Operation manager</div>
-              <div class="dl__value">{{ batch.operationManagerName }}</div>
-            </div>
-            <div>
-              <div class="dl__term">Participants</div>
-              <div class="dl__value tabular">
-                {{ batch.participantCount }} / {{ batch.maxParticipants }}
-                @if (batch.participantCount >= batch.maxParticipants) {
-                  <span class="chip">Full — registration closed</span>
-                } @else if (batch.registrationsOpen) {
-                  <span class="text-xs text-muted">
-                    {{ batch.maxParticipants - batch.participantCount }} place{{
-                      batch.maxParticipants - batch.participantCount === 1 ? '' : 's'
-                    }}
-                    left
-                  </span>
-                }
-              </div>
-            </div>
-            <div>
-              <div class="dl__term">Exam</div>
-              <div class="dl__value">
-                {{ batch.examDateTime ? (batch.examDateTime | date: 'dd MMM yyyy, HH:mm') : 'Not scheduled' }}
-              </div>
-            </div>
-            @if (batch.mode === 'Virtual' && batch.meetingLink) {
-              <div>
-                <div class="dl__term">Meeting link</div>
-                <div class="dl__value">
-                  <a [href]="batch.meetingLink" target="_blank" rel="noopener">
-                    Join <app-icon name="external" [size]="13" />
-                  </a>
-                </div>
-              </div>
+        <!-- What this batch is, in one line, before any of the detail. -->
+        <div class="card__header record__bar">
+          <div class="row row-sm row-wrap">
+            <app-status-badge [value]="batch.status" />
+            <span class="chip chip--muted">
+              <app-icon
+                [name]="
+                  batch.mode === 'Virtual'
+                    ? 'monitor'
+                    : batch.mode === 'Hybrid'
+                      ? 'layers'
+                      : 'map-pin'
+                "
+                [size]="13"
+              />
+              {{ batch.mode }}
+            </span>
+            @if (batch.programTypeName) {
+              <span class="chip chip--muted">{{ batch.programTypeName }}</span>
             }
           </div>
+          <span class="text-xs text-muted">
+            {{ dayCount(batch) }} day{{ dayCount(batch) === 1 ? '' : 's' }} ·
+            {{ batch.sessions.length }} session{{ batch.sessions.length === 1 ? '' : 's' }}
+          </span>
+        </div>
+
+        <div class="record">
+          <!-- Tinted, and first, because places left is the number the desk
+               is actually ringing about. -->
+          <section class="panel panel--accent">
+            <h2 class="panel__head"><app-icon name="user-check" [size]="14" /> Enrolment</h2>
+            <div class="panel__body">
+              <div class="seats">
+                <span class="seats__count tabular">{{ batch.participantCount }}</span>
+                <span class="seats__of tabular">of {{ batch.maxParticipants }}</span>
+              </div>
+              <div
+                class="meter"
+                role="progressbar"
+                [attr.aria-valuenow]="batch.participantCount"
+                [attr.aria-valuemin]="0"
+                [attr.aria-valuemax]="batch.maxParticipants"
+              >
+                <span class="meter__fill" [style.width.%]="fillPercent(batch)"></span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Registration</span>
+                <span class="fact__value">
+                  @if (batch.participantCount >= batch.maxParticipants) {
+                    <span class="chip chip--warn">Full — closed</span>
+                  } @else if (batch.registrationsOpen) {
+                    <span class="chip">Open</span>
+                    <span class="text-xs text-muted">
+                      {{ batch.maxParticipants - batch.participantCount }} place{{
+                        batch.maxParticipants - batch.participantCount === 1 ? '' : 's'
+                      }}
+                      left
+                    </span>
+                  } @else {
+                    <span class="chip chip--muted">Closed</span>
+                  }
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel__head"><app-icon name="calendar" [size]="14" /> Schedule</h2>
+            <div class="panel__body">
+              <div class="fact">
+                <span class="fact__term">Dates</span>
+                <span class="fact__value">
+                  {{ batch.startDate | date: 'dd MMM yyyy' }} &ndash;
+                  {{ batch.endDate | date: 'dd MMM yyyy' }}
+                </span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Hours</span>
+                <span class="fact__value tabular">{{ batch.startTime }} &ndash; {{ batch.endTime }}</span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Exam</span>
+                <span class="fact__value">
+                  {{
+                    batch.examDateTime
+                      ? (batch.examDateTime | date: 'dd MMM yyyy, HH:mm')
+                      : 'Not scheduled'
+                  }}
+                  @if (batch.examPaperTitle) {
+                    <span class="text-xs text-muted">{{ batch.examPaperTitle }}</span>
+                  }
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel__head"><app-icon name="map-pin" [size]="14" /> Where</h2>
+            <div class="panel__body">
+              <!-- A hybrid batch is held in a room and joined from a desk,
+                   so it shows both rather than having to pick one. -->
+              @if (batch.mode !== 'Virtual') {
+                <div class="fact">
+                  <span class="fact__term">Venue</span>
+                  <span class="fact__value">
+                    {{ batch.venue }}
+                    @if (batch.pincode) {
+                      <span class="text-xs text-muted tabular">PIN {{ batch.pincode }}</span>
+                    }
+                  </span>
+                </div>
+              }
+              @if (batch.mode !== 'Physical') {
+                <div class="fact">
+                  <span class="fact__term">Platform</span>
+                  <span class="fact__value">
+                    {{ batch.meetingPlatform || '—' }}
+                    @if (batch.meetingLink) {
+                      <a [href]="batch.meetingLink" target="_blank" rel="noopener" class="text-xs">
+                        Join <app-icon name="external" [size]="12" />
+                      </a>
+                    }
+                  </span>
+                </div>
+              }
+              <div class="fact">
+                <span class="fact__term">State/UT</span>
+                <span class="fact__value">
+                  {{ batch.state }}
+                  @if (batch.district || batch.city) {
+                    <span class="text-xs text-muted">
+                      {{ batch.district || batch.city }}
+                    </span>
+                  }
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel__head"><app-icon name="users" [size]="14" /> Who</h2>
+            <div class="panel__body">
+              <div class="fact">
+                <span class="fact__term">Implementing agency</span>
+                <span class="fact__value">{{ batch.agencyName || '—' }}</span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Coordinator</span>
+                <span class="fact__value">{{ batch.coordinatorName || '—' }}</span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Operation manager</span>
+                <span class="fact__value">{{ batch.operationManagerName || 'Not assigned' }}</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel__head"><app-icon name="tag" [size]="14" /> Classification</h2>
+            <div class="panel__body">
+              <div class="fact">
+                <span class="fact__term">Category</span>
+                <span class="fact__value">{{ batch.categoryName || '—' }}</span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Sub-category</span>
+                <span class="fact__value">{{ batch.subCategoryName || '—' }}</span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Programme type</span>
+                <span class="fact__value">{{ batch.programTypeName || '—' }}</span>
+              </div>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -179,7 +288,7 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
       }
 
       <section class="card">
-        <div class="tabs" style="padding: 0 1rem">
+        <div class="tabs tabs--inset">
           <button type="button" class="tab" [class.is-active]="tab() === 'sessions'" (click)="tab.set('sessions')">
             Sessions ({{ batch.sessions.length }})
           </button>
@@ -325,22 +434,27 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
 
         @if (tab() === 'sessions') {
           <div class="table-wrap">
-            <table class="table table--compact">
+            <table class="table table--compact table--wide">
               <thead>
                 <tr>
-                  <th style="width: 180px">Session code</th>
+                  <!-- The title is the column anybody scans, so it takes
+                       what is left. A code is a fixed eight characters and
+                       was being given twice the room of the thing it
+                       identifies, which pushed every title onto three
+                       lines. -->
+                  <th style="width: 120px">Code</th>
                   <th>Session</th>
-                  <th style="width: 130px">Date</th>
-                  <th style="width: 130px">Time</th>
-                  <th>Faculty</th>
-                  <th style="width: 120px" class="text-center">Present</th>
+                  <th style="width: 115px">Date</th>
+                  <th style="width: 125px">Time</th>
+                  <th style="width: 160px">Faculty</th>
+                  <th style="width: 100px" class="text-center">Present</th>
                   <th class="col-actions"></th>
                 </tr>
               </thead>
               <tbody>
                 @for (session of batch.sessions; track session.id) {
                   <tr>
-                    <td class="cell-muted">{{ session.sessionCode || '—' }}</td>
+                    <td class="cell-muted tabular">{{ session.sessionCode || '—' }}</td>
                     <td class="cell-primary">{{ session.title }}</td>
                     <td>{{ session.sessionDate | date: 'dd MMM yyyy' }}</td>
                     <td class="cell-muted">{{ session.startTime }} – {{ session.endTime }}</td>
@@ -368,7 +482,7 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
           </div>
         } @else if (tab() === 'participants') {
           <div class="table-wrap">
-            <table class="table table--compact">
+            <table class="table table--compact table--wide">
               <thead>
                 <tr>
                   <th>Participant</th>
@@ -475,6 +589,111 @@ type Tab = 'sessions' | 'participants' | 'marksheet' | 'certificates';
   `,
   styles: [
     `
+      /* The record ------------------------------------------------------
+
+         Thirteen facts in one grid read as thirteen unrelated facts: the
+         eye has nothing to group by, so finding the coordinator means
+         reading all of them. Grouped under headings it is four short
+         lists, and a reader goes to the one they want. */
+      .record {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0.9rem;
+        padding: 1rem;
+      }
+      /* Each panel draws its own edge. Hairlines made from the grid's
+         background showing through are tidier until the last row is short,
+         and then the empty cells are grey rectangles that read as a
+         rendering fault. Five panels will leave a gap at some width. */
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+      .panel--accent { background: var(--brand-50); border-color: var(--brand-200); }
+
+      .panel__head {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin: 0;
+        padding: 0.6rem 1rem;
+        font-size: var(--fs-xs);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--brand-700);
+        background: var(--brand-50);
+        border-bottom: 1px solid var(--border);
+      }
+      .panel--accent .panel__head {
+        background: var(--brand-100);
+        border-bottom-color: var(--brand-200);
+      }
+      .panel__body {
+        padding: 0.85rem 1rem 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.7rem;
+      }
+
+      .fact { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+      .fact__term {
+        font-size: var(--fs-xs);
+        color: var(--ink-500);
+        font-weight: 600;
+      }
+      .fact__value {
+        font-size: var(--fs-base);
+        color: var(--ink-900);
+        word-break: break-word;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.35rem;
+      }
+
+      /* Seven columns do not fit a narrow window, and a table told to fit
+         anyway takes the width out of the one flexible column — which is
+         the session title, the column the table is read for. Given a floor
+         it scrolls sideways in .table-wrap instead. The floor has to clear
+         the sum of the fixed columns with room to spare, or the flexible
+         one is still the only thing left to give; at 900 a long title
+         takes a second line on a narrow window and one on a full one,
+         which beats the four it was taking. */
+      .table--wide { min-width: 900px; }
+    `,
+    `
+      /* Enrolment ------------------------------------------------------- */
+      .record__bar {
+        flex-wrap: wrap;
+        background: var(--surface-muted);
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      }
+      .seats { display: flex; align-items: baseline; gap: 0.35rem; }
+      .seats__count {
+        font-size: var(--fs-2xl);
+        font-weight: 600;
+        color: var(--brand-700);
+        line-height: 1;
+      }
+      .seats__of { font-size: var(--fs-sm); color: var(--ink-500); }
+      .meter {
+        height: 6px;
+        border-radius: 999px;
+        background: var(--brand-100);
+        overflow: hidden;
+      }
+      .meter__fill {
+        display: block;
+        height: 100%;
+        background: var(--brand-600);
+        border-radius: inherit;
+        transition: width var(--transition);
+      }
+    `,
+    `
       .share { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
       .share__text { flex: 1; min-width: 220px; }
       .share__row { display: flex; align-items: center; gap: 0.5rem; }
@@ -506,6 +725,53 @@ export class ProgramDetailComponent {
 
   protected readonly programme = signal<Program | null>(null);
   protected readonly tab = signal<Tab>('sessions');
+  protected readonly statusLabels = PROGRAM_STATUS_LABELS;
+
+  /* --------------------------------------------------------- the record */
+
+  /**
+   * Why this batch is where it is, where that needs saying.
+   *
+   * The same rule the register uses, for the same reason: only the states
+   * a reader cannot act on without it. A postponement carries the reason
+   * it was asked for, and the manager's own note is preferred where there
+   * is one, that being the later word on it.
+   */
+  protected reason(batch: Program): string | null {
+    const note = batch.comments?.trim();
+
+    if (batch.status === 'Postponed') {
+      return note || batch.postponementReason?.trim() || null;
+    }
+
+    return this.refused(batch) ? note || null : null;
+  }
+
+  /** Whether that reason is a refusal, and so reads in red. */
+  protected refused(batch: Program): boolean {
+    return batch.status === 'PermissionRejected' || batch.status === 'QCRejected';
+  }
+
+  /** Inclusive, because a batch that starts and ends today lasts a day. */
+  protected dayCount(batch: Program): number {
+    const from = new Date(batch.startDate);
+    const to = new Date(batch.endDate);
+    if (isNaN(from.getTime()) || isNaN(to.getTime())) return 0;
+    return Math.max(1, Math.round((to.getTime() - from.getTime()) / 86_400_000) + 1);
+  }
+
+  /**
+   * How full the batch is, as a bar.
+   *
+   * Capped at a hundred: an over-filled batch is a real thing — a cap
+   * lowered after people had already enrolled — and a bar running past
+   * its own track reads as a rendering fault rather than as the overflow
+   * it is. The figures above it say the truth either way.
+   */
+  protected fillPercent(batch: Program): number {
+    if (!batch.maxParticipants) return 0;
+    return Math.min(100, Math.round((batch.participantCount / batch.maxParticipants) * 100));
+  }
 
   /* ------------------------------------------------- registration link */
 

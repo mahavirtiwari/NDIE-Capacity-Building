@@ -78,6 +78,11 @@
   overflow-x: auto;
 }
 
+/* A tab strip that runs across the top of a card rather than down a page:
+   it needs the card's own side padding, which was being written inline at
+   each call site and so differed by a tenth of a rem between screens. */
+.tabs--inset { padding: 0 1.15rem; }
+
 .tab {
   /* inline-flex and a gap so a tab can carry an icon beside its label.
      The mail screen had its own tab style for exactly that and nothing
