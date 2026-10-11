@@ -41,13 +41,15 @@ import { abbreviate, composeCode } from '../../core/validation/code-suggest';
 import { ListState, searchTerm } from '../../shared/list-state';
 
 const COLUMNS: ColumnDef[] = [
-  { key: 'code', header: 'Code', sortable: true, width: '130px' },
+  /* The code opens the configuration. It is the identity the system
+     issued, and it saves a column whose button did nothing the code
+     could not. */
+  { key: 'code', header: 'Program type ID', sortable: true, width: '150px' },
   { key: 'name', header: 'Program type', sortable: true, variant: 'primary' },
   { key: 'categoryName', header: 'Category' },
   { key: 'subCategoryName', header: 'Sub-category' },
   { key: 'durationDays', header: 'Days', align: 'center', sortable: true, width: '80px' },
   { key: 'deliveryMode', header: 'Mode', width: '120px' },
-  { key: 'config', header: 'Configured', width: '110px', align: 'center' },
   { key: 'status', header: 'Status', width: '110px' },
   { key: 'actions', header: '', width: '140px', align: 'right' },
 ];
@@ -169,9 +171,9 @@ const COLUMNS: ColumnDef[] = [
         <!-- One button, not three chips. The chips said what was set but
              not what it was set to, so the row was wide and still sent you
              into the editor to find out. -->
-        <ng-template appCell="config" let-row>
-          <button type="button" class="btn btn--sm btn--subtle" (click)="showConfig($any(row))">
-            <app-icon name="sliders" [size]="14" /> View
+        <ng-template appCell="code" let-row>
+          <button type="button" class="cell-link tabular" (click)="showConfig($any(row))">
+            {{ $any(row).code }}
           </button>
         </ng-template>
         <ng-template appCell="actions" let-row>
