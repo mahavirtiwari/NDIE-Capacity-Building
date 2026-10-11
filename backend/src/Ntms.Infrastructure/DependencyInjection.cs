@@ -131,6 +131,7 @@ public static class DependencyInjection
         services.AddScoped<ProfileSubmissionService>();
         services.AddScoped<ProfileAttachmentService>();
         services.AddScoped<BatchRegistrationService>();
+        services.AddScoped<ProgrammeSchedulePdf>();
         services.AddScoped<PaymentService>();
         services.AddScoped<InvoiceFetcher>();
         services.AddScoped<InvoiceService>();
@@ -150,6 +151,7 @@ public static class DependencyInjection
         /* Batches as the public and the applicant see them; unscoped by
            design, so kept apart from the administrative ProgrammeService. */
         services.AddScoped<ProgrammeCatalogueService>();
+        services.AddScoped<ApplicantEligibilityService>();
         services.AddScoped<MonitoringService>();
         services.AddScoped<QcService>();
 

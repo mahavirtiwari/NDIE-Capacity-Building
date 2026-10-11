@@ -478,20 +478,30 @@ public static class EmailTemplateDefaults
             Key = ProgrammeSchedule,
             Name = "Program schedule",
             Description = "Sent to a participant when a batch is scheduled.",
-            Placeholders = "name,programmeName,programmeId,startDate,endDate,mode,venue,meetingLink",
+            Placeholders =
+                "name,programmeName,programmeId,startDate,endDate,timing,mode,venue,"
+                + "agencyName,coordinatorName,coordinatorMobile,coordinatorEmail,meetingLink",
             Subject = "{{programmeName}} — {{startDate}}",
             HtmlBody = """
                 <p>Dear {{name}},</p>
-                <p>You are enrolled in <strong>{{programmeName}}</strong> ({{programmeId}}).</p>
+                <p>You are registered for <strong>{{programmeName}}</strong> ({{programmeId}}).</p>
                 <table style="margin:18px 0;border-collapse:collapse;">
                   <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Dates</td><td>{{startDate}} to {{endDate}}</td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Timing</td><td>{{timing}} each day</td></tr>
                   <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Mode</td><td>{{mode}}</td></tr>
                   <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Venue</td><td>{{venue}}</td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Conducted by</td><td>{{agencyName}}</td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Coordinator</td><td>{{coordinatorName}}</td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Contact</td><td>{{coordinatorMobile}} · {{coordinatorEmail}}</td></tr>
                 </table>
                 <p>{{meetingLink}}</p>
+                <p>The session plan is attached as a PDF — the sessions, their timings and the
+                topics covered. Please keep it with you for the program.</p>
                 """,
             PlainTextBody =
-                "{{programmeName}} ({{programmeId}}), {{startDate}} to {{endDate}}, {{venue}}.",
+                "{{programmeName}} ({{programmeId}}), {{startDate}} to {{endDate}}, "
+                + "{{timing}} each day, {{venue}}. Coordinator {{coordinatorName}}, "
+                + "{{coordinatorMobile}}, {{coordinatorEmail}}. The session plan is attached.",
         },
     ];
 }

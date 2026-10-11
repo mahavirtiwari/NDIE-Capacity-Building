@@ -40,7 +40,17 @@ public class EmailMessage
     public required string HtmlBody { get; init; }
     public string? PlainTextBody { get; init; }
     public IReadOnlyList<string> Cc { get; init; } = [];
+
+    /// <summary>
+    /// Files that go with the message, such as the timetable a participant
+    /// is sent when they register. Held in memory: these are a page or two
+    /// of generated PDF, not uploads.
+    /// </summary>
+    public IReadOnlyList<EmailAttachment> Attachments { get; init; } = [];
 }
+
+/// <summary>One file on an outgoing message.</summary>
+public sealed record EmailAttachment(string FileName, string ContentType, byte[] Content);
 
 public interface IEmailSender
 {
@@ -182,6 +192,14 @@ public class SmtpEmailSender(
             };
             mail.To.Add(recipient);
             foreach (var cc in message.Cc) mail.CC.Add(cc);
+
+            /* The streams have to outlive the send, so they are disposed
+               with the message rather than at the end of the loop. */
+            foreach (var file in message.Attachments)
+            {
+                mail.Attachments.Add(new Attachment(
+                    new MemoryStream(file.Content), file.FileName, file.ContentType));
+            }
             if (!string.IsNullOrWhiteSpace(_options.ReplyTo))
                 mail.ReplyToList.Add(_options.ReplyTo);
 

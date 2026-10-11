@@ -21,6 +21,19 @@ public class TrainingApplication : AuditableEntity
     public int? ProfileFormId { get; set; }
     public ProfileForm? ProfileForm { get; set; }
 
+    /// <summary>
+    /// The batch this registration was made for, where it was made for one.
+    ///
+    /// A fee is owed before the seat is taken, so between pressing Register
+    /// and the money arriving there is an application and no participant
+    /// row — and nothing recorded which batch had been wanted, so the
+    /// applicant's own list of programmes had nothing to show them. Null on
+    /// an application raised against a program type rather than a batch,
+    /// and on every application made before this was kept.
+    /// </summary>
+    public int? ProgrammeId { get; set; }
+    public Programme? Programme { get; set; }
+
     public ApplicationStatus Status { get; set; } = ApplicationStatus.Draft;
     public DateTime? SubmittedOn { get; set; }
 

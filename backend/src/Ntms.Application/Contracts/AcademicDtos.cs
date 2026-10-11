@@ -21,6 +21,9 @@ public class CurriculumSessionDto
     public string SessionName { get; set; } = string.Empty;
     public int DisplayOrder { get; set; }
     public int? Day { get; set; }
+    /// <summary>When on that day the session runs. Null until the hours are settled.</summary>
+    public TimeOnly? StartTime { get; set; }
+    public TimeOnly? EndTime { get; set; }
     /// <summary>A disabled session stays on the plan but is not delivered.</summary>
     public string Status { get; set; } = "Active";
     public List<CurriculumTopicDto> Topics { get; set; } = [];

@@ -8,11 +8,14 @@ import { Banner, EmptyState, Loading, shortDate } from '../../src/components/ui'
 import { colors, font, radius, spacing } from '../../src/theme';
 
 /**
- * The dated batches an applicant can join.
+ * The programmes an applicant can join: the dated ones, run by the
+ * implementing agencies, under the categories their profile clears them
+ * for.
  *
- * Distinct from the Programmes tab, which lists the tracks on offer. A track
- * says what the training is; a batch says when and where it is actually
- * running, and whether there is still room.
+ * Distinct from the dashboard, which lists the tracks on offer. A track
+ * says what the training is; this says when and where it is actually
+ * running, whether there is still room, and - where their own history
+ * closes one to them - why they cannot take it.
  */
 export default function Batches() {
   const router = useRouter();
@@ -47,6 +50,13 @@ export default function Batches() {
   const register = useCallback(
     (batch: ApplicantBatch) => {
       if (batch.isEnrolled || batch.seatsLeft === 0) return;
+
+      /* Why not, before the trip to the server. The same rules are
+         enforced there - this only saves the applicant a refusal. */
+      if (!batch.canRegister) {
+        Alert.alert('You cannot register for this', batch.blockReason ?? 'It is not open to you.');
+        return;
+      }
 
       Alert.alert(
         'Register for this batch?',
@@ -88,7 +98,7 @@ export default function Batches() {
   );
 
 
-  if (rows === null) return <Loading label="Loading batches…" />;
+  if (rows === null) return <Loading label="Loading programs…" />;
 
   return (
     <FlatList
@@ -110,8 +120,11 @@ export default function Batches() {
       }
       ListEmptyComponent={
         <EmptyState
-          title="No batches open"
-          message="Nothing is scheduled for your track just now. Pull down to check again."
+          title="No programs open"
+          message={
+            'Nothing is scheduled under your categories just now, and programs you have '
+            + 'already cleared are not listed. Pull down to check again.'
+          }
         />
       }
       renderItem={({ item }) => (
@@ -145,11 +158,15 @@ export default function Batches() {
 
           <View style={styles.foot}>
             {item.isEnrolled ? (
-              <Text style={styles.enrolled}>You are enrolled on this batch</Text>
+              <Text style={styles.enrolled}>You are registered for this program</Text>
             ) : busy === item.id ? (
               <Text style={styles.apply}>Registering…</Text>
             ) : item.seatsLeft === 0 ? (
               <Text style={styles.applied}>No seats left</Text>
+            ) : !item.canRegister ? (
+              /* The rule that closes it, said on the card. Being told only
+                 after pressing Register is what this answers. */
+              <Text style={styles.blocked}>{item.blockReason}</Text>
             ) : (
               <Text style={styles.apply}>
                 {item.isFeeApplicable ? 'Tap to register and pay' : 'Tap to register'}
@@ -200,6 +217,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   enrolled: { fontSize: font.sm, fontWeight: '600', color: colors.success700 },
+  blocked: { fontSize: font.sm, fontWeight: '600', color: colors.warning700, lineHeight: 18 },
   applied: { fontSize: font.sm, fontWeight: '600', color: colors.warning700 },
   apply: { fontSize: font.sm, fontWeight: '600', color: colors.brand700 },
 });

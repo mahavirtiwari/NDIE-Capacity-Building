@@ -25,6 +25,12 @@ public class ApplicantDto : AuditDto
     public int? SubCategoryId { get; set; }
     public string? SubCategoryName { get; set; }
     public bool EmailVerified { get; set; }
+
+    /// <summary>
+    /// An address they have asked to move to and not yet proven. Null
+    /// almost always; while it is set, the app shows the box for the code.
+    /// </summary>
+    public string? PendingEmail { get; set; }
     public bool MobileVerified { get; set; }
     public string KycStatus { get; set; } = "Pending";
 

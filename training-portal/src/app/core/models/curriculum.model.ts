@@ -19,6 +19,9 @@ export interface CurriculumSession {
   sessionName: string;
   displayOrder: number;
   day?: number | null;
+  /** When on that day it runs, as HH:mm. Null until the hours are settled. */
+  startTime?: string | null;
+  endTime?: string | null;
   /** A disabled session stays on the plan but is not delivered. */
   status?: RecordStatus;
   topics: CurriculumTopic[];

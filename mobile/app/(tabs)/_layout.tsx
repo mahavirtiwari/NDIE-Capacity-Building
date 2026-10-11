@@ -34,6 +34,17 @@ export default function TabsLayout() {
         sceneStyle: { backgroundColor: colors.page },
       }}
     >
+      {/* The dashboard first, because it is where the app lands. It holds
+          the identity panel, the quick tiles and the programs open to
+          them, and it is the screen that tells a new applicant to choose
+          a sub-category and fill in a profile. */}
+      <Tabs.Screen
+        name="programs"
+        options={{
+          title: 'Home',
+          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
+        }}
+      />
       <Tabs.Screen
         name="applications"
         options={{
@@ -41,17 +52,12 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="documents" size={size} color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="programs"
-        options={{
-          title: 'Programs',
-          tabBarIcon: ({ color, size }) => <Ionicons name="layers" size={size} color={color} />,
-        }}
-      />
+      {/* "Programs": the dated ones, which is what an applicant registers
+          for. The tracks they are open to are on the dashboard. */}
       <Tabs.Screen
         name="batches"
         options={{
-          title: 'Batches',
+          title: 'Programs',
           tabBarIcon: ({ color, size }) => <Ionicons name="calendar" size={size} color={color} />,
         }}
       />

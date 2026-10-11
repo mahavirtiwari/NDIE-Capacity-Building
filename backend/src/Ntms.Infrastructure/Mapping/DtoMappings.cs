@@ -257,6 +257,8 @@ public static class DtoMappings
                     SessionName = s.SessionName,
                     DisplayOrder = s.DisplayOrder,
                     Day = s.Day,
+                    StartTime = s.StartTime,
+                    EndTime = s.EndTime,
                     Status = s.Status.ToApi(),
                     Topics =
                     [
@@ -597,6 +599,7 @@ public static class DtoMappings
             EmailVerified = e.EmailVerified,
             MobileVerified = e.MobileVerified,
             KycStatus = e.KycStatus.ToApi(),
+            PendingEmail = e.PendingEmail,
             StateCode = e.StateCode,
             State = e.State?.Name,
             DistrictCode = e.DistrictCode,

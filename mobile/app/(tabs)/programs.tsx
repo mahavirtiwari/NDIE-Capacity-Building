@@ -118,7 +118,7 @@ export default function Programs() {
           <QuickTiles>
             <QuickTile
               icon="calendar-outline"
-              label="Batches"
+              label="Programs"
               action="Register"
               onPress={() => router.push('/(tabs)/batches')}
             />

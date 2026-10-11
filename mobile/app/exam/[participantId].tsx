@@ -70,7 +70,17 @@ export default function ExamIntro() {
       allowsEditing: false,
     });
 
-    if (shot.canceled || !shot.assets?.[0]) return null;
+    if (shot.canceled || !shot.assets?.[0]) {
+      /* Said rather than left silent. Backing out of the camera used to
+         return to the desk with nothing on screen, which reads as the
+         Start button not working. */
+      Alert.alert(
+        'Photograph needed',
+        'The paper cannot be opened without a clear photograph of you at the desk. '
+          + 'Tap Start the paper and take one.',
+      );
+      return null;
+    }
     const asset = shot.assets[0];
     return { uri: asset.uri, type: asset.mimeType ?? 'image/jpeg' };
   };
@@ -171,6 +181,13 @@ export default function ExamIntro() {
 
           {info.canSit ? (
             <>
+              {/* Said before the button is pressed, because the camera
+                  opening unannounced is a surprise in the middle of an
+                  examination. */}
+              <Banner tone="info">
+                A clear photograph of you is taken before the paper opens, and is required.
+                Face the camera in good light.
+              </Banner>
               <Button
                 label={resuming ? 'Continue the paper' : 'Start the paper'}
                 onPress={start}

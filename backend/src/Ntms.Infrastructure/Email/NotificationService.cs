@@ -41,8 +41,13 @@ public interface INotificationService
     Task SendPostponementRequestedAsync(
         Programme programme, string agencyName, string reason, string email, string name,
         CancellationToken ct = default);
+    /// <summary>
+    /// The joining instructions, with the session plan attached where there
+    /// is one to attach.
+    /// </summary>
     Task SendProgrammeScheduleAsync(
-        Programme programme, string email, string name, CancellationToken ct = default);
+        Programme programme, string email, string name,
+        EmailAttachment? schedule = null, CancellationToken ct = default);
     Task SendAgencyEmpanelledAsync(
         ImplementingAgency agency, string scope, CancellationToken ct = default);
 
@@ -56,6 +61,13 @@ public interface INotificationService
 
     /// <summary>Tells the holder their details or allocation were changed.</summary>
     Task SendAccountUpdatedAsync(PortalUser user, CancellationToken ct = default);
+
+    /// <summary>
+    /// Confirms an applicant's password changed and reminds them of the
+    /// applicant ID they sign in with.
+    /// </summary>
+    Task SendApplicantPasswordChangedAsync(
+        Applicant applicant, string method, CancellationToken ct = default);
 
     /// <summary>
     /// Tells an applicant their account was blocked or let back in, and why.
@@ -226,6 +238,25 @@ public class NotificationService(
             ["method"] = method,
         }, ct);
 
+    /// <summary>
+    /// Confirms an applicant's password was reset, and reminds them of the
+    /// applicant ID they sign in with.
+    ///
+    /// The password itself is not in it. They have just chosen it, so
+    /// putting it in a message that sits in a mailbox adds the risk and
+    /// none of the use; what people actually lose is the applicant ID, and
+    /// that is here.
+    /// </summary>
+    public Task SendApplicantPasswordChangedAsync(
+        Applicant applicant, string method, CancellationToken ct = default) =>
+        SendAsync(EmailTemplateDefaults.PasswordChanged, applicant.Email, new()
+        {
+            ["name"] = applicant.FullName,
+            ["userCode"] = applicant.ApplicantCode,
+            ["changedOn"] = IndianTime.Format(DateTime.UtcNow),
+            ["method"] = method,
+        }, ct);
+
     public Task SendApplicationSubmittedAsync(
         TrainingApplication application, string applicantEmail, string applicantName,
         CancellationToken ct = default) =>
@@ -303,21 +334,51 @@ public class NotificationService(
             ["reason"] = reason,
         }, ct);
 
-    public Task SendProgrammeScheduleAsync(
-        Programme programme, string email, string name, CancellationToken ct = default) =>
-        SendAsync(EmailTemplateDefaults.ProgrammeSchedule, email, new()
+    /// <summary>
+    /// Everything a participant needs for the morning they turn up: the
+    /// dates and hours, where it is, who to ring when they cannot find the
+    /// building, and the session plan as a PDF they can keep.
+    ///
+    /// The coordinator is read here rather than asked of the caller. Every
+    /// batch has one and their contact details are the point of the
+    /// message, so a caller that forgot to load them would send a blank
+    /// where the telephone number should be.
+    /// </summary>
+    public async Task SendProgrammeScheduleAsync(
+        Programme programme, string email, string name,
+        EmailAttachment? schedule = null, CancellationToken ct = default)
+    {
+        var coordinator = await db.Users.AsNoTracking()
+            .Where(u => u.Id == programme.CoordinatorId)
+            .Select(u => new { u.FullName, u.Mobile, u.Email })
+            .FirstOrDefaultAsync(ct);
+
+        var agency = programme.Agency?.Name
+                     ?? await db.Agencies.AsNoTracking()
+                         .Where(a => a.Id == programme.AgencyId)
+                         .Select(a => a.Name)
+                         .FirstOrDefaultAsync(ct)
+                     ?? string.Empty;
+
+        await SendAsync(EmailTemplateDefaults.ProgrammeSchedule, email, new()
         {
             ["name"] = name,
             ["programmeName"] = programme.ProgrammeName,
             ["programmeId"] = programme.ProgrammeId,
             ["startDate"] = programme.StartDate.ToString("dd MMM yyyy"),
             ["endDate"] = programme.EndDate.ToString("dd MMM yyyy"),
+            ["timing"] = $"{programme.StartTime:hh\\:mm} to {programme.EndTime:hh\\:mm}",
             ["mode"] = programme.Mode.ToString(),
             ["venue"] = programme.Venue,
+            ["agencyName"] = agency,
+            ["coordinatorName"] = coordinator?.FullName ?? "Your coordinator",
+            ["coordinatorMobile"] = coordinator?.Mobile ?? string.Empty,
+            ["coordinatorEmail"] = coordinator?.Email ?? string.Empty,
             ["meetingLink"] = string.IsNullOrWhiteSpace(programme.MeetingLink)
                 ? string.Empty
                 : $"Join link: {programme.MeetingLink}",
-        }, ct);
+        }, ct, schedule is null ? [] : [schedule]);
+    }
 
     public Task SendAgencyEmpanelledAsync(
         ImplementingAgency agency, string scope, CancellationToken ct = default) =>
@@ -339,7 +400,8 @@ public class NotificationService(
     /// a deleted row can never stop the system notifying anyone.
     /// </summary>
     private async Task SendAsync(
-        string key, string to, Dictionary<string, string> values, CancellationToken ct)
+        string key, string to, Dictionary<string, string> values, CancellationToken ct,
+        IReadOnlyList<EmailAttachment>? attachments = null)
     {
         if (string.IsNullOrWhiteSpace(to)) return;
 
@@ -361,6 +423,7 @@ public class NotificationService(
             Subject = Fill(template.Subject, values, escape: false),
             HtmlBody = await LayoutAsync(Fill(template.HtmlBody, values, escape: true), ct),
             PlainTextBody = Fill(template.PlainTextBody, values, escape: false),
+            Attachments = attachments ?? [],
         }, ct);
     }
 

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Ntms.Application.Common;
 using Ntms.Application.Contracts;
@@ -20,6 +21,7 @@ public class ProgrammeService(
     INotificationService notifications,
     NotificationBroadcastService broadcasts,
     CertificateService certificates,
+    IEmailQueue mail,
     ILogger<ProgrammeService> logger)
 {
     /* Scoped at the source, so no read path can forget it. */
@@ -677,16 +679,65 @@ public class ProgrammeService(
         CloseIfFull(entity);
         await db.SaveChangesAsync(ct);
 
-        /* Tell the people who were just enrolled where and when to turn up. */
+        /* Tell the people who were just enrolled where and when to turn
+           up, with the session plan attached.
+
+           Queued, not sent here. A full batch is forty messages each
+           carrying a generated PDF, and sending them inside this request
+           would hold a coordinator's phone open for as long as the slowest
+           one took. */
         var enrolledIds = entity.Participants.Select(p => p.ApplicantId).ToList();
-        var applicants = await db.Applicants
+        var applicants = await db.Applicants.AsNoTracking()
             .Where(a => enrolledIds.Contains(a.Id))
+            .Select(a => new { a.Email, a.FullName })
             .ToListAsync(ct);
-        foreach (var applicant in applicants)
+
+        var batchId = entity.Id;
+        var recipients = applicants
+            .Where(a => !string.IsNullOrWhiteSpace(a.Email))
+            .Select(a => (a.Email, a.FullName))
+            .ToList();
+
+        mail.Enqueue($"schedule for {entity.ProgrammeId}", async (scope, queued) =>
         {
-            await notifications.SendProgrammeScheduleAsync(
-                entity, applicant.Email, applicant.FullName, ct);
-        }
+            /* Read again inside the queued scope: the entity above belongs
+               to a DbContext that is disposed with this request. */
+            var db2 = scope.GetRequiredService<NtmsDbContext>();
+            var sender = scope.GetRequiredService<INotificationService>();
+            var builder = scope.GetRequiredService<ProgrammeSchedulePdf>();
+
+            var batch = await db2.Programmes.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == batchId, queued);
+            if (batch is null) return;
+
+            /* One PDF for the batch rather than one per participant: it is
+               the same page for everybody on it. */
+            EmailAttachment? schedule = null;
+            try
+            {
+                schedule = await builder.BuildAsync(batchId, queued);
+            }
+            catch (Exception caught)
+            {
+                logger.LogWarning(caught,
+                    "The schedule for {Programme} could not be built; "
+                    + "the joining instructions go without it.", batch.ProgrammeId);
+            }
+
+            foreach (var (email, name) in recipients)
+            {
+                try
+                {
+                    await sender.SendProgrammeScheduleAsync(batch, email, name, schedule, queued);
+                }
+                catch (Exception caught)
+                {
+                    logger.LogWarning(caught,
+                        "Could not send the joining instructions for {Programme}.",
+                        batch.ProgrammeId);
+                }
+            }
+        });
 
         return await GetAsync(id, ct);
     }

@@ -22,6 +22,7 @@ public class ApplicantAuthService(
     IPasswordService passwords,
     ITokenService tokens,
     INotificationService notifications,
+    OtpService otp,
     ILogger<ApplicantAuthService> logger)
 {
     public async Task<ApplicantLoginResponseDto> LoginAsync(
@@ -77,10 +78,16 @@ public class ApplicantAuthService(
         return password;
     }
 
+    /// <summary>
+    /// The account as the applicant sees it, answers to the sign-up form
+    /// included: their own screen lists what they were asked when they
+    /// registered, so it needs what they said.
+    /// </summary>
     public async Task<ApplicantDto> MeAsync(int applicantId, CancellationToken ct) =>
         (await db.Applicants.AsNoTracking()
             .Include(a => a.Category).Include(a => a.SubCategory)
             .Include(a => a.State).Include(a => a.District)
+            .Include(a => a.Answers)
             .FirstOrDefaultAsync(a => a.Id == applicantId, ct)
          ?? throw AppException.NotFound("Applicant")).ToDto();
 
@@ -96,6 +103,20 @@ public class ApplicantAuthService(
 
         applicant.PasswordHash = passwords.Hash(dto.NewPassword);
         await db.SaveChangesAsync(ct);
+
+        /* Same reason as the reset: a password changed by somebody else is
+           only noticed if the holder is told. */
+        try
+        {
+            await notifications.SendApplicantPasswordChangedAsync(
+                applicant, "changed in the app", ct);
+        }
+        catch (Exception caught)
+        {
+            logger.LogWarning(caught,
+                "The password for {ApplicantCode} was changed but the confirmation "
+                + "could not be sent.", applicant.ApplicantCode);
+        }
     }
 
     /// <summary>
@@ -109,28 +130,110 @@ public class ApplicantAuthService(
                         ?? throw AppException.NotFound("Applicant");
 
         Guard.Check()
-            .Email(dto.Email)
             .Mobile(dto.Mobile)
             .ThrowIfInvalid();
 
-        var emailChanged = !string.Equals(applicant.Email, dto.Email.Trim(),
-            StringComparison.OrdinalIgnoreCase);
-
-
-        applicant.Email = dto.Email.Trim().ToLowerInvariant();
         applicant.Mobile = dto.Mobile.Trim();
-        /* Left alone when omitted, so a client that does not send these fields
-           cannot blank a declaration the applicant already made. */
+
+        /* All of these are left alone when they are not sent, so a client
+           that does not show a field cannot blank what the applicant
+           already said. The e-mail is not here at all: it moves only
+           through RequestEmailChangeAsync and the code that follows it. */
         applicant.Gender = EnumMaps.ParseDeclared<Gender>(dto.Gender) ?? applicant.Gender;
         applicant.SocialCategory =
             EnumMaps.ParseDeclared<SocialCategory>(dto.SocialCategory) ?? applicant.SocialCategory;
-        applicant.StateCode = dto.StateCode;
-        applicant.DistrictCode = dto.DistrictCode;
-        applicant.City = dto.City;
+        applicant.StateCode = dto.StateCode ?? applicant.StateCode;
+        applicant.DistrictCode = dto.DistrictCode ?? applicant.DistrictCode;
+        applicant.City = string.IsNullOrWhiteSpace(dto.City) ? applicant.City : dto.City.Trim();
 
-        /* A new address has to be proven before it is trusted again. */
-        if (emailChanged) applicant.EmailVerified = false;
+        await db.SaveChangesAsync(ct);
+        return await MeAsync(applicantId, ct);
+    }
 
+    /* ------------------------------------------------------ e-mail change
+       Three steps, and the account does not move until the last one.
+
+       It used to be one: the address was written straight onto the account,
+       the applicant was signed out, and a code went to wherever they had
+       typed. A single mistyped character therefore locked somebody out of
+       their own account and out of the mailbox that could let them back in.
+
+       Now the new address is held to one side until a code sent to it comes
+       back. Nothing about signing in changes at any point - the applicant ID
+       is the identity and the password is untouched - so a change that is
+       never finished costs nothing. */
+
+    /// <summary>Sends a code to the address they want to move to.</summary>
+    public async Task<ApplicantDto> RequestEmailChangeAsync(
+        int applicantId, string email, CancellationToken ct)
+    {
+        var applicant = await db.Applicants.FirstOrDefaultAsync(a => a.Id == applicantId, ct)
+                        ?? throw AppException.NotFound("Applicant");
+
+        Guard.Check().Email(email).ThrowIfInvalid();
+
+        var wanted = email.Trim().ToLowerInvariant();
+
+        if (string.Equals(wanted, applicant.Email, StringComparison.OrdinalIgnoreCase))
+            throw new AppException("That is already the address on your account.");
+
+        applicant.PendingEmail = wanted;
+        await db.SaveChangesAsync(ct);
+
+        /* Throttling and the attempt budget are the OTP service's; a code
+           asked for too often is refused there with a 429 the app shows. */
+        await otp.SendEmailChangeOtpAsync(wanted, applicant.FullName, ct);
+
+        return await MeAsync(applicantId, ct);
+    }
+
+    /// <summary>Sends the code again, to the same address.</summary>
+    public async Task<ApplicantDto> ResendEmailChangeAsync(int applicantId, CancellationToken ct)
+    {
+        var applicant = await db.Applicants.AsNoTracking()
+                            .FirstOrDefaultAsync(a => a.Id == applicantId, ct)
+                        ?? throw AppException.NotFound("Applicant");
+
+        if (string.IsNullOrWhiteSpace(applicant.PendingEmail))
+            throw new AppException("There is no address waiting to be verified.");
+
+        await otp.SendEmailChangeOtpAsync(applicant.PendingEmail, applicant.FullName, ct);
+        return await MeAsync(applicantId, ct);
+    }
+
+    /// <summary>Moves the account, once the code proves they can read it.</summary>
+    public async Task<ApplicantDto> ConfirmEmailChangeAsync(
+        int applicantId, string code, CancellationToken ct)
+    {
+        var applicant = await db.Applicants.FirstOrDefaultAsync(a => a.Id == applicantId, ct)
+                        ?? throw AppException.NotFound("Applicant");
+
+        var wanted = applicant.PendingEmail;
+        if (string.IsNullOrWhiteSpace(wanted))
+            throw new AppException("There is no address waiting to be verified.");
+
+        /* Throws on a wrong, stale or spent code, so nothing below runs
+           unless the person holding this session can also read that inbox. */
+        await otp.SpendCodeAsync(OtpService.EmailChangeChannel, wanted, code, ct);
+
+        applicant.Email = wanted;
+        applicant.EmailVerified = true;
+        applicant.PendingEmail = null;
+
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Applicant {Code} moved to a new e-mail address",
+            applicant.ApplicantCode);
+
+        return await MeAsync(applicantId, ct);
+    }
+
+    /// <summary>Drops the change. The address on the account never moved.</summary>
+    public async Task<ApplicantDto> CancelEmailChangeAsync(int applicantId, CancellationToken ct)
+    {
+        var applicant = await db.Applicants.FirstOrDefaultAsync(a => a.Id == applicantId, ct)
+                        ?? throw AppException.NotFound("Applicant");
+
+        applicant.PendingEmail = null;
         await db.SaveChangesAsync(ct);
         return await MeAsync(applicantId, ct);
     }
@@ -478,7 +581,17 @@ public class ApplicantAuthService(
         return [.. rows.Select(a => a.ToDto())];
     }
 
-    /// <summary>Batches the applicant is enrolled in, with their attendance.</summary>
+    /// <summary>
+    /// Every batch the applicant registered for.
+    ///
+    /// Two kinds, and both belong on the list. A seat that was taken is a
+    /// participant row, and carries attendance, the paper and the
+    /// certificate. A registration whose fee has not arrived has no
+    /// participant row at all - it is only an application with a batch
+    /// written on it - and that used to be shown nowhere, so somebody who
+    /// had registered and not yet paid saw an empty screen and no way back
+    /// to the payment.
+    /// </summary>
     public async Task<List<ApplicantEnrolmentDto>> MyEnrolmentsAsync(int applicantId, CancellationToken ct)
     {
         var rows = await db.ProgrammeParticipants.AsNoTracking()
@@ -488,28 +601,72 @@ public class ApplicantAuthService(
             .OrderByDescending(p => p.Programme!.StartDate)
             .ToListAsync(ct);
 
-        return
-        [
-            .. rows.Select(p => new ApplicantEnrolmentDto
-            {
-                ParticipantId = p.Id,
-                ProgrammeId = p.Programme!.ProgrammeId,
-                ProgrammeName = p.Programme.ProgrammeName,
-                AgencyName = p.Programme.Agency?.Name,
-                Mode = p.Programme.Mode.ToApi(),
-                Venue = p.Programme.Venue,
-                State = p.Programme.State?.Name,
-                StartDate = p.Programme.StartDate,
-                EndDate = p.Programme.EndDate,
-                MeetingLink = p.Programme.MeetingLink,
-                ExamDateTime = p.Programme.ExamDateTime,
-                Status = p.Programme.Status.ToApi(),
-                AttendancePercent = p.AttendancePercent,
-                ExamScore = p.ExamScore,
-                Result = p.Result.ToApi(),
-                CertificateNo = p.CertificateNo,
-            }),
-        ];
+        var enrolments = rows.Select(p => new ApplicantEnrolmentDto
+        {
+            ParticipantId = p.Id,
+            ApplicationId = p.ApplicationId ?? 0,
+            SeatTaken = true,
+            ProgrammeId = p.Programme!.ProgrammeId,
+            ProgrammeName = p.Programme.ProgrammeName,
+            AgencyName = p.Programme.Agency?.Name,
+            Mode = p.Programme.Mode.ToApi(),
+            Venue = p.Programme.Venue,
+            State = p.Programme.State?.Name,
+            StartDate = p.Programme.StartDate,
+            EndDate = p.Programme.EndDate,
+            MeetingLink = p.Programme.MeetingLink,
+            ExamDateTime = p.Programme.ExamDateTime,
+            Status = p.Programme.Status.ToApi(),
+            AttendancePercent = p.AttendancePercent,
+            ExamScore = p.ExamScore,
+            Result = p.Result.ToApi(),
+            CertificateNo = p.CertificateNo,
+        }).ToList();
+
+        /* Registered, not yet seated. Excludes anything already in the list
+           above: paying takes the seat, and the two would otherwise both
+           describe the same batch. */
+        var seated = rows.Select(p => p.ProgrammeId).ToHashSet();
+
+        var awaiting = await db.Applications.AsNoTracking()
+            .Include(a => a.Programme).ThenInclude(x => x!.Agency)
+            .Include(a => a.Programme).ThenInclude(x => x!.State)
+            .Where(a => a.ApplicantId == applicantId
+                        && a.ProgrammeId != null
+                        && a.Status != ApplicationStatus.Rejected
+                        /* Owing, which is Pending or Failed. A free
+                           programme's application is NotApplicable and its
+                           seat was taken on the spot, so reading it as
+                           money outstanding would list a batch they are
+                           already on as waiting to be paid for. */
+                        && (a.PaymentStatus == Domain.Common.PaymentStatus.Pending
+                            || a.PaymentStatus == Domain.Common.PaymentStatus.Failed)
+                        && !seated.Contains(a.ProgrammeId!.Value))
+            .OrderByDescending(a => a.Programme!.StartDate)
+            .ToListAsync(ct);
+
+        enrolments.AddRange(awaiting.Select(a => new ApplicantEnrolmentDto
+        {
+            ParticipantId = 0,
+            ApplicationId = a.Id,
+            SeatTaken = false,
+            AmountDue = a.FeeAmount,
+            PaymentStatus = a.PaymentStatus.ToApi(),
+            ProgrammeId = a.Programme!.ProgrammeId,
+            ProgrammeName = a.Programme.ProgrammeName,
+            AgencyName = a.Programme.Agency?.Name,
+            Mode = a.Programme.Mode.ToApi(),
+            Venue = a.Programme.Venue,
+            State = a.Programme.State?.Name,
+            StartDate = a.Programme.StartDate,
+            EndDate = a.Programme.EndDate,
+            MeetingLink = a.Programme.MeetingLink,
+            ExamDateTime = a.Programme.ExamDateTime,
+            Status = a.Programme.Status.ToApi(),
+            Result = "Pending",
+        }));
+
+        return [.. enrolments.OrderByDescending(e => e.StartDate)];
     }
 
     /* ----------------------------------------------- password recovery */
@@ -669,6 +826,22 @@ public class ApplicantAuthService(
         await db.SaveChangesAsync(ct);
 
         logger.LogInformation("Applicant password reset completed for {ApplicantCode}", code);
+
+        /* Confirmed by e-mail, with the applicant ID they sign in with:
+           somebody who has just been through a reset has usually lost that
+           too, and a reset nobody asked for has to be visible to the person
+           it happened to. */
+        try
+        {
+            await notifications.SendApplicantPasswordChangedAsync(
+                applicant, "reset with a code", ct);
+        }
+        catch (Exception caught)
+        {
+            logger.LogWarning(caught,
+                "The password for {ApplicantCode} was reset but the confirmation "
+                + "could not be sent.", code);
+        }
     }
 
     /// <summary>

@@ -73,6 +73,8 @@ export interface Applicant {
   subCategoryId?: number | null;
   subCategoryName?: string;
   emailVerified: boolean;
+  /** An address asked for and not yet proven; the code box shows while it is set. */
+  pendingEmail?: string | null;
   mobileVerified: boolean;
   kycStatus: string;
   stateCode?: number | null;
@@ -83,6 +85,19 @@ export interface Applicant {
   registeredOn: string;
   lastLoginOn?: string | null;
   isBlocked: boolean;
+
+  /**
+   * What they said to the custom questions on the sign-up form, each
+   * carrying the question as it was worded at the time.
+   */
+  answers?: ApplicantAnswer[];
+}
+
+/** One answer to a custom sign-up question. */
+export interface ApplicantAnswer {
+  key: string;
+  label: string;
+  value?: string | null;
 }
 
 export interface ApplicantLoginResponse {
@@ -409,6 +424,18 @@ export interface Application {
 export interface Enrolment {
   /** The enrolment's own id — one person on one batch — which the exam is keyed by. */
   participantId: number;
+
+  /** The application the seat hangs off, and what it will pay for. */
+  applicationId: number;
+
+  /**
+   * False while the fee is outstanding. They registered and chose the
+   * batch; the seat is theirs once the money arrives, so there is no
+   * participant id yet and nothing to attend or sit.
+   */
+  seatTaken: boolean;
+  amountDue: number;
+  paymentStatus?: string | null;
   programmeId: string;
   programmeName: string;
   agencyName?: string;
@@ -595,6 +622,8 @@ export interface ExamAvailability {
 
 export interface ExamSitting {
   attemptId: number;
+  /** The enrolment, so the desk can be found again after a sitting is closed. */
+  participantId: number;
   attemptNo: number;
   paperTitle: string;
   instructions?: string | null;
@@ -660,6 +689,10 @@ export interface TrainingMaterial {
  */
 export interface ApplicantBatch {
   id: number;
+  /** False where this applicant's own history closes it to them. */
+  canRegister: boolean;
+  /** Why not, worded for them. Null when they may register. */
+  blockReason?: string | null;
   programmeId: string;
   programmeName: string;
   programTypeId: number;

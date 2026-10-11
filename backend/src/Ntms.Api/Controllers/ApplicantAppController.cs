@@ -104,6 +104,35 @@ public class ApplicantAppController(
         [FromBody] ApplicantProfileUpdateDto dto, CancellationToken ct) =>
         Envelope(await service.UpdateProfileAsync(ApplicantId, dto, ct), "Profile updated.");
 
+    /* ------------------------------------------------------ e-mail change
+       Asked for, proven, then done. Every one of these is scoped to the
+       applicant on the token, so none of them can move somebody else's
+       address by changing a number. */
+
+    [HttpPost("email-change")]
+    public async Task<ActionResult<ApiEnvelope<ApplicantDto>>> RequestEmailChange(
+        [FromBody] EmailChangeRequestDto dto, CancellationToken ct) =>
+        Envelope(
+            await service.RequestEmailChangeAsync(ApplicantId, dto.Email, ct),
+            "A verification code has been sent to the new address.");
+
+    [HttpPost("email-change/resend")]
+    public async Task<ActionResult<ApiEnvelope<ApplicantDto>>> ResendEmailChange(
+        CancellationToken ct) =>
+        Envelope(await service.ResendEmailChangeAsync(ApplicantId, ct), "Code sent again.");
+
+    [HttpPost("email-change/verify")]
+    public async Task<ActionResult<ApiEnvelope<ApplicantDto>>> ConfirmEmailChange(
+        [FromBody] EmailChangeConfirmDto dto, CancellationToken ct) =>
+        Envelope(
+            await service.ConfirmEmailChangeAsync(ApplicantId, dto.Code, ct),
+            "Your email address has been changed.");
+
+    [HttpDelete("email-change")]
+    public async Task<ActionResult<ApiEnvelope<ApplicantDto>>> CancelEmailChange(
+        CancellationToken ct) =>
+        Envelope(await service.CancelEmailChangeAsync(ApplicantId, ct), "Change cancelled.");
+
     [HttpPost("change-password")]
     public async Task<ActionResult<ApiEnvelope<bool>>> ChangePassword(
         [FromBody] ChangePasswordDto dto, CancellationToken ct)
@@ -491,7 +520,8 @@ public class ApplicantAppController(
     /// <summary>
     /// Opens a sitting — the clock starts here — and serves the paper.
     ///
-    /// A photograph taken at the desk comes with it, as multipart. It is
+    /// A photograph taken at the desk comes with it, as multipart, and is
+    /// required: the service refuses to open a paper without one. It is
     /// kept against the sitting beside the one on their profile, so whoever
     /// reviews the result can see who was actually there. Nothing compares
     /// them automatically.
@@ -529,6 +559,20 @@ public class ApplicantAppController(
     public async Task<ActionResult<ApiEnvelope<int>>> Answer(
         int attemptId, [FromBody] ExamAnswerBatchDto dto, CancellationToken ct) =>
         Envelope(await exams.AnswerAsync(ApplicantId, attemptId, dto, ct));
+
+    /// <summary>
+    /// Closes a sitting because the app was left while it was open.
+    ///
+    /// The candidate starts again from the first question. Reported by the
+    /// app because it is the only thing that can see the screen go away.
+    /// </summary>
+    [HttpPost("exam/{attemptId:int}/abandon")]
+    public async Task<ActionResult<ApiEnvelope<bool>>> AbandonExam(
+        int attemptId, CancellationToken ct)
+    {
+        await exams.AbandonAsync(ApplicantId, attemptId, ct);
+        return Envelope(true, "The paper was closed because the app was left.");
+    }
 
     [HttpPost("exam/{attemptId:int}/submit")]
     public async Task<ActionResult<ApiEnvelope<ExamResultDto>>> SubmitExam(

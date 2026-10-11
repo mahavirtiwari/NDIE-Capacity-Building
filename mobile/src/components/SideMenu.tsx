@@ -29,13 +29,17 @@ interface MenuLink {
 
 const LINKS: MenuLink[] = [
   { icon: 'grid-outline', label: 'Dashboard', href: '/(tabs)/programs' },
-  { icon: 'id-card-outline', label: 'Your profile', href: '/profile-form' },
+  /* No 'Your profile' link. The profile scrutiny form is reached from
+     the submission it became, which is listed under applications with
+     everything else that was sent in; a second door into a form that is
+     filled once only invited people to start it again. */
   { icon: 'documents-outline', label: 'My applications', href: '/(tabs)/applications' },
-  { icon: 'calendar-outline', label: 'Batches', href: '/(tabs)/batches' },
+  { icon: 'calendar-outline', label: 'Programs', href: '/(tabs)/batches' },
   { icon: 'document-text-outline', label: 'Examinations', href: '/exam' },
   { icon: 'chatbox-ellipses-outline', label: 'Feedback', href: '/feedback' },
-  { icon: 'card-outline', label: 'Payments', href: '/payments' },
-  { icon: 'document-attach-outline', label: 'Invoices', href: '/invoices' },
+  /* One entry: what is owed, what was paid and the invoice for each are
+     the same two lists, and they were two screens. */
+  { icon: 'card-outline', label: 'Payments & invoices', href: '/payments' },
   { icon: 'book-outline', label: 'Training material', href: '/(tabs)/materials' },
   { icon: 'person-outline', label: 'My profile', href: '/(tabs)/profile' },
 ];

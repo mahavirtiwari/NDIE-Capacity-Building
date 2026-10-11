@@ -70,6 +70,14 @@ public class ApplicantBatchDto : PublicProgrammeDto
     public bool IsEnrolled { get; set; }
     /// <summary>True where they have an application in flight for this track.</summary>
     public bool HasApplied { get; set; }
+
+    /// <summary>
+    /// Whether this applicant may take a seat, and why not where they may
+    /// not. The listing used to leave Register pressable and let the
+    /// registration explain itself after the fact.
+    /// </summary>
+    public bool CanRegister { get; set; } = true;
+    public string? BlockReason { get; set; }
 }
 
 /// <summary>What narrows the public programme listing.</summary>

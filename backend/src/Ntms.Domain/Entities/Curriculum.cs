@@ -35,6 +35,13 @@ public class CurriculumSession : AuditableStatusEntity
     public int DisplayOrder { get; set; }
     public int? Day { get; set; }
 
+    /* When on that day it runs. The curriculum said which day a session
+       belonged to and nothing about the hours, so the timetable handed to
+       a batch had to be written out again somewhere else. Optional: a
+       curriculum may be written before the hours are settled. */
+    public TimeOnly? StartTime { get; set; }
+    public TimeOnly? EndTime { get; set; }
+
     public ICollection<CurriculumTopic> Topics { get; set; } = [];
 }
 

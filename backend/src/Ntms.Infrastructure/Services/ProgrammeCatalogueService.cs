@@ -19,7 +19,7 @@ namespace Ntms.Infrastructure.Services;
 /// administrative side cannot accidentally be the thing standing between the
 /// public and a page that is meant to be public.
 /// </summary>
-public class ProgrammeCatalogueService(NtmsDbContext db)
+public class ProgrammeCatalogueService(NtmsDbContext db, ApplicantEligibilityService rules)
 {
     /* Everything an approval has been given for, including batches already
        run. The listing shows history as well as what is coming: somebody
@@ -172,6 +172,13 @@ public class ProgrammeCatalogueService(NtmsDbContext db)
             .OrderBy(p => p.StartDate)
             .ToListAsync(ct);
 
+        /* What their own history closes to them. A track they have passed
+           drops off the list entirely - there is nothing left for them in
+           it - and the rest keep their place with the reason on the card,
+           because "you are booked on these dates" is worth reading. */
+        var standing = await rules.ReadAsync(applicantId, ct);
+        rows = [.. rows.Where(p => !standing.Hide(p))];
+
         var programmeIds = rows.Select(p => p.Id).ToList();
 
         var enrolled = await db.ProgrammeParticipants.AsNoTracking()
@@ -192,12 +199,19 @@ public class ProgrammeCatalogueService(NtmsDbContext db)
             .. rows.Select(p =>
             {
                 var dto = ToPublic(p);
+                var refused = standing.Refuse(p);
+                var seated = enrolled.Contains(p.Id);
+
                 return new ApplicantBatchDto
                 {
                     Id = p.Id,
                     ProgramTypeId = p.ProgramTypeId,
-                    IsEnrolled = enrolled.Contains(p.Id),
+                    IsEnrolled = seated,
                     HasApplied = appliedTypes.Contains(p.ProgramTypeId),
+                    /* Being on this very batch is not a refusal: the card
+                       says Registered rather than giving a reason why not. */
+                    CanRegister = seated || refused is null,
+                    BlockReason = seated ? null : refused,
                     ProgrammeId = dto.ProgrammeId,
                     ProgrammeName = dto.ProgrammeName,
                     ProgramTypeName = dto.ProgramTypeName,

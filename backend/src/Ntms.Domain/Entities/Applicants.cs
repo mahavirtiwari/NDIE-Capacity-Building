@@ -38,6 +38,16 @@ public class Applicant : AuditableEntity
 
     public string PasswordHash { get; set; } = string.Empty;
     public bool EmailVerified { get; set; }
+
+    /// <summary>
+    /// An address the applicant is moving to, which they have not proven yet.
+    ///
+    /// The change used to be made as soon as it was typed and the account
+    /// signed out until a code arrived — so a typo in the new address locked
+    /// somebody out of their own account with no way back. Nothing moves now
+    /// until the code sent to this address comes back.
+    /// </summary>
+    public string? PendingEmail { get; set; }
     public bool MobileVerified { get; set; }
     public KycStatus KycStatus { get; set; } = KycStatus.Pending;
 

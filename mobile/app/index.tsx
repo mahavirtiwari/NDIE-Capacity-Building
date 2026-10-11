@@ -19,12 +19,12 @@ export default function Index() {
     );
   }
 
-  /* Applications, not Programs. Nothing is open to an applicant until the
-     profile for a discipline has been accepted, so landing on the list of
-     programmes showed an empty screen to everybody who had just signed up.
-     Applications is where they choose a category and fill the form, which
-     is the next thing they have to do. */
-  return <Redirect href={applicant ? '/(tabs)/applications' : '/(auth)/sign-in'} />;
+  /* The dashboard. It carries who they are, the quick tiles, and the
+     programs open to them; where none are open yet it says so and offers
+     the sub-category to start a profile in, so it is the right first
+     screen for somebody who signed up a minute ago as well as for
+     somebody halfway through a batch. */
+  return <Redirect href={applicant ? '/(tabs)/programs' : '/(auth)/sign-in'} />;
 }
 
 const styles = StyleSheet.create({

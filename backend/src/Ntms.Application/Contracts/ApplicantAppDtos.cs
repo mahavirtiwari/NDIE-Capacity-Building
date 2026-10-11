@@ -18,9 +18,15 @@ public class ApplicantLoginResponseDto
     public ApplicantDto Applicant { get; set; } = new();
 }
 
+/// <summary>
+/// What an applicant may change about themselves from the app.
+///
+/// No e-mail. A new address has to be proven before it is trusted, so it
+/// moves through its own pair of endpoints and a code; this one is for the
+/// things that need no proof.
+/// </summary>
 public class ApplicantProfileUpdateDto
 {
-    public string Email { get; set; } = string.Empty;
     public string Mobile { get; set; } = string.Empty;
     /* Correctable by the applicant: it was their own declaration to begin with. */
     public string? Gender { get; set; }
@@ -28,6 +34,18 @@ public class ApplicantProfileUpdateDto
     public int? StateCode { get; set; }
     public int? DistrictCode { get; set; }
     public string? City { get; set; }
+}
+
+/// <summary>The address an applicant wants to move their account to.</summary>
+public class EmailChangeRequestDto
+{
+    public string Email { get; set; } = string.Empty;
+}
+
+/// <summary>The code that proves they can read it.</summary>
+public class EmailChangeConfirmDto
+{
+    public string Code { get; set; } = string.Empty;
 }
 
 /// <summary>A programme as the applicant sees it on the home screen.</summary>
@@ -107,6 +125,23 @@ public class ApplicantEnrolmentDto
     /// applicant's and not the batch's: one person on one batch.
     /// </summary>
     public int ParticipantId { get; set; }
+
+    /// <summary>
+    /// The application the seat hangs off, so an unpaid registration has
+    /// something to pay against.
+    /// </summary>
+    public int ApplicationId { get; set; }
+
+    /// <summary>
+    /// False while the fee is outstanding: they have registered, but the
+    /// seat is not theirs until the money arrives. Everything about the
+    /// batch is still worth showing them - it is the programme they chose.
+    /// </summary>
+    public bool SeatTaken { get; set; } = true;
+
+    /// <summary>What is owed, and where the payment stands. Only on an unpaid one.</summary>
+    public decimal AmountDue { get; set; }
+    public string? PaymentStatus { get; set; }
 
     public string ProgrammeId { get; set; } = string.Empty;
     public string ProgrammeName { get; set; } = string.Empty;

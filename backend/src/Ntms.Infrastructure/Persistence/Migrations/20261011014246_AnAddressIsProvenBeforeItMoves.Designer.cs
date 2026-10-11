@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Ntms.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Ntms.Infrastructure.Persistence;
 namespace Ntms.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(NtmsDbContext))]
-    partial class NtmsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261011014246_AnAddressIsProvenBeforeItMoves")]
+    partial class AnAddressIsProvenBeforeItMoves
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -926,9 +929,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("int");
 
-                    b.Property<TimeOnly?>("EndTime")
-                        .HasColumnType("time");
-
                     b.Property<string>("ModifiedBy")
                         .HasColumnType("nvarchar(max)");
 
@@ -944,9 +944,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
-
-                    b.Property<TimeOnly?>("StartTime")
-                        .HasColumnType("time");
 
                     b.Property<string>("Status")
                         .IsRequired()

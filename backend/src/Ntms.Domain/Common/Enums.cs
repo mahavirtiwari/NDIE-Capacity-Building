@@ -106,6 +106,16 @@ public enum ExamAttemptStatus
     InProgress = 1,
     Submitted = 2,
     Expired = 3,
+
+    /// <summary>
+    /// The candidate left the app while the paper was open.
+    ///
+    /// An online paper is only worth as much as the supervision around it,
+    /// and the one thing a phone can tell us is whether the candidate was
+    /// still looking at it. A sitting that was left is closed on what it
+    /// had, and the next one starts at question one with a fresh clock.
+    /// </summary>
+    Abandoned = 4,
 }
 
 public enum DifficultyLevel

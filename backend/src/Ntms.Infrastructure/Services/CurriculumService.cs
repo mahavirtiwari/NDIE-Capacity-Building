@@ -146,6 +146,13 @@ public class CurriculumService(NtmsDbContext db)
                 SessionName = dto.SessionName.Trim(),
                 DisplayOrder = order,
                 Day = dto.Day,
+                StartTime = dto.StartTime,
+                /* An end before the start is a typo rather than a session
+                   that runs backwards, so it is dropped rather than stored
+                   and read back as a negative length later. */
+                EndTime = dto.EndTime > dto.StartTime || dto.StartTime is null
+                    ? dto.EndTime
+                    : null,
                 /* Sessions are rebuilt from the payload on every save, so the
                    enabled/disabled state has to travel with them or it would
                    silently reset each time the plan is edited. */

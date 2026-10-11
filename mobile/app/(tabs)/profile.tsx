@@ -3,12 +3,11 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../src/api/client';
-import { auth as authApi, lookups, me } from '../../src/api/endpoints';
-import type { LookupItem, ProfileStanding } from '../../src/api/types';
-import { useResource } from '../../src/api/useResource';
+import { auth as authApi, me } from '../../src/api/endpoints';
+import type { Applicant, SignupField, SignupForm } from '../../src/api/types';
+import { GENDER_OPTIONS, SOCIAL_CATEGORY_OPTIONS } from '../../src/api/types';
 import { useAuth } from '../../src/auth/AuthContext';
 import { useBranding } from '../../src/branding/BrandingContext';
-import { Picker } from '../../src/components/Picker';
 import {
   Banner,
   Button,
@@ -23,159 +22,168 @@ import { colors, font, radius, spacing } from '../../src/theme';
 import { isEmail, isMobile } from '../../src/validation/formats';
 
 /**
- * Identity is the system generated applicant ID and never changes. Email and
- * mobile are ordinary profile data the applicant edits here.
+ * The account, and nothing else.
+ *
+ * What is shown is the sign-up form as it was filled in: the questions the
+ * department decided to ask, in their order, with the answers this person
+ * gave. Nothing is invented here, and nothing that was never asked for -
+ * the screen used to offer a state, a district and a town that no applicant
+ * had ever been asked for, and a list of their profile submissions, which
+ * now lives with the rest of what they have sent in, under Applications.
+ *
+ * Two answers can be corrected: the mobile number, which is theirs to say,
+ * and the e-mail address, which is theirs to say but has to be proven -
+ * a code goes to the new address and the account does not move until it
+ * comes back. Identity is the applicant ID and neither touches it.
  */
 export default function Profile() {
   const router = useRouter();
   const { applicant, signOut, refreshProfile } = useAuth();
   const { branding } = useBranding();
 
-  const [email, setEmail] = useState(applicant?.email ?? '');
+  const [form, setForm] = useState<SignupForm | null>(null);
+
   const [mobile, setMobile] = useState(applicant?.mobile ?? '');
-  const [stateCode, setStateCode] = useState<string | null>(
-    applicant?.stateCode ? String(applicant.stateCode) : null,
-  );
-  const [districtCode, setDistrictCode] = useState<string | null>(
-    applicant?.districtCode ? String(applicant.districtCode) : null,
-  );
-  const [city, setCity] = useState(applicant?.city ?? '');
+  const [savingMobile, setSavingMobile] = useState(false);
+  const [mobileError, setMobileError] = useState<string | null>(null);
+  const [mobileSaved, setMobileSaved] = useState(false);
 
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [profileError, setProfileError] = useState<string | null>(null);
-  const [profileSaved, setProfileSaved] = useState(false);
+  const [email, setEmail] = useState(applicant?.email ?? '');
+  const [code, setCode] = useState('');
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailNote, setEmailNote] = useState<string | null>(null);
 
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [savingPassword, setSavingPassword] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-
-  /* Which disciplines they are in comes from the profiles they hold, not
-     from a pair of columns on the account: one account holds a profile in
-     each category it has entered. */
-  const profiles = useResource<ProfileStanding[]>(() => me.myProfiles(), []);
-
-  const states = useResource<LookupItem[]>(() => lookups.states(), []);
-  const districts = useResource<LookupItem[]>(
-    () => (stateCode ? lookups.districts(Number(stateCode)) : Promise.resolve([])),
-    [stateCode],
-  );
-
-  /* Clear a district that does not belong to the newly chosen state. */
+  /* The questions as they are asked today. A field that has since been
+     switched off is not shown; an answer to one that has gone is still
+     kept on the record, and shown under the question it was asked as. */
   useEffect(() => {
-    if (!districtCode || !districts.data) return;
-    if (!districts.data.some((item) => String(item.id) === districtCode)) {
-      setDistrictCode(null);
-    }
-  }, [districts.data, districtCode]);
+    let cancelled = false;
+    authApi
+      .signupForm()
+      .then((next) => {
+        if (!cancelled) setForm(next);
+      })
+      .catch(() => {
+        /* The record below falls back to the built-in questions, which is
+           everything the account itself holds. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const stateOptions = useMemo(
-    () => (states.data ?? []).map((item) => ({ value: String(item.id), label: item.name })),
-    [states.data],
-  );
-  const districtOptions = useMemo(
-    () => (districts.data ?? []).map((item) => ({ value: String(item.id), label: item.name })),
-    [districts.data],
-  );
+  /* The address waiting to be proven comes from the server, so the box for
+     the code is still there if the app is closed halfway through. */
+  const pending = applicant?.pendingEmail ?? null;
+
+  useEffect(() => {
+    if (pending) setEmail(pending);
+  }, [pending]);
+
+  const rows = useMemo(() => readBack(applicant, form), [applicant, form]);
 
   if (!applicant) return <Loading />;
 
-  const emailChanged = email.trim().toLowerCase() !== applicant.email.toLowerCase();
-
-  const commitProfile = async () => {
-    setSavingProfile(true);
-    setProfileError(null);
-    setProfileSaved(false);
-    try {
-      await me.updateProfile({
-        email: email.trim(),
-        mobile: mobile.trim(),
-        stateCode: stateCode ? Number(stateCode) : null,
-        districtCode: districtCode ? Number(districtCode) : null,
-        city: city.trim() || null,
-      });
-
-      /* A new address is untrusted until proven, and the API refuses sign-in
-         until it is. Send the code and take the applicant straight there so
-         they are never quietly locked out of their own account. */
-      if (emailChanged) {
-        const next = email.trim();
-        try {
-          await authApi.sendOtp(next, applicant.fullName);
-        } catch {
-          /* Throttled or offline; the verify screen can resend. */
-        }
-        await signOut();
-        router.replace({
-          pathname: '/(auth)/verify',
-          params: {
-            email: next,
-            applicantCode: applicant.applicantCode,
-            reason: 'email-change',
-          },
-        });
-        return;
-      }
-
-      await refreshProfile();
-      setProfileSaved(true);
-    } catch (caught) {
-      setProfileError(caught instanceof ApiError ? caught.message : 'Could not save your details.');
-    } finally {
-      setSavingProfile(false);
-    }
-  };
-
-  const saveProfile = () => {
-    if (!isEmail(email)) {
-      setProfileError('Enter a valid email address.');
-      return;
-    }
+  const saveMobile = async () => {
     if (!isMobile(mobile)) {
-      setProfileError('Enter a valid 10 digit mobile number.');
+      setMobileError('Enter a valid 10 digit mobile number.');
       return;
     }
 
-    if (emailChanged) {
-      Alert.alert(
-        'Verify the new email?',
-        `You will be signed out and sent a code at ${email.trim()}. Your applicant ID and password stay the same, but you cannot sign in until the new address is confirmed.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Send code', onPress: () => void commitProfile() },
-        ],
-      );
-      return;
-    }
-
-    void commitProfile();
-  };
-
-  const savePassword = async () => {
-    if (newPassword.length < 8) {
-      setPasswordError('The new password must be at least 8 characters.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordError('The two new passwords do not match.');
-      return;
-    }
-
-    setSavingPassword(true);
-    setPasswordError(null);
+    setSavingMobile(true);
+    setMobileError(null);
+    setMobileSaved(false);
     try {
-      await me.changePassword(currentPassword, newPassword);
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      Alert.alert('Password changed', 'Use your new password the next time you sign in.');
+      await me.updateProfile({ mobile: mobile.trim() });
+      await refreshProfile();
+      setMobileSaved(true);
     } catch (caught) {
-      setPasswordError(
-        caught instanceof ApiError ? caught.message : 'Could not change your password.',
+      setMobileError(
+        caught instanceof ApiError ? caught.message : 'Could not save your mobile number.',
       );
     } finally {
-      setSavingPassword(false);
+      setSavingMobile(false);
+    }
+  };
+
+  const requestEmailChange = async () => {
+    const wanted = email.trim();
+    if (!isEmail(wanted)) {
+      setEmailError('Enter a valid email address.');
+      return;
+    }
+    if (wanted.toLowerCase() === applicant.email.toLowerCase()) {
+      setEmailError('That is already the address on your account.');
+      return;
+    }
+
+    setEmailBusy(true);
+    setEmailError(null);
+    setEmailNote(null);
+    try {
+      await me.requestEmailChange(wanted);
+      await refreshProfile();
+      setCode('');
+      setEmailNote(`A 6 digit passcode has been sent to ${wanted}.`);
+    } catch (caught) {
+      setEmailError(caught instanceof ApiError ? caught.message : 'Could not send the passcode.');
+    } finally {
+      setEmailBusy(false);
+    }
+  };
+
+  const confirmEmailChange = async () => {
+    if (code.trim().length < 4) {
+      setEmailError('Enter the passcode from the email.');
+      return;
+    }
+
+    setEmailBusy(true);
+    setEmailError(null);
+    setEmailNote(null);
+    try {
+      await me.confirmEmailChange(code.trim());
+      await refreshProfile();
+      setCode('');
+      Alert.alert(
+        'Email changed',
+        'Your new address is on the account. You sign in with your applicant ID as before.',
+      );
+    } catch (caught) {
+      setEmailError(caught instanceof ApiError ? caught.message : 'Could not verify the passcode.');
+    } finally {
+      setEmailBusy(false);
+    }
+  };
+
+  const resend = async () => {
+    setEmailBusy(true);
+    setEmailError(null);
+    setEmailNote(null);
+    try {
+      await me.resendEmailChange();
+      setEmailNote('The passcode has been sent again.');
+    } catch (caught) {
+      setEmailError(caught instanceof ApiError ? caught.message : 'Could not send the passcode.');
+    } finally {
+      setEmailBusy(false);
+    }
+  };
+
+  const cancelEmailChange = async () => {
+    setEmailBusy(true);
+    setEmailError(null);
+    setEmailNote(null);
+    try {
+      await me.cancelEmailChange();
+      await refreshProfile();
+      setEmail(applicant.email);
+      setCode('');
+    } catch (caught) {
+      setEmailError(caught instanceof ApiError ? caught.message : 'Could not cancel the change.');
+    } finally {
+      setEmailBusy(false);
     }
   };
 
@@ -208,144 +216,120 @@ export default function Profile() {
             <StatusPill value={applicant.isBlocked ? 'Inactive' : 'Active'} />
           </View>
 
+          <Banner tone="info">
+            Your applicant ID never changes and is what you sign in with.
+          </Banner>
+        </Card>
+
+        {/* What was filled in at sign-up, read back. Only the two boxes
+            below are editable; the rest is the record of what was said. */}
+        <Card style={styles.card}>
+          <Text style={styles.sectionTitle}>What you told us when you registered</Text>
           <View style={styles.details}>
-            <DetailRow label="Applicant ID" value={applicant.applicantCode} />
-            <DetailRow label="PAN" value={applicant.pan} />
+            {rows.map((row) => (
+              <DetailRow key={row.key} label={row.label} value={row.value} />
+            ))}
             <DetailRow
               label="Email verified"
               value={<StatusPill value={applicant.emailVerified ? 'Verified' : 'Pending'} />}
             />
           </View>
-
-          <Banner tone="info">
-            Your applicant ID never changes. Updating your email below does not change how you sign
-            in.
-          </Banner>
         </Card>
 
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Your profiles</Text>
-
-          {(profiles.data ?? []).length === 0 ? (
-            <>
-              <Text style={styles.note}>
-                You have not chosen a category yet. One profile is filled in for each category
-                you enter, and the programs under it open once it has been accepted.
-              </Text>
-              <Button
-                label="Choose a sub-category"
-                icon="arrow-forward"
-                variant="secondary"
-                onPress={() => router.push('/profile-form')}
-              />
-            </>
-          ) : (
-            <View style={styles.details}>
-              {(profiles.data ?? []).map((profile) => (
-                <DetailRow
-                  key={profile.subCategoryId}
-                  label={`${profile.categoryName ?? 'Category'} · ${profile.subCategoryName ?? ''}`}
-                  value={
-                    <StatusPill
-                      value={profile.cleared ? 'Approved' : (profile.status ?? 'Draft')}
-                    />
-                  }
-                />
-              ))}
-            </View>
-          )}
-        </Card>
-
-        <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Contact details</Text>
-
-          <Field
-            label="Email"
-            required
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Enter email address"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+          <Text style={styles.sectionTitle}>Mobile number</Text>
           <Field
             label="Mobile"
             required
             value={mobile}
-            onChangeText={(text) => setMobile(text.replace(/\D/g, ''))}
+            onChangeText={(text) => {
+              setMobile(text.replace(/\D/g, ''));
+              setMobileSaved(false);
+            }}
             placeholder="Enter mobile number"
             keyboardType="number-pad"
             maxLength={10}
           />
-          <Picker
-            label="State/UT"
-            value={stateCode}
-            options={stateOptions}
-            onChange={setStateCode}
-            searchable
-          />
-          <Picker
-            label="District"
-            value={districtCode}
-            options={districtOptions}
-            onChange={setDistrictCode}
-            disabled={!stateCode}
-            hint={stateCode ? null : 'Choose a state first.'}
-            searchable
-          />
-          <Field label="City / town" value={city} onChangeText={setCity} />
-
-          {emailChanged ? (
-            <Banner tone="warning">
-              Changing your email signs you out until the new address is verified. Your applicant ID
-              and password do not change.
-            </Banner>
-          ) : null}
-          {profileError ? <Banner tone="danger">{profileError}</Banner> : null}
-          {profileSaved ? <Banner tone="success">Your details have been saved.</Banner> : null}
-
-          <Button label="Save details" onPress={saveProfile} loading={savingProfile} />
-        </Card>
-
-        <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Change password</Text>
-
-          <Field
-            label="Current password"
-            required
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            secure
-            autoCapitalize="none"
-          />
-          <Field
-            label="New password"
-            required
-            value={newPassword}
-            onChangeText={setNewPassword}
-            secure
-            autoCapitalize="none"
-            hint="At least 8 characters."
-          />
-          <Field
-            label="Confirm new password"
-            required
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secure
-            autoCapitalize="none"
-          />
-
-          {passwordError ? <Banner tone="danger">{passwordError}</Banner> : null}
-
+          {mobileError ? <Banner tone="danger">{mobileError}</Banner> : null}
+          {mobileSaved ? <Banner tone="success">Your mobile number has been saved.</Banner> : null}
           <Button
-            label="Change password"
-            variant="secondary"
-            onPress={savePassword}
-            loading={savingPassword}
+            label="Save mobile number"
+            onPress={saveMobile}
+            loading={savingMobile}
+            disabled={mobile === applicant.mobile}
           />
         </Card>
+
+        {/* The address, and the proof. Nothing moves until a passcode sent
+            to the new mailbox comes back, so a mistyped address costs an
+            unread email and nothing else. */}
+        <Card style={styles.card}>
+          <Text style={styles.sectionTitle}>Email address</Text>
+
+          {pending ? (
+            <>
+              <Banner tone="warning">
+                {`A 6 digit passcode was sent to ${pending}. Your account still uses `
+                  + `${applicant.email} until you enter it.`}
+              </Banner>
+              <Field
+                label="Passcode"
+                required
+                value={code}
+                onChangeText={(text) => setCode(text.replace(/\D/g, ''))}
+                placeholder="6 digit code"
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+              {emailError ? <Banner tone="danger">{emailError}</Banner> : null}
+              {emailNote ? <Banner tone="success">{emailNote}</Banner> : null}
+
+              <Button label="Verify and change" onPress={confirmEmailChange} loading={emailBusy} />
+              <Button
+                label="Send the passcode again"
+                variant="secondary"
+                onPress={resend}
+                loading={emailBusy}
+              />
+              <Pressable onPress={cancelEmailChange} accessibilityRole="button">
+                <Text style={styles.cancel}>Cancel the change</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Field
+                label="Email"
+                required
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Enter email address"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                hint="A passcode is sent to the new address before it is changed."
+              />
+              {emailError ? <Banner tone="danger">{emailError}</Banner> : null}
+              {emailNote ? <Banner tone="success">{emailNote}</Banner> : null}
+              <Button
+                label="Send passcode to the new address"
+                onPress={requestEmailChange}
+                loading={emailBusy}
+                disabled={email.trim().toLowerCase() === applicant.email.toLowerCase()}
+              />
+            </>
+          )}
+        </Card>
+
+        {/* Its own errand, on its own screen. */}
+        <Pressable
+          onPress={() => router.push('/change-password')}
+          accessibilityRole="button"
+          style={styles.link}
+        >
+          <Ionicons name="key-outline" size={18} color={colors.brand700} />
+          <Text style={styles.linkLabel}>Change password</Text>
+          <Ionicons name="chevron-forward" size={17} color={colors.ink500} />
+        </Pressable>
 
         <Pressable onPress={confirmSignOut} accessibilityRole="button" style={styles.signOut}>
           <Ionicons name="log-out-outline" size={18} color={colors.danger700} />
@@ -360,6 +344,67 @@ export default function Profile() {
     </KeyboardAvoider>
   );
 }
+
+/** The built-in questions, and where each one's answer is kept. */
+const BUILT_IN: Record<string, (applicant: Applicant) => string> = {
+  fullName: (a) => a.fullName,
+  email: (a) => a.email,
+  mobile: (a) => a.mobile,
+  pan: (a) => a.pan,
+  gender: (a) => GENDER_OPTIONS.find((o) => o.value === a.gender)?.label ?? '—',
+  socialCategory: (a) =>
+    SOCIAL_CATEGORY_OPTIONS.find((o) => o.value === a.socialCategory)?.label ?? '—',
+};
+
+/**
+ * The sign-up form as this applicant filled it in.
+ *
+ * Driven by the form where it loaded, so a question the department added
+ * appears here as soon as somebody answers it and a question they retired
+ * stops being asked about. Falls back to the built-in questions, which is
+ * everything the account record itself holds, when the form cannot be read.
+ */
+function readBack(
+  applicant: Applicant | null,
+  form: SignupForm | null,
+): { key: string; label: string; value: string }[] {
+  if (!applicant) return [];
+
+  const answers = new Map((applicant.answers ?? []).map((answer) => [answer.key, answer]));
+  const fields: SignupField[] = (form?.fields ?? []).filter((field) => field.type !== 'file');
+
+  if (fields.length === 0) {
+    return Object.entries(BUILT_IN).map(([key, read]) => ({
+      key,
+      label: humanise(key),
+      value: read(applicant) || '—',
+    }));
+  }
+
+  const rows = fields.map((field) => ({
+    key: field.key,
+    label: field.label,
+    value: field.isBuiltIn
+      ? (BUILT_IN[field.key]?.(applicant) ?? '—')
+      : (answers.get(field.key)?.value || '—'),
+  }));
+
+  /* Answered, but the question is no longer asked. Still shown, under the
+     wording it carried at the time: it is part of what they sent. */
+  const asked = new Set(fields.map((field) => field.key));
+  for (const answer of applicant.answers ?? []) {
+    if (asked.has(answer.key) || !answer.value) continue;
+    rows.push({ key: answer.key, label: answer.label, value: answer.value });
+  }
+
+  return rows;
+}
+
+const humanise = (key: string): string =>
+  key
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/^./, (character) => character.toUpperCase());
 
 const initials = (name: string): string =>
   name
@@ -392,7 +437,26 @@ const styles = StyleSheet.create({
   details: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm },
 
   sectionTitle: { fontSize: font.md, fontWeight: '700', color: colors.ink900 },
-  note: { fontSize: font.sm, color: colors.ink600, lineHeight: 19 },
+  cancel: {
+    fontSize: font.sm,
+    fontWeight: '600',
+    color: colors.ink600,
+    textAlign: 'center',
+    paddingVertical: spacing.xs,
+  },
+
+  link: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+  },
+  linkLabel: { flex: 1, fontSize: font.base, fontWeight: '600', color: colors.ink900 },
 
   signOut: {
     flexDirection: 'row',

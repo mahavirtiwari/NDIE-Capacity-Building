@@ -128,13 +128,26 @@ export interface ForgotPasswordResult {
 export const me = {
   profile: () => api.get<Applicant>('me'),
 
+  /* No email here. A new address is proven before it is trusted, so it
+     moves through the three calls below and a code sent to it. */
   updateProfile: (payload: {
-    email: string;
     mobile: string;
     stateCode?: number | null;
     districtCode?: number | null;
     city?: string | null;
   }) => api.put<Applicant>('me', payload),
+
+  /** Sends a passcode to the address the applicant wants to move to. */
+  requestEmailChange: (email: string) =>
+    api.post<Applicant>('me/email-change', { email }),
+
+  resendEmailChange: () => api.post<Applicant>('me/email-change/resend', {}),
+
+  /** Moves the account, once the passcode proves they can read it. */
+  confirmEmailChange: (code: string) =>
+    api.post<Applicant>('me/email-change/verify', { code }),
+
+  cancelEmailChange: () => api.delete<Applicant>('me/email-change'),
 
   changePassword: (currentPassword: string, newPassword: string) =>
     api.post<boolean>('me/change-password', { currentPassword, newPassword }),
@@ -351,16 +364,11 @@ export const exam = {
   /**
    * Opens the paper, with the photograph taken at the desk.
    *
-   * Multipart rather than JSON, because the picture is a file. It is
-   * required by the screen rather than by the API: an older app that does
-   * not send one still works, and the sitting simply has no photograph
-   * against it.
+   * Multipart rather than JSON, because the picture is a file, and the
+   * picture is not optional: the server refuses to open a paper without
+   * one, so there is no call to make without it.
    */
-  start: (participantId: number, selfie?: { uri: string; type: string }) => {
-    if (!selfie) {
-      return api.post<ExamSitting>(`me/enrolments/${participantId}/exam/start`);
-    }
-
+  start: (participantId: number, selfie: { uri: string; type: string }) => {
     const body = new FormData();
     body.append('selfie', {
       uri: selfie.uri,
@@ -377,4 +385,14 @@ export const exam = {
     api.put<number>(`me/exam/${attemptId}/answers`, { answers }),
 
   submit: (attemptId: number) => api.post<ExamResult>(`me/exam/${attemptId}/submit`),
+
+  /**
+   * Closes the paper because the app was left.
+   *
+   * Reported as the screen goes away, so it is sent on a best effort: the
+   * phone may be locked a moment later. The candidate starts again from
+   * the first question either way, because the app refuses to resume a
+   * sitting it has reported.
+   */
+  abandon: (attemptId: number) => api.post<boolean>(`me/exam/${attemptId}/abandon`),
 };

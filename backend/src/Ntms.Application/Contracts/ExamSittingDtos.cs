@@ -46,6 +46,13 @@ public class ExamAvailabilityDto
 public class ExamSittingDto
 {
     public int AttemptId { get; set; }
+
+    /// <summary>
+    /// The enrolment this paper belongs to, so the app can find its way
+    /// back to the desk — which is where a candidate goes after a sitting
+    /// is closed under them.
+    /// </summary>
+    public int ParticipantId { get; set; }
     public int AttemptNo { get; set; }
     public string PaperTitle { get; set; } = string.Empty;
     public string? Instructions { get; set; }

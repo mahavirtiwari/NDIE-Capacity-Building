@@ -189,6 +189,7 @@ public class ApplicantConfiguration : IEntityTypeConfiguration<Applicant>
         b.Property(x => x.ApplicantCode).HasMaxLength(20).IsRequired();
         b.Property(x => x.FullName).HasMaxLength(160).IsRequired();
         b.Property(x => x.Email).HasMaxLength(200).IsRequired();
+        b.Property(x => x.PendingEmail).HasMaxLength(200);
         b.Property(x => x.Mobile).HasMaxLength(10).IsRequired();
         b.Property(x => x.Pan).HasMaxLength(10).IsRequired();
         b.Property(x => x.BlockReasonLabel).HasMaxLength(200);
@@ -270,6 +271,11 @@ public class ApplicationConfiguration : IEntityTypeConfiguration<TrainingApplica
         b.HasOne(x => x.SubCategory).WithMany().HasForeignKey(x => x.SubCategoryId)
             .OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.ProfileForm).WithMany().HasForeignKey(x => x.ProfileFormId)
+            .OnDelete(DeleteBehavior.Restrict);
+        /* The batch that was being registered for. Restrict for the same
+           reason as the rest: a batch is cancelled, not erased, and the
+           fee that was paid towards it has to keep its reason. */
+        b.HasOne(x => x.Programme).WithMany().HasForeignKey(x => x.ProgrammeId)
             .OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.AssignedToUser).WithMany().HasForeignKey(x => x.AssignedToUserId)
             .OnDelete(DeleteBehavior.Restrict);

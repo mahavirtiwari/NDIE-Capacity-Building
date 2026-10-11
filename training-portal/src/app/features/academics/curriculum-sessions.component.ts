@@ -18,6 +18,18 @@ import { PageHeaderComponent } from '../../shared/components/page-header.compone
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
 import { StatusToggleComponent } from '../../shared/components/status-toggle.component';
 
+/**
+ * HH:mm, which is what a time input takes and what a timetable reads as.
+ *
+ * The API answers TimeOnly, which serialises with seconds — "09:30:00" is
+ * refused by <input type="time"> on some browsers and shows the seconds on
+ * the rest.
+ */
+function clock(value: string | null | undefined): string {
+  if (!value) return '';
+  return value.slice(0, 5);
+}
+
 interface FlatRow {
   serial: number;
   session: CurriculumSession;
@@ -108,6 +120,7 @@ interface FlatRow {
                 <th style="width: 70px">S.No</th>
                 <th style="width: 190px">Session code</th>
                 <th>Session name</th>
+                <th style="width: 150px">Timing</th>
                 <th style="width: 210px">Topic code</th>
                 <th>Topic name</th>
                 <th style="width: 110px">Status</th>
@@ -122,6 +135,9 @@ interface FlatRow {
                     <td [attr.rowspan]="row.rowSpan" class="cell-muted tabular">{{ row.serial }}</td>
                     <td [attr.rowspan]="row.rowSpan" class="cell-primary">{{ row.session.sessionCode }}</td>
                     <td [attr.rowspan]="row.rowSpan">{{ row.session.sessionName }}</td>
+                    <td [attr.rowspan]="row.rowSpan" class="cell-muted tabular">
+                      {{ timing(row.session) }}
+                    </td>
                   }
                   <td class="cell-muted">{{ row.topic?.topicCode || '—' }}</td>
                   <td>{{ row.topic?.topicName || 'No topic added' }}</td>
@@ -195,6 +211,22 @@ interface FlatRow {
             <label class="field-label" for="sessionDay">Day</label>
             <input id="sessionDay" type="number" class="input" formControlName="day" min="1" />
           </div>
+          <!-- The hours, side by side because they are one answer. Left
+               empty on a curriculum written before the timetable is
+               settled; the session is still a session. -->
+          <div class="row row-md">
+            <div class="field" style="flex: 1">
+              <label class="field-label" for="sessionStart">Start time</label>
+              <input id="sessionStart" type="time" class="input" formControlName="startTime" />
+            </div>
+            <div class="field" style="flex: 1">
+              <label class="field-label" for="sessionEnd">End time</label>
+              <input id="sessionEnd" type="time" class="input" formControlName="endTime" />
+            </div>
+          </div>
+          @if (hoursBackwards()) {
+            <span class="field-error">The end time has to be after the start time.</span>
+          }
           <div class="field">
             <label class="field-label" for="sessionName">Session name <span class="req">*</span></label>
             <input id="sessionName" class="input" formControlName="sessionName" placeholder="Day 1: Session 1" />
@@ -264,13 +296,26 @@ export class CurriculumSessionsComponent {
     sessionCode: [''],
     sessionName: ['', Validators.required],
     day: [1],
+    startTime: [''],
+    endTime: [''],
   });
+
+  /** Both given and the wrong way round, which the Save button refuses. */
+  protected readonly hoursBackwards = signal(false);
 
   protected readonly topicForm = this.fb.group({
     topicCode: [''],
     topicName: ['', Validators.required],
     durationMinutes: [60],
   });
+
+  /** The hours a session runs, or a dash where they are not set yet. */
+  protected timing(session: CurriculumSession): string {
+    if (!session.startTime) return '—';
+    return session.endTime
+      ? `${clock(session.startTime)} – ${clock(session.endTime)}`
+      : clock(session.startTime);
+  }
 
   protected readonly topicTotal = computed(() =>
     (this.curriculum()?.sessions ?? []).reduce((n, s) => n + s.topics.length, 0),
@@ -323,7 +368,10 @@ export class CurriculumSessionsComponent {
         nextSessionCode(programme.programTypeCode ?? '', programme.sessions.length),
       sessionName: session?.sessionName ?? '',
       day: session?.day ?? 1,
+      startTime: clock(session?.startTime),
+      endTime: clock(session?.endTime),
     });
+    this.hoursBackwards.set(false);
     this.sessionFormOpen.set(true);
   }
 
@@ -384,11 +432,26 @@ export class CurriculumSessionsComponent {
       return;
     }
     const value = this.sessionForm.getRawValue();
+
+    const startTime = value.startTime || null;
+    const endTime = value.endTime || null;
+    if (startTime && endTime && endTime <= startTime) {
+      this.hoursBackwards.set(true);
+      return;
+    }
+    this.hoursBackwards.set(false);
+
     const existing = this.editingSession();
     const sessions = existing
       ? programme.sessions.map((s) =>
           s.id === existing.id
-            ? { ...s, sessionName: value.sessionName ?? '', day: value.day ?? null }
+            ? {
+                ...s,
+                sessionName: value.sessionName ?? '',
+                day: value.day ?? null,
+                startTime,
+                endTime,
+              }
             : s,
         )
       : [
@@ -399,6 +462,8 @@ export class CurriculumSessionsComponent {
             sessionName: value.sessionName ?? '',
             displayOrder: programme.sessions.length + 1,
             day: value.day ?? null,
+            startTime,
+            endTime,
             status: 'Active' as RecordStatus,
             topics: [],
           } satisfies CurriculumSession,

@@ -84,9 +84,16 @@ function Routes() {
           options={{ title: 'Apply', presentation: 'card' }}
         />
         <Stack.Screen name="application/[id]" options={{ title: 'Application' }} />
-        <Stack.Screen name="payments" options={{ title: 'Payments' }} />
-        <Stack.Screen name="invoices" options={{ title: 'Invoices' }} />
+        {/* One screen for the money: what is owed, what was paid, and the
+            invoice for each. Invoices used to be a screen of their own
+            built on the same two lists. */}
+        <Stack.Screen name="payments" options={{ title: 'Payments & invoices' }} />
         <Stack.Screen name="profile-form" options={{ title: 'Your profile' }} />
+        <Stack.Screen name="change-password" options={{ title: 'Change password' }} />
+        <Stack.Screen
+          name="profile-submission/[subCategoryId]"
+          options={{ title: 'Profile submission' }}
+        />
         <Stack.Screen name="payment/[applicationId]" options={{ title: 'Pay fee' }} />
         {/* No back arrow: behind it is the summary that opens a second
             attempt, and a payer looking at a result should not be one tap

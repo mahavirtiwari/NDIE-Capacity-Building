@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Ntms.Application.Common;
 using Ntms.Application.Contracts;
 using Ntms.Domain.Common;
@@ -23,7 +24,8 @@ namespace Ntms.Infrastructure.Services;
 public class ExamSittingService(
     NtmsDbContext db,
     ResultRecorder results,
-    CertificateService certificates)
+    CertificateService certificates,
+    ILogger<ExamSittingService> logger)
 {
     /* ------------------------------------------------------------ access */
 
@@ -210,16 +212,16 @@ public class ExamSittingService(
     /// <summary>
     /// Opens the paper.
     ///
-    /// A selfie is taken at the desk first and stored against the sitting.
-    /// It is required: an unproctored online paper with no record of who
-    /// was in front of the screen is worth very little, and the photograph
-    /// is the cheapest thing that makes sitting it for somebody else
-    /// awkward.
+    /// A selfie is taken at the desk first and stored against the sitting,
+    /// and the paper does not open without one. An unproctored online
+    /// paper with no record of who was in front of the screen is worth
+    /// very little, and the photograph is the cheapest thing that makes
+    /// sitting it for somebody else awkward.
+    ///
+    /// The rule is here rather than only on the screen that asks for it.
+    /// A screen can be skipped - the endpoint it posts to cannot - and a
+    /// requirement enforced in one app is not a requirement.
     /// </summary>
-    public async Task<ExamSittingDto> StartAsync(
-        int applicantId, int participantId, CancellationToken ct)
-        => await StartAsync(applicantId, participantId, null, null, ct);
-
     public async Task<ExamSittingDto> StartAsync(
         int applicantId,
         int participantId,
@@ -227,6 +229,13 @@ public class ExamSittingService(
         string? selfieContentType,
         CancellationToken ct)
     {
+        if (selfie is not { Length: > 0 })
+        {
+            throw new AppException(
+                "A photograph has to be taken before the paper can be opened. "
+                + "Allow the camera and try again.");
+        }
+
         var participant = await MineAsync(applicantId, participantId, ct);
         var programme = participant.Programme!;
         var (paper, problem) = await PaperForAsync(programme, ct);
@@ -266,8 +275,8 @@ public class ExamSittingService(
             ExpiresOn = now.AddMinutes(paper.DurationMinutes),
             Status = ExamAttemptStatus.InProgress,
             SelfieData = selfie,
-            SelfieContentType = selfie is { Length: > 0 } ? selfieContentType : null,
-            SelfieTakenOn = selfie is { Length: > 0 } ? now : null,
+            SelfieContentType = selfieContentType,
+            SelfieTakenOn = now,
             PaperTotal = paper.Questions.Sum(q => q.Marks),
             QuestionCount = paper.Questions.Count,
         };
@@ -307,6 +316,7 @@ public class ExamSittingService(
         return new ExamSittingDto
         {
             AttemptId = attempt.Id,
+            ParticipantId = attempt.ParticipantId,
             AttemptNo = attempt.AttemptNo,
             PaperTitle = paper.Title,
             Instructions = paper.Instructions,
@@ -434,6 +444,31 @@ public class ExamSittingService(
     }
 
     /* -------------------------------------------------------- submitting */
+
+    /// <summary>
+    /// Closes a sitting because the candidate left the app.
+    ///
+    /// Reported by the app, which is the only thing that can see it. It is
+    /// not a submission: the paper is closed on whatever had been answered
+    /// and the candidate starts again from the first question, on a new
+    /// attempt with a new clock.
+    ///
+    /// Safe to call twice. A paper that is already closed stays as it was —
+    /// the app reports this as it goes into the background, and a phone
+    /// may send it more than once.
+    /// </summary>
+    public async Task<ExamResultDto?> AbandonAsync(
+        int applicantId, int attemptId, CancellationToken ct)
+    {
+        var attempt = await OwnedAttemptAsync(applicantId, attemptId, ct);
+        if (attempt.Status != ExamAttemptStatus.InProgress) return null;
+
+        logger.LogInformation(
+            "Attempt {AttemptId} abandoned: the app was left while the paper was open",
+            attempt.Id);
+
+        return await CloseAsync(attempt.Id, ExamAttemptStatus.Abandoned, ct);
+    }
 
     public async Task<ExamResultDto> SubmitAsync(
         int applicantId, int attemptId, CancellationToken ct)

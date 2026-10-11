@@ -40,7 +40,27 @@ public class OtpService(
         ((ApplicantAuthService)services.GetService(typeof(ApplicantAuthService))!)
             .IssueFirstPasswordAsync(applicant, ct);
 
-    public async Task SendEmailOtpAsync(string email, string name, CancellationToken ct = default)
+    /// <summary>
+    /// The channel a code to a would-be new address is filed under.
+    ///
+    /// Separate from sign-up verification on purpose: holding a code for an
+    /// address must not, on its own, confirm the account that already uses
+    /// it, and a change in flight must not retire the code somebody is
+    /// using to finish registering.
+    /// </summary>
+    /// Eight characters, because the column holds ten. "EmailChange" is
+    /// eleven and was refused by the database rather than truncated.
+    public const string EmailChangeChannel = "NewEmail";
+
+    public Task SendEmailOtpAsync(string email, string name, CancellationToken ct = default) =>
+        IssueAsync("Email", email, name, ct);
+
+    /// <summary>A code to the address an applicant is moving their account to.</summary>
+    public Task SendEmailChangeOtpAsync(string email, string name, CancellationToken ct = default) =>
+        IssueAsync(EmailChangeChannel, email, name, ct);
+
+    private async Task IssueAsync(
+        string channel, string email, string name, CancellationToken ct = default)
     {
         if (!Formats.IsEmail(email) || string.IsNullOrWhiteSpace(email))
             throw new AppException("Email address is invalid.");
@@ -49,7 +69,7 @@ public class OtpService(
         var now = DateTime.UtcNow;
 
         var recent = await db.OtpChallenges
-            .Where(o => o.Destination == destination && o.Channel == "Email"
+            .Where(o => o.Destination == destination && o.Channel == channel
                         && o.CreatedOn > now - SendWindow)
             .OrderByDescending(o => o.CreatedOn)
             .ToListAsync(ct);
@@ -69,14 +89,14 @@ public class OtpService(
 
         /* Only one live challenge per address, so an old code cannot be reused. */
         var live = await db.OtpChallenges
-            .Where(o => o.Destination == destination && o.Channel == "Email" && !o.IsUsed)
+            .Where(o => o.Destination == destination && o.Channel == channel && !o.IsUsed)
             .ToListAsync(ct);
         foreach (var stale in live) stale.IsUsed = true;
 
         var code = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
         db.OtpChallenges.Add(new OtpChallenge
         {
-            Channel = "Email",
+            Channel = channel,
             Destination = destination,
             CodeHash = passwords.Hash(code),
             ExpiresOn = now.AddMinutes(_validityMinutes),
@@ -86,13 +106,20 @@ public class OtpService(
         await notifications.SendOtpAsync(destination, name, code, ct);
     }
 
-    /// <summary>Verifies the code and marks the applicant's e-mail as confirmed.</summary>
-    public async Task<bool> VerifyEmailOtpAsync(string email, string code, CancellationToken ct = default)
+    /// <summary>
+    /// Whether this code is the live one for that address, and spends it.
+    ///
+    /// Says nothing about what the code proves - that is the caller's to
+    /// decide, because a code sent to confirm a sign-up and a code sent to
+    /// move an account to a new address are answers to different questions.
+    /// </summary>
+    public async Task<bool> SpendCodeAsync(
+        string channel, string email, string code, CancellationToken ct = default)
     {
         var destination = (email ?? string.Empty).Trim().ToLowerInvariant();
 
         var challenge = await db.OtpChallenges
-            .Where(o => o.Destination == destination && o.Channel == "Email" && !o.IsUsed)
+            .Where(o => o.Destination == destination && o.Channel == channel && !o.IsUsed)
             .OrderByDescending(o => o.CreatedOn)
             .FirstOrDefaultAsync(ct)
             ?? throw new AppException("Request a verification code first.");
@@ -119,6 +146,17 @@ public class OtpService(
         }
 
         challenge.IsUsed = true;
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    /// <summary>Verifies the code and marks the applicant's e-mail as confirmed.</summary>
+    public async Task<bool> VerifyEmailOtpAsync(
+        string email, string code, CancellationToken ct = default)
+    {
+        await SpendCodeAsync("Email", email, code, ct);
+
+        var destination = (email ?? string.Empty).Trim().ToLowerInvariant();
 
         /* E-mail is not an identity key, so a household may register more than
            one applicant against the same mailbox. Whoever holds the code has

@@ -23,6 +23,7 @@ public class PaymentService(
     NtmsDbContext db,
     FeeService fees,
     PaymentGateways gateways,
+    BatchRegistrationService registration,
     ILogger<PaymentService> logger)
 {
     /* ------------------------------------------------------------ summary */
@@ -318,6 +319,33 @@ public class PaymentService(
         }
 
         await db.SaveChangesAsync(ct);
+
+        /* The seat the money was for.
+           Registering for a paid batch leaves an application and no
+           participant row, and it used to be the payer's job to go back to
+           the batch and press Register a second time. Most did not, so they
+           had paid for a programme they were not on. Taking it here closes
+           that gap; the registration service is the one place that knows
+           the rules, so it is asked rather than copied.
+
+           A failure here must not undo a payment that went through. It is
+           logged and the attempt is still reported as paid - the seat can
+           be taken by hand, the money cannot be taken twice. */
+        if (attempt.Status == PaymentAttemptStatus.Paid
+            && attempt.Application?.ProgrammeId is int programmeId)
+        {
+            try
+            {
+                await registration.RegisterAsync(attempt.ApplicantId, programmeId, ct);
+            }
+            catch (Exception caught)
+            {
+                logger.LogError(caught,
+                    "Payment {OrderId} went through but the seat on batch {ProgrammeId} " +
+                    "could not be taken", attempt.OrderId, programmeId);
+            }
+        }
+
         return Map(attempt);
     }
 

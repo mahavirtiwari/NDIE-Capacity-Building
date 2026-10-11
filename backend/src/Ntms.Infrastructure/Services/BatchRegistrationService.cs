@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Ntms.Application.Common;
 using Ntms.Application.Contracts;
 using Ntms.Domain.Common;
@@ -26,7 +27,10 @@ public class BatchRegistrationService(
     NtmsDbContext db,
     ICodeGenerator codes,
     FeeService fees,
-    INotificationService notifications)
+    ApplicantEligibilityService rules,
+    ProgrammeSchedulePdf schedules,
+    INotificationService notifications,
+    ILogger<BatchRegistrationService> logger)
 {
     public sealed record Outcome(
         string Status,
@@ -81,7 +85,7 @@ public class BatchRegistrationService(
             }
         }
 
-        await GuardProgramTypeAsync(applicantId, programType, ct);
+        await GuardProgramTypeAsync(applicantId, batch, ct);
 
         if (!batch.RegistrationsOpen)
             throw new AppException("Registrations for this batch are closed.");
@@ -123,6 +127,7 @@ public class BatchRegistrationService(
                 FeeAmount = fee?.Totals.Gross ?? 0m,
                 FeeTaxable = fee?.Totals.Taxable,
                 FeeGst = fee?.Totals.Gst,
+                ProgrammeId = batch.Id,
                 StateCode = applicant.StateCode,
                 DistrictCode = applicant.DistrictCode,
                 ResponsesJson = JsonSerializer.Serialize(new Dictionary<string, object?>()),
@@ -152,6 +157,12 @@ public class BatchRegistrationService(
             await db.SaveChangesAsync(ct);
         }
 
+        /* The batch they are registering for now, which is not
+           necessarily the one the application was first made for: an
+           application covers the program type, and somebody whose payment
+           lapsed may come back and choose a different date. */
+        application.ProgrammeId = batch.Id;
+
         /* ---- money, or no money ---------------------------------------- */
         var owes = programType.IsFeeApplicable
                    && application.FeeAmount > 0m
@@ -159,6 +170,8 @@ public class BatchRegistrationService(
 
         if (owes)
         {
+            await db.SaveChangesAsync(ct);
+
             return new Outcome(
                 "PaymentRequired",
                 application.Id,
@@ -183,8 +196,24 @@ public class BatchRegistrationService(
 
         await db.SaveChangesAsync(ct);
 
+        /* The timetable, generated now rather than stored: a curriculum
+           can be edited afterwards, and what they were sent should be what
+           was true when they registered. A failure here must not undo a
+           seat that has been taken, so the message goes without it. */
+        EmailAttachment? schedule = null;
+        try
+        {
+            schedule = await schedules.BuildAsync(batch.Id, ct);
+        }
+        catch (Exception caught)
+        {
+            logger.LogWarning(caught,
+                "The schedule for {Programme} could not be built; the joining "
+                + "instructions go without it.", batch.ProgrammeId);
+        }
+
         await notifications.SendProgrammeScheduleAsync(
-            batch, applicant.Email, applicant.FullName, ct);
+            batch, applicant.Email, applicant.FullName, schedule, ct);
 
         return new Outcome(
             "Registered",
@@ -195,38 +224,30 @@ public class BatchRegistrationService(
     }
 
     /// <summary>
-    /// Whether this program type is finished with them.
+    /// Whether this applicant's own history closes the batch to them.
     ///
-    /// The same three rules the listing applies, enforced here because the
-    /// listing is only a view: passing it, sitting one that certifies
-    /// nobody, or running out of attempts.
+    /// The rules live in one place and the listing asks the same question,
+    /// so the card and the refusal cannot disagree: passing the track,
+    /// having taken one that certifies nobody, running out of attempts,
+    /// already holding a live booking in the same track, or being booked
+    /// on something else across the same dates.
+    ///
+    /// Enforced here as well as on the listing because the listing is only
+    /// a view, and this is where the seat is actually taken.
     /// </summary>
     private async Task GuardProgramTypeAsync(
-        int applicantId, ProgramType programType, CancellationToken ct)
+        int applicantId, Programme batch, CancellationToken ct)
     {
-        var sittings = await db.ProgrammeParticipants.AsNoTracking()
-            .Where(p => p.ApplicantId == applicantId
-                        && p.Programme!.ProgramTypeId == programType.Id)
-            .Select(p => p.Result)
-            .ToListAsync(ct);
+        var standing = await rules.ReadAsync(applicantId, ct);
 
-        if (sittings.Any(r => r == ParticipantResult.Pass))
-            throw new AppException("You have already cleared this program.");
-
-        if (programType.CertificationPolicy == CertificationPolicy.None
-            && sittings.Any(r => r != ParticipantResult.Pending))
+        /* Registering twice for the same batch is caught by the caller,
+           with a message of its own; this must not shadow it with "you are
+           already registered for this program". */
+        if (standing.Refuse(batch) is { } refused
+            && !await db.ProgrammeParticipants.AsNoTracking()
+                .AnyAsync(p => p.ApplicantId == applicantId && p.ProgrammeId == batch.Id, ct))
         {
-            throw new AppException("You have already taken this program.");
+            throw new AppException(refused);
         }
-
-        var allowed = Math.Clamp(
-            await db.SystemSettings.AsNoTracking()
-                .Where(s => s.Id == 1)
-                .Select(s => s.ProgramTypeMaxAttempts)
-                .FirstOrDefaultAsync(ct) is var n and > 0 ? n : 3,
-            1, 10);
-
-        if (sittings.Count(r => r == ParticipantResult.Fail) >= allowed)
-            throw new AppException($"You have used all {allowed} attempts at this program.");
     }
 }
