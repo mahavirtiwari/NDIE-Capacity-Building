@@ -18,6 +18,20 @@ not take one has its own name:
 .\release-staging-nobackup.ps1                               # then release
 ```
 
+**For the 11 October release, use the script named for it.** It is the
+ordinary release plus the data that goes with it — the schedule e-mail's new
+wording, and the Support link and About text the applicant app reads:
+
+```powershell
+.\windows\10-backup.ps1 -SkipFiles -Label 'before-2026-10-11'
+.\release-2026-10-11.ps1 -SkipBackup
+```
+
+Run `-Plan` first to see what it would do. The data step is safe to run
+twice and never overwrites anything an administrator has already written;
+`-DataOnly` runs it alone, for a release that landed when the data step did
+not.
+
 Each part also has its own command, for a release that touches only one:
 
 ```powershell
@@ -107,6 +121,7 @@ version still on the phones.
 | --- | --- |
 | `release-staging.ps1` | The whole release, in order, from one commit. |
 | `release-staging-nobackup.ps1` | The same, where the backup is taken by hand. |
+| `release-2026-10-11.ps1` | That release and the data it needs. Dated, because the data step belongs to one release and not to the next. |
 | `release-web.ps1` | The API and portal on their own. |
 | `release-applicant-app.ps1` | One APK. |
 | `release-coordinator-app.ps1` | The other. |

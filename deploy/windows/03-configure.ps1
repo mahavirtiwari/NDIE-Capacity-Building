@@ -190,6 +190,14 @@ $settings = [ordered]@{
     HTTPS_PORT        = 443
 
     Site              = [ordered]@{
+        # Where the site is, as the outside world reaches it. Links inside
+        # e-mails the system sends itself — the certificate verification
+        # link, for one — are built from this. It falls back to the first
+        # CORS origin, which is the same value today, but a link in a
+        # message that has already gone out is not something to leave
+        # depending on a fallback.
+        PublicUrl               = $PublicUrl
+
         # A staging host serves real programme data on pages that are
         # genuinely public. Without this it competes with the live site in
         # search results. Set false on production, where being found is the
