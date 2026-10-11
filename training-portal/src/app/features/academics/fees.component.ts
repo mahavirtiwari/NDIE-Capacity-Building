@@ -260,7 +260,8 @@ const COLUMNS: ColumnDef[] = [
                       </label>
                     </td>
                     <td>
-                      <button type="button" class="btn btn--icon is-danger" (click)="removeComponent(i)">
+                      <button type="button" class="btn btn--icon is-danger" title="Remove this fee component"
+                        (click)="removeComponent(i)">
                         <app-icon name="x" [size]="14" />
                       </button>
                     </td>
@@ -298,7 +299,8 @@ const COLUMNS: ColumnDef[] = [
                 <input class="input" formControlName="label" placeholder="Eligibility" />
                 <input type="number" class="input" formControlName="percentage" placeholder="%" />
                 <input class="input" formControlName="remarks" placeholder="Remarks" />
-                <button type="button" class="btn btn--icon is-danger" (click)="removeConcession(i)">
+                <button type="button" class="btn btn--icon is-danger" title="Remove this concession"
+                  (click)="removeConcession(i)">
                   <app-icon name="x" [size]="14" />
                 </button>
               </div>

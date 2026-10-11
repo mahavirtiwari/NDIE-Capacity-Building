@@ -205,7 +205,8 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
                   <input class="input" [value]="option.value"
                     placeholder="Stored value"
                     (input)="setOption(i, 'value', $event)" />
-                  <button type="button" class="btn btn--icon btn--danger" (click)="dropOption(i)">
+                  <button type="button" class="btn btn--icon btn--danger" title="Remove this option"
+                    (click)="dropOption(i)">
                     <app-icon name="trash" [size]="14" />
                   </button>
                 </div>

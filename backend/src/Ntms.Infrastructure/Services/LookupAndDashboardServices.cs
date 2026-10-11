@@ -237,8 +237,18 @@ public class LookupService(
             .Select(q => new LookupItemDto { Id = q.Rank, Name = q.Label, Code = q.Code })
             .ToListAsync(ct);
 
+    /// <summary>
+    /// The roles, for the screens that allocate one.
+    ///
+    /// Empty for anybody with no tier, which is how every other lookup
+    /// here behaves and what an applicant's token is: it satisfies
+    /// [Authorize] like any other, and the portal's organisation chart is
+    /// not something the applicant app has any business reading.
+    /// </summary>
     public Task<List<LookupItemDto>> RolesAsync(CancellationToken ct) =>
-        db.Roles.AsNoTracking()
+        currentUser.Tier is null
+            ? Task.FromResult(new List<LookupItemDto>())
+            : db.Roles.AsNoTracking()
             .Where(r => r.Status == RecordStatus.Active)
             .OrderBy(r => r.Name)
             .Select(r => new LookupItemDto { Id = r.Id, Name = r.Name, Code = r.Code })

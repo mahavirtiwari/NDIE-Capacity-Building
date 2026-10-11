@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Ntms.Application.Common;
 using Ntms.Application.Contracts;
@@ -27,6 +28,7 @@ public class CertificateService(
     ICurrentUser currentUser,
     CertificateTemplateStore templates,
     INotificationService notifications,
+    IEmailQueue mail,
     IConfiguration config,
     ILogger<CertificateService> logger)
 {
@@ -225,7 +227,7 @@ public class CertificateService(
         var certificate = await CreateAsync(
             programme, participant, Enum.Parse<CertificateKind>(assessment.Kind!), ct);
 
-        await EmailAsync(certificate, participant.Applicant, ct);
+        QueueEmail(certificate, participant.Applicant);
         return certificate;
     }
 
@@ -255,7 +257,7 @@ public class CertificateService(
 
             var certificate = await CreateAsync(
                 programme, participant, Enum.Parse<CertificateKind>(assessment.Kind!), ct);
-            await EmailAsync(certificate, participant.Applicant, ct);
+            QueueEmail(certificate, participant.Applicant);
             issued++;
         }
 
@@ -263,35 +265,50 @@ public class CertificateService(
     }
 
     /// <summary>
-    /// Sends the holder their certificate and where to verify it.
+    /// Sends the holder their certificate and where to verify it — after
+    /// the request that issued it has answered.
     ///
-    /// Never throws. A certificate that was awarded and not e-mailed is a
-    /// certificate — it is on the record, it verifies, and Resend will send
-    /// it again. One that was refused because the mail server was down
-    /// would be neither.
+    /// Queued rather than awaited. These are issued in batches: a programme
+    /// being closed can award forty at once, and forty inline SMTP sends
+    /// with a thirty-second timeout each is a coordinator in a field
+    /// watching a spinner for twenty minutes with no way to tell a slow
+    /// send from a failed submission.
+    ///
+    /// Nothing is lost by not waiting. The certificate is in the database
+    /// the moment it is issued, it verifies from there, and Resend sends it
+    /// again — so a message that fails is a notification to repeat, not an
+    /// award to recover. What is captured here is only what the queued work
+    /// needs: strings, not scoped services.
     /// </summary>
-    private async Task EmailAsync(
-        Certificate certificate, Applicant? applicant, CancellationToken ct)
+    private void QueueEmail(Certificate certificate, Applicant? applicant)
     {
         if (string.IsNullOrWhiteSpace(applicant?.Email)) return;
 
-        try
-        {
-            var where = PublicBaseUrl();
-            var verifyUrl = string.IsNullOrWhiteSpace(where)
-                ? string.Empty
-                : $"{where.TrimEnd('/')}/verify?number={Uri.EscapeDataString(certificate.Number)}";
+        var where = PublicBaseUrl();
+        var verifyUrl = string.IsNullOrWhiteSpace(where)
+            ? string.Empty
+            : $"{where.TrimEnd('/')}/verify?number={Uri.EscapeDataString(certificate.Number)}";
 
-            await notifications.SendCertificateAsync(
-                certificate, applicant.Email, applicant.FullName, verifyUrl, ct);
-        }
-        catch (Exception caught)
+        var number = certificate.Number;
+        var participantId = certificate.ParticipantId;
+        var email = applicant.Email;
+        var name = applicant.FullName;
+
+        mail.Enqueue($"certificate {number}", async (scope, ct) =>
         {
-            logger.LogWarning(
-                caught,
-                "Certificate {Number} was issued but could not be e-mailed to {Participant}.",
-                certificate.Number, certificate.ParticipantId);
-        }
+            var sender = scope.GetRequiredService<INotificationService>();
+            try
+            {
+                await sender.SendCertificateAsync(certificate, email, name, verifyUrl, ct);
+            }
+            catch (Exception caught)
+            {
+                logger.LogWarning(
+                    caught,
+                    "Certificate {Number} was issued but could not be e-mailed to {Participant}.",
+                    number, participantId);
+            }
+        });
     }
 
     /// <summary>

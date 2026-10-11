@@ -206,7 +206,8 @@ const COLUMNS: ColumnDef[] = [
                 <div class="question__head">
                   <span class="question__index">Q{{ qi + 1 }}</span>
                   <input class="input" formControlName="text" placeholder="Question text" />
-                  <button type="button" class="btn btn--icon is-danger" (click)="removeQuestion(qi)">
+                  <button type="button" class="btn btn--icon is-danger" title="Remove this question"
+                    (click)="removeQuestion(qi)">
                     <app-icon name="trash" [size]="15" />
                   </button>
                 </div>
@@ -233,7 +234,8 @@ const COLUMNS: ColumnDef[] = [
                         <input type="checkbox" formControlName="isCorrect" />
                       </label>
                       <input class="input" formControlName="text" [placeholder]="'Option ' + (oi + 1)" />
-                      <button type="button" class="btn btn--icon is-danger" (click)="removeOption(qi, oi)">
+                      <button type="button" class="btn btn--icon is-danger" title="Remove this option"
+                        (click)="removeOption(qi, oi)">
                         <app-icon name="x" [size]="14" />
                       </button>
                     </div>

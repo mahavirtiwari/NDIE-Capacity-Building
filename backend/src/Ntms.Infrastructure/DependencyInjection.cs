@@ -54,6 +54,13 @@ public static class DependencyInjection
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddScoped<INotificationService, NotificationService>();
 
+        /* Singleton because the channel is the queue, and a worker reading
+           a different instance from the one the request wrote to would
+           drain nothing. The work it carries runs in a scope of its own. */
+        services.AddSingleton<EmailQueue>();
+        services.AddSingleton<IEmailQueue>(sp => sp.GetRequiredService<EmailQueue>());
+        services.AddHostedService<EmailQueueWorker>();
+
         /* Through the factory so the handler is pooled and the timeout is the
            one in settings rather than the default hundred seconds. */
         services.AddHttpClient(nameof(PanVerifier))
