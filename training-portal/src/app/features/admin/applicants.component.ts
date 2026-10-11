@@ -183,17 +183,16 @@ const COLUMNS: ColumnDef[] = [
 
         <ng-template appCell="statusReason" let-row>
           @if ($any(row).statusReason) {
-            <div class="stack stack-xs">
-              <span
-                class="text-sm wrap-text"
-                [class.text-danger]="$any(row).isBlocked"
-                [class.cell-muted]="!$any(row).isBlocked"
-              >{{ $any(row).statusReason }}</span>
-              <span class="text-xs cell-muted">
-                {{ $any(row).statusChangedOn | date: 'dd MMM yyyy' }}
-                @if ($any(row).statusChangedBy) { · {{ $any(row).statusChangedBy }} }
-              </span>
-            </div>
+            <!-- The reason, and only the reason. When it happened and
+                 who did it were under every one of these, which turned a
+                 column of short phrases into a column of three-line
+                 blocks and set the height of the whole row. Both are
+                 still on the record, behind the applicant ID. -->
+            <span
+              class="text-sm wrap-text"
+              [class.text-danger]="$any(row).isBlocked"
+              [class.cell-muted]="!$any(row).isBlocked"
+            >{{ $any(row).statusReason }}</span>
           }
         </ng-template>
 

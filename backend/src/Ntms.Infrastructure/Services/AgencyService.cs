@@ -403,7 +403,14 @@ public class AgencyService(
         var temporaryPassword = passwords.GenerateTemporaryPassword();
         var user = new PortalUser
         {
-            UserCode = await codes.NextUserCodeAsync(role.BaseRole, ct),
+            /* The agency's own code, not a second one of its own.
+               An agency used to be IA0005 on the register and AG0007 at
+               the sign-in box, which is two identifiers for one body and
+               two things for somebody to quote down a telephone. The
+               account belongs to the agency, so it is named after it.
+
+               Still unique, because agency codes are. */
+            UserCode = entity.Code,
             FullName = entity.ContactPerson,
             Email = entity.Email.Trim(),
             Mobile = entity.Mobile,

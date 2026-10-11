@@ -258,17 +258,16 @@ const TIER_DEPTH: Record<string, number> = {
              register where most accounts are fine is noise. -->
         <ng-template appCell="statusReason" let-row>
           @if ($any(row).statusReason) {
-            <div class="stack stack-xs">
-              <span
-                class="text-sm wrap-text"
-                [class.text-danger]="$any(row).status !== 'Active'"
-                [class.cell-muted]="$any(row).status === 'Active'"
-              >{{ $any(row).statusReason }}</span>
-              <span class="text-xs cell-muted">
-                {{ $any(row).statusChangedOn | date: 'dd MMM yyyy' }}
-                @if ($any(row).statusChangedBy) { · {{ $any(row).statusChangedBy }} }
-              </span>
-            </div>
+            <!-- The reason, and only the reason. When it happened and
+                 who did it were under every one of these, which turned a
+                 column of short phrases into a column of three-line
+                 blocks and set the height of the whole row. Both are
+                 still on the record, on the sheet behind the ID. -->
+            <span
+              class="text-sm wrap-text"
+              [class.text-danger]="$any(row).status !== 'Active'"
+              [class.cell-muted]="$any(row).status === 'Active'"
+            >{{ $any(row).statusReason }}</span>
           }
         </ng-template>
         <ng-template appCell="status" let-row>
@@ -406,31 +405,40 @@ const TIER_DEPTH: Record<string, number> = {
                this sheet showed them in full, and then it did not. -->
           <div>
             <h4 class="section-title">Allocated scope</h4>
-            <div class="stack stack-sm">
-              <div class="fact">
-                <span class="fact__term">Categories</span>
-                <span class="fact__value">{{ named(row.categoryIds, categories()) }}</span>
-              </div>
-              <div class="fact">
-                <span class="fact__term">Sub-categories</span>
-                <span class="fact__value">
-                  {{ named(row.subCategoryIds, allSubCategories()) }}
-                </span>
-              </div>
-              <div class="fact">
-                <span class="fact__term">Program types</span>
-                <span class="fact__value">
-                  {{ named(row.programTypeIds, allProgramTypes()) }}
-                </span>
-              </div>
-              <div class="fact">
-                <span class="fact__term">States/UTs</span>
-                <span class="fact__value">{{ named(row.stateCodes, scopeStates()) }}</span>
-              </div>
-              @if (row.districtCodes.length) {
-                <div class="fact">
-                  <span class="fact__term">Districts</span>
-                  <span class="fact__value">{{ named(row.districtCodes, allDistricts()) }}</span>
+            <div class="scopes">
+              @for (scope of scopeRows(row); track scope.key) {
+                <div class="scope">
+                  <div class="scope__head">
+                    <span class="scope__term">{{ scope.label }}</span>
+                    @if (scope.names.length) {
+                      <span class="scope__count">{{ scope.names.length }}</span>
+                    }
+                    <!-- Said as well as the names, not instead of them.
+                         Nothing chosen means everything, and which is
+                         which matters: an allocation of all four
+                         categories today is not the same promise as an
+                         unrestricted one when a fifth is added. -->
+                    @if (scope.all) {
+                      <span class="scope__all">
+                        <app-icon name="check" [size]="12" /> All
+                      </span>
+                    }
+                  </div>
+
+                  @if (!scope.names.length) {
+                    <span class="cell-muted text-sm">None on the masters yet</span>
+                  } @else {
+                    <div class="scope__chips">
+                      @for (name of shown(scope); track name) {
+                        <span class="chip">{{ name }}</span>
+                      }
+                      @if (scope.names.length > cap && !opened()[scope.key]) {
+                        <button type="button" class="chip chip--more" (click)="openScope(scope.key)">
+                          +{{ scope.names.length - cap }} more
+                        </button>
+                      }
+                    </div>
+                  }
                 </div>
               }
             </div>
@@ -838,6 +846,78 @@ const TIER_DEPTH: Record<string, number> = {
   `,
   styles: [
     `
+      /* The allocated scope, as things rather than as a sentence. Four
+         comma-separated runs — one of them thirty-six states long —
+         filled the sheet and could not be read at a glance. */
+      .scopes {
+        display: grid;
+        gap: 0.85rem;
+      }
+      .scope {
+        display: grid;
+        gap: 0.35rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .scope:last-child {
+        padding-bottom: 0;
+        border-bottom: 0;
+      }
+      .scope__head {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .scope__term {
+        font-size: var(--fs-xs);
+        font-weight: 700;
+        color: var(--ink-600);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .scope__count {
+        font-size: var(--fs-xs);
+        font-weight: 700;
+        color: var(--brand-700);
+        background: var(--brand-50);
+        border: 1px solid var(--brand-100);
+        border-radius: 999px;
+        padding: 0 0.4rem;
+        line-height: 1.45;
+      }
+      /* Everything, said once and quietly. */
+      .scope__all {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        align-self: start;
+        font-size: var(--fs-xs);
+        font-weight: 600;
+        color: var(--success-700);
+        background: var(--success-50);
+        border: 1px solid var(--success-200);
+        border-radius: 999px;
+        padding: 0.15rem 0.55rem;
+      }
+      .scope__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+      }
+      .chip--more {
+        font: inherit;
+        font-size: var(--fs-xs);
+        cursor: pointer;
+        background: var(--surface-muted);
+        border: 1px dashed var(--border-strong);
+        color: var(--ink-600);
+      }
+      .chip--more:hover {
+        background: var(--brand-50);
+        border-color: var(--brand-300);
+        color: var(--brand-700);
+      }
+
       /* Who this is and how the account stands, before the particulars. */
       .sheet-id {
         display: flex;
@@ -947,12 +1027,83 @@ export class UsersComponent {
    * dropped rather than printed raw — it means the master moved under
    * the account, which is a gap to notice, not a number to show.
    */
-  protected named(ids: readonly number[] | null | undefined, from: LookupItem[]): string {
-    if (!ids?.length) return 'All';
-    const names = ids
-      .map((id) => from.find((item) => item.id === id)?.name)
-      .filter((name): name is string => !!name);
-    return names.length > 0 ? names.join(', ') : '—';
+  /**
+   * What a scope actually covers, named.
+   *
+   * Nothing chosen means everything, and "All" on its own left the
+   * reader to go and look up what everything is. So the names come back
+   * either way and the flag says which of the two it is — the list is
+   * capped on screen, so naming thirty-six states costs two lines.
+   */
+  protected namedScope(
+    ids: readonly number[] | null | undefined,
+    from: LookupItem[],
+  ): { all: boolean; names: string[] } {
+    if (!ids?.length) {
+      return { all: true, names: from.map((item) => item.name) };
+    }
+
+    return {
+      all: false,
+      names: ids
+        .map((id) => from.find((item) => item.id === id)?.name)
+        .filter((name): name is string => !!name),
+    };
+  }
+
+  /**
+   * What this account may reach, a line per kind.
+   *
+   * Districts only where some were chosen: an account allocated by state
+   * has none, and a row reading "All districts" under a row that already
+   * named the states says nothing.
+   */
+  protected scopeRows(
+    row: PortalUser,
+  ): { key: string; label: string; all: boolean; names: string[] }[] {
+    const rows = [
+      { key: 'categories', label: 'Categories', ...this.namedScope(row.categoryIds, this.categories()) },
+      {
+        key: 'subCategories',
+        label: 'Sub-categories',
+        ...this.namedScope(row.subCategoryIds, this.allSubCategories()),
+      },
+      {
+        key: 'programTypes',
+        label: 'Program types',
+        ...this.namedScope(row.programTypeIds, this.allProgramTypes()),
+      },
+      { key: 'states', label: 'States/UTs', ...this.namedScope(row.stateCodes, this.scopeStates()) },
+    ];
+
+    /* Districts only where some were chosen. An account allocated by
+       state has none, and naming all seven hundred of them under the
+       states that already said it would bury the sheet. */
+    if (row.districtCodes.length) {
+      rows.push({
+        key: 'districts',
+        label: 'Districts',
+        ...this.namedScope(row.districtCodes, this.allDistricts()),
+      });
+    }
+
+    return rows;
+  }
+
+  /* Twelve is about two lines of chips at the dialog's width: enough to
+     recognise the allocation, short enough that thirty-six states do not
+     push the dates off the bottom of the sheet. */
+  protected readonly cap = 12;
+
+  /** Which lists have been opened out, by key. */
+  protected readonly opened = signal<Record<string, boolean>>({});
+
+  protected shown(scope: { key: string; names: string[] }): string[] {
+    return this.opened()[scope.key] ? scope.names : scope.names.slice(0, this.cap);
+  }
+
+  protected openScope(key: string): void {
+    this.opened.update((open) => ({ ...open, [key]: true }));
   }
 
   /** The signed-in account's own tier, which decides what it may create. */

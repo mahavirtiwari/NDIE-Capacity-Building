@@ -5,7 +5,6 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
   AGENCY_TYPES,
   AgencyHistory,
-  AgencyRole,
   AllocatableScope,
   ImplementingAgency,
   LookupItem,
@@ -41,16 +40,27 @@ const COLUMNS: ColumnDef[] = [
   { key: 'name', header: 'Agency', sortable: true, variant: 'primary' },
   { key: 'agencyType', header: 'Organization type', width: '160px' },
   { key: 'contact', header: 'Contact person', width: '220px' },
-  /* The agency's own login. It used to be findable only in the portal
-     users register, which listed it beside admins and operation managers
-     and made that one list of four unrelated kinds of account. */
-  { key: 'login', header: 'Login', width: '170px' },
+  /* No login column. The agency signs in with the code in the first
+     column — they are the same string now — and a column repeating it
+     under another heading only raised the question of which one to
+     quote. Whether a login exists at all is on the details sheet, where
+     the rest of the account is. */
   /* One button per role. A role is a programme type the agency may run,
      and the button opens what it covers — the count on its own told
      nobody which tracks, which is the question the column is read for. */
-  { key: 'mapping', header: 'Assigned role', width: '260px' },
+  /* A count and a button. The names were in the cell, two at a time
+     with "+3 more" after them, and a row carrying a 1-Day SAMAR Assessor
+     Training Programme ran to three lines while the row under it ran to
+     one — so nothing in the table lined up. What the column is read for
+     is "how many, and what are they", and the second half of that is a
+     dialog's job. */
+  { key: 'mapping', header: 'Assigned roles', width: '150px', align: 'center' },
+  /* Created first, then valid till: the order they happen in, and the
+     order somebody reads them in. They were the other way round, in two
+     different weights, so the pair read as two unrelated columns rather
+     than as the span of an empanelment. */
+  { key: 'createdOn', header: 'Created on', sortable: true, width: '120px' },
   { key: 'empanelmentValidTill', header: 'Valid till', width: '120px' },
-  { key: 'createdOn', header: 'Created on', sortable: true, width: '125px' },
   { key: 'status', header: 'Status', width: '110px' },
   { key: 'statusReason', header: 'Reason' },
   { key: 'actions', header: '', width: '110px', align: 'right' },
@@ -144,9 +154,13 @@ const COLUMNS: ColumnDef[] = [
         </div>
       </div>
 
+      <!-- Narrower than it was. The login column has gone and the roles
+           are a button rather than a wrapped list of programme names,
+           which is most of what used to push this table off the side of
+           the window. -->
       <app-data-table
         exportName="Implementing agencies"
-        minWidth="1500px"
+        minWidth="1180px"
         [exportRows]="exportRows"
         [columns]="columns"
         [rows]="list.rows()"
@@ -169,16 +183,6 @@ const COLUMNS: ColumnDef[] = [
             <span class="cell-muted">{{ $any(row).mobile }}</span>
           </div>
         </ng-template>
-        <ng-template appCell="login" let-row>
-          <!-- The user ID alone. Whether the login is enabled and when it
-               was last used are on the agency's own row, and repeating them
-               here made one column three lines tall. -->
-          @if ($any(row).loginUserCode) {
-            <span class="text-sm">{{ $any(row).loginUserCode }}</span>
-          } @else {
-            <span class="cell-muted">No login yet</span>
-          }
-        </ng-template>
         <!-- Named, not counted. "1 categories" said an agency was
              empanelled for something without saying what, and the only way
              to find out was to open the row. -->
@@ -186,6 +190,12 @@ const COLUMNS: ColumnDef[] = [
           <button type="button" class="cell-link tabular" (click)="details.set($any(row))">
             {{ $any(row).code }}
           </button>
+          <!-- Only where there is no account. An agency that cannot sign
+               in is the one thing this column has to flag, and it used to
+               be flagged in a column of its own. -->
+          @if (!$any(row).loginUserCode) {
+            <div class="text-xs text-warning">No login yet</div>
+          }
         </ng-template>
 
         <!-- A button per role, because each one has something behind it:
@@ -194,56 +204,47 @@ const COLUMNS: ColumnDef[] = [
              agency holding a dozen would otherwise be a dozen lines
              tall and set the height of every row. -->
         <ng-template appCell="mapping" let-row>
-          @if ($any(row).roles?.length) {
-            <div class="row row-sm row-wrap">
-              @for (role of $any(row).roles.slice(0, 2); track role.programTypeId) {
-                <button
-                  type="button"
-                  class="role"
-                  [title]="'What ' + role.programTypeName + ' covers'"
-                  (click)="openRole($any(row), role)"
-                >
-                  {{ role.programTypeName }}
-                </button>
-              }
-              @if ($any(row).roles.length > 2) {
-                <button
-                  type="button"
-                  class="role role--more"
-                  (click)="details.set($any(row))"
-                >
-                  +{{ $any(row).roles.length - 2 }} more
-                </button>
-              }
-            </div>
+          @if ($any(row).roles?.length; as many) {
+            <button
+              type="button"
+              class="btn btn--ghost btn--sm roles-view"
+              [title]="'What ' + $any(row).name + ' is empanelled for'"
+              (click)="roles.set($any(row))"
+            >
+              <app-icon name="eye" [size]="14" />
+              {{ many }} {{ many === 1 ? 'role' : 'roles' }}
+            </button>
           } @else {
             <span class="cell-muted">—</span>
           }
         </ng-template>
 
+        <!-- Both dates, written the same way: same weight, same
+             format, figures aligned so the columns read down. -->
         <ng-template appCell="createdOn" let-row>
-          <span class="cell-muted">{{ $any(row).createdOn | date: 'dd MMM yyyy' }}</span>
+          <span class="cell-date">{{ $any(row).createdOn | date: 'dd MMM yyyy' }}</span>
         </ng-template>
 
         <!-- Only where there is one. Most agencies have never been
              switched either way, and a dash in every row is noise. -->
         <ng-template appCell="statusReason" let-row>
           @if ($any(row).statusReason) {
-            <div class="stack stack-xs">
-              <span
-                class="text-sm wrap-text"
-                [class.text-danger]="$any(row).status !== 'Active'"
-                [class.cell-muted]="$any(row).status === 'Active'"
-              >{{ $any(row).statusReason }}</span>
-              <span class="text-xs cell-muted">
-                {{ $any(row).statusChangedOn | date: 'dd MMM yyyy' }}
-                @if ($any(row).statusChangedBy) { · {{ $any(row).statusChangedBy }} }
-              </span>
-            </div>
+            <!-- The reason, and only the reason. When it happened and
+                 who did it were under every one of these, which turned a
+                 column of short phrases into a column of three-line
+                 blocks and set the height of the whole row. Both are
+                 still on the record, on the sheet behind the ID. -->
+            <span
+              class="text-sm wrap-text"
+              [class.text-danger]="$any(row).status !== 'Active'"
+              [class.cell-muted]="$any(row).status === 'Active'"
+            >{{ $any(row).statusReason }}</span>
           }
         </ng-template>
         <ng-template appCell="empanelmentValidTill" let-row>
-          {{ $any(row).empanelmentValidTill | date: 'dd MMM yyyy' }}
+          <span class="cell-date">
+            {{ $any(row).empanelmentValidTill | date: 'dd MMM yyyy' }}
+          </span>
         </ng-template>
         <ng-template appCell="status" let-row>
           <app-status-badge [value]="$any(row).status" />
@@ -475,43 +476,56 @@ const COLUMNS: ColumnDef[] = [
     <!-- One role, and what it covers. Small on purpose: the question a
          role button is pressed to answer is "which track is this, and
          where may they run it", and that is four lines. -->
-    @if (role(); as chosen) {
+    <!-- Every role the agency holds, on one sheet. Opened from the
+         column that used to try to be this. -->
+    @if (roles(); as agency) {
       <app-modal
-        [title]="chosen.role.programTypeName"
-        [subtitle]="chosen.agency.name + ' · ' + chosen.agency.code"
-        size="sm"
-        (closed)="role.set(null)"
+        title="Assigned roles"
+        [subtitle]="agency.name + ' · ' + agency.code"
+        size="md"
+        (closed)="roles.set(null)"
       >
-        <section class="panel">
-          <h3 class="panel__head"><app-icon name="layers" [size]="14" /> Assigned role</h3>
+        <!-- Said once, above the list: an empanelment covers states, not
+             states per programme type, so repeating them under each role
+             would say the same thing four times. -->
+        <section class="panel panel--accent">
           <div class="panel__body">
             <div class="fact">
-              <span class="fact__term">Category</span>
-              <span class="fact__value">{{ chosen.role.categoryName || '—' }}</span>
-            </div>
-            <div class="fact">
-              <span class="fact__term">Sub-category</span>
-              <span class="fact__value">{{ chosen.role.subCategoryName || '—' }}</span>
-            </div>
-            <div class="fact">
-              <span class="fact__term">Program type</span>
-              <span class="fact__value">{{ chosen.role.programTypeName }}</span>
-            </div>
-            <div class="fact">
-              <!-- Said as the agency's, because that is what it is. An
-                   empanelment covers states; it does not record a
-                   different set of them per track. -->
               <span class="fact__term">States the agency may work in</span>
               <span class="fact__value">
-                {{ chosen.agency.stateNames?.length
-                    ? chosen.agency.stateNames!.join(', ')
+                {{ agency.stateNames?.length
+                    ? agency.stateNames!.join(', ')
                     : 'All states/UTs' }}
               </span>
             </div>
           </div>
         </section>
+
+        <div class="table-wrap mt-md">
+          <table class="table table--compact">
+            <thead>
+              <tr>
+                <th style="width: 44px">#</th>
+                <th>Program type</th>
+                <th style="width: 200px">Category</th>
+                <th style="width: 200px">Sub-category</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (one of agency.roles ?? []; track one.programTypeId; let i = $index) {
+                <tr>
+                  <td class="cell-muted tabular">{{ i + 1 }}</td>
+                  <td class="cell-primary">{{ one.programTypeName }}</td>
+                  <td>{{ one.categoryName || '—' }}</td>
+                  <td>{{ one.subCategoryName || '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
         <div modal-footer>
-          <button type="button" class="btn btn--secondary" (click)="role.set(null)">Close</button>
+          <button type="button" class="btn btn--secondary" (click)="roles.set(null)">Close</button>
         </div>
       </app-modal>
     }
@@ -754,23 +768,26 @@ const COLUMNS: ColumnDef[] = [
   `,
   styles: [
     `
-      /* A role reads as a thing you can press, because it is. Quieter
-         than a button and louder than a chip: there are up to three in a
-         cell and a row of filled buttons would out-shout the agency's
-         own name beside them. */
-      .role {
-        font: inherit;
-        font-size: var(--fs-xs);
-        padding: 0.2rem 0.5rem;
-        border: 1px solid var(--brand-200);
-        border-radius: 999px;
-        background: var(--brand-50);
-        color: var(--brand-700);
-        cursor: pointer;
-        transition: background var(--transition), border-color var(--transition);
+      /* The dates, in one hand. Valid till was the body weight and
+         Created on was muted, which made a pair of dates look like a
+         fact and an aside. */
+      .cell-date {
+        font-size: var(--fs-sm);
+        color: var(--ink-700);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
       }
-      .role:hover { background: var(--brand-100); border-color: var(--brand-300); }
-      .role--more { background: var(--surface-muted); border-color: var(--border); color: var(--ink-600); }
+
+      /* One line, centred under its heading, so every row is the same
+         height and the columns beside it line up down the page. The
+         programme names used to be in the cell and a long one wrapped to
+         three lines, which is what pulled the table out of true. */
+      .roles-view {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        white-space: nowrap;
+      }
 
 
       /* Two columns where the dialog is wide enough, one where it is not.
@@ -844,12 +861,9 @@ export class AgenciesComponent {
   /** The agency whose details are on screen, or null. */
   protected readonly details = signal<ImplementingAgency | null>(null);
 
-  /** The role whose cover is on screen, with the agency it belongs to. */
-  protected readonly role = signal<{ agency: ImplementingAgency; role: AgencyRole } | null>(null);
+  /** The agency whose roles are listed, or null. */
+  protected readonly roles = signal<ImplementingAgency | null>(null);
 
-  protected openRole(agency: ImplementingAgency, role: AgencyRole): void {
-    this.role.set({ agency, role });
-  }
 
   protected readonly statusPrompt = signal<
     { row: ImplementingAgency; status: RecordStatus } | null>(null);

@@ -10,7 +10,8 @@
         "run",
         "start"
       ],
-      "port": 4200
+      "port": 4200,
+      "autoPort": false
     },
     {
       "name": "applicant-app",
@@ -36,7 +37,8 @@
         "--urls",
         "http://localhost:5210"
       ],
-      "port": 5210
+      "port": 5210,
+      "autoPort": false
     }
   ]
 }
