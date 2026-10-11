@@ -14,10 +14,21 @@ schema by hand.
 
 ## Which one
 
+Take the newest pair. The older ones are kept so a database that was
+built from one can be read against what it was given.
+
 | File | Runs against | Use it when |
 | --- | --- | --- |
-| `2026-10-09-release.sql` | A database at `20261006000958_AnAgencySuspensionIsRecorded` | You know what the database is on, and want only this release's changes to read. |
-| `2026-10-09-full.sql` | Any database, including an empty one | You do not know what it is on, or you are building one from nothing. |
+| `2026-10-11-release.sql` | A database at `20261009112017_TrainerEngagementAndCredentials` | You know what the database is on, and want only this release's changes to read. |
+| `2026-10-11-full.sql` | Any database, including an empty one | You do not know what it is on, or you are building one from nothing. |
+| `2026-10-09-release.sql` | A database at `20261006000958_AnAgencySuspensionIsRecorded` | Superseded; kept for reference. |
+| `2026-10-09-full.sql` | Any database | Superseded; kept for reference. |
+
+The 11 October pair carries five migrations: a registration remembering
+its batch, an address proven before it moves, session start and end
+times, and the Support link and About text. Both were run against a
+fresh database and against one sitting at the October release, and the
+full one was run twice to confirm the second run does nothing.
 
 Both are **idempotent**: every migration is wrapped in a check against
 `__EFMigrationsHistory`, so running one twice does nothing the second time
