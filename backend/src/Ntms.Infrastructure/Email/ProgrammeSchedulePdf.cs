@@ -97,8 +97,19 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
             .OrderBy(s => s.Day ?? 0).ThenBy(s => s.DisplayOrder)
             .ToList() ?? [];
 
+        /* The marks as well as the names. Both are the Super Admin's
+           upload and neither is a checked-in asset, so the document is
+           whatever branding the installation is actually wearing. */
         var branding = await db.Branding.AsNoTracking()
-            .Select(b => new { b.OrganisationName, b.PortalTitle })
+            .Select(b => new
+            {
+                b.OrganisationName,
+                b.PortalTitle,
+                b.LogoData,
+                b.LogoContentType,
+                b.PartnerLogoData,
+                b.PartnerLogoContentType,
+            })
             .FirstOrDefaultAsync(ct);
 
         EnsureFonts();
@@ -107,7 +118,12 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
         document.Info.Title = $"{programme.ProgrammeName} — schedule";
         document.Info.Author = branding?.OrganisationName ?? "Capacity Building Management System";
 
-        var sheet = new Sheet(document, branding?.OrganisationName, branding?.PortalTitle);
+        var sheet = new Sheet(
+            document,
+            branding?.OrganisationName,
+            branding?.PortalTitle,
+            Mark(branding?.LogoData, branding?.LogoContentType),
+            Mark(branding?.PartnerLogoData, branding?.PartnerLogoContentType));
 
         /* ---- the masthead ------------------------------------------- */
         sheet.Masthead(programme.ProgrammeName, $"{programme.ProgrammeId} · {programme.ProgramType?.Name}");
@@ -193,6 +209,35 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
     }
 
     /// <summary>
+    /// An uploaded mark as something that can be drawn, or null.
+    ///
+    /// PDFsharp reads PNG and JPEG and nothing else, and a logo may well
+    /// have been uploaded as SVG — which the browser is happy with and
+    /// this is not. A mark it cannot read is no mark: the masthead falls
+    /// back to the organisation's name, which is never missing.
+    /// </summary>
+    private static XImage? Mark(byte[]? data, string? contentType)
+    {
+        if (data is not { Length: > 0 }) return null;
+
+        var type = (contentType ?? string.Empty).ToLowerInvariant();
+        if (type is not ("image/png" or "image/jpeg" or "image/jpg")) return null;
+
+        try
+        {
+            /* The stream has to outlive this call: PDFsharp reads it when
+               the image is drawn, not when it is loaded, and it is
+               disposed with the document. */
+            return XImage.FromStream(new MemoryStream(data));
+        }
+        catch
+        {
+            /* A file that claims to be a PNG and is not. */
+            return null;
+        }
+    }
+
+    /// <summary>
     /// A page being written down, in the portal's colours.
     ///
     /// It knows where it is on the sheet and when to start another one, so
@@ -203,6 +248,8 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
         private readonly PdfDocument document;
         private readonly string organisation;
         private readonly string? portalTitle;
+        private readonly XImage? logo;
+        private readonly XImage? partner;
 
         private PdfPage page = null!;
         private XGraphics gfx = null!;
@@ -217,13 +264,20 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
         private readonly XFont small = new("Arial", 8.5, XFontStyleEx.Regular);
         private readonly XFont tiny = new("Arial", 7.5, XFontStyleEx.Regular);
 
-        public Sheet(PdfDocument document, string? organisation, string? portalTitle)
+        public Sheet(
+            PdfDocument document,
+            string? organisation,
+            string? portalTitle,
+            XImage? logo,
+            XImage? partner)
         {
             this.document = document;
             this.organisation = string.IsNullOrWhiteSpace(organisation)
                 ? "Capacity Building Management System"
                 : organisation;
             this.portalTitle = portalTitle;
+            this.logo = logo;
+            this.partner = partner;
             NewPage(first: true);
         }
 
@@ -249,6 +303,18 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
             }
         }
 
+        /* Tall enough to be read on a printed page, short enough that the
+           masthead does not take the first third of it. */
+        private const double LogoHeight = 34;
+        private const double PartnerHeight = 26;
+
+        /// <summary>The width a mark takes at that height, aspect kept.</summary>
+        private static double Scale(XImage mark, double height) =>
+            mark.PixelHeight > 0 ? height * mark.PixelWidth / mark.PixelHeight : height;
+
+        private void Draw(XImage mark, double x, double top, double height) =>
+            gfx.DrawImage(mark, x, top, Scale(mark, height), height);
+
         private void Room(double needed)
         {
             if (y + needed <= page.Height.Point - 54) return;
@@ -257,6 +323,23 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
 
         public void Masthead(string name, string subtitle)
         {
+            /* The mark, at the top left, where it is on every screen. The
+               organisation's name goes under it rather than instead of it,
+               because a logo alone does not tell a reader who sent this —
+               and with no logo uploaded the name is the whole masthead. */
+            if (logo is not null)
+            {
+                Draw(logo, Margin, y - 6, LogoHeight);
+                y += LogoHeight + 2;
+            }
+
+            /* The partner's mark at the far end, as on the sign-in header. */
+            if (partner is not null)
+            {
+                var width = Scale(partner, PartnerHeight);
+                Draw(partner, right - width, y - (logo is null ? 6 : LogoHeight + 8), PartnerHeight);
+            }
+
             gfx.DrawString(organisation.ToUpperInvariant(), tiny, new XSolidBrush(Brand600),
                 new XPoint(Margin, y));
             y += 6;
