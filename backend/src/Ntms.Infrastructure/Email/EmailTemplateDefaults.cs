@@ -48,6 +48,7 @@ public static class EmailTemplateDefaults
     public const string AccountUpdated = "account-updated";
     public const string CertificateIssued = "certificate-issued";
     public const string ApplicantAccessChanged = "applicant-access-changed";
+    public const string ApplicantPasswordReset = "applicant-password-reset";
 
     /// <summary>
     /// Messages that carry a credential or a one-time code. The editor keeps
@@ -57,7 +58,7 @@ public static class EmailTemplateDefaults
     {
         Otp, ApplicantCredentials, PortalCredentials, PasswordReset, PasswordChanged,
         AdminCredentials, MinistryCredentials, OpsManagerCredentials,
-        AgencyCredentials, CoordinatorCredentials,
+        AgencyCredentials, CoordinatorCredentials, ApplicantPasswordReset,
     };
 
     public static readonly IReadOnlyList<EmailTemplate> All =
@@ -294,6 +295,32 @@ public static class EmailTemplateDefaults
             PlainTextBody =
                 "The password for {{userCode}} was changed on {{changedOn}} ({{method}}). "
                 + "If this was not you, contact the portal administrator at once.",
+        },
+        new()
+        {
+            Key = ApplicantPasswordReset,
+            Name = "Applicant password reset",
+            Description =
+                "Sent after an applicant resets their password, with the credentials they "
+                + "now sign in with.",
+            Placeholders = "name,applicantCode,password,changedOn",
+            Subject = "Your password has been reset",
+            HtmlBody = """
+                <p>Dear {{name}},</p>
+                <p>Your password was reset on {{changedOn}}. These are the credentials you
+                   sign in with:</p>
+                <table style="margin:18px 0;border-collapse:collapse;">
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Applicant ID</td><td><strong>{{applicantCode}}</strong></td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Password</td><td><strong>{{password}}</strong></td></tr>
+                </table>
+                <p>Your applicant ID never changes. Keep this message safe, or delete it once
+                   you have signed in — anyone who can read it can sign in as you.</p>
+                <p><strong>If this was not you</strong>, reset your password again at once and
+                   tell us.</p>
+                """,
+            PlainTextBody =
+                "Your password was reset on {{changedOn}}. Applicant ID {{applicantCode}}, "
+                + "password {{password}}. If this was not you, reset it again at once.",
         },
         new()
         {

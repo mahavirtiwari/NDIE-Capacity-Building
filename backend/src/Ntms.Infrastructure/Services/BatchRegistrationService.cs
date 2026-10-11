@@ -100,11 +100,34 @@ public class BatchRegistrationService(
            Still created, because the fee, the TDS declaration and the
            payment all hang off it, and so does the certificate at the end.
            It is approved as it is made: the reading that used to approve it
-           happened on the profile. */
+           happened on the profile.
+
+           One application per seat. An earlier one is picked up again only
+           while it has not been spent — a registration abandoned halfway
+           through paying is the case this exists for, and finding it again
+           is what stops a second order being raised for the same attempt.
+
+           An application that already took a seat is finished with. Taking
+           another seat under a program type that charges means paying for
+           it again: a retake is a second course, not a second helping of
+           the first one. Spotting this by the participant row rather than
+           by the payment status is deliberate — a free programme behaves
+           the same way, and nothing has to know what a fee is. */
+        /* Nulls filtered out of the subquery on purpose: NOT IN against a
+           list containing NULL is never true in SQL, and an older
+           participant row with no application on it would quietly turn
+           every registration into a new application and a second order. */
+        var spent = db.ProgrammeParticipants
+            .Where(p => p.ApplicantId == applicantId && p.ApplicationId != null)
+            .Select(p => p.ApplicationId!.Value);
+
         var application = await db.Applications
-            .FirstOrDefaultAsync(a => a.ApplicantId == applicantId
-                                      && a.ProgramTypeId == programType.Id
-                                      && a.Status != ApplicationStatus.Rejected, ct);
+            .Where(a => a.ApplicantId == applicantId
+                        && a.ProgramTypeId == programType.Id
+                        && a.Status != ApplicationStatus.Rejected
+                        && !spent.Contains(a.Id))
+            .OrderByDescending(a => a.Id)
+            .FirstOrDefaultAsync(ct);
 
         var now = DateTime.UtcNow;
 

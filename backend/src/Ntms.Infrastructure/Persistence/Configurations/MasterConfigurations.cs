@@ -288,6 +288,10 @@ public class BrandingConfiguration : IEntityTypeConfiguration<BrandingSetting>
         b.Property(x => x.PortalTitle).HasMaxLength(200).IsRequired();
         b.Property(x => x.Tagline).HasMaxLength(300);
         b.Property(x => x.SupportEmail).HasMaxLength(200);
+        b.Property(x => x.SupportUrl).HasMaxLength(500);
+        /* Long, because it is a paragraph or three about what the system
+           is for, not a strapline. */
+        b.Property(x => x.AboutText).HasMaxLength(4000);
         b.Property(x => x.LogoFileName).HasMaxLength(260);
         b.Property(x => x.LogoContentType).HasMaxLength(100);
         b.Property(x => x.PartnerName).HasMaxLength(120);

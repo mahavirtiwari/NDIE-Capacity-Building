@@ -827,14 +827,15 @@ public class ApplicantAuthService(
 
         logger.LogInformation("Applicant password reset completed for {ApplicantCode}", code);
 
-        /* Confirmed by e-mail, with the applicant ID they sign in with:
-           somebody who has just been through a reset has usually lost that
-           too, and a reset nobody asked for has to be visible to the person
-           it happened to. */
+        /* Confirmed by e-mail with both credentials: the applicant ID,
+           which somebody who has just been through a reset has usually
+           lost as well, and the password they have just set. A reset
+           nobody asked for also has to be visible to the person it
+           happened to. */
         try
         {
-            await notifications.SendApplicantPasswordChangedAsync(
-                applicant, "reset with a code", ct);
+            await notifications.SendApplicantResetCredentialsAsync(
+                applicant, dto.NewPassword!, ct);
         }
         catch (Exception caught)
         {

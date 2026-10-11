@@ -8,6 +8,13 @@ public class BrandingDto
     public string PortalTitle { get; set; } = string.Empty;
     public string? Tagline { get; set; }
     public string? SupportEmail { get; set; }
+
+    /// <summary>Where Support goes. Null and the apps do not offer it.</summary>
+    public string? SupportUrl { get; set; }
+
+    /// <summary>What this system is, for the About screen. Null and it is not offered.</summary>
+    public string? AboutText { get; set; }
+
     public bool HasLogo { get; set; }
     public string? LogoFileName { get; set; }
     /// <summary>Relative to the API base, with a cache-busting version.</summary>
@@ -41,6 +48,8 @@ public class BrandingUpdateDto
     public string PortalTitle { get; set; } = string.Empty;
     public string? Tagline { get; set; }
     public string? SupportEmail { get; set; }
+    public string? SupportUrl { get; set; }
+    public string? AboutText { get; set; }
     public string? PartnerName { get; set; }
 
     /// <summary>Optional. Where each mark takes the reader when clicked.</summary>

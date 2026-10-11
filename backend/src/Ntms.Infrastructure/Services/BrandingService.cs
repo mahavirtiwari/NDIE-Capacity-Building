@@ -61,6 +61,16 @@ public class BrandingService(NtmsDbContext db)
         PortalTitle = "Capacity Building Management System",
         Tagline = "One platform for the entire training and certification lifecycle.",
         SupportEmail = "support@ntms.gov.in",
+        SupportUrl = "https://ndie.qcin.org/contact-us/",
+        AboutText =
+            "The Capacity Building Management System is how the National Division for "
+            + "Industry Excellence runs its training and certification: the programs on "
+            + "offer, the agencies that deliver them, the people who attend, and the "
+            + "certificates they earn.\n\n"
+            + "You use it to fill in your profile once for a discipline, register for the "
+            + "programs open to you, sit the written paper, and collect the certificate "
+            + "afterwards. Everything you send in and everything issued to you stays here, "
+            + "on the applications and programs screens.",
         LogoVersion = 0,
     };
 
@@ -96,6 +106,10 @@ public class BrandingService(NtmsDbContext db)
         entity.PortalTitle = dto.PortalTitle.Trim();
         entity.Tagline = dto.Tagline?.Trim();
         entity.SupportEmail = dto.SupportEmail?.Trim();
+        /* Validated the same way as the logo links: a Support entry that
+           is not an address would send everybody who taps it nowhere. */
+        entity.SupportUrl = CleanLink(dto.SupportUrl, "Support link");
+        entity.AboutText = string.IsNullOrWhiteSpace(dto.AboutText) ? null : dto.AboutText.Trim();
         entity.PartnerName = string.IsNullOrWhiteSpace(dto.PartnerName) ? null : dto.PartnerName.Trim();
         entity.LogoLinkUrl = CleanLink(dto.LogoLinkUrl, "Logo link");
         entity.PartnerLogoLinkUrl = CleanLink(dto.PartnerLogoLinkUrl, "Partner logo link");
@@ -252,6 +266,8 @@ public class BrandingService(NtmsDbContext db)
         PortalTitle = entity.PortalTitle,
         Tagline = entity.Tagline,
         SupportEmail = entity.SupportEmail,
+        SupportUrl = entity.SupportUrl,
+        AboutText = entity.AboutText,
         HasLogo = entity.HasLogo,
         LogoFileName = entity.LogoFileName,
         /* Relative so it works behind any host, with the version as a cache key. */

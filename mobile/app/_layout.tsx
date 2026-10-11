@@ -90,6 +90,7 @@ function Routes() {
         <Stack.Screen name="payments" options={{ title: 'Payments & invoices' }} />
         <Stack.Screen name="profile-form" options={{ title: 'Your profile' }} />
         <Stack.Screen name="change-password" options={{ title: 'Change password' }} />
+        <Stack.Screen name="about" options={{ title: 'About' }} />
         <Stack.Screen
           name="profile-submission/[subCategoryId]"
           options={{ title: 'Profile submission' }}

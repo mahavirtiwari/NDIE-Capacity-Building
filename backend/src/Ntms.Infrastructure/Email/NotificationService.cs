@@ -70,6 +70,13 @@ public interface INotificationService
         Applicant applicant, string method, CancellationToken ct = default);
 
     /// <summary>
+    /// The credentials an applicant signs in with after a reset: the
+    /// applicant ID and the password they have just set.
+    /// </summary>
+    Task SendApplicantResetCredentialsAsync(
+        Applicant applicant, string password, CancellationToken ct = default);
+
+    /// <summary>
     /// Tells an applicant their account was blocked or let back in, and why.
     /// Sent both ways: being locked out without being told why is the worst
     /// version of this, and being let back in is worth knowing.
@@ -255,6 +262,26 @@ public class NotificationService(
             ["userCode"] = applicant.ApplicantCode,
             ["changedOn"] = IndianTime.Format(DateTime.UtcNow),
             ["method"] = method,
+        }, ct);
+
+    /// <summary>
+    /// The credentials after a reset, both of them.
+    ///
+    /// The password is in the message because the department asked for it
+    /// there. It is worth being plain about the trade: a password sitting
+    /// in a mailbox is readable by anyone who reaches that mailbox, and
+    /// this one is live. The wording tells the holder to delete it once
+    /// they have signed in, and the template can be switched off in
+    /// Administration -> Email if the policy changes.
+    /// </summary>
+    public Task SendApplicantResetCredentialsAsync(
+        Applicant applicant, string password, CancellationToken ct = default) =>
+        SendAsync(EmailTemplateDefaults.ApplicantPasswordReset, applicant.Email, new()
+        {
+            ["name"] = applicant.FullName,
+            ["applicantCode"] = applicant.ApplicantCode,
+            ["password"] = password,
+            ["changedOn"] = IndianTime.Format(DateTime.UtcNow),
         }, ct);
 
     public Task SendApplicationSubmittedAsync(

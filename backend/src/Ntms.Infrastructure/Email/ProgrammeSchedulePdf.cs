@@ -124,7 +124,7 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
             Mark(branding?.PartnerLogoData, branding?.PartnerLogoContentType));
 
         /* ---- the masthead ------------------------------------------- */
-        sheet.Masthead(programme.ProgrammeName, $"{programme.ProgrammeId} · {programme.ProgramType?.Name}");
+        sheet.Masthead(programme.ProgrammeName);
 
         /* ---- what somebody needs on the morning --------------------- */
         var where = programme.Mode == ProgramMode.Virtual
@@ -137,7 +137,7 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
                 programme.State?.Name,
             }.Where(part => !string.IsNullOrWhiteSpace(part)));
 
-        sheet.SectionTitle("Your program");
+        sheet.SectionTitle("Program details");
 
         var facts = new List<(string Term, string Value)>
         {
@@ -197,7 +197,7 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
             sheet.Session(hours, session.SessionName, topics);
         }
 
-        sheet.Finish();
+        sheet.Finish(sessions.Count);
 
         using var buffer = new MemoryStream();
         document.Save(buffer, false);
@@ -238,8 +238,15 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
     /// <summary>
     /// A page being written down, in the portal's colours.
     ///
-    /// It knows where it is on the sheet and when to start another one, so
-    /// the caller above reads as the document rather than as arithmetic.
+    /// Everything is laid out from the top of the next element rather than
+    /// from a baseline, so a block that wraps to three lines pushes what
+    /// follows down by three lines. Measuring from baselines is what put a
+    /// session heading on top of the rule above it.
+    ///
+    /// The sheet also knows when it is full. A schedule is as long as the
+    /// curriculum is, so a second and third page are ordinary: each one
+    /// carries the programme's name at the top, the day is restated where
+    /// one runs across the fold, and nothing is drawn into the footer.
     /// </summary>
     private sealed class Sheet
     {
@@ -254,6 +261,12 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
         private double y;
         private double right;
 
+        /// <summary>What the pages after the first say they are. </summary>
+        private string continuation = string.Empty;
+
+        /// <summary>The day being laid out, restated after a page break.</summary>
+        private string? day;
+
         private readonly XFont title = new("Arial", 17, XFontStyleEx.Bold);
         private readonly XFont section = new("Arial", 11, XFontStyleEx.Bold);
         private readonly XFont strong = new("Arial", 9.5, XFontStyleEx.Bold);
@@ -261,11 +274,7 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
         private readonly XFont small = new("Arial", 8.5, XFontStyleEx.Regular);
         private readonly XFont tiny = new("Arial", 7.5, XFontStyleEx.Regular);
 
-        public Sheet(
-            PdfDocument document,
-            string? organisation,
-            XImage? logo,
-            XImage? partner)
+        public Sheet(PdfDocument document, string? organisation, XImage? logo, XImage? partner)
         {
             this.document = document;
             this.organisation = string.IsNullOrWhiteSpace(organisation)
@@ -275,6 +284,18 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
             this.partner = partner;
             NewPage(first: true);
         }
+
+        /* Tall enough to be read on a printed page, short enough that the
+           masthead does not take the first third of it. */
+        private const double LogoHeight = 36;
+        private const double PartnerHeight = 26;
+
+        /// <summary>Where the footer starts; nothing is drawn below this.</summary>
+        private double Floor => page.Height.Point - 64;
+
+        /// <summary>The width a mark takes at that height, aspect kept.</summary>
+        private static double Scale(XImage mark, double height) =>
+            mark.PixelHeight > 0 ? height * mark.PixelWidth / mark.PixelHeight : height;
 
         private void NewPage(bool first = false)
         {
@@ -289,31 +310,55 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
             /* The crimson band across the top of every page, which is what
                the portal's own header looks like. */
             gfx.DrawRectangle(new XSolidBrush(Brand700), 0, 0, page.Width.Point, 8);
-            y = 44;
+            y = 40;
 
-            if (!first)
-            {
-                /* Carried over, so a second page is not an orphan. */
-                gfx.DrawString(organisation, tiny, new XSolidBrush(Ink500), new XPoint(Margin, 26));
-            }
+            if (first) return;
+
+            /* A continued page says what it is continuing, so a printed
+               stack of them cannot be shuffled into nonsense. */
+            gfx.DrawString(continuation, small, new XSolidBrush(Ink600),
+                new XPoint(Margin, y), XStringFormats.TopLeft);
+            gfx.DrawString("continued", small, new XSolidBrush(Ink500),
+                new XRect(Margin, y, right - Margin, 12), XStringFormats.TopRight);
+            y += 16;
+            gfx.DrawLine(new XPen(Ink200, 0.8), Margin, y, right, y);
+            y += 16;
+
+            /* And which day, where one runs across the fold. */
+            if (day is not null) Band($"{day} (continued)");
         }
 
-        /* Tall enough to be read on a printed page, short enough that the
-           masthead does not take the first third of it. */
-        private const double LogoHeight = 34;
-        private const double PartnerHeight = 26;
-
-        /// <summary>The width a mark takes at that height, aspect kept.</summary>
-        private static double Scale(XImage mark, double height) =>
-            mark.PixelHeight > 0 ? height * mark.PixelWidth / mark.PixelHeight : height;
-
-        private void Draw(XImage mark, double x, double top, double height) =>
-            gfx.DrawImage(mark, x, top, Scale(mark, height), height);
-
+        /// <summary>Starts a page where what comes next will not fit.</summary>
         private void Room(double needed)
         {
-            if (y + needed <= page.Height.Point - 54) return;
+            if (y + needed <= Floor) return;
             NewPage();
+        }
+
+        /// <summary>
+        /// A run of text from the current cursor, wrapped inside a width.
+        /// Returns the height it took, which is what the caller moves by.
+        /// </summary>
+        private double Block(
+            string words, XFont font, XColor colour, double x, double width,
+            XParagraphAlignment align = XParagraphAlignment.Left)
+        {
+            var height = Height(words, font, width);
+            text.Alignment = align;
+            text.DrawString(words, font, new XSolidBrush(colour),
+                new XRect(x, y, width, height + font.GetHeight()), XStringFormats.TopLeft);
+            text.Alignment = XParagraphAlignment.Left;
+            return height;
+        }
+
+        /// <summary>How tall a run of text is once it has wrapped.</summary>
+        private double Height(string words, XFont font, double width) =>
+            Lines(words, font, width) * (font.GetHeight() + 1.5);
+
+        private double Lines(string words, XFont font, double width)
+        {
+            var measured = gfx.MeasureString(words, font).Width;
+            return Math.Max(1, Math.Ceiling(measured / Math.Max(1, width)));
         }
 
         /// <summary>
@@ -322,11 +367,12 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
         /// The logo carries the organisation's name inside the artwork, so
         /// spelling it out underneath said the same thing twice, and the
         /// portal's own title belongs on the portal rather than on a
-        /// timetable somebody prints and brings with them. What is left is
-        /// the mark and what the document is about.
+        /// timetable somebody prints and brings with them.
         /// </summary>
-        public void Masthead(string name, string subtitle)
+        public void Masthead(string name)
         {
+            continuation = name;
+
             var middle = (Margin + right) / 2;
 
             if (logo is not null)
@@ -342,61 +388,43 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
                     var together = width + 26 + partnerWidth;
                     var start = middle - (together / 2);
 
-                    Draw(logo, start, y, LogoHeight);
-                    Draw(partner, start + width + 26,
-                        y + ((LogoHeight - PartnerHeight) / 2), PartnerHeight);
+                    gfx.DrawImage(logo, start, y, width, LogoHeight);
+                    gfx.DrawImage(partner, start + width + 26,
+                        y + ((LogoHeight - PartnerHeight) / 2), partnerWidth, PartnerHeight);
                 }
                 else
                 {
-                    Draw(logo, middle - (width / 2), y, LogoHeight);
+                    gfx.DrawImage(logo, middle - (width / 2), y, width, LogoHeight);
                 }
 
-                y += LogoHeight + 16;
+                /* Room to breathe under the mark: the name used to sit on
+                   the artwork's shoulder. */
+                y += LogoHeight + 26;
             }
             else
             {
                 /* Nothing uploaded. The name is the mark, and it is the one
                    thing that is never missing. */
-                Centre(organisation.ToUpperInvariant(), small, Brand600, 14);
-                y += 6;
+                y += Block(organisation.ToUpperInvariant(), small, Brand600,
+                    Margin, right - Margin, XParagraphAlignment.Center) + 18;
             }
 
-            Centre(name, title, Ink900, 20);
-            y += 4;
-            Centre(subtitle, small, Ink600, 12);
-            y += 6;
+            y += Block(name, title, Ink900, Margin, right - Margin, XParagraphAlignment.Center);
+            y += 10;
 
             /* The gold rule under the masthead: the one accent in the
                palette, used here exactly as the portal uses it. */
             gfx.DrawLine(new XPen(Accent600, 1.4), middle - 27, y, middle + 27, y);
-            y += 22;
-        }
-
-        /// <summary>
-        /// A centred run of text, which moves the cursor past itself —
-        /// one line or three, without the caller counting them.
-        /// </summary>
-        private void Centre(string words, XFont font, XColor colour, double lineHeight)
-        {
-            var width = right - Margin;
-            var height = Lines(words, font, width) * lineHeight;
-
-            text.Alignment = XParagraphAlignment.Center;
-            text.DrawString(words, font, new XSolidBrush(colour),
-                new XRect(Margin, y - (lineHeight * 0.75), width, height + lineHeight),
-                XStringFormats.TopLeft);
-            text.Alignment = XParagraphAlignment.Left;
-
-            y += height;
+            y += 26;
         }
 
         public void SectionTitle(string label)
         {
-            Room(40);
-            gfx.DrawString(label, section, new XSolidBrush(Brand700), new XPoint(Margin, y));
-            y += 7;
+            Room(56);
+            y += Block(label, section, Brand700, Margin, right - Margin);
+            y += 5;
             gfx.DrawLine(new XPen(Ink200, 0.8), Margin, y, right, y);
-            y += 14;
+            y += 12;
         }
 
         public void Facts(IEnumerable<(string Term, string Value)> facts)
@@ -404,7 +432,8 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
             var striped = false;
             foreach (var (term, value) in facts)
             {
-                var height = Math.Max(16, Lines(value, body, right - Margin - TermColumn) * 13 + 5);
+                var width = right - Margin - TermColumn;
+                var height = Math.Max(Height(value, body, width), body.GetHeight()) + 7;
                 Room(height);
 
                 /* Alternate rows on the palest brand tint, which is what a
@@ -412,93 +441,114 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
                 if (striped)
                 {
                     gfx.DrawRectangle(new XSolidBrush(Brand50),
-                        Margin - 6, y - 10, right - Margin + 12, height);
+                        Margin - 6, y - 3, right - Margin + 12, height);
                 }
                 striped = !striped;
 
-                gfx.DrawString(term, strong, new XSolidBrush(Ink600), new XPoint(Margin, y));
-                text.DrawString(value, body, new XSolidBrush(Ink900),
-                    new XRect(Margin + TermColumn, y - 10, right - Margin - TermColumn, height + 4),
-                    XStringFormats.TopLeft);
+                Block(term, strong, Ink600, Margin, TermColumn - 8);
+                Block(value, body, Ink900, Margin + TermColumn, width);
 
                 y += height;
             }
 
-            y += 14;
+            y += 18;
         }
 
         public void Note(string words)
         {
-            Room(40);
-            var height = Lines(words, body, right - Margin - 20) * 13 + 14;
+            var width = right - Margin - 24;
+            var height = Height(words, body, width) + 20;
+            Room(height);
+
             gfx.DrawRectangle(new XPen(Brand100, 0.8), new XSolidBrush(Brand50),
-                Margin, y - 10, right - Margin, height);
-            text.DrawString(words, body, new XSolidBrush(Ink600),
-                new XRect(Margin + 10, y - 3, right - Margin - 20, height), XStringFormats.TopLeft);
-            y += height + 10;
+                Margin, y, right - Margin, height);
+
+            y += 10;
+            Block(words, body, Ink600, Margin + 12, width);
+            y += height - 10 + 8;
         }
 
+        /// <summary>The crimson band that opens a day.</summary>
         public void DayBand(string label)
         {
-            Room(46);
-            y += 4;
-            gfx.DrawRectangle(new XSolidBrush(Brand700), Margin, y - 11, right - Margin, 20);
-            gfx.DrawString(label, strong, new XSolidBrush(White), new XPoint(Margin + 10, y + 3));
-            y += 28;
+            day = label;
+            Room(54);
+            Band(label);
         }
 
+        private void Band(string label)
+        {
+            gfx.DrawRectangle(new XSolidBrush(Brand700), Margin, y, right - Margin, 21);
+            gfx.DrawString(label, strong, new XSolidBrush(White),
+                new XPoint(Margin + 10, y + 5), XStringFormats.TopLeft);
+            y += 21 + 14;
+        }
+
+        /// <summary>
+        /// One session: the hours in the left column, the name beside them
+        /// and the topics under it, closed by a hairline.
+        /// </summary>
         public void Session(string hours, string name, IReadOnlyList<string> topics)
         {
             var width = right - Margin - TermColumn;
-            var needed = Lines(name, strong, width) * 13
-                         + topics.Sum(topic => Lines(topic, small, width - 10) * 12)
-                         + 16;
-            Room(needed);
 
-            gfx.DrawString(hours, small, new XSolidBrush(Brand600), new XPoint(Margin + 4, y));
-            text.DrawString(name, strong, new XSolidBrush(Ink900),
-                new XRect(Margin + TermColumn, y - 10, width, 40), XStringFormats.TopLeft);
-            y += Lines(name, strong, width) * 13 + 2;
+            var needed = Height(name, strong, width)
+                         + topics.Sum(topic => Height(topic, small, width - 14))
+                         + 26;
+
+            /* Kept whole where it can be. A session split across the fold
+               leaves a heading alone at the bottom of a page, and the day
+               is restated at the top of the next one anyway. */
+            Room(Math.Min(needed, Floor - 120));
+
+            if (hours.Length > 0)
+            {
+                gfx.DrawString(hours, small, new XSolidBrush(Brand600),
+                    new XPoint(Margin + 4, y + 1), XStringFormats.TopLeft);
+            }
+
+            y += Block(name, strong, Ink900, Margin + TermColumn, width) + 3;
 
             foreach (var topic in topics)
             {
-                var height = Lines(topic, small, width - 10) * 12;
-
                 /* A small square in the brand tint instead of a bullet: a
                    dot is a dot, and this matches the chips on screen. */
-                gfx.DrawRectangle(new XSolidBrush(Brand100), Margin + TermColumn, y - 5, 4, 4);
-                text.DrawString(topic, small, new XSolidBrush(Ink600),
-                    new XRect(Margin + TermColumn + 10, y - 8, width - 10, height + 6),
-                    XStringFormats.TopLeft);
-
-                y += height;
+                gfx.DrawRectangle(new XSolidBrush(Brand100), Margin + TermColumn, y + 3.5, 4, 4);
+                y += Block(topic, small, Ink600, Margin + TermColumn + 14, width - 14);
             }
 
-            y += 10;
-            gfx.DrawLine(new XPen(Ink200, 0.6), Margin + TermColumn, y - 4, right, y - 4);
+            y += 9;
+            gfx.DrawLine(new XPen(Ink200, 0.6), Margin + TermColumn, y, right, y);
+            y += 13;
         }
 
-        /// <summary>The footer, on every page, once nothing more will be drawn.</summary>
-        public void Finish()
+        /// <summary>Nothing further belongs to a day after this.</summary>
+        public void EndOfPlan() => day = null;
+
+        /// <summary>
+        /// The footer, on every page, once nothing more will be drawn.
+        /// </summary>
+        public void Finish(int sessionCount)
         {
             /* The open page first: PDFsharp allows one XGraphics on a page
-               at a time, and the footer loop below opens every page again
-               to append to what is already drawn on it. */
+               at a time, and the loop below opens every page again to
+               append to what is already drawn on it. */
             gfx.Dispose();
 
             for (var index = 0; index < document.PageCount; index++)
             {
                 var each = document.Pages[index];
                 using var footer = XGraphics.FromPdfPage(each, XGraphicsPdfPageOptions.Append);
-                var line = each.Height.Point - 36;
+                var line = each.Height.Point - 40;
 
                 footer.DrawLine(new XPen(Ink200, 0.6), Margin, line, each.Width.Point - Margin, line);
                 footer.DrawString(
                     $"{organisation} · generated {DateTime.UtcNow.AddHours(5.5):dd MMM yyyy}",
-                    tiny, new XSolidBrush(Ink500), new XPoint(Margin, line + 14));
+                    tiny, new XSolidBrush(Ink500),
+                    new XPoint(Margin, line + 8), XStringFormats.TopLeft);
                 footer.DrawString($"Page {index + 1} of {document.PageCount}", tiny,
                     new XSolidBrush(Ink500),
-                    new XRect(Margin, line + 4, each.Width.Point - (Margin * 2), 14),
+                    new XRect(Margin, line + 8, each.Width.Point - (Margin * 2), 12),
                     XStringFormats.TopRight);
 
                 /* A thin brand rule down the outside edge, the quietest way
@@ -506,13 +556,8 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
                 footer.DrawRectangle(new XSolidBrush(OnBrandSoft),
                     each.Width.Point - 6, 8, 6, each.Height.Point - 16);
             }
-        }
 
-        /// <summary>How many lines a run of text takes once it has wrapped.</summary>
-        private double Lines(string words, XFont font, double width)
-        {
-            var size = gfx.MeasureString(words, font);
-            return Math.Max(1, Math.Ceiling(size.Width / Math.Max(1, width)));
+            _ = sessionCount;
         }
     }
 }

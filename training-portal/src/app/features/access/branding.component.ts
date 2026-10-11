@@ -307,6 +307,39 @@ const MAX_BYTES = 512 * 1024;
               }
             </div>
 
+            <!-- What the apps offer under Support and About. Both are
+                 the department's words and the department's page, so both
+                 are written here rather than built in. -->
+            <div class="field">
+              <label class="field-label" for="brSupportUrl">Support link</label>
+              <input
+                id="brSupportUrl"
+                class="input"
+                formControlName="supportUrl"
+                maxlength="500"
+                placeholder="https://ndie.qcin.org/contact-us/"
+              />
+              <span class="field-hint">
+                Where Support goes in the applicant app. Leave blank to hide it.
+              </span>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="brAbout">About this system</label>
+              <textarea
+                id="brAbout"
+                class="input"
+                formControlName="aboutText"
+                rows="6"
+                maxlength="4000"
+                placeholder="A few paragraphs on what the system is for."
+              ></textarea>
+              <span class="field-hint">
+                Shown on the About screen in the apps. One blank line starts a new paragraph;
+                leave it empty to hide About.
+              </span>
+            </div>
+
             <div class="btn-row btn-row--end">
               <button type="button" class="btn btn--ghost" (click)="reset()">Reset</button>
               <button type="submit" class="btn btn--primary" [disabled]="saving()">
@@ -420,6 +453,8 @@ export class BrandingComponent {
     portalTitle: ['', [Validators.required, Validators.maxLength(200)]],
     tagline: [''],
     supportEmail: ['', formatValidator('email')],
+    supportUrl: [''],
+    aboutText: [''],
   });
 
   constructor() {
@@ -434,6 +469,8 @@ export class BrandingComponent {
         portalTitle: current.portalTitle,
         tagline: current.tagline ?? '',
         supportEmail: current.supportEmail ?? '',
+        supportUrl: current.supportUrl ?? '',
+        aboutText: current.aboutText ?? '',
       });
     });
   }
@@ -473,6 +510,8 @@ export class BrandingComponent {
         portalTitle: raw.portalTitle.trim(),
         tagline: raw.tagline.trim() || null,
         supportEmail: raw.supportEmail.trim() || null,
+        supportUrl: raw.supportUrl.trim() || null,
+        aboutText: raw.aboutText.trim() || null,
         partnerName: this.branding.branding().partnerName ?? null,
         logoLinkUrl: this.branding.branding().logoLinkUrl ?? null,
         partnerLogoLinkUrl: this.branding.branding().partnerLogoLinkUrl ?? null,

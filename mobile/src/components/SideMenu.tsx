@@ -6,6 +6,7 @@ import {
   Animated,
   Dimensions,
   Easing,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -28,7 +29,7 @@ interface MenuLink {
 }
 
 const LINKS: MenuLink[] = [
-  { icon: 'grid-outline', label: 'Dashboard', href: '/(tabs)/programs' },
+  { icon: 'grid-outline', label: 'Home', href: '/(tabs)/programs' },
   /* No 'Your profile' link. The profile scrutiny form is reached from
      the submission it became, which is listed under applications with
      everything else that was sent in; a second door into a form that is
@@ -43,6 +44,13 @@ const LINKS: MenuLink[] = [
   { icon: 'book-outline', label: 'Training material', href: '/(tabs)/materials' },
   { icon: 'person-outline', label: 'My profile', href: '/(tabs)/profile' },
 ];
+
+/* Below the rule, above the sign-out: these are about the product rather
+   than about the applicant's own work, and Support leaves the app
+   altogether. Support is only offered where the department has filled in
+   a page under Branding — an entry with nothing behind it is worse than
+   no entry. */
+const ABOUT_LINK: MenuLink = { icon: 'information-circle-outline', label: 'About', href: '/about' };
 
 /**
  * The menu behind the hamburger.
@@ -125,6 +133,37 @@ export function SideMenu({ open, onClose }: { open: boolean; onClose: () => void
                 <Ionicons name="chevron-forward" size={15} color={colors.ink400} />
               </Pressable>
             ))}
+
+            <View style={styles.rule} />
+
+            {branding.supportUrl ? (
+              <Pressable
+                onPress={() => {
+                  onClose();
+                  void Linking.openURL(branding.supportUrl!);
+                }}
+                accessibilityRole="link"
+                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+              >
+                <View style={styles.rowIcon}>
+                  <Ionicons name="help-buoy-outline" size={17} color={colors.brand700} />
+                </View>
+                <Text style={styles.rowLabel}>Support</Text>
+                <Ionicons name="open-outline" size={15} color={colors.ink400} />
+              </Pressable>
+            ) : null}
+
+            <Pressable
+              onPress={() => go(ABOUT_LINK.href)}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            >
+              <View style={styles.rowIcon}>
+                <Ionicons name={ABOUT_LINK.icon} size={17} color={colors.brand700} />
+              </View>
+              <Text style={styles.rowLabel}>{ABOUT_LINK.label}</Text>
+              <Ionicons name="chevron-forward" size={15} color={colors.ink400} />
+            </Pressable>
 
             <View style={styles.rule} />
 

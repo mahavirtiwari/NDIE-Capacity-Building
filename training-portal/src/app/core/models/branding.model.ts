@@ -9,6 +9,17 @@ export interface Branding {
   portalTitle: string;
   tagline?: string | null;
   supportEmail?: string | null;
+
+  /**
+   * Where Support takes somebody in the apps — the department's own
+   * contact page. Blank and Support is not offered at all, which is
+   * better than a menu entry that goes nowhere.
+   */
+  supportUrl?: string | null;
+
+  /** What this system is, in your own words, shown on the About screen. */
+  aboutText?: string | null;
+
   hasLogo: boolean;
   logoFileName?: string | null;
   /** Relative to the API base, already carrying a cache-busting version. */
@@ -49,6 +60,8 @@ export type BrandingUpdate = Pick<
   | 'portalTitle'
   | 'tagline'
   | 'supportEmail'
+  | 'supportUrl'
+  | 'aboutText'
   | 'partnerName'
   | 'logoLinkUrl'
   | 'partnerLogoLinkUrl'

@@ -14,6 +14,17 @@ export interface Branding {
   portalTitle: string;
   tagline?: string | null;
   supportEmail?: string | null;
+
+  /**
+   * Where Support goes — the department's own contact page, set under
+   * Branding. Absent and the app does not offer Support at all, which is
+   * better than a menu entry that leads nowhere.
+   */
+  supportUrl?: string | null;
+
+  /** What this system is, in the department's words, for the About screen. */
+  aboutText?: string | null;
+
   hasLogo: boolean;
   logoFileName?: string | null;
   /** Relative to the API base, already carrying a cache-busting version. */

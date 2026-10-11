@@ -22,6 +22,23 @@ public class BrandingSetting : AuditableEntity
 
     public string? SupportEmail { get; set; }
 
+    /// <summary>
+    /// Where Support takes somebody — the department's own contact page.
+    ///
+    /// Held here rather than written into the app, because the page it
+    /// points at belongs to the department and will outlive any build.
+    /// Blank and the apps do not offer Support at all, which is better
+    /// than offering a link to nowhere.
+    /// </summary>
+    public string? SupportUrl { get; set; }
+
+    /// <summary>
+    /// What this system is, in the department's own words, shown on the
+    /// About screen. Plain text, paragraph per line. Blank and About is
+    /// not offered.
+    /// </summary>
+    public string? AboutText { get; set; }
+
     /* The logo is small, so it lives in the row rather than on a share that
        every web head would have to mount. */
     public byte[]? LogoData { get; set; }
