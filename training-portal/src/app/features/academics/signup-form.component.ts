@@ -142,51 +142,81 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
         subtitle="Shown on the applicant sign-up screen, in the order set here."
         (closed)="formOpen.set(false)"
       >
-        <form [formGroup]="form" class="stack stack-md" (ngSubmit)="save()">
-          <div class="grid-2">
-            <label class="field-label">
-              Label *
-              <input class="input" formControlName="label" placeholder="Full name" />
-            </label>
+        <!-- Each control is a .field: the label above it and the hint
+             under it, which is how every other form in the portal is
+             built. They were labels wrapping their own inputs, and
+             .field-label is a flex row — so the words, the box and the
+             hint all sat on one line and the hint squeezed the box to
+             half its width. -->
+        <form [formGroup]="form" id="signup-field-form" class="editor" (ngSubmit)="save()">
+          <div class="editor__grid">
+            <div class="editor__field">
+              <label class="field-label" for="sfLabel">
+                What the applicant sees <span class="req">*</span>
+              </label>
+              <input id="sfLabel" class="input" formControlName="label" placeholder="Full name" />
+              <span class="field-hint">The wording above the box on the sign-up screen.</span>
+            </div>
 
-            <label class="field-label">
-              Key
-              <input class="input" formControlName="key" placeholder="enterpriseName" />
-              <small class="hint">
+            <div class="editor__field">
+              <label class="field-label" for="sfKey">Key</label>
+              <input
+                id="sfKey"
+                class="input tabular"
+                formControlName="key"
+                placeholder="enterpriseName"
+                [readonly]="!!editing()"
+              />
+              <span class="field-hint">
                 {{ editing()
                     ? 'Answers are stored against this, so it cannot change.'
                     : 'Letters, digits and underscores. Cannot be changed later.' }}
-              </small>
-            </label>
-          </div>
+              </span>
+            </div>
 
-          <div class="grid-2">
-            <label class="field-label">
-              Type
-              <select class="input" formControlName="type">
+            <div class="editor__field">
+              <label class="field-label" for="sfType">Answer type</label>
+              <select id="sfType" class="input" formControlName="type">
                 @for (t of types; track t.value) {
                   <option [value]="t.value">{{ t.label }}</option>
                 }
               </select>
               @if (editing()?.isBuiltIn) {
-                <small class="hint">Set by the column behind this field.</small>
+                <span class="field-hint">Set by the column behind this field.</span>
               }
-            </label>
+            </div>
 
-            <label class="field-label">
-              Placeholder
-              <input class="input" formControlName="placeholder" placeholder="Enter your answer" />
-            </label>
+            <div class="editor__field">
+              <label class="field-label" for="sfPlaceholder">Placeholder</label>
+              <input
+                id="sfPlaceholder"
+                class="input"
+                formControlName="placeholder"
+                placeholder="Enter your answer"
+              />
+              <span class="field-hint">Greyed out inside the empty box.</span>
+            </div>
+
+            <div class="editor__field editor__field--wide">
+              <label class="field-label" for="sfHelp">Help text</label>
+              <input
+                id="sfHelp"
+                class="input"
+                formControlName="helpText"
+                placeholder="Shown under the field"
+              />
+            </div>
           </div>
 
-          <label class="field-label">
-            Help text
-            <input class="input" formControlName="helpText" placeholder="Shown under the field" />
-          </label>
-
-          <label class="check">
+          <!-- A switch rather than a bare tick: whether an applicant can
+               get past this field is the kind of thing worth reading
+               twice, and a sentence under it says what it does. -->
+          <label class="required-row">
             <input type="checkbox" formControlName="required" />
-            <span>Required</span>
+            <span class="required-row__text">
+              <span class="required-row__title">Required</span>
+              <span class="field-hint">An applicant cannot create an account without answering.</span>
+            </span>
           </label>
 
           @if (needsOptions()) {
@@ -217,18 +247,92 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
             </div>
           }
 
-          <div class="modal__actions">
-            <button type="button" class="btn" (click)="formOpen.set(false)">Cancel</button>
-            <button type="submit" class="btn btn--primary" [disabled]="saving()">
-              {{ editing() ? 'Save changes' : 'Add field' }}
-            </button>
-          </div>
         </form>
+
+        <div footer>
+          <button type="button" class="btn btn--secondary" (click)="formOpen.set(false)">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="signup-field-form"
+            class="btn btn--primary"
+            [disabled]="saving()"
+          >
+            {{ editing() ? 'Save changes' : 'Add field' }}
+          </button>
+        </div>
       </app-modal>
     }
   `,
   styles: [
     `
+      /* The editor. Two columns where there is room for two, one where
+         there is not, and the help text spanning both because a sentence
+         does not want half a dialog. */
+      .editor {
+        display: grid;
+        gap: 1.1rem;
+      }
+      .editor__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.9rem 1.1rem;
+        align-items: start;
+      }
+      /* Not .field: this component already uses that name for the rows
+         of the list below, which is a four-column grid. The label, the
+         box and the hint were being dealt into three of those columns. */
+      .editor__field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        min-width: 0;
+      }
+      .editor__field--wide { grid-column: 1 / -1; }
+
+      .required-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.6rem;
+        padding: 0.7rem 0.85rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface-muted);
+        cursor: pointer;
+      }
+      .required-row input { margin-top: 0.15rem; }
+      .required-row__text { display: grid; gap: 0.1rem; }
+      .required-row__title {
+        font-size: var(--fs-sm);
+        font-weight: 600;
+        color: var(--ink-800);
+      }
+
+      /* The option rows, which are the other half of this dialog. */
+      .options {
+        display: grid;
+        gap: 0.5rem;
+        padding: 0.85rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface-muted);
+      }
+      .options__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: var(--fs-sm);
+        font-weight: 700;
+        color: var(--ink-800);
+      }
+      .options__row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+        gap: 0.5rem;
+        align-items: center;
+      }
+
       .field-list { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem; }
       .empty { color: var(--ink-500); font-size: var(--fs-sm); margin: 1rem 0; text-align: center; }
 
@@ -262,19 +366,9 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
 
       .chip--lock { background: var(--brand-50); color: var(--brand-700); }
 
-      .options { border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem; }
-      .options__head {
-        display: flex; justify-content: space-between; align-items: center;
-        font-weight: 600; font-size: var(--fs-sm); margin-bottom: 0.5rem;
-      }
-      .options__row {
-        display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
-        gap: 0.4rem; margin-bottom: 0.4rem;
-      }
-      .check { display: flex; align-items: center; gap: 0.5rem; font-size: var(--fs-sm); }
+      /* .options, .options__head and .options__row are defined once,
+         with the editor at the top of this sheet. */
       .hint { color: var(--ink-500); font-size: var(--fs-xs); }
-      .grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.75rem; }
-      @media (max-width: 640px) { .grid-2 { grid-template-columns: minmax(0, 1fr); } }
     `,
   ],
 })

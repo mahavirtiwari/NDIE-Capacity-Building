@@ -200,6 +200,65 @@ const COLUMNS: ColumnDef[] = [
         (closed)="configOf.set(null)"
       >
         <div class="config">
+          <!-- What it is. The sheet opened on the assessment, which is
+               halfway through the story: where the track sits, what it is
+               called and how long it runs were only on the register
+               behind the dialog. -->
+          <section class="panel panel--span">
+            <h2 class="panel__head"><app-icon name="layers" [size]="14" /> The track</h2>
+            <div class="panel__body">
+              <div class="facts">
+                <div class="fact">
+                  <span class="fact__term">Code</span>
+                  <span class="fact__value tabular">{{ row.code }}</span>
+                </div>
+                <div class="fact">
+                  <span class="fact__term">Category</span>
+                  <span class="fact__value">{{ row.categoryName || '—' }}</span>
+                </div>
+                <div class="fact">
+                  <span class="fact__term">Sub-category</span>
+                  <span class="fact__value">{{ row.subCategoryName || '—' }}</span>
+                </div>
+                <div class="fact">
+                  <span class="fact__term">Status</span>
+                  <span class="fact__value"><app-status-badge [value]="row.status" /></span>
+                </div>
+              </div>
+              @if (row.shortDescription) {
+                <p class="config__blurb">{{ row.shortDescription }}</p>
+              }
+            </div>
+          </section>
+
+          <section class="panel panel--span">
+            <h2 class="panel__head"><app-icon name="calendar" [size]="14" /> How it runs</h2>
+            <div class="panel__body">
+              <div class="facts">
+                <div class="fact">
+                  <span class="fact__term">Duration</span>
+                  <span class="fact__value tabular">
+                    {{ row.durationDays }} {{ row.durationDays === 1 ? 'day' : 'days' }}
+                  </span>
+                </div>
+                <div class="fact">
+                  <span class="fact__term">Delivery mode</span>
+                  <span class="fact__value">{{ row.deliveryMode }}</span>
+                </div>
+                <div class="fact">
+                  <span class="fact__term">Smallest batch</span>
+                  <span class="fact__value tabular">
+                    @if (row.minParticipants > 0) {
+                      {{ row.minParticipants }} participants
+                    } @else {
+                      <span class="text-muted">Not set</span>
+                    }
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section class="panel">
             <h2 class="panel__head"><app-icon name="clipboard" [size]="14" /> Assessment</h2>
             <div class="panel__body">
@@ -273,6 +332,36 @@ const COLUMNS: ColumnDef[] = [
               <div class="fact">
                 <span class="fact__term">Valid for</span>
                 <span class="fact__value tabular">{{ row.certificateValidityMonths }} months</span>
+              </div>
+              @if (row.certificateKinds.length) {
+                <div class="fact">
+                  <span class="fact__term">Kinds awarded</span>
+                  <span class="fact__value">
+                    <span class="chips">
+                      @for (kind of row.certificateKinds; track kind) {
+                        <span class="chip">{{ kind }}</span>
+                      }
+                    </span>
+                  </span>
+                </div>
+              }
+              <!-- Whether there is artwork to print on. A track that
+                   certifies people and has no template is a gap somebody
+                   finds on the day the first certificate is due. -->
+              <div class="fact">
+                <span class="fact__term">Artwork</span>
+                <span class="fact__value">
+                  @if (row.certificateTemplates.length) {
+                    <span class="text-sm">
+                      {{ row.certificateTemplates.length }}
+                      {{ row.certificateTemplates.length === 1 ? 'template' : 'templates' }} uploaded
+                    </span>
+                  } @else if (row.certificationPolicy === 'None') {
+                    <span class="text-sm text-muted">Not needed</span>
+                  } @else {
+                    <span class="chip chip--warn">None uploaded</span>
+                  }
+                </span>
               </div>
             </div>
           </section>
@@ -351,9 +440,42 @@ const COLUMNS: ColumnDef[] = [
               }
             </div>
           </section>
+
+          <!-- Who set it up and who last changed it. Every other sheet in
+               the portal carries this, and a configuration is exactly the
+               kind of thing somebody asks "who changed that" about. -->
+          <section class="panel panel--span">
+            <h2 class="panel__head"><app-icon name="clock" [size]="14" /> On the record</h2>
+            <div class="panel__body">
+              <div class="facts">
+                <div class="fact">
+                  <span class="fact__term">Created</span>
+                  <span class="fact__value text-sm">
+                    {{ (row.createdOn | date: 'dd MMM yyyy') || '—' }}
+                    @if (row.createdBy) {
+                      <span class="text-xs text-muted">by {{ row.createdBy }}</span>
+                    }
+                  </span>
+                </div>
+                <div class="fact">
+                  <span class="fact__term">Last changed</span>
+                  <span class="fact__value text-sm">
+                    @if (row.modifiedOn) {
+                      {{ row.modifiedOn | date: 'dd MMM yyyy' }}
+                      @if (row.modifiedBy) {
+                        <span class="text-xs text-muted">by {{ row.modifiedBy }}</span>
+                      }
+                    } @else {
+                      <span class="text-muted">Not changed since</span>
+                    }
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
 
-        <div modal-footer>
+        <div footer>
           <button type="button" class="btn btn--secondary" (click)="configOf.set(null)">Close</button>
           <button type="button" class="btn btn--primary" (click)="editFromConfig(row)">
             <app-icon name="edit" [size]="15" /> Edit
@@ -628,6 +750,25 @@ const COLUMNS: ColumnDef[] = [
         grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
         gap: 0.9rem;
       }
+      /* The panels that describe the whole track rather than one corner
+         of it run the width of the sheet. */
+      .panel--span { grid-column: 1 / -1; }
+
+      /* Facts side by side inside a full-width panel: four short ones
+         stacked would make the header of the sheet taller than the
+         assessment under it. */
+      .facts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.6rem 1rem;
+      }
+      .config__blurb {
+        margin: 0.65rem 0 0;
+        font-size: var(--fs-sm);
+        color: var(--ink-600);
+        line-height: 1.5;
+      }
+      .chips { display: flex; flex-wrap: wrap; gap: 0.3rem; }
       .amount { font-size: var(--fs-xl); color: var(--brand-700); }
       .chip.is-off { opacity: 0.4; text-decoration: line-through; }
       .marks-grid {

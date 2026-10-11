@@ -467,7 +467,7 @@ const COLUMNS: ColumnDef[] = [
           </section>
         </div>
 
-        <div modal-footer>
+        <div footer>
           <button type="button" class="btn btn--secondary" (click)="details.set(null)">Close</button>
         </div>
       </app-modal>
@@ -524,7 +524,7 @@ const COLUMNS: ColumnDef[] = [
           </table>
         </div>
 
-        <div modal-footer>
+        <div footer>
           <button type="button" class="btn btn--secondary" (click)="roles.set(null)">Close</button>
         </div>
       </app-modal>
