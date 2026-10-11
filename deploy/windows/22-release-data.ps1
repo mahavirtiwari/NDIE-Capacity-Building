@@ -61,6 +61,10 @@ $settings = Import-DeploySettings
 $SitePath = Get-Setting $SitePath $settings 'SitePath' 'E:\inetpub\cbms'
 $PoolName = Get-Setting $PoolName $settings 'PoolName' 'CbmsAppPool'
 
+# Set where the pool is recycled, so the health check below knows there
+# is something to check.
+$recycled = $false
+
 $connectionString = Get-SqlConnectionString -SitePath $SitePath
 $sqlcmdArgs = Get-SqlcmdArguments -ConnectionString $connectionString
 
@@ -89,6 +93,72 @@ function Invoke-Sql {
     finally {
         Remove-Item $file -Force -ErrorAction SilentlyContinue
     }
+}
+
+function Restart-Pool {
+    <#
+    .SYNOPSIS
+        Recycles the application pool, and does not return until it is
+        running.
+
+    .DESCRIPTION
+        This used to be a stop, a two-second wait and a start, through a
+        helper that swallows what IIS says. A pool still reporting
+        "Stopping" refuses to start, the refusal went into the dark, and
+        the site stayed down behind a 503 that nothing in the output
+        mentioned. That is the whole reason this function exists.
+
+        A recycle is what is actually wanted — the worker process restarts
+        and the seeder runs again — and it does not pass through a stopped
+        state at all. Where the pool is already stopped a recycle is
+        refused, so a start follows, and either way the state is read back
+        until it says Started.
+
+        It throws if it does not get there. A release step that leaves a
+        site down must say so loudly enough to be the last thing on the
+        screen.
+    #>
+    param([Parameter(Mandatory)] [string] $PoolName)
+
+    Import-Module WebAdministration -ErrorAction SilentlyContinue
+
+    # Not every machine this runs on has IIS. Said plainly, because the
+    # template has already been dropped by the time we get here and
+    # somebody has to restart the site for it to come back.
+    if (-not (Get-Command Get-WebAppPoolState -ErrorAction SilentlyContinue)) {
+        Write-Host "  IIS tooling is not on this machine, so the pool was not recycled." -ForegroundColor Yellow
+        Write-Host "  Restart the site yourself; the wording is rewritten when it starts." -ForegroundColor Yellow
+        return $false
+    }
+
+    if (-not (Get-WebAppPoolState -Name $PoolName -ErrorAction SilentlyContinue)) {
+        Write-Host "  No application pool called $PoolName. Nothing to recycle." -ForegroundColor Yellow
+        Write-Host "  Restart the site yourself; the wording is rewritten when it starts." -ForegroundColor Yellow
+        return $false
+    }
+
+    try { Restart-WebAppPool -Name $PoolName -ErrorAction Stop }
+    catch {
+        # Refused because it is stopped, which the loop below deals with.
+    }
+
+    $deadline = (Get-Date).AddSeconds(30)
+    while ((Get-Date) -lt $deadline) {
+        $state = (Get-WebAppPoolState -Name $PoolName -ErrorAction SilentlyContinue).Value
+        if ($state -eq 'Started') { return $true }
+
+        # Anything that is not on its way up gets another push. Starting
+        # and Stopping are left alone: IIS is already moving.
+        if ($state -notin 'Starting', 'Stopping') {
+            try { Start-WebAppPool -Name $PoolName -ErrorAction Stop } catch { }
+        }
+
+        Start-Sleep -Milliseconds 500
+    }
+
+    throw ("The application pool $PoolName is not running, so the site is down. " +
+           "Start it with:  Start-WebAppPool -Name '$PoolName'   and if it stops " +
+           "again, the application is failing at startup: windows\09-diagnose.ps1.")
 }
 
 function Read-One {
@@ -192,11 +262,14 @@ switch ($schedule) {
 
             # The row is written again by the seeder the next time the
             # application starts, which is what the recycle is for.
-            Set-PoolState -PoolName $PoolName -State 'Stopped'
-            Start-Sleep -Seconds 2
-            Set-PoolState -PoolName $PoolName -State 'Started'
+            $recycled = [bool] (Restart-Pool -PoolName $PoolName)
 
-            Write-Host "`n  Schedule e-mail: reset to the shipped wording, pool recycled." -ForegroundColor Green
+            if ($recycled) {
+                Write-Host "`n  Schedule e-mail: reset to the shipped wording, pool recycled." -ForegroundColor Green
+            }
+            else {
+                Write-Host "`n  Schedule e-mail: reset. It is written again when the site next starts." -ForegroundColor Yellow
+            }
         }
     }
     default {
@@ -275,6 +348,42 @@ UPDATE BrandingSettings
  WHERE Id = 1 AND NULLIF(LTRIM(RTRIM(ISNULL(AboutText, ''))), '') IS NULL;
 "@ | Out-Null
     Write-Host "  About text  : filled in. Reword it under Settings -> Branding." -ForegroundColor Green
+}
+
+# --- is it still up? --------------------------------------------------------
+
+# Only where something was recycled, and never under -Plan. A step that
+# touches the pool owes the next person an answer about whether the site
+# came back, rather than leaving them to find out from a user.
+if (-not $Plan -and $recycled) {
+    $BaseUrl = Get-Setting $null $settings 'BaseUrl' 'https://leanstaging.qci.org.in'
+    $health  = "$($BaseUrl.TrimEnd('/'))/health"
+
+    Write-Host "`n  Checking the site answered after the recycle..." -ForegroundColor Cyan
+
+    $up = $false
+    $deadline = (Get-Date).AddSeconds(60)
+
+    while (-not $up -and (Get-Date) -lt $deadline) {
+        try {
+            $answer = Invoke-WebRequest -Uri $health -UseBasicParsing -TimeoutSec 10
+            if ($answer.StatusCode -eq 200) { $up = $true; break }
+        }
+        catch {
+            # A cold start takes a few seconds, and the first request is
+            # the one that pays for it.
+        }
+        Start-Sleep -Seconds 3
+    }
+
+    if ($up) {
+        Write-Host "  [ok]  $health" -ForegroundColor Green
+    }
+    else {
+        throw ("The site did not answer $health after the recycle. It may still be " +
+               "starting; check again in a minute. If it stays down, the application " +
+               "is failing at startup — windows\09-diagnose.ps1 reads the logs.")
+    }
 }
 
 Write-Host "`nDone.`n" -ForegroundColor Green
