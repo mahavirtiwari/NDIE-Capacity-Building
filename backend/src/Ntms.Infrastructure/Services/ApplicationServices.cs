@@ -100,7 +100,49 @@ public class ApplicantService(
             .ToPagedResultAsync(request, a => a.ToDto(), ct);
 
         await FillStandingAsync(page.Items, ct);
+        await FillStatusReasonAsync(page.Items, ct);
         return page;
+    }
+
+    /// <summary>
+    /// Why each applicant on this page was last blocked or unblocked.
+    ///
+    /// One query for the page rather than one per row, the same as the
+    /// standing beside it. An account nobody has ever blocked has no event
+    /// and no reason, which is almost all of them and reads as an empty
+    /// cell rather than a dash.
+    /// </summary>
+    private async Task FillStatusReasonAsync(
+        IReadOnlyList<ApplicantDto> rows, CancellationToken ct)
+    {
+        if (rows.Count == 0) return;
+
+        var ids = rows.Select(r => r.Id).ToList();
+
+        var events = await db.ApplicantStatusEvents.AsNoTracking()
+            .Where(e => ids.Contains(e.ApplicantId))
+            .OrderByDescending(e => e.On)
+            .Select(e => new { e.ApplicantId, e.ReasonLabel, e.Remarks, e.On, e.ByUserName })
+            .ToListAsync(ct);
+
+        var latest = new Dictionary<int, (string? Reason, DateTime On, string By)>();
+        foreach (var e in events)
+        {
+            if (latest.ContainsKey(e.ApplicantId)) continue;
+
+            /* The chosen category where there was one, the note where there
+               was not: unblocking has no master list to choose from. */
+            var said = string.IsNullOrWhiteSpace(e.ReasonLabel) ? e.Remarks : e.ReasonLabel;
+            latest[e.ApplicantId] = (said, e.On, e.ByUserName);
+        }
+
+        foreach (var row in rows)
+        {
+            if (!latest.TryGetValue(row.Id, out var found)) continue;
+            row.StatusReason = found.Reason;
+            row.StatusChangedOn = found.On;
+            row.StatusChangedBy = found.By;
+        }
     }
 
     /// <summary>

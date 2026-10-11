@@ -48,6 +48,18 @@ public class ApplicantDto : AuditDto
     public bool IsBlocked { get; set; }
 
     /// <summary>
+    /// Why the account was last blocked or unblocked, and when.
+    ///
+    /// Blocking requires a reason off the master list; unblocking carries
+    /// a note instead, being a judgement rather than a category. Both were
+    /// kept where only the history could reach them, so the register
+    /// showed a Blocked badge and nothing to say what for.
+    /// </summary>
+    public string? StatusReason { get; set; }
+    public DateTime? StatusChangedOn { get; set; }
+    public string? StatusChangedBy { get; set; }
+
+    /// <summary>
     /// What was answered to the custom questions on the sign-up form, worded
     /// as they were asked. Empty where the form asked nothing extra.
     /// </summary>

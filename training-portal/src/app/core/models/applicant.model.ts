@@ -65,6 +65,10 @@ export interface Applicant extends AuditInfo {
   registeredOn: string;
   lastLoginOn?: string | null;
   isBlocked: boolean;
+  /** Why it was last blocked or unblocked. Absent if it never has been. */
+  statusReason?: string | null;
+  statusChangedOn?: string | null;
+  statusChangedBy?: string | null;
 
   /**
    * Answers to the custom questions on the sign-up form, worded as they were

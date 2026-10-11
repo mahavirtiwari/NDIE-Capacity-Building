@@ -33,6 +33,9 @@ const COLUMNS: ColumnDef[] = [
   { key: 'subCategoryName', header: 'First sub-category', variant: 'muted' },
   { key: 'standing', header: 'Status', width: '150px' },
   { key: 'registeredOn', header: 'Registered', width: '130px' },
+  /* A blocked account says what for. Last and unwidthed: a reason is a
+     sentence, not a label. */
+  { key: 'statusReason', header: 'Reason' },
   { key: 'actions', header: '', width: '150px', align: 'right' },
 ];
 
@@ -168,11 +171,35 @@ const COLUMNS: ColumnDef[] = [
         (pageSizeChange)="list.setPageSize($event)"
         (sortChange)="list.setSort($event)"
       >
+        <!-- The code opens the record, not the name. An applicant is
+             identified by the code the system issued them; a name is
+             shared by three people in a register this size and is theirs
+             to change. -->
+        <ng-template appCell="applicantCode" let-row>
+          <button type="button" class="cell-link tabular" (click)="openDetail($any(row))">
+            {{ $any(row).applicantCode }}
+          </button>
+        </ng-template>
+
+        <ng-template appCell="statusReason" let-row>
+          @if ($any(row).statusReason) {
+            <div class="stack stack-xs">
+              <span
+                class="text-sm wrap-text"
+                [class.text-danger]="$any(row).isBlocked"
+                [class.cell-muted]="!$any(row).isBlocked"
+              >{{ $any(row).statusReason }}</span>
+              <span class="text-xs cell-muted">
+                {{ $any(row).statusChangedOn | date: 'dd MMM yyyy' }}
+                @if ($any(row).statusChangedBy) { · {{ $any(row).statusChangedBy }} }
+              </span>
+            </div>
+          }
+        </ng-template>
+
         <ng-template appCell="fullName" let-row>
           <div class="stack stack-xs">
-            <button type="button" class="cell-link" (click)="openDetail($any(row))">
-              {{ $any(row).fullName }}
-            </button>
+            <span>{{ $any(row).fullName }}</span>
             @if ($any(row).isBlocked) {
               <span class="badge badge--danger">Blocked</span>
             }
