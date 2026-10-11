@@ -80,11 +80,68 @@ function Invoke-Sql {
         Set-PlainTextFile -Path $file -Content $Query
         $output = & sqlcmd @sqlcmdArgs '-I' '-i' $file 2>&1
         if ($LASTEXITCODE -ne 0) { throw "sqlcmd failed: $output" }
-        return @($output | Where-Object { "$_".Trim() })
+
+        # The comma keeps an empty result an empty array rather than null:
+        # a query that found nothing is an answer, and the caller should be
+        # able to count it instead of tripping over it.
+        return ,@($output | Where-Object { "$_".Trim() })
     }
     finally {
         Remove-Item $file -Force -ErrorAction SilentlyContinue
     }
+}
+
+function Read-One {
+    <#
+        The last line a query printed, or an empty string where it printed
+        nothing. A table with no row in it is a real answer — a database
+        built from the release script alone has no branding row until the
+        application has started once — and it must not come back as null
+        for the next line to call .Trim() on.
+    #>
+    param([Parameter(Mandatory)] [AllowNull()] [AllowEmptyCollection()] [string[]] $Lines)
+
+    if (-not $Lines) { return '' }
+
+    $last = $Lines | Where-Object { "$_".Trim() } | Select-Object -Last 1
+    if (-not $last) { return '' }
+    return "$last".Trim()
+}
+
+# --- is the schema here yet? ------------------------------------------------
+
+# First, because everything below reads columns this release adds. Running
+# -Plan before the release is the ordinary way to use this script, and at
+# that point the database is still the old one: asking it for SupportUrl
+# got a SQL error where it should have got an explanation.
+
+$columns = Invoke-Sql @"
+SET NOCOUNT ON;
+SELECT CASE WHEN COL_LENGTH(t, c) IS NULL THEN 'MISSING  ' ELSE 'present  ' END + t + '.' + c
+FROM (VALUES
+    ('Applications', 'ProgrammeId'),
+    ('Applicants', 'PendingEmail'),
+    ('CurriculumSessions', 'StartTime'),
+    ('CurriculumSessions', 'EndTime'),
+    ('BrandingSettings', 'SupportUrl'),
+    ('BrandingSettings', 'AboutText')
+) AS v(t, c);
+"@
+
+Write-Host "`n  Columns this release needs:" -ForegroundColor Cyan
+$columns | ForEach-Object { Write-Host "    $_" }
+
+if ($columns -match 'MISSING') {
+    if ($Plan) {
+        Write-Host "`n  The schema is still the old one, which is what -Plan before a release" -ForegroundColor Yellow
+        Write-Host "  looks like. The release adds those columns; this step then refreshes the" -ForegroundColor Yellow
+        Write-Host "  schedule e-mail and fills in Support and About where they are empty." -ForegroundColor Yellow
+        Write-Host "`nNothing to plan until the migrations have run.`n" -ForegroundColor Yellow
+        return
+    }
+
+    throw ("The schema is behind the code, so there is nothing here to write to. " +
+           "Run the release, or windows\06-migrate.ps1, and then this again.")
 }
 
 # --- the schedule e-mail ----------------------------------------------------
@@ -111,7 +168,7 @@ SELECT CASE
 END;
 "@
 
-$schedule = ($state | Select-Object -Last 1).Trim()
+$schedule = Read-One $state
 
 switch ($schedule) {
     'current' {
@@ -171,8 +228,18 @@ SELECT
 FROM BrandingSettings WHERE Id = 1;
 "@
 
-$read = ($branding | Select-Object -Last 1).Trim()
+$read = Read-One $branding
 $supportState, $aboutState = $read -split '\s*\|\s*'
+
+# No branding row at all, which happens on a database the application has
+# never started against. The row is written on first run; there is nothing
+# here to fill in until then.
+if (-not $read) {
+    Write-Host "`n  Support link and About text: there is no branding row yet." -ForegroundColor Yellow
+    Write-Host "    It is written the first time the site starts. Run this again afterwards."
+    Write-Host "`nDone.`n" -ForegroundColor Green
+    return
+}
 
 if ($supportState -eq 'set') {
     Write-Host "`n  Support link: already set. Left alone." -ForegroundColor Green
@@ -208,28 +275,6 @@ UPDATE BrandingSettings
  WHERE Id = 1 AND NULLIF(LTRIM(RTRIM(ISNULL(AboutText, ''))), '') IS NULL;
 "@ | Out-Null
     Write-Host "  About text  : filled in. Reword it under Settings -> Branding." -ForegroundColor Green
-}
-
-# --- what the schema should have ------------------------------------------
-
-$columns = Invoke-Sql @"
-SET NOCOUNT ON;
-SELECT CASE WHEN COL_LENGTH(t, c) IS NULL THEN 'MISSING  ' ELSE 'present  ' END + t + '.' + c
-FROM (VALUES
-    ('Applications', 'ProgrammeId'),
-    ('Applicants', 'PendingEmail'),
-    ('CurriculumSessions', 'StartTime'),
-    ('CurriculumSessions', 'EndTime'),
-    ('BrandingSettings', 'SupportUrl'),
-    ('BrandingSettings', 'AboutText')
-) AS v(t, c);
-"@
-
-Write-Host "`n  Columns this release needs:" -ForegroundColor Cyan
-$columns | ForEach-Object { Write-Host "    $_" }
-
-if ($columns -match 'MISSING') {
-    throw "The schema is behind the code. Run 06-migrate.ps1, or the release again."
 }
 
 Write-Host "`nDone.`n" -ForegroundColor Green
