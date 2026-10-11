@@ -42,13 +42,19 @@ import { ListState, searchTerm } from '../../shared/list-state';
  * together anyway.
  */
 const COLUMNS: ColumnDef[] = [
-  { key: 'applicant', header: 'Applicant', variant: 'primary', width: '230px' },
-  { key: 'categoryName', header: 'Category', width: '150px' },
-  { key: 'subCategoryName', header: 'Sub-category', width: '170px' },
-  { key: 'attemptNo', header: 'Attempt', width: '100px', align: 'center' },
-  { key: 'submittedOn', header: 'Sent', sortable: true, width: '120px' },
-  { key: 'assignedToName', header: 'Assigned to', width: '170px' },
-  { key: 'status', header: 'Status', width: '260px' },
+  { key: 'applicant', header: 'Applicant', variant: 'primary', width: '170px' },
+  /* The code, not the name, is the identity — and so the thing that
+     opens the profile. */
+  { key: 'applicantCode', header: 'Applicant ID', width: '130px' },
+  { key: 'categoryName', header: 'Category', width: '140px' },
+  { key: 'subCategoryName', header: 'Sub-category', width: '150px' },
+  { key: 'attemptNo', header: 'Attempt', width: '90px', align: 'center' },
+  { key: 'submittedOn', header: 'Submission date', sortable: true, width: '130px' },
+  { key: 'assignedToName', header: 'Assigned to', width: '140px' },
+  { key: 'status', header: 'Status', width: '150px' },
+  /* Last, and the only column without a width: a reason is a sentence
+     and should take whatever room is left rather than wrap in a box. */
+  { key: 'reason', header: 'Reason' },
 ];
 
 /**
@@ -203,7 +209,7 @@ const COLUMNS: ColumnDef[] = [
 
       <app-data-table
         exportName="Profile submissions"
-        minWidth="1150px"
+        minWidth="1060px"
         [columns]="columns"
         [rows]="list.rows()"
         [total]="list.total()"
@@ -225,12 +231,17 @@ const COLUMNS: ColumnDef[] = [
              button repeated down the page in the brand colour pulled the
              eye away from the names. -->
         <ng-template appCell="applicant" let-row>
-          <div class="stack stack-xs">
-            <a class="cell-link" [routerLink]="['/admin/profile-scrutiny', $any(row).id]">
-              {{ $any(row).applicantName }}
-            </a>
-            <span class="cell-muted">{{ $any(row).applicantCode }}</span>
-          </div>
+          {{ $any(row).applicantName }}
+        </ng-template>
+
+        <!-- The code opens the profile, not the name. An applicant is
+             identified by the code the system issued them — a name is
+             shared by three people in any register this size, and is
+             theirs to change. -->
+        <ng-template appCell="applicantCode" let-row>
+          <a class="cell-link tabular" [routerLink]="['/admin/profile-scrutiny', $any(row).id]">
+            {{ $any(row).applicantCode }}
+          </a>
         </ng-template>
 <!-- A first attempt is the ordinary case and reads as a plain
              number. A second or third is somebody who was turned down and
@@ -256,18 +267,11 @@ const COLUMNS: ColumnDef[] = [
             <span class="chip chip--warn">Unassigned</span>
           }
         </ng-template>
-<!-- The badge and, where there is one, the reason under it. A
-             rejection that does not say why makes the officer open the
-             profile to find out, which is the one thing the register
-             exists to save them. -->
+<!-- The badge, and under it who decided and when. The reason has
+             a column of its own. -->
         <ng-template appCell="status" let-row>
           <div class="stack stack-xs">
             <app-status-badge [value]="$any(row).status" />
-            @if ($any(row).rejectionReasonLabel) {
-              <span class="text-xs text-danger wrap-text">
-                {{ $any(row).rejectionReasonLabel }}
-              </span>
-            }
             @if ($any(row).decidedOn) {
               <span class="text-xs cell-muted">
                 {{ $any(row).decidedOn | date: 'dd MMM yyyy' }}
@@ -275,6 +279,18 @@ const COLUMNS: ColumnDef[] = [
               </span>
             }
           </div>
+        </ng-template>
+
+        <!-- A rejection that does not say why makes the officer open the
+             profile to find out, which is the one thing the register
+             exists to save them. Nothing for the states that have no
+             reason to give: an empty cell is quieter than a dash. -->
+        <ng-template appCell="reason" let-row>
+          @if ($any(row).rejectionReasonLabel) {
+            <span class="text-sm text-danger wrap-text">
+              {{ $any(row).rejectionReasonLabel }}
+            </span>
+          }
         </ng-template>
       </app-data-table>
     </section>

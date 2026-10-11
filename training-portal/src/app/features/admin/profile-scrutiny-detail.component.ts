@@ -131,96 +131,92 @@ import { TimelineComponent } from '../../shared/components/timeline.component';
         </div>
 
         <aside class="stack stack-md">
-          <section class="card">
-            <div class="card__header">
-              <span class="card__title">Status</span>
-              <app-status-badge [value]="record.status" />
-            </div>
-            <div class="card__body">
-              <div class="dl">
-                <div>
-                  <div class="dl__term">Submitted on</div>
-                  <div class="dl__value">
-                    {{ record.submittedOn ? (record.submittedOn | date: 'dd MMM yyyy') : '—' }}
-                  </div>
-                </div>
-                <div>
-                  <div class="dl__term">Attempt</div>
-                  <div class="dl__value">{{ record.attemptNo }}</div>
-                </div>
-                <div>
-                  <div class="dl__term">Assigned to</div>
-                  <div class="dl__value">{{ record.assignedToName || 'Unassigned' }}</div>
-                  <!-- Nobody places these by hand any more, so the sheet has
-                       to say how the desk was chosen. -->
-                  <div class="text-sm text-muted">
-                    Chosen automatically from the managers whose program types and
-                    states cover this profile.
-                  </div>
-                </div>
+          <!-- Tinted and first: where the profile stands is what the side
+               column is opened for. -->
+          <section class="panel panel--accent">
+            <h2 class="panel__head">
+              <app-icon name="flag" [size]="14" /> Status
+              <app-status-badge class="panel__aside" [value]="record.status" />
+            </h2>
+            <div class="panel__body">
+              <div class="fact">
+                <span class="fact__term">Submitted on</span>
+                <span class="fact__value">
+                  {{ record.submittedOn ? (record.submittedOn | date: 'dd MMM yyyy') : '—' }}
+                </span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Attempt</span>
+                <span class="fact__value tabular">{{ record.attemptNo }}</span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Assigned to</span>
+                <span class="fact__value">{{ record.assignedToName || 'Unassigned' }}</span>
+                <!-- Nobody places these by hand any more, so the sheet has
+                     to say how the desk was chosen. -->
+                <span class="text-xs text-muted">
+                  Chosen automatically from the managers whose program types and states
+                  cover this profile.
+                </span>
               </div>
             </div>
           </section>
 
-          <section class="card">
-            <div class="card__header"><span class="card__title">Applicant</span></div>
-            <div class="card__body">
-              <div class="dl">
-                <div>
-                  <div class="dl__term">Applicant ID</div>
-                  <div class="dl__value"><code>{{ record.applicantCode }}</code></div>
-                </div>
-                <div>
-                  <div class="dl__term">Category</div>
-                  <div class="dl__value">{{ record.categoryName }}</div>
-                </div>
-                <div>
-                  <div class="dl__term">Sub-category</div>
-                  <div class="dl__value">{{ record.subCategoryName }}</div>
-                </div>
+          <section class="panel">
+            <h2 class="panel__head"><app-icon name="user-check" [size]="14" /> Applicant</h2>
+            <div class="panel__body">
+              <div class="fact">
+                <span class="fact__term">Applicant ID</span>
+                <span class="fact__value"><code>{{ record.applicantCode }}</code></span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Category</span>
+                <span class="fact__value">{{ record.categoryName }}</span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Sub-category</span>
+                <span class="fact__value">{{ record.subCategoryName }}</span>
               </div>
             </div>
           </section>
 
-<!-- What was decided, once it has been. Everybody sees this, the
+          <!-- What was decided, once it has been. Everybody sees this, the
                manager who decided included: it is the record of the outcome
                rather than the means of reaching one, and the reason an
                applicant was turned down is the part the rest of the office
                actually needs to read. Nothing stands here while a profile is
                still open, because there is nothing yet to report. -->
           @if (record.decidedOn) {
-            <section class="card">
-              <div class="card__header">
-                <span class="card__title">Decision</span>
-                <app-status-badge [value]="record.status" />
-              </div>
-              <div class="card__body">
-                <div class="dl">
-                  <div>
-                    <div class="dl__term">Decided</div>
-                    <div class="dl__value">
-                      {{ record.decidedOn | date: 'dd MMM yyyy, h:mm a' }}
-                    </div>
-                  </div>
-                  @if (record.decidedByUserName) {
-                    <div>
-                      <div class="dl__term">By</div>
-                      <div class="dl__value">{{ record.decidedByUserName }}</div>
-                    </div>
-                  }
-                  @if (record.rejectionReasonLabel) {
-                    <div>
-                      <div class="dl__term">Reason</div>
-                      <div class="dl__value text-danger">{{ record.rejectionReasonLabel }}</div>
-                    </div>
-                  }
-                  @if (record.remarks) {
-                    <div>
-                      <div class="dl__term">Remarks</div>
-                      <div class="dl__value">{{ record.remarks }}</div>
-                    </div>
-                  }
+            <section class="panel">
+              <h2 class="panel__head">
+                <app-icon name="clipboard" [size]="14" /> Decision
+                <app-status-badge class="panel__aside" [value]="record.status" />
+              </h2>
+              <div class="panel__body">
+                <div class="fact">
+                  <span class="fact__term">Decided</span>
+                  <span class="fact__value">
+                    {{ record.decidedOn | date: 'dd MMM yyyy, h:mm a' }}
+                  </span>
                 </div>
+                @if (record.decidedByUserName) {
+                  <div class="fact">
+                    <span class="fact__term">By</span>
+                    <span class="fact__value">{{ record.decidedByUserName }}</span>
+                  </div>
+                }
+                @if (record.rejectionReasonLabel) {
+                  <div class="fact">
+                    <span class="fact__term">Reason</span>
+                    <span class="fact__value text-danger">{{ record.rejectionReasonLabel }}</span>
+                  </div>
+                }
+                @if (record.remarks) {
+                  <div class="fact">
+                    <span class="fact__term">Remarks</span>
+                    <span class="fact__value">{{ record.remarks }}</span>
+                  </div>
+                }
               </div>
             </section>
           }
@@ -298,6 +294,10 @@ import { TimelineComponent } from '../../shared/components/timeline.component';
       @media (max-width: 1100px) {
         .detail-grid { grid-template-columns: minmax(0, 1fr); }
       }
+      /* A panel heading is a flex row, so anything after the title goes
+         to the far end of it rather than trailing the words. */
+      .panel__aside { margin-left: auto; }
+
       .text-danger { color: var(--danger-700); }
       .req { color: var(--danger-600); }
     `,

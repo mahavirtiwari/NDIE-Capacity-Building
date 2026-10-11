@@ -139,21 +139,24 @@ type Tab =
         <div class="record">
           <!-- Tinted, and first, because places left is the number the desk
                is actually ringing about. -->
-          <section class="panel panel--accent">
-            <h2 class="panel__head"><app-icon name="user-check" [size]="14" /> Enrolment</h2>
-            <div class="panel__body">
-              <div class="seats">
-                <span class="seats__count tabular">{{ batch.participantCount }}</span>
-                <span class="seats__of tabular">of {{ batch.maxParticipants }}</span>
-              </div>
-              <div
-                class="meter"
-                role="progressbar"
-                [attr.aria-valuenow]="batch.participantCount"
-                [attr.aria-valuemin]="0"
-                [attr.aria-valuemax]="batch.maxParticipants"
-              >
-                <span class="meter__fill" [style.width.%]="fillPercent(batch)"></span>
+          <section class="group group--accent">
+            <h3 class="group__head"><app-icon name="user-check" [size]="14" /> Enrolment</h3>
+            <div class="group__body">
+              <div class="fact">
+                <span class="fact__term">Enrolled</span>
+                <span class="fact__value">
+                  <span class="seats tabular">{{ batch.participantCount }}</span>
+                  <span class="text-xs text-muted">of {{ batch.maxParticipants }}</span>
+                </span>
+                <div
+                  class="meter"
+                  role="progressbar"
+                  [attr.aria-valuenow]="batch.participantCount"
+                  [attr.aria-valuemin]="0"
+                  [attr.aria-valuemax]="batch.maxParticipants"
+                >
+                  <span class="meter__fill" [style.width.%]="fillPercent(batch)"></span>
+                </div>
               </div>
               <div class="fact">
                 <span class="fact__term">Registration</span>
@@ -163,10 +166,7 @@ type Tab =
                   } @else if (batch.registrationsOpen) {
                     <span class="chip">Open</span>
                     <span class="text-xs text-muted">
-                      {{ batch.maxParticipants - batch.participantCount }} place{{
-                        batch.maxParticipants - batch.participantCount === 1 ? '' : 's'
-                      }}
-                      left
+                      {{ batch.maxParticipants - batch.participantCount }} left
                     </span>
                   } @else {
                     <span class="chip chip--muted">Closed</span>
@@ -176,9 +176,9 @@ type Tab =
             </div>
           </section>
 
-          <section class="panel">
-            <h2 class="panel__head"><app-icon name="calendar" [size]="14" /> Schedule</h2>
-            <div class="panel__body">
+          <section class="group">
+            <h3 class="group__head"><app-icon name="calendar" [size]="14" /> Schedule</h3>
+            <div class="group__body">
               <div class="fact">
                 <span class="fact__term">Dates</span>
                 <span class="fact__value">
@@ -206,9 +206,9 @@ type Tab =
             </div>
           </section>
 
-          <section class="panel">
-            <h2 class="panel__head"><app-icon name="map-pin" [size]="14" /> Where</h2>
-            <div class="panel__body">
+          <section class="group">
+            <h3 class="group__head"><app-icon name="map-pin" [size]="14" /> Where</h3>
+            <div class="group__body">
               <!-- A hybrid batch is held in a room and joined from a desk,
                    so it shows both rather than having to pick one. -->
               @if (batch.mode !== 'Virtual') {
@@ -249,9 +249,9 @@ type Tab =
             </div>
           </section>
 
-          <section class="panel">
-            <h2 class="panel__head"><app-icon name="users" [size]="14" /> Who</h2>
-            <div class="panel__body">
+          <section class="group">
+            <h3 class="group__head"><app-icon name="users" [size]="14" /> Who</h3>
+            <div class="group__body">
               <div class="fact">
                 <span class="fact__term">Implementing agency</span>
                 <span class="fact__value">{{ batch.agencyName || '—' }}</span>
@@ -275,9 +275,9 @@ type Tab =
             </div>
           </section>
 
-          <section class="panel">
-            <h2 class="panel__head"><app-icon name="tag" [size]="14" /> Classification</h2>
-            <div class="panel__body">
+          <section class="group">
+            <h3 class="group__head"><app-icon name="tag" [size]="14" /> Classification</h3>
+            <div class="group__body">
               <div class="fact">
                 <span class="fact__term">Category</span>
                 <span class="fact__value">{{ batch.categoryName || '—' }}</span>
@@ -768,17 +768,42 @@ type Tab =
 
          Thirteen facts in one grid read as thirteen unrelated facts: the
          eye has nothing to group by, so finding the coordinator means
-         reading all of them. Grouped under headings it is four short
-         lists, and a reader goes to the one they want.
+         reading all of them. Grouped under headings it is five short
+         lists and a reader goes to the one they want.
 
-         .panel and .fact are in the shared sheet; only the grid they sit
-         in belongs to this screen. */
+         Groups rather than panels, though. Five bordered boxes each cost
+         a heading bar, a border and their own padding, and a grid
+         stretches every box in a row to the height of the tallest — so
+         three lines of enrolment stood as tall as the longest column
+         beside it. The grouping is worth keeping; the chrome around it
+         was not. align-items: start is most of the saving. */
       .record {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 0.9rem;
-        padding: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+        align-items: start;
+        /* Generous between rows, tight between columns. Without the boxes
+           there is nothing but space to separate one group from the next,
+           and on a narrow window they stack — where 0.5rem put a caption
+           hard against the fact above it. */
+        gap: 1.15rem 1.4rem;
+        padding: 0.9rem 1.15rem 1rem;
       }
+
+      .group__head {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin: 0 0 0.5rem;
+        font-size: var(--fs-xs);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--brand-700);
+      }
+      /* The one the desk is ringing about keeps a little weight. */
+      .group--accent .group__head { color: var(--brand-800); }
+
+      .group__body { display: flex; flex-direction: column; gap: 0.5rem; }
 
       /* Seven columns do not fit a narrow window, and a table told to fit
          anyway takes the width out of the one flexible column — which is
@@ -803,16 +828,16 @@ type Tab =
         background: var(--surface-muted);
         border-radius: var(--radius-lg) var(--radius-lg) 0 0;
       }
-      .seats { display: flex; align-items: baseline; gap: 0.35rem; }
-      .seats__count {
-        font-size: var(--fs-2xl);
+      .seats {
+        font-size: var(--fs-lg);
         font-weight: 600;
         color: var(--brand-700);
-        line-height: 1;
+        line-height: 1.1;
       }
-      .seats__of { font-size: var(--fs-sm); color: var(--ink-500); }
       .meter {
-        height: 6px;
+        height: 5px;
+        width: 100%;
+        margin-top: 0.3rem;
         border-radius: 999px;
         background: var(--brand-100);
         overflow: hidden;
