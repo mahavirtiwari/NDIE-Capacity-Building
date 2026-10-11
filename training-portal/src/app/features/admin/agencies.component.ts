@@ -5,6 +5,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
   AGENCY_TYPES,
   AgencyHistory,
+  AgencyRole,
   AllocatableScope,
   ImplementingAgency,
   LookupItem,
@@ -32,19 +33,26 @@ import {
 import { ListState, searchTerm } from '../../shared/list-state';
 
 const COLUMNS: ColumnDef[] = [
-  /* No code column. It is a generated reference nobody reads the register
-     by, and it cost a column the agency's own name could use. Still on the
-     details sheet, and still searchable. */
+  /* The code first, and it opens the agency. It is the identity the
+     system issued; a name is the agency's to change and two of them can
+     read alike. It also saves an icon whose only job was to open the
+     same sheet. */
+  { key: 'code', header: 'Agency ID', sortable: true, width: '115px' },
   { key: 'name', header: 'Agency', sortable: true, variant: 'primary' },
-  { key: 'agencyType', header: 'Type', width: '170px' },
-  { key: 'contact', header: 'Contact person', width: '230px' },
+  { key: 'agencyType', header: 'Organization type', width: '160px' },
+  { key: 'contact', header: 'Contact person', width: '220px' },
   /* The agency's own login. It used to be findable only in the portal
      users register, which listed it beside admins and operation managers
      and made that one list of four unrelated kinds of account. */
-  { key: 'login', header: 'Login', width: '190px' },
-  { key: 'mapping', header: 'Empanelled for', width: '260px' },
-  { key: 'empanelmentValidTill', header: 'Valid till', width: '130px' },
+  { key: 'login', header: 'Login', width: '170px' },
+  /* One button per role. A role is a programme type the agency may run,
+     and the button opens what it covers — the count on its own told
+     nobody which tracks, which is the question the column is read for. */
+  { key: 'mapping', header: 'Assigned role', width: '260px' },
+  { key: 'empanelmentValidTill', header: 'Valid till', width: '120px' },
+  { key: 'createdOn', header: 'Created on', sortable: true, width: '125px' },
   { key: 'status', header: 'Status', width: '110px' },
+  { key: 'statusReason', header: 'Reason' },
   { key: 'actions', header: '', width: '110px', align: 'right' },
 ];
 
@@ -138,6 +146,7 @@ const COLUMNS: ColumnDef[] = [
 
       <app-data-table
         exportName="Implementing agencies"
+        minWidth="1500px"
         [exportRows]="exportRows"
         [columns]="columns"
         [rows]="list.rows()"
@@ -173,28 +182,64 @@ const COLUMNS: ColumnDef[] = [
         <!-- Named, not counted. "1 categories" said an agency was
              empanelled for something without saying what, and the only way
              to find out was to open the row. -->
+        <ng-template appCell="code" let-row>
+          <button type="button" class="cell-link tabular" (click)="details.set($any(row))">
+            {{ $any(row).code }}
+          </button>
+        </ng-template>
+
+        <!-- A button per role, because each one has something behind it:
+             the category and sub-category the track sits under, and the
+             states the agency may run it in. Two, then a count — an
+             agency holding a dozen would otherwise be a dozen lines
+             tall and set the height of every row. -->
         <ng-template appCell="mapping" let-row>
-          @if ($any(row).programTypeNames.length || $any(row).categoryNames.length) {
-            <div class="stack stack-xs">
-              @if ($any(row).categoryNames.length) {
-                <span class="cell-muted">{{ $any(row).categoryNames.join(', ') }}</span>
+          @if ($any(row).roles?.length) {
+            <div class="row row-sm row-wrap">
+              @for (role of $any(row).roles.slice(0, 2); track role.programTypeId) {
+                <button
+                  type="button"
+                  class="role"
+                  [title]="'What ' + role.programTypeName + ' covers'"
+                  (click)="openRole($any(row), role)"
+                >
+                  {{ role.programTypeName }}
+                </button>
               }
-              <div class="row row-sm row-wrap" [title]="$any(row).programTypeNames.join(', ')">
-                @for (name of $any(row).programTypeNames.slice(0, 2); track name) {
-                  <span class="chip">{{ name }}</span>
-                }
-                <!-- Two, then a count. An agency empanelled for a dozen
-                     tracks would otherwise be a dozen lines tall; the rest
-                     are on hover, and all of them are in the row. -->
-                @if ($any(row).programTypeNames.length > 2) {
-                  <span class="chip chip--muted">
-                    +{{ $any(row).programTypeNames.length - 2 }} more
-                  </span>
-                }
-              </div>
+              @if ($any(row).roles.length > 2) {
+                <button
+                  type="button"
+                  class="role role--more"
+                  (click)="details.set($any(row))"
+                >
+                  +{{ $any(row).roles.length - 2 }} more
+                </button>
+              }
             </div>
           } @else {
             <span class="cell-muted">—</span>
+          }
+        </ng-template>
+
+        <ng-template appCell="createdOn" let-row>
+          <span class="cell-muted">{{ $any(row).createdOn | date: 'dd MMM yyyy' }}</span>
+        </ng-template>
+
+        <!-- Only where there is one. Most agencies have never been
+             switched either way, and a dash in every row is noise. -->
+        <ng-template appCell="statusReason" let-row>
+          @if ($any(row).statusReason) {
+            <div class="stack stack-xs">
+              <span
+                class="text-sm wrap-text"
+                [class.text-danger]="$any(row).status !== 'Active'"
+                [class.cell-muted]="$any(row).status === 'Active'"
+              >{{ $any(row).statusReason }}</span>
+              <span class="text-xs cell-muted">
+                {{ $any(row).statusChangedOn | date: 'dd MMM yyyy' }}
+                @if ($any(row).statusChangedBy) { · {{ $any(row).statusChangedBy }} }
+              </span>
+            </div>
           }
         </ng-template>
         <ng-template appCell="empanelmentValidTill" let-row>
@@ -205,10 +250,6 @@ const COLUMNS: ColumnDef[] = [
         </ng-template>
         <ng-template appCell="actions" let-row>
           <div class="btn-row btn-row--end">
-            <button type="button" class="btn btn--icon" title="View details"
-              (click)="details.set($any(row))">
-              <app-icon name="eye" [size]="15" />
-            </button>
             <!-- Withheld rather than shown and refused: an agency is edited
                  by the tier that appointed it, and empanelling is not the
                  Super Admin's to do even for a record it added itself. -->
@@ -256,80 +297,221 @@ const COLUMNS: ColumnDef[] = [
         size="md"
         (closed)="details.set(null)"
       >
-        <div class="dl">
-          <div>
-            <dt>Contact person</dt>
-            <dd>{{ row.contactPerson }}</dd>
-          </div>
-          <div>
-            <dt>Email</dt>
-            <dd>{{ row.email }}</dd>
-          </div>
-          <div>
-            <dt>Mobile</dt>
-            <dd>{{ row.mobile }}</dd>
-          </div>
-          <div>
-            <dt>Address</dt>
-            <dd>
-              {{ row.addressLine1 }}@if (row.addressLine2) {, {{ row.addressLine2 }}}<br />
-              {{ row.city }}, {{ row.state }}@if (row.district) { ({{ row.district }})} —
-              {{ row.pincode }}
-            </dd>
-          </div>
-          @if (row.gstin) {
-            <div>
-              <dt>GSTIN</dt>
-              <dd>{{ row.gstin }}</dd>
+        <div class="sheet">
+          <section class="panel">
+            <h3 class="panel__head"><app-icon name="user-check" [size]="14" /> Contact</h3>
+            <div class="panel__body">
+              <div class="fact">
+                <span class="fact__term">Contact person</span>
+                <span class="fact__value">{{ row.contactPerson }}</span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Email</span>
+                <span class="fact__value">
+                  <a [href]="'mailto:' + row.email">{{ row.email }}</a>
+                </span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Mobile</span>
+                <span class="fact__value tabular">
+                  <a [href]="'tel:' + row.mobile">{{ row.mobile }}</a>
+                </span>
+              </div>
             </div>
-          }
-          @if (row.pan) {
-            <div>
-              <dt>PAN</dt>
-              <dd>{{ row.pan }}</dd>
+          </section>
+
+          <section class="panel">
+            <h3 class="panel__head"><app-icon name="map-pin" [size]="14" /> Address</h3>
+            <div class="panel__body">
+              <div class="fact">
+                <span class="fact__term">Premises</span>
+                <span class="fact__value">
+                  {{ row.addressLine1 }}@if (row.addressLine2) {, {{ row.addressLine2 }}}
+                </span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Place</span>
+                <span class="fact__value">
+                  {{ row.city }}, {{ row.state }}@if (row.district) { ({{ row.district }})}
+                </span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Pincode</span>
+                <span class="fact__value tabular">{{ row.pincode }}</span>
+              </div>
             </div>
-          }
-          <div>
-            <dt>Empanelled</dt>
-            <dd>
-              {{ row.empanelledOn | date: 'dd MMM yyyy' }}
-              @if (row.empanelmentValidTill) {
-                — valid till {{ row.empanelmentValidTill | date: 'dd MMM yyyy' }}
+          </section>
+
+          <section class="panel">
+            <h3 class="panel__head"><app-icon name="shield" [size]="14" /> Empanelment</h3>
+            <div class="panel__body">
+              <div class="fact">
+                <span class="fact__term">Empanelled</span>
+                <span class="fact__value">
+                  {{ row.empanelledOn | date: 'dd MMM yyyy' }}
+                  @if (row.empanelmentValidTill) {
+                    <span class="text-xs text-muted">
+                      valid till {{ row.empanelmentValidTill | date: 'dd MMM yyyy' }}
+                    </span>
+                  }
+                </span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">GSTIN</span>
+                <span class="fact__value tabular">{{ row.gstin || '—' }}</span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">PAN</span>
+                <span class="fact__value tabular">{{ row.pan || '—' }}</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Named as the register names it. The whole allocation, not
+               a count of it: this is the sheet the count used to tell
+               people to open. -->
+          <section class="panel">
+            <h3 class="panel__head"><app-icon name="layers" [size]="14" /> Assigned roles</h3>
+            <div class="panel__body">
+              <div class="fact">
+                <span class="fact__term">Categories</span>
+                <span class="fact__value">
+                  {{ row.categoryNames.length ? row.categoryNames.join(', ') : 'All' }}
+                </span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Sub-categories</span>
+                <span class="fact__value">
+                  {{ row.subCategoryNames?.length ? row.subCategoryNames!.join(', ') : 'All' }}
+                </span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Program types</span>
+                <span class="fact__value">
+                  {{ row.programTypeNames.length ? row.programTypeNames.join(', ') : 'All' }}
+                </span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">States/UTs it may work in</span>
+                <span class="fact__value">
+                  {{ row.stateNames?.length ? row.stateNames!.join(', ') : 'All states/UTs' }}
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3 class="panel__head"><app-icon name="clock" [size]="14" /> On the record</h3>
+            <div class="panel__body">
+              <div class="fact">
+                <span class="fact__term">Created on</span>
+                <span class="fact__value">
+                  {{ row.createdOn | date: 'dd MMM yyyy, HH:mm' }}
+                  @if (row.createdBy) {
+                    <span class="text-xs text-muted">by {{ row.createdBy }}</span>
+                  }
+                </span>
+              </div>
+              @if (row.statusReason) {
+                <div class="fact">
+                  <span class="fact__term">
+                    {{ row.status === 'Active' ? 'Switched back on' : 'Switched off' }}
+                  </span>
+                  <span class="fact__value" [class.text-danger]="row.status !== 'Active'">
+                    {{ row.statusReason }}
+                    <span class="text-xs text-muted">
+                      {{ row.statusChangedOn | date: 'dd MMM yyyy' }}
+                      @if (row.statusChangedBy) { · {{ row.statusChangedBy }} }
+                    </span>
+                  </span>
+                </div>
               }
-            </dd>
-          </div>
-          <div>
-            <dt>Categories</dt>
-            <dd>{{ row.categoryNames.length ? row.categoryNames.join(', ') : '—' }}</dd>
-          </div>
-          <div>
-            <dt>Program types</dt>
-            <dd>{{ row.programTypeNames.length ? row.programTypeNames.join(', ') : '—' }}</dd>
-          </div>
-          <div>
-            <dt>Login</dt>
-            <dd>
+            </div>
+          </section>
+
+          <section class="panel panel--accent">
+            <h3 class="panel__head">
+              <app-icon name="lock" [size]="14" /> Login
+              <app-status-badge class="panel__aside" [value]="row.status" />
+            </h3>
+            <div class="panel__body">
               @if (row.loginUserCode) {
-                {{ row.loginUserCode }}
-                @if (row.loginEmail) { · {{ row.loginEmail }} }
-                @if (row.loginLastSeenOn) {
-                  · last seen {{ row.loginLastSeenOn | date: 'dd MMM yyyy, HH:mm' }}
-                } @else {
-                  · never signed in
+                <div class="fact">
+                  <span class="fact__term">Signs in as</span>
+                  <span class="fact__value tabular">{{ row.loginUserCode }}</span>
+                </div>
+                @if (row.loginEmail) {
+                  <div class="fact">
+                    <span class="fact__term">Login email</span>
+                    <span class="fact__value">{{ row.loginEmail }}</span>
+                  </div>
                 }
+                <div class="fact">
+                  <span class="fact__term">Last seen</span>
+                  <span class="fact__value">
+                    {{
+                      row.loginLastSeenOn
+                        ? (row.loginLastSeenOn | date: 'dd MMM yyyy, HH:mm')
+                        : 'Never signed in'
+                    }}
+                  </span>
+                </div>
               } @else {
-                No login yet
+                <!-- An empanelled agency with nobody able to sign in cannot
+                     raise a programme, which is a gap somebody has to close
+                     rather than a blank to skip past. -->
+                <span class="chip chip--warn">No login yet</span>
               }
-            </dd>
-          </div>
-          <div>
-            <dt>Status</dt>
-            <dd><app-status-badge [value]="row.status" /></dd>
-          </div>
+            </div>
+          </section>
         </div>
 
         <div modal-footer>
           <button type="button" class="btn btn--secondary" (click)="details.set(null)">Close</button>
+        </div>
+      </app-modal>
+    }
+
+    <!-- One role, and what it covers. Small on purpose: the question a
+         role button is pressed to answer is "which track is this, and
+         where may they run it", and that is four lines. -->
+    @if (role(); as chosen) {
+      <app-modal
+        [title]="chosen.role.programTypeName"
+        [subtitle]="chosen.agency.name + ' · ' + chosen.agency.code"
+        size="sm"
+        (closed)="role.set(null)"
+      >
+        <section class="panel">
+          <h3 class="panel__head"><app-icon name="layers" [size]="14" /> Assigned role</h3>
+          <div class="panel__body">
+            <div class="fact">
+              <span class="fact__term">Category</span>
+              <span class="fact__value">{{ chosen.role.categoryName || '—' }}</span>
+            </div>
+            <div class="fact">
+              <span class="fact__term">Sub-category</span>
+              <span class="fact__value">{{ chosen.role.subCategoryName || '—' }}</span>
+            </div>
+            <div class="fact">
+              <span class="fact__term">Program type</span>
+              <span class="fact__value">{{ chosen.role.programTypeName }}</span>
+            </div>
+            <div class="fact">
+              <!-- Said as the agency's, because that is what it is. An
+                   empanelment covers states; it does not record a
+                   different set of them per track. -->
+              <span class="fact__term">States the agency may work in</span>
+              <span class="fact__value">
+                {{ chosen.agency.stateNames?.length
+                    ? chosen.agency.stateNames!.join(', ')
+                    : 'All states/UTs' }}
+              </span>
+            </div>
+          </div>
+        </section>
+        <div modal-footer>
+          <button type="button" class="btn btn--secondary" (click)="role.set(null)">Close</button>
         </div>
       </app-modal>
     }
@@ -570,6 +752,40 @@ const COLUMNS: ColumnDef[] = [
       </app-modal>
     }
   `,
+  styles: [
+    `
+      /* A role reads as a thing you can press, because it is. Quieter
+         than a button and louder than a chip: there are up to three in a
+         cell and a row of filled buttons would out-shout the agency's
+         own name beside them. */
+      .role {
+        font: inherit;
+        font-size: var(--fs-xs);
+        padding: 0.2rem 0.5rem;
+        border: 1px solid var(--brand-200);
+        border-radius: 999px;
+        background: var(--brand-50);
+        color: var(--brand-700);
+        cursor: pointer;
+        transition: background var(--transition), border-color var(--transition);
+      }
+      .role:hover { background: var(--brand-100); border-color: var(--brand-300); }
+      .role--more { background: var(--surface-muted); border-color: var(--border); color: var(--ink-600); }
+
+
+      /* Two columns where the dialog is wide enough, one where it is not.
+         .panel and .fact are in the shared sheet. */
+      .sheet {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        align-items: start;
+        gap: 0.9rem;
+      }
+      /* A panel heading is a flex row, so the badge goes to the far end
+         of it rather than trailing the word. */
+      .panel__aside { margin-left: auto; }
+    `,
+  ],
 })
 export class AgenciesComponent {
   protected readonly copy = inject(SiteTextService);
@@ -627,6 +843,13 @@ export class AgenciesComponent {
 
   /** The agency whose details are on screen, or null. */
   protected readonly details = signal<ImplementingAgency | null>(null);
+
+  /** The role whose cover is on screen, with the agency it belongs to. */
+  protected readonly role = signal<{ agency: ImplementingAgency; role: AgencyRole } | null>(null);
+
+  protected openRole(agency: ImplementingAgency, role: AgencyRole): void {
+    this.role.set({ agency, role });
+  }
 
   protected readonly statusPrompt = signal<
     { row: ImplementingAgency; status: RecordStatus } | null>(null);

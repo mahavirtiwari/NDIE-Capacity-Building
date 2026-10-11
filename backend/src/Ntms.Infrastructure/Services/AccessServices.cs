@@ -463,7 +463,49 @@ public class UserService(
                      || u.Email.Contains(request.Search!) || u.Mobile.Contains(request.Search!))
             .ApplySort(request, db.Model.FindEntityType(typeof(PortalUser))!, u => u.FullName);
 
-        return await query.ToPagedResultAsync(request, u => u.ToDto(), ct);
+        var page = await query.ToPagedResultAsync(request, u => u.ToDto(), ct);
+        await AddStatusReasonAsync(page.Items, ct);
+        return page;
+    }
+
+    /// <summary>
+    /// Fills in why each account on this page last changed status.
+    ///
+    /// One query for the whole page rather than one per row: a register of
+    /// a hundred accounts would otherwise be a hundred round trips to
+    /// print a sentence in a column. An account that has never been
+    /// switched either way has no event and no reason, which is the
+    /// ordinary case and reads as an empty cell.
+    /// </summary>
+    private async Task AddStatusReasonAsync(
+        IReadOnlyList<PortalUserDto> rows, CancellationToken ct)
+    {
+        if (rows.Count == 0) return;
+
+        var ids = rows.Select(r => r.Id).ToList();
+
+        var events = await db.UserStatusEvents.AsNoTracking()
+            .Where(e => ids.Contains(e.UserId))
+            .OrderByDescending(e => e.On)
+            .Select(e => new { e.UserId, e.Reason, e.On, e.ByUserName })
+            .ToListAsync(ct);
+
+        /* Newest first out of the database, so the first one seen for an
+           account is the one that stands. */
+        var latest = new Dictionary<int, (string Reason, DateTime On, string By)>();
+        foreach (var e in events)
+        {
+            if (!latest.ContainsKey(e.UserId))
+                latest[e.UserId] = (e.Reason, e.On, e.ByUserName);
+        }
+
+        foreach (var row in rows)
+        {
+            if (!latest.TryGetValue(row.Id, out var found)) continue;
+            row.StatusReason = found.Reason;
+            row.StatusChangedOn = found.On;
+            row.StatusChangedBy = found.By;
+        }
     }
 
     public async Task<List<PortalUserDto>> AllAsync(string? baseRole, string? status, CancellationToken ct)

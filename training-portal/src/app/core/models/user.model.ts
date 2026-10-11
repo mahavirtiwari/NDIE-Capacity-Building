@@ -79,5 +79,14 @@ export interface PortalUser extends AuditInfo {
   /** The body the account belongs to, and whose PAN is held above. */
   organisationName?: string;
   lastLoginOn?: string | null;
+
+  /**
+   * Why the account last changed status, and when — whichever way it
+   * went. Absent on an account nobody has switched either way, which is
+   * most of them.
+   */
+  statusReason?: string | null;
+  statusChangedOn?: string | null;
+  statusChangedBy?: string | null;
   status: RecordStatus;
 }

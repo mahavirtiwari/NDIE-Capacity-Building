@@ -317,6 +317,20 @@ public class OptionSetUpsertDto
 
 /* ----------------------------------------------------------------- agency */
 
+/// <summary>
+/// One thing an agency is empanelled to run, and where that sits in the
+/// scheme. The states are the agency's own rather than the role's: an
+/// empanelment covers states, not states per programme type, and saying
+/// otherwise on a screen would invent a rule the data does not keep.
+/// </summary>
+public class AgencyRoleDto
+{
+    public int ProgramTypeId { get; set; }
+    public string ProgramTypeName { get; set; } = string.Empty;
+    public string? CategoryName { get; set; }
+    public string? SubCategoryName { get; set; }
+}
+
 public class AgencyDto : AuditDto
 {
     public int Id { get; set; }
@@ -349,6 +363,27 @@ public class AgencyDto : AuditDto
        without saying what — and the only way to find out was to open it. */
     public List<string> CategoryNames { get; set; } = [];
     public List<string> ProgramTypeNames { get; set; } = [];
+    public List<string> SubCategoryNames { get; set; } = [];
+
+    /// <summary>The states it may work in, named rather than coded.</summary>
+    public List<string> StateNames { get; set; } = [];
+
+    /// <summary>
+    /// One row per programme type the agency may run, with the category
+    /// and sub-category that type sits under.
+    /// </summary>
+    public List<AgencyRoleDto> Roles { get; set; } = [];
+
+    /// <summary>
+    /// Why the agency last changed status, and when.
+    ///
+    /// Switching one off requires a reason and it was kept where only the
+    /// history dialog could reach it, so the register showed a grey badge
+    /// and nothing to say why.
+    /// </summary>
+    public string? StatusReason { get; set; }
+    public DateTime? StatusChangedOn { get; set; }
+    public string? StatusChangedBy { get; set; }
 
     /// <summary>
     /// The agency's own login, shown here because this is where somebody

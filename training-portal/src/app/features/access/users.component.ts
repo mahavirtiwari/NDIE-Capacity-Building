@@ -47,7 +47,10 @@ import { ListState, searchTerm } from '../../shared/list-state';
 export type UserScope = 'all' | 'coordinators';
 
 const COLUMNS: ColumnDef[] = [
-  { key: 'userCode', header: 'User ID', sortable: true, width: '120px' },
+  /* The code opens the account. It is the identity the system issued —
+     a name is shared and is the holder's to change — and it saves an icon
+     whose only job was to open the same sheet. */
+  { key: 'userCode', header: 'User ID', sortable: true, width: '115px' },
   { key: 'fullName', header: 'Name', sortable: true, variant: 'primary' },
   { key: 'roleName', header: 'Role', width: '170px' },
   { key: 'contact', header: 'Contact', width: '230px' },
@@ -55,9 +58,15 @@ const COLUMNS: ColumnDef[] = [
      nobody which ones, so the number could only prompt opening the row to
      find out - which is where the scope is set and shown in full. */
   { key: 'agencyName', header: 'Agency', variant: 'muted' },
-  { key: 'lastLoginOn', header: 'Last login', width: '150px' },
+  /* When the account was appointed, not when it was last used. The
+     register is read to find out who exists and since when; the last
+     sign-in is a fact about one account and sits on its sheet. */
+  { key: 'createdOn', header: 'Created on', sortable: true, width: '130px' },
   { key: 'status', header: 'Status', width: '110px' },
-  { key: 'actions', header: '', width: '140px', align: 'right' },
+  /* An account that is off says why. Last, and unwidthed, because a
+     reason is a sentence. */
+  { key: 'statusReason', header: 'Reason' },
+  { key: 'actions', header: '', width: '120px', align: 'right' },
 ];
 
 /**
@@ -236,18 +245,37 @@ const TIER_DEPTH: Record<string, number> = {
             <span class="cell-muted">{{ $any(row).mobile }}</span>
           </div>
         </ng-template>
-        <ng-template appCell="lastLoginOn" let-row>
-          <span class="cell-muted">{{ $any(row).lastLoginOn | date: 'dd MMM, HH:mm' }}</span>
+        <ng-template appCell="userCode" let-row>
+          <button type="button" class="cell-link tabular" (click)="details.set($any(row))">
+            {{ $any(row).userCode }}
+          </button>
+        </ng-template>
+        <ng-template appCell="createdOn" let-row>
+          <span class="cell-muted">{{ $any(row).createdOn | date: 'dd MMM yyyy' }}</span>
+        </ng-template>
+        <!-- Only where there is one. An account nobody has switched either
+             way has no event and no reason, and a dash in every row of a
+             register where most accounts are fine is noise. -->
+        <ng-template appCell="statusReason" let-row>
+          @if ($any(row).statusReason) {
+            <div class="stack stack-xs">
+              <span
+                class="text-sm wrap-text"
+                [class.text-danger]="$any(row).status !== 'Active'"
+                [class.cell-muted]="$any(row).status === 'Active'"
+              >{{ $any(row).statusReason }}</span>
+              <span class="text-xs cell-muted">
+                {{ $any(row).statusChangedOn | date: 'dd MMM yyyy' }}
+                @if ($any(row).statusChangedBy) { · {{ $any(row).statusChangedBy }} }
+              </span>
+            </div>
+          }
         </ng-template>
         <ng-template appCell="status" let-row>
           <app-status-badge [value]="$any(row).status" />
         </ng-template>
         <ng-template appCell="actions" let-row>
           <div class="btn-row btn-row--end">
-            <button type="button" class="btn btn--icon" title="View details"
-              (click)="details.set($any(row))">
-              <app-icon name="eye" [size]="15" />
-            </button>
             @if (canResetPassword($any(row))) {
               <button
                 type="button"
@@ -356,8 +384,67 @@ const TIER_DEPTH: Record<string, number> = {
               <div>
                 <div class="dl__term">Location</div>
                 <div class="dl__value">
-                  {{ row.city || '—' }}@if (row.state) {, {{ row.state }}}@if (row.pincode) {
-                    — {{ row.pincode }}
+                  {{ row.city || '—' }}@if (row.state) {, {{ row.state }}}@if (row.district) {
+                    ({{ row.district }})
+                  }@if (row.pincode) { — {{ row.pincode }} }
+                </div>
+              </div>
+              <div>
+                <div class="dl__term">Agency</div>
+                <div class="dl__value">{{ row.agencyName || '—' }}</div>
+              </div>
+              <div>
+                <div class="dl__term">Reports to</div>
+                <div class="dl__value">{{ row.reportsToName || '—' }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- What the account can actually reach. The register used to
+               carry two chips counting these, which told nobody which
+               ones; the counting column was dropped on the grounds that
+               this sheet showed them in full, and then it did not. -->
+          <div>
+            <h4 class="section-title">Allocated scope</h4>
+            <div class="stack stack-sm">
+              <div class="fact">
+                <span class="fact__term">Categories</span>
+                <span class="fact__value">{{ named(row.categoryIds, categories()) }}</span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Sub-categories</span>
+                <span class="fact__value">
+                  {{ named(row.subCategoryIds, allSubCategories()) }}
+                </span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">Program types</span>
+                <span class="fact__value">
+                  {{ named(row.programTypeIds, allProgramTypes()) }}
+                </span>
+              </div>
+              <div class="fact">
+                <span class="fact__term">States/UTs</span>
+                <span class="fact__value">{{ named(row.stateCodes, scopeStates()) }}</span>
+              </div>
+              @if (row.districtCodes.length) {
+                <div class="fact">
+                  <span class="fact__term">Districts</span>
+                  <span class="fact__value">{{ named(row.districtCodes, allDistricts()) }}</span>
+                </div>
+              }
+            </div>
+          </div>
+
+          <div>
+            <h4 class="section-title">The account itself</h4>
+            <div class="dl">
+              <div>
+                <div class="dl__term">Created on</div>
+                <div class="dl__value">
+                  {{ row.createdOn | date: 'dd MMM yyyy, HH:mm' }}
+                  @if (row.createdBy) {
+                    <span class="text-xs text-muted">by {{ row.createdBy }}</span>
                   }
                 </div>
               </div>
@@ -371,6 +458,20 @@ const TIER_DEPTH: Record<string, number> = {
                   }}
                 </div>
               </div>
+              @if (row.statusReason) {
+                <div>
+                  <div class="dl__term">
+                    {{ row.status === 'Active' ? 'Switched back on' : 'Switched off' }}
+                  </div>
+                  <div class="dl__value" [class.text-danger]="row.status !== 'Active'">
+                    {{ row.statusReason }}
+                    <span class="text-xs text-muted">
+                      {{ row.statusChangedOn | date: 'dd MMM yyyy' }}
+                      @if (row.statusChangedBy) { · {{ row.statusChangedBy }} }
+                    </span>
+                  </div>
+                </div>
+              }
             </div>
           </div>
         </div>
@@ -837,6 +938,22 @@ export class UsersComponent {
   protected readonly managers = toSignal(this.lookups.operationManagers(), {
     initialValue: [] as LookupItem[],
   });
+
+  /**
+   * Ids as the names somebody recognises.
+   *
+   * The account carries ids; the pickers that set them carry the names,
+   * and they are already loaded for the form. An id with no match is
+   * dropped rather than printed raw — it means the master moved under
+   * the account, which is a gap to notice, not a number to show.
+   */
+  protected named(ids: readonly number[] | null | undefined, from: LookupItem[]): string {
+    if (!ids?.length) return 'All';
+    const names = ids
+      .map((id) => from.find((item) => item.id === id)?.name)
+      .filter((name): name is string => !!name);
+    return names.length > 0 ? names.join(', ') : '—';
+  }
 
   /** The signed-in account's own tier, which decides what it may create. */
   private readonly myTier = computed<string | null>(() => this.auth.role());

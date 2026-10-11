@@ -204,6 +204,19 @@ public class PortalUserDto : AuditDto
     public string? OrganisationName { get; set; }
     public DateTime? LastLoginOn { get; set; }
     public string Status { get; set; } = "Active";
+
+    /// <summary>
+    /// Why the account last changed status, and when.
+    ///
+    /// Switching one off requires a reason, and it was being kept where
+    /// only the history dialog could reach it — so a register of a hundred
+    /// accounts showed a grey badge against each disabled one and nothing
+    /// to say why. The latest event, whichever way it went: an account
+    /// switched back on carries the reason it was switched back on.
+    /// </summary>
+    public string? StatusReason { get; set; }
+    public DateTime? StatusChangedOn { get; set; }
+    public string? StatusChangedBy { get; set; }
 }
 
 public class PortalUserUpsertDto

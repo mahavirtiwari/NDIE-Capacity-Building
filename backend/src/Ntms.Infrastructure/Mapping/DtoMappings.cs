@@ -197,6 +197,33 @@ public static class DtoMappings
                 .. e.ProgramTypes.Where(x => x.ProgramType is not null)
                     .Select(x => x.ProgramType!.Name).OrderBy(n => n),
             ],
+            SubCategoryNames =
+            [
+                .. e.SubCategories.Where(x => x.SubCategory is not null)
+                    .Select(x => x.SubCategory!.Name).OrderBy(n => n),
+            ],
+            StateNames =
+            [
+                .. e.States.Where(x => x.State is not null)
+                    .Select(x => x.State!.Name).OrderBy(n => n),
+            ],
+            /* One per programme type it may run, carrying where that type
+               sits. The names come off the type rather than off the
+               agency's own category list, because an agency empanelled
+               for two categories tells you nothing about which of them a
+               given programme type belongs to. */
+            Roles =
+            [
+                .. e.ProgramTypes.Where(x => x.ProgramType is not null)
+                    .Select(x => new AgencyRoleDto
+                    {
+                        ProgramTypeId = x.ProgramTypeId,
+                        ProgramTypeName = x.ProgramType!.Name,
+                        CategoryName = x.ProgramType.Category?.Name,
+                        SubCategoryName = x.ProgramType.SubCategory?.Name,
+                    })
+                    .OrderBy(r => r.ProgramTypeName),
+            ],
             Status = e.Status.ToApi(),
         };
         FillAudit(dto, e);

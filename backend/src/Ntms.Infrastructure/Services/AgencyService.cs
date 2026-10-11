@@ -28,8 +28,12 @@ public class AgencyService(
         /* The masters behind the scope, because the register names what an
            agency is empanelled for rather than counting it. */
         .Include(a => a.Categories).ThenInclude(x => x.Category)
-        .Include(a => a.SubCategories)
-        .Include(a => a.ProgramTypes).ThenInclude(x => x.ProgramType)
+        .Include(a => a.SubCategories).ThenInclude(x => x.SubCategory)
+        /* Through to where each programme type sits: the register names
+           the roles an agency holds, and a role is a programme type with
+           the category and sub-category it belongs to. */
+        .Include(a => a.ProgramTypes).ThenInclude(x => x.ProgramType!.Category)
+        .Include(a => a.ProgramTypes).ThenInclude(x => x.ProgramType!.SubCategory)
         .Include(a => a.States).ThenInclude(x => x.State)
         /* Split, not joined: the scope collections multiply together. */
         .AsSplitQuery()
@@ -60,7 +64,41 @@ public class AgencyService(
 
         var page = await query.ToPagedResultAsync(request, Describe, ct);
         await FillLoginsAsync(page.Items, ct);
+        await FillStatusReasonAsync(page.Items, ct);
         return page;
+    }
+
+    /// <summary>
+    /// Why each agency on this page last changed status. One query for the
+    /// page, the same as the logins beside it — a register of a hundred
+    /// would otherwise be a hundred round trips to print a sentence.
+    /// </summary>
+    private async Task FillStatusReasonAsync(IReadOnlyList<AgencyDto> rows, CancellationToken ct)
+    {
+        if (rows.Count == 0) return;
+
+        var ids = rows.Select(r => r.Id).ToList();
+
+        var events = await db.AgencyStatusEvents.AsNoTracking()
+            .Where(e => ids.Contains(e.AgencyId))
+            .OrderByDescending(e => e.On)
+            .Select(e => new { e.AgencyId, e.Reason, e.On, e.ByUserName })
+            .ToListAsync(ct);
+
+        var latest = new Dictionary<int, (string Reason, DateTime On, string By)>();
+        foreach (var e in events)
+        {
+            if (!latest.ContainsKey(e.AgencyId))
+                latest[e.AgencyId] = (e.Reason, e.On, e.ByUserName);
+        }
+
+        foreach (var row in rows)
+        {
+            if (!latest.TryGetValue(row.Id, out var found)) continue;
+            row.StatusReason = found.Reason;
+            row.StatusChangedOn = found.On;
+            row.StatusChangedBy = found.By;
+        }
     }
 
     /// <summary>

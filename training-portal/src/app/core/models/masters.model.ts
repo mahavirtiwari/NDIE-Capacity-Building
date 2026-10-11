@@ -226,7 +226,28 @@ export const AGENCY_TYPES: AgencyType[] = [
 ];
 
 /** Implementing agency created by Admin; conducts programs on the ground. */
+/**
+ * One thing an agency is empanelled to run, and where it sits.
+ *
+ * The states are the agency's own rather than the role's: an empanelment
+ * covers states, not states per programme type.
+ */
+export interface AgencyRole {
+  programTypeId: Id;
+  programTypeName: string;
+  categoryName?: string | null;
+  subCategoryName?: string | null;
+}
+
 export interface ImplementingAgency extends AuditInfo {
+  roles?: AgencyRole[];
+  subCategoryNames?: string[];
+  stateNames?: string[];
+  /** Why it last changed status, and when. Absent if it never has. */
+  statusReason?: string | null;
+  statusChangedOn?: string | null;
+  statusChangedBy?: string | null;
+
   id: Id;
   code: string;
   name: string;
