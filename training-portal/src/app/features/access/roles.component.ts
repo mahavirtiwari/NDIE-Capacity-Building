@@ -124,6 +124,19 @@ const labelFor = (base: string): string => ROLE_LABELS[base as AppRole] ?? base;
               }
             </select>
           </div>
+          <!-- A role can be switched off, so the register can be read
+               by that. -->
+          <div class="field">
+            <label class="field-label" for="roleStatus">Status</label>
+            <select id="roleStatus" class="select"
+              [value]="list.stagedValue('status')"
+              (change)="list.stageFilter('status', value($event))"
+            >
+              <option value="">All</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
           <div class="filter-bar__actions">
             <button type="button" class="btn btn--primary" (click)="list.applyFilters()">
               <app-icon name="filter" [size]="15" /> Apply

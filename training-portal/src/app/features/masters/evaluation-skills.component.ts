@@ -82,6 +82,26 @@ const COLUMNS: ColumnDef[] = [
             <span class="field-hint">{{ copy.text('skills.typeHint') }}</span>
           </div>
 
+          <!-- A skill can be switched off, and a long list of them is
+               hard to read for the two that were. Narrowed here rather
+               than through the server: these rows are the chosen type's
+               and they all arrive together. -->
+          @if (selected()) {
+            <div class="field">
+              <label class="field-label" for="esStatus">Status</label>
+              <select
+                id="esStatus"
+                class="select"
+                [value]="skillStatus()"
+                (change)="skillStatus.set(value($event))"
+              >
+                <option value="">All</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+          }
+
           @if (selected(); as type) {
             <div class="field">
               <span class="field-label">Viva marks</span>
@@ -116,8 +136,8 @@ const COLUMNS: ColumnDef[] = [
       } @else {
         <app-data-table
           [columns]="columns"
-          [rows]="skills()"
-          [total]="skills().length"
+          [rows]="shownSkills()"
+          [total]="shownSkills().length"
           [showPager]="false"
           [loading]="loading()"
           emptyTitle="No skills yet"
@@ -234,6 +254,22 @@ export class EvaluationSkillsComponent {
   protected readonly editing = signal<EvaluationSkill | null>(null);
 
   protected readonly skills = signal<EvaluationSkill[]>([]);
+
+  /** Blank for all of them. Narrows the table, not the marks tally. */
+  protected readonly skillStatus = signal<string>('');
+
+  /**
+   * The rows on screen.
+   *
+   * The allocation above the table still counts every skill: what is
+   * allocated against a type does not change because somebody is
+   * looking at half of them.
+   */
+  protected readonly shownSkills = computed(() => {
+    const want = this.skillStatus();
+    if (!want) return this.skills();
+    return this.skills().filter((skill) => (skill.status ?? 'Active') === want);
+  });
   protected readonly allTypes = signal<ProgramType[]>([]);
 
   /* Arrived at from the program type form, which links straight to the type it
@@ -299,6 +335,11 @@ export class EvaluationSkillsComponent {
       },
       error: () => this.loading.set(false),
     });
+  }
+
+  /** The chosen option, for a select the screen filters on directly. */
+  protected value(event: Event): string {
+    return (event.target as HTMLSelectElement).value;
   }
 
   protected choose(event: Event): void {

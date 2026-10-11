@@ -134,6 +134,20 @@ const COLUMNS: ColumnDef[] = [
               }
             </select>
           </div>
+          <!-- A register that can be switched off can be read by that:
+               the three screens without this filter were the three where
+               somebody had to scroll looking for the disabled ones. -->
+          <div class="field">
+            <label class="field-label" for="ptStatus">Status</label>
+            <select id="ptStatus" class="select"
+              [value]="list.stagedValue('status')"
+              (change)="list.stageFilter('status', value($event))"
+            >
+              <option value="">All</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
           <div class="filter-bar__actions">
             <button type="button" class="btn btn--primary" (click)="list.applyFilters()">
               <app-icon name="filter" [size]="15" /> Apply
