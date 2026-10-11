@@ -104,7 +104,6 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
             .Select(b => new
             {
                 b.OrganisationName,
-                b.PortalTitle,
                 b.LogoData,
                 b.LogoContentType,
                 b.PartnerLogoData,
@@ -121,7 +120,6 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
         var sheet = new Sheet(
             document,
             branding?.OrganisationName,
-            branding?.PortalTitle,
             Mark(branding?.LogoData, branding?.LogoContentType),
             Mark(branding?.PartnerLogoData, branding?.PartnerLogoContentType));
 
@@ -247,7 +245,6 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
     {
         private readonly PdfDocument document;
         private readonly string organisation;
-        private readonly string? portalTitle;
         private readonly XImage? logo;
         private readonly XImage? partner;
 
@@ -267,7 +264,6 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
         public Sheet(
             PdfDocument document,
             string? organisation,
-            string? portalTitle,
             XImage? logo,
             XImage? partner)
         {
@@ -275,7 +271,6 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
             this.organisation = string.IsNullOrWhiteSpace(organisation)
                 ? "Capacity Building Management System"
                 : organisation;
-            this.portalTitle = portalTitle;
             this.logo = logo;
             this.partner = partner;
             NewPage(first: true);
@@ -321,47 +316,78 @@ public class ProgrammeSchedulePdf(NtmsDbContext db)
             NewPage();
         }
 
+        /// <summary>
+        /// The mark, then the programme, centred.
+        ///
+        /// The logo carries the organisation's name inside the artwork, so
+        /// spelling it out underneath said the same thing twice, and the
+        /// portal's own title belongs on the portal rather than on a
+        /// timetable somebody prints and brings with them. What is left is
+        /// the mark and what the document is about.
+        /// </summary>
         public void Masthead(string name, string subtitle)
         {
-            /* The mark, at the top left, where it is on every screen. The
-               organisation's name goes under it rather than instead of it,
-               because a logo alone does not tell a reader who sent this —
-               and with no logo uploaded the name is the whole masthead. */
+            var middle = (Margin + right) / 2;
+
             if (logo is not null)
             {
-                Draw(logo, Margin, y - 6, LogoHeight);
-                y += LogoHeight + 2;
-            }
+                var width = Scale(logo, LogoHeight);
 
-            /* The partner's mark at the far end, as on the sign-in header. */
-            if (partner is not null)
+                /* Both marks centred as a pair where there is a partner,
+                   so the header stays balanced rather than centring one
+                   and hanging the other off the edge. */
+                if (partner is not null)
+                {
+                    var partnerWidth = Scale(partner, PartnerHeight);
+                    var together = width + 26 + partnerWidth;
+                    var start = middle - (together / 2);
+
+                    Draw(logo, start, y, LogoHeight);
+                    Draw(partner, start + width + 26,
+                        y + ((LogoHeight - PartnerHeight) / 2), PartnerHeight);
+                }
+                else
+                {
+                    Draw(logo, middle - (width / 2), y, LogoHeight);
+                }
+
+                y += LogoHeight + 16;
+            }
+            else
             {
-                var width = Scale(partner, PartnerHeight);
-                Draw(partner, right - width, y - (logo is null ? 6 : LogoHeight + 8), PartnerHeight);
+                /* Nothing uploaded. The name is the mark, and it is the one
+                   thing that is never missing. */
+                Centre(organisation.ToUpperInvariant(), small, Brand600, 14);
+                y += 6;
             }
 
-            gfx.DrawString(organisation.ToUpperInvariant(), tiny, new XSolidBrush(Brand600),
-                new XPoint(Margin, y));
+            Centre(name, title, Ink900, 20);
+            y += 4;
+            Centre(subtitle, small, Ink600, 12);
             y += 6;
-
-            if (!string.IsNullOrWhiteSpace(portalTitle))
-            {
-                gfx.DrawString(portalTitle!, tiny, new XSolidBrush(Ink500), new XPoint(Margin, y + 9));
-                y += 9;
-            }
-
-            y += 22;
-            text.DrawString(name, title, new XSolidBrush(Ink900),
-                new XRect(Margin, y - 14, right - Margin, 44), XStringFormats.TopLeft);
-            y += Lines(name, title, right - Margin) * 19;
-
-            gfx.DrawString(subtitle, small, new XSolidBrush(Ink600), new XPoint(Margin, y));
-            y += 10;
 
             /* The gold rule under the masthead: the one accent in the
                palette, used here exactly as the portal uses it. */
-            gfx.DrawLine(new XPen(Accent600, 1.4), Margin, y, Margin + 54, y);
-            y += 20;
+            gfx.DrawLine(new XPen(Accent600, 1.4), middle - 27, y, middle + 27, y);
+            y += 22;
+        }
+
+        /// <summary>
+        /// A centred run of text, which moves the cursor past itself —
+        /// one line or three, without the caller counting them.
+        /// </summary>
+        private void Centre(string words, XFont font, XColor colour, double lineHeight)
+        {
+            var width = right - Margin;
+            var height = Lines(words, font, width) * lineHeight;
+
+            text.Alignment = XParagraphAlignment.Center;
+            text.DrawString(words, font, new XSolidBrush(colour),
+                new XRect(Margin, y - (lineHeight * 0.75), width, height + lineHeight),
+                XStringFormats.TopLeft);
+            text.Alignment = XParagraphAlignment.Left;
+
+            y += height;
         }
 
         public void SectionTitle(string label)
