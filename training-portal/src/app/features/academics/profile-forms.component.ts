@@ -739,13 +739,14 @@ function blankField(): ProfileField {
             }
           </div>
 
-          <!-- A rule with a trigger and nothing to match against hides the
-               field for ever, which reads on the preview as the rule not
-               working at all. -->
+          <!-- A trigger with nothing to match against is no rule at all.
+               The app and the server both read it that way and show the
+               field; said here so nobody leaves it half written believing
+               they have hidden something. -->
           @if (editor.field.visibleWhenFieldKey && !(editor.field.visibleWhenValues || []).length) {
-            <p class="field-error">
-              Nothing is chosen, so this field will never be shown. Pick at least one answer,
-              or set Depends on field back to Always visible.
+            <p class="field-hint field-hint--warn">
+              No answer is chosen, so this rule does nothing and the field is always shown.
+              Pick at least one answer.
             </p>
           }
         </div>
@@ -839,6 +840,8 @@ function blankField(): ProfileField {
   `,
   styles: [
     `
+      .field-hint--warn { color: var(--warning-700); font-weight: 600; }
+
       .when-values {
         display: grid;
         gap: 0.35rem;

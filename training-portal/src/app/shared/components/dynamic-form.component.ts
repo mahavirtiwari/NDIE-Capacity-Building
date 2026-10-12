@@ -835,11 +835,25 @@ export class DynamicFormComponent {
    */
   protected isVisible(field: ProfileField, group: FormGroup): boolean {
     if (!field.visibleWhenFieldKey) return true;
+
     const source = group.get(field.visibleWhenFieldKey)
       ?? this.form().get(field.visibleWhenFieldKey);
     const raw = source?.value;
     const current = typeof raw === 'boolean' ? String(raw) : String(raw ?? '');
-    return (field.visibleWhenValues ?? []).includes(current);
+
+    const wanted = field.visibleWhenValues ?? [];
+
+    /* Nothing to match against is no restriction. The applicant's app
+       and the server that validates what they send both read it that
+       way; this read it as "match nothing", so a half-written rule hid
+       the field here and showed it — and demanded it — on the phone. */
+    if (wanted.length === 0) return true;
+
+    /* Case-insensitively, for the same reason. A rule written CB against
+       an answer stored as cb passed on the phone and at the server and
+       failed only here, which is exactly what "the rule works but not in
+       the preview" looks like. */
+    return wanted.some((candidate) => candidate.toLowerCase() === current.toLowerCase());
   }
 
   protected value(group: FormGroup, key: string): string {
