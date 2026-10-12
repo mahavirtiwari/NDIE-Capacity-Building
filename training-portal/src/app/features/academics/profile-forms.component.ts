@@ -697,17 +697,57 @@ function blankField(): ProfileField {
                 }
               </select>
             </div>
-            <div class="field">
-              <label class="field-label" for="feWhenValues">Visible when value is</label>
-              <input
-                id="feWhenValues"
-                class="input"
-                [value]="(editor.field.visibleWhenValues || []).join(', ')"
-                placeholder="true, yes"
-                (input)="setVisibleValues(inputValue($event))"
-              />
-            </div>
+            <!-- Ticked from the trigger's own answers wherever it has
+                 any. This was a text box the designer typed the value
+                 into by hand, and a radio stores its value and not its
+                 label — so "Through a CB / IB / CRA" was typed, "cb" was
+                 compared, and the rule silently never matched. Nothing to
+                 type now, so nothing to mistype. -->
+            @if (triggerOptions(); as choices) {
+              <div class="field field--span-2">
+                <span class="field-label">Visible when the answer is</span>
+                <div class="when-values">
+                  @for (choice of choices; track choice.value) {
+                    <label class="check">
+                      <input
+                        type="checkbox"
+                        [checked]="(editor.field.visibleWhenValues || []).includes(choice.value)"
+                        (change)="toggleVisibleValue(choice.value)"
+                      />
+                      <span>
+                        {{ choice.label }}
+                        <code class="when-values__code">{{ choice.value }}</code>
+                      </span>
+                    </label>
+                  }
+                </div>
+              </div>
+            } @else if (editor.field.visibleWhenFieldKey) {
+              <div class="field">
+                <label class="field-label" for="feWhenValues">Visible when value is</label>
+                <input
+                  id="feWhenValues"
+                  class="input"
+                  [value]="(editor.field.visibleWhenValues || []).join(', ')"
+                  placeholder="true, yes"
+                  (input)="setVisibleValues(inputValue($event))"
+                />
+                <span class="field-hint">
+                  Exactly what the applicant's answer has to be. More than one, separated by commas.
+                </span>
+              </div>
+            }
           </div>
+
+          <!-- A rule with a trigger and nothing to match against hides the
+               field for ever, which reads on the preview as the rule not
+               working at all. -->
+          @if (editor.field.visibleWhenFieldKey && !(editor.field.visibleWhenValues || []).length) {
+            <p class="field-error">
+              Nothing is chosen, so this field will never be shown. Pick at least one answer,
+              or set Depends on field back to Always visible.
+            </p>
+          }
         </div>
         <div footer>
           <button type="button" class="btn btn--secondary" (click)="fieldEditor.set(null)">Close</button>
@@ -799,6 +839,23 @@ function blankField(): ProfileField {
   `,
   styles: [
     `
+      .when-values {
+        display: grid;
+        gap: 0.35rem;
+        padding: 0.6rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface-muted);
+      }
+      /* The stored value beside the label, because that is what the rule
+         is actually written against and what the applicant's answer is
+         saved as. */
+      .when-values__code {
+        margin-left: 0.35rem;
+        font-size: var(--fs-xs);
+        color: var(--ink-500);
+      }
+
       .section-box {
         border: 1px solid var(--border);
         border-radius: var(--radius);
@@ -1190,6 +1247,42 @@ export class ProfileFormsComponent {
       .map((x) => x.trim().replace(/^\./, '').toLowerCase())
       .filter(Boolean);
     this.editValidation({ allowedExtensions });
+  }
+
+  /**
+   * The answers the trigger field offers, or null where it is a box
+   * somebody types into and there is nothing to list.
+   */
+  protected readonly triggerOptions = computed(() => {
+    const editor = this.fieldEditor();
+    const key = editor?.field.visibleWhenFieldKey;
+    if (!editor || !key) return null;
+
+    const trigger = this.sections()
+      .flatMap((section) => section.fields)
+      .find((field) => field.key === key);
+
+    if (!trigger) return null;
+
+    /* A tick box answers true or false and carries no options of its
+       own, so the two answers are named here. */
+    if (trigger.type === 'checkbox') {
+      return [
+        { value: 'true', label: 'Ticked' },
+        { value: 'false', label: 'Not ticked' },
+      ];
+    }
+
+    if (!trigger.options?.length) return null;
+    return trigger.options.map((option) => ({ value: option.value, label: option.label }));
+  });
+
+  protected toggleVisibleValue(value: string): void {
+    const current = this.fieldEditor()?.field.visibleWhenValues ?? [];
+    const visibleWhenValues = current.includes(value)
+      ? current.filter((one) => one !== value)
+      : [...current, value];
+    this.editField({ visibleWhenValues });
   }
 
   protected setVisibleValues(text: string): void {
