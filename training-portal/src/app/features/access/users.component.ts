@@ -551,9 +551,9 @@ const TIER_DEPTH: Record<string, number> = {
             </div>
             @if (needsFullRecord()) {
               <div class="field">
-                <label class="field-label" for="uOrg">Organization name <span class="req">*</span></label>
+                <label class="field-label" for="uOrg">Organization <span class="req">*</span></label>
                 <input id="uOrg" class="input" formControlName="organisationName" maxlength="200"
-                  placeholder="The body this account belongs to"
+                  placeholder="The body this person works for"
                   [class.is-invalid]="invalid('organisationName')" />
                 @if (invalid('organisationName')) {
                   <span class="field-error">
@@ -562,14 +562,27 @@ const TIER_DEPTH: Record<string, number> = {
                 }
               </div>
             }
+            <!-- The person's own PAN. It read "PAN (Organization's PAN)",
+                 which is what the field meant back when a coordinator was
+                 thought of as standing in for the agency that appointed
+                 them. Everybody on this screen is an individual - a
+                 coordinator, an operation manager, an admin - and the
+                 organisation's PAN is held against the agency record,
+                 where it belongs. Asking for it here produced the same
+                 number on every coordinator of an agency and no way to
+                 tell one person from another on it. -->
             <div class="field">
               <label class="field-label" for="uPan">
-                PAN (Organization's PAN) @if (needsFullRecord()) { <span class="req">*</span> }
+                PAN @if (needsFullRecord()) { <span class="req">*</span> }
               </label>
               <input id="uPan" class="input" formControlName="pan" maxlength="10"
-                placeholder="ABCDE1234F" appUppercase
+                placeholder="ABCDE1234F" appUppercase autocomplete="off"
                 [class.is-invalid]="invalid('pan')" />
-              @if (invalid('pan')) { <span class="field-error">{{ errorFor('pan', 'PAN') }}</span> }
+              @if (invalid('pan')) {
+                <span class="field-error">{{ errorFor('pan', 'PAN') }}</span>
+              } @else {
+                <span class="field-hint">This person's own PAN, not the organisation's.</span>
+              }
             </div>
             <div class="field">
               <label class="field-label" for="uAadhaar">Aadhaar</label>
@@ -1365,7 +1378,6 @@ export class UsersComponent {
     this.programTypeIds.set(row?.programTypeIds ?? []);
     this.stateCodes.set(row?.stateCodes ?? []);
     this.districtCodes.set(row?.districtCodes ?? []);
-    this.roleIdSignal.set(row?.roleId ?? null);
     this.form.reset({
       fullName: row?.fullName ?? '',
       designation: row?.designation ?? '',
@@ -1397,7 +1409,19 @@ export class UsersComponent {
     }
 
     /* The dialog may open on a role already chosen -- editing, or the
-       coordinator screen, which picks the only role there is. */
+       coordinator screen, which picks the only role there is.
+
+       Read off the control rather than from the row, because the two are
+       not the same thing on a new account: the coordinator screen puts
+       the one role there is into the control, and setting a signal from
+       `row?.roleId` left it null while the select plainly showed
+       "Coordinator". Everything that follows the tier followed nothing -
+       which is why the Allocation section said this role sees the whole
+       programme and offered no program types, states or districts to
+       allocate, on the one tier that is allocated on all three. A
+       programmatic write fires no change event, so nothing put it right
+       afterwards either. */
+    this.roleIdSignal.set(this.form.controls.roleId.value ?? null);
     this.applyRecordRules();
     this.formOpen.set(true);
   }
@@ -1414,7 +1438,8 @@ export class UsersComponent {
    * at a named body: the scheme is administered from that record, and half
    * of it filled in is a record nobody can act on later. A coordinator is
    * lighter on purpose -- the agency that appoints them already carries the
-   * organisation and its PAN. Aadhaar is asked of nobody.
+   * organisation and its own PAN, and what is asked of the coordinator is
+   * only what identifies the person. Aadhaar is asked of nobody.
    */
   protected readonly needsFullRecord = computed(() => {
     const tier = this.chosenBaseRole();
@@ -1425,8 +1450,9 @@ export class UsersComponent {
    * Holds the form to that, as the role is chosen.
    *
    * The rules cannot sit on the controls: the same form opens for a
-   * coordinator, where asking for an organisation's PAN would be asking the
-   * agency to repeat itself.
+   * coordinator, of whom the scheme asks a name and a way to reach them.
+   * Their PAN is still their own where they give one -- it is checked for
+   * shape and not demanded.
    */
   private applyRecordRules(): void {
     const full = this.needsFullRecord();

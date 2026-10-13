@@ -842,9 +842,14 @@ public class UserService(
     /// person at a named body, somewhere, and the record is what the scheme
     /// is administered from -- half of it filled in is a record nobody can
     /// act on later. A coordinator is lighter on purpose: the agency that
-    /// appoints them already carries the organisation and its PAN, and an
-    /// agency's own login is issued with the agency rather than typed in
-    /// here. Aadhaar is never required of anybody.
+    /// appoints them already carries the organisation and its own PAN, and
+    /// an agency's own login is issued with the agency rather than typed in
+    /// here.
+    ///
+    /// Every account here belongs to one person, so the PAN on it is that
+    /// person's. The organisation's PAN sits on the agency record and is
+    /// not copied onto the people it appoints. Aadhaar is never required of
+    /// anybody.
     /// </summary>
     private static void EnsureRecordComplete(PortalUserUpsertDto dto, BaseRole tier)
     {
