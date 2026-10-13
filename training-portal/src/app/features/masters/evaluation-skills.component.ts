@@ -314,7 +314,9 @@ export class EvaluationSkillsComponent {
   });
 
   constructor() {
-    this.programTypes.all().subscribe((types) => {
+    /* Live ones only: a retired program type is history on past
+       marksheets, not something a trainer will be asked to mark against. */
+    this.programTypes.all({ status: 'Active' }).subscribe((types) => {
       this.allTypes.set(types);
       this.loadingTypes.set(false);
       if (this.programTypeId()) this.load();

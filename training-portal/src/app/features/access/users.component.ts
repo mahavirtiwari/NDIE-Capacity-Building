@@ -497,7 +497,7 @@ const TIER_DEPTH: Record<string, number> = {
               >
                 <option [ngValue]="null">Select role</option>
                 @for (role of assignableRoles(); track role.id) {
-                  <option [ngValue]="role.id">{{ role.name }}</option>
+                  <option [ngValue]="role.id">{{ roleLabel(role) }}</option>
                 }
               </select>
               @if (assignableRoles().length === 0) {
@@ -1081,14 +1081,36 @@ export class UsersComponent {
    * will refuse — a Super Admin appoints Admins and the Ministry, an Admin
    * appoints Operation Managers, an agency adds Coordinators.
    */
+  /**
+   * The roles this dialog may offer.
+   *
+   * Switched-off roles are not among them. A role is disabled precisely so
+   * that nobody is put on it again, and it went on appearing in the Role
+   * dropdown as though nothing had happened - the whole list was read for
+   * the dropdown, and the list is every role there is.
+   *
+   * The exception is the role the account being edited already holds. Drop
+   * that from the list and the select falls back to blank, and saving the
+   * form would move somebody off a role because somebody else retired it
+   * while the dialog was open. It stays, marked as retired, so whoever is
+   * editing can see why it is there.
+   */
   protected readonly assignableRoles = computed(() => {
+    const held = this.editing()?.roleId ?? null;
+    const offerable = (role: AdminRole) => role.status === 'Active' || role.id === held;
+
     if (this.isCoordinatorView()) {
-      return this.roles().filter((r) => r.baseRole === 'Coordinator');
+      return this.roles().filter((r) => r.baseRole === 'Coordinator' && offerable(r));
     }
 
     const creatable = CREATABLE_BY[this.myTier() ?? ''] ?? [];
-    return this.roles().filter((r) => creatable.includes(r.baseRole));
+    return this.roles().filter((r) => creatable.includes(r.baseRole) && offerable(r));
   });
+
+  /** Said on the one line where a retired role is still offered. */
+  protected roleLabel(role: AdminRole): string {
+    return role.status === 'Active' ? role.name : `${role.name} (retired)`;
+  }
 
   /**
    * Whether this account is one the signed-in tier may edit.

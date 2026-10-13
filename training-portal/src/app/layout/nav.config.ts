@@ -64,7 +64,20 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     label: 'People and access',
     items: [
-      { label: 'Portal users', route: '/access/users', icon: 'users', permissions: ['users.view'] },
+      /* The staff register: admins, operation managers and the Ministry.
+         It deliberately leaves out coordinators, agency logins and the
+         Super Admin, which for an implementing agency leaves nothing at
+         all - its own people are its coordinators, and they have a screen
+         of their own. The entry was offered anyway, so an agency that had
+         just created a coordinator came here to find it and found an
+         empty register with no explanation. */
+      {
+        label: 'Portal users',
+        route: '/access/users',
+        icon: 'users',
+        permissions: ['users.view'],
+        roles: ['SuperAdmin', 'Ministry', 'Admin', 'OperationManager'],
+      },
       /* What the scheme says to the handsets: an announcement written here
          and the notices raised when a programme opens or a track is added. */
       {
