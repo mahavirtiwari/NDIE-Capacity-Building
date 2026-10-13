@@ -9,6 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
@@ -31,6 +32,21 @@ import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
 import { TimelineComponent } from '../../shared/components/timeline.component';
+
+/**
+ * A document fetched for reading.
+ *
+ * `kind` decides how it is shown; `safeUrl` exists only because an
+ * <iframe src> is a resource URL and Angular will not take a blob: one
+ * without being told it is trusted. It is trusted: this component made it,
+ * from bytes this account was served.
+ */
+interface OpenAttachment {
+  name: string;
+  url: string;
+  safeUrl?: SafeResourceUrl;
+  kind: 'image' | 'pdf' | 'other';
+}
 
 /**
  * One profile, read in full and decided on.
@@ -112,6 +128,8 @@ import { TimelineComponent } from '../../shared/components/timeline.component';
                       [values]="$any(record.responses)"
                       [photos]="photos()"
                       [readonly]="true"
+                      [openable]="true"
+                      (openFile)="openAttachment(record.id, $event)"
                     />
                   } @else {
                     <p class="text-sm text-muted">
@@ -222,6 +240,34 @@ import { TimelineComponent } from '../../shared/components/timeline.component';
           }
         </aside>
       </div>
+    <!-- What the applicant attached, shown rather than downloaded.
+         An officer deciding a profile is looking at a marksheet, and
+         making them find it in a downloads folder and come back is the
+         slow way of answering one question. Anything the browser cannot
+         render inline - a .docx, say - still has the link under it. -->
+    @if (attachment(); as held) {
+      <app-modal [title]="held.name" size="lg" (closed)="closeAttachment()">
+        <div class="viewer">
+          @if (held.kind === 'image') {
+            <img class="viewer__image" [src]="held.url" [alt]="held.name" />
+          } @else if (held.kind === 'pdf') {
+            <iframe class="viewer__frame" [src]="held.safeUrl" [title]="held.name"></iframe>
+          } @else {
+            <p class="text-sm text-muted">
+              This document cannot be shown here. Download it to read it.
+            </p>
+          }
+        </div>
+
+        <div footer>
+          <a class="btn btn--secondary" [href]="held.url" [download]="held.name">
+            <app-icon name="download" [size]="15" /> Download
+          </a>
+          <button type="button" class="btn btn--primary" (click)="closeAttachment()">Close</button>
+        </div>
+      </app-modal>
+    }
+
 <!-- Asked for at the moment of rejecting, rather than sitting open
            beside a profile nobody has decided on. A reason is required: the
            applicant is told why and has to be able to put it right. -->
@@ -272,6 +318,25 @@ import { TimelineComponent } from '../../shared/components/timeline.component';
   `,
   styles: [
     `
+      /* Tall enough that a marksheet is readable without scrolling the
+         page behind the dialog, and capped so a long document scrolls
+         inside the viewer rather than pushing the buttons off screen. */
+      .viewer { display: grid; }
+      .viewer__image {
+        max-width: 100%;
+        max-height: 70vh;
+        margin: 0 auto;
+        object-fit: contain;
+        border-radius: var(--radius);
+      }
+      .viewer__frame {
+        width: 100%;
+        height: 70vh;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+
       .detail-grid {
         display: grid;
         grid-template-columns: minmax(0, 1fr) 340px;
@@ -313,6 +378,7 @@ export class ProfileScrutinyDetailComponent {
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
+  private readonly sanitizer = inject(DomSanitizer);
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly submission = signal<ProfileSubmission | null>(null);
@@ -323,6 +389,10 @@ export class ProfileScrutinyDetailComponent {
 
   /** The pictures for every camera field on this form, keyed by field key. */
   protected readonly photos = signal<Record<string, LoadedPhoto[]>>({});
+
+  /** The one attachment being read, if any. */
+  protected readonly attachment = signal<OpenAttachment | null>(null);
+  protected readonly fetching = signal(false);
 
   /* Only the reasons still switched on: a retired one stays on the
      submissions that cite it but must not be handed out again. */
@@ -339,7 +409,10 @@ export class ProfileScrutinyDetailComponent {
     /* Registered once, not inside the effect: the effect re-runs whenever
        the route id changes, and a teardown added on each run would be a
        handler per visit for the lifetime of the screen. */
-    this.destroyRef.onDestroy(() => this.revokePhotos());
+    this.destroyRef.onDestroy(() => {
+      this.revokePhotos();
+      this.closeAttachment();
+    });
 
     effect(() => {
       const id = Number(this.id());
@@ -401,6 +474,67 @@ export class ProfileScrutinyDetailComponent {
         error: () => undefined,
       });
     }
+  }
+
+  /**
+   * Fetches one attached document and puts it on screen.
+   *
+   * The endpoint wants the bearer token, so this cannot be an href: the
+   * bytes come back as a blob and become an object URL, which is also
+   * what the Download button hands to the browser. One at a time, and
+   * the previous one is released before the next is made.
+   */
+  protected openAttachment(id: number, fieldKey: string): void {
+    if (this.fetching()) return;
+    this.fetching.set(true);
+
+    this.service.file(id, fieldKey).subscribe({
+      next: (blob) => {
+        this.fetching.set(false);
+        this.closeAttachment();
+
+        const type = blob.type || 'application/octet-stream';
+        const url = URL.createObjectURL(blob);
+
+        this.attachment.set({
+          name: this.nameOf(fieldKey) ?? fieldKey,
+          url,
+          safeUrl: this.sanitizer.bypassSecurityTrustResourceUrl(url),
+          kind: type.startsWith('image/')
+            ? 'image'
+            : type === 'application/pdf'
+              ? 'pdf'
+              : 'other',
+        });
+      },
+      error: () => {
+        this.fetching.set(false);
+        this.toast.error(
+          'Nothing attached',
+          'No document is held for this field. The applicant may have typed the name without sending the file.',
+        );
+      },
+    });
+  }
+
+  protected closeAttachment(): void {
+    const held = this.attachment();
+    if (!held) return;
+    URL.revokeObjectURL(held.url);
+    this.attachment.set(null);
+  }
+
+  /** The label the form gives a field, so the viewer is titled in its words. */
+  private nameOf(fieldKey: string): string | null {
+    const form = this.definition();
+    if (!form) return null;
+
+    for (const section of form.sections) {
+      for (const field of section.fields as ProfileField[]) {
+        if (field.key === fieldKey) return field.label;
+      }
+    }
+    return null;
   }
 
   private revokePhotos(): void {

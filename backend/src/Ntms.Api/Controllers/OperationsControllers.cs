@@ -742,6 +742,10 @@ public class ProfileSubmissionsController(ProfileSubmissionService service) : Ap
             await attachments.FileAsync(
                 submission.ApplicantId, submission.SubCategoryId, fieldKey, ct);
 
+        /* Served as the type it was stored under and not sniffed into
+           another: the scrutiny screen now shows these rather than only
+           naming them, and what an applicant uploads is not trusted. */
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
         return File(content, type, $"{submission.ApplicantCode}-{name}");
     }
 

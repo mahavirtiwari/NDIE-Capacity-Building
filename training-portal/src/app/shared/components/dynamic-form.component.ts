@@ -274,10 +274,26 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
               @case ('file') {
                 <div class="read-field__value">
                   @if (value(group, field.key)) {
-                    <span class="read-file">
-                      <app-icon name="file" [size]="14" />
-                      {{ value(group, field.key) }}
-                    </span>
+                    <!-- The name on its own was all this said, which told
+                         the officer that something had been attached and
+                         nothing about what. The document itself is what
+                         they are reading the profile for. -->
+                    @if (openable()) {
+                      <button
+                        type="button"
+                        class="read-file read-file--link"
+                        (click)="openFile.emit(field.key)"
+                      >
+                        <app-icon name="file" [size]="14" />
+                        <span class="read-file__name">{{ value(group, field.key) }}</span>
+                        <app-icon name="eye" [size]="13" />
+                      </button>
+                    } @else {
+                      <span class="read-file">
+                        <app-icon name="file" [size]="14" />
+                        {{ value(group, field.key) }}
+                      </span>
+                    }
                   } @else {
                     <span class="is-empty">Not uploaded</span>
                   }
@@ -769,6 +785,17 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
       }
       .read-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; }
       .read-file { display: inline-flex; align-items: center; gap: 0.35rem; }
+      .read-file--link {
+        padding: 0;
+        border: 0;
+        background: none;
+        font: inherit;
+        color: var(--brand-700);
+        text-align: left;
+        cursor: pointer;
+      }
+      .read-file--link:hover .read-file__name { text-decoration: underline; }
+      .read-file__name { word-break: break-all; }
 
       /* Wide enough that a photograph of a certificate can be read without
          opening it, and a grid so a set of five does not become a column
@@ -834,7 +861,20 @@ export class DynamicFormComponent {
    */
   readonly photos = input<Record<string, LoadedPhoto[]>>({});
 
+  /**
+   * Whether an attached document can be fetched and shown.
+   *
+   * The form holds the name the field answered with and nothing else; who
+   * the profile belongs to, and therefore where the bytes are, is known
+   * only to the screen above. Off by default, so the form builder's
+   * preview does not offer to open files that do not exist.
+   */
+  readonly openable = input(false);
+
   readonly submitted = output<Record<string, unknown>>();
+
+  /** The key of a file field somebody asked to see. */
+  readonly openFile = output<string>();
 
   /**
    * Whether this is somebody reading a filled-in profile.

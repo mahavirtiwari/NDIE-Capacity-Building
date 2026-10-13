@@ -81,6 +81,20 @@ export class ProfileSubmissionService extends CrudService<ProfileSubmission> {
         `${this.resource}/${id}/photos/${encodeURIComponent(fieldKey)}/${displayOrder}`),
       { responseType: 'blob' });
   }
+
+  /**
+   * The document attached to one file field.
+   *
+   * Fetched when somebody asks for it rather than with the profile: a
+   * marksheet can be tens of megabytes and most fields on most profiles
+   * are never opened. Bearer token, so the same object-URL dance as the
+   * pictures.
+   */
+  file(id: Id, fieldKey: string): Observable<Blob> {
+    return this.http.get(
+      this.api.fileUrl(`${this.resource}/${id}/files/${encodeURIComponent(fieldKey)}`),
+      { responseType: 'blob' });
+  }
 }
 
 @Injectable({ providedIn: 'root' })
