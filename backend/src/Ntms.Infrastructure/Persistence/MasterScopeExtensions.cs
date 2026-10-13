@@ -141,22 +141,22 @@ public static class MasterScopeExtensions
            overlap into each other's work: both hold Assessor - Silver in
            Delhi, so both read every batch either one's agencies raise.
  
-           Agencies empanelled before the owner was recorded have none, and
-           stay visible from the allocation alone — they belong to nobody to
-           hide them from. */
+           An agency with no owner was empanelled by nobody - only a
+           manager can empanel one - so its batches are not at the end of
+           anybody's chain either. They were visible from the allocation
+           alone, which put every unowned agency's work in front of every
+           Admin and manager on the same patch; the register of agencies
+           next door now fails closed on the same question, and these two
+           have to tell the same story. */
         var self = user.UserId ?? 0;
 
         if (user.Tier == Domain.Common.BaseRole.OperationManager)
         {
-            query = query.Where(p =>
-                p.Agency!.OwnerUserId == null || p.Agency.OwnerUserId == self);
+            query = query.Where(p => p.Agency!.OwnerUserId == self);
         }
         else if (user.Tier == Domain.Common.BaseRole.Admin)
         {
-            query = query.Where(p =>
-                p.Agency!.OwnerUserId == null
-                || p.Agency.OwnerUserId == self
-                || p.Agency.OwnerUser!.ReportsToUserId == self);
+            query = query.Where(p => p.Agency!.OwnerUser!.ReportsToUserId == self);
         }
 
         return query;
@@ -300,6 +300,28 @@ public static class MasterScopeExtensions
             query = query.Where(a => a.ProgramTypes.Any(p => programTypes.Contains(p.ProgramTypeId)));
         if (states.Count > 0)
             query = query.Where(a => a.States.Any(s => states.Contains(s.StateCode)));
+
+        /* And then the chain, which the allocation alone does not give.
+
+           An Operation Manager empanels an agency and answers for it; the
+           Admin above appoints that manager. So a manager sees what it
+           took on and an Admin sees what its own managers took on -
+           nobody else's, however far the allocations overlap. Without
+           this an Admin who had appointed nobody still read every agency
+           whose program types and states touched its own allocation,
+           which is every agency on the same patch.
+
+           An agency with no owner is empanelled by nobody: only an
+           Operation Manager can empanel one, so an unowned row is seeded
+           or predates the field. It stays visible to the tiers that see
+           the whole estate and to nobody else, because there is no chain
+           it could be at the end of. */
+        var self = user.UserId ?? 0;
+
+        if (user.Tier == Domain.Common.BaseRole.OperationManager)
+            query = query.Where(a => a.OwnerUserId == self);
+        else if (user.Tier == Domain.Common.BaseRole.Admin)
+            query = query.Where(a => a.OwnerUser!.ReportsToUserId == self);
 
         return query;
     }
