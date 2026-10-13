@@ -80,9 +80,18 @@ powershell -ExecutionPolicy Bypass -File .\01-prerequisites.ps1
 ## Afterwards
 
 ```powershell
+.\24-pull.ps1 -Plan             # what is waiting on the remote, and nothing else
+.\24-pull.ps1                   # take it: fast-forward only, nothing built
 .\update.ps1                    # publish, migrate, verify
 .\update.ps1 -SkipMigrations    # when the release has no schema change
 ```
+
+`24-pull.ps1` is the pull on its own, for seeing what has landed before
+deciding to deploy it: it says which commits are waiting, whether they carry
+migrations, and refuses a tree with uncommitted work in it. A dated release -
+`..\release-2026-10-13.ps1` - pulls for itself and runs everything after it
+with `-NoPull`, so one release is one commit. Pull by hand first and pass
+`-NoPull` to the release if you want to read the commits before they go out.
 
 ## Which authentication to the database
 
