@@ -17,12 +17,24 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
           toast.error('Session expired', 'Please sign in again.');
           auth.logout();
         } else if (error.status === 403) {
-          /* The server says why — "A Super Admin does not settle what a
-             Coordinator may do", "You can only allocate states from your own
-             allocation" — and this threw all of it away for one line that
-             told nobody anything. Its words where it gave them. */
-          const refusal = (error.error as { message?: string } | null)?.message;
-          toast.error('Not permitted', refusal ?? 'You do not have access to this action.');
+          /* Only where somebody pressed something.
+
+             A screen loads more than the thing it is named after: the
+             Programs register asks for agencies, program types and exam
+             papers to fill its dropdowns, and a role that may read
+             programmes but not papers was met by "You do not have access
+             to this action" before it had done anything at all. The
+             dropdown it could not fill is simply empty, which is the
+             honest answer and needs no announcement.
+
+             A refused write is the opposite: nothing visible happens, so
+             not saying why would leave somebody pressing Save. The server
+             says why in its own words — "A Super Admin does not settle
+             what a Coordinator may do" — and those are the words shown. */
+          if (req.method !== 'GET') {
+            const refusal = (error.error as { message?: string } | null)?.message;
+            toast.error('Not permitted', refusal ?? 'You do not have access to this action.');
+          }
         } else {
           const body = error.error as { message?: string; errors?: string[] } | null;
           toast.error(
