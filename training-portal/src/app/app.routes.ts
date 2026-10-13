@@ -198,9 +198,13 @@ export const routes: Routes = [
         path: 'access',
         children: [
           {
+            /* Settled at the top, like the menu says. */
             path: 'roles',
             title: 'Roles & permissions · CBMS',
-            canActivate: [permissionGuard('roles.view')],
+            canActivate: [
+              permissionGuard('roles.view'),
+              roleGuard('SuperAdmin', 'Ministry', 'Admin'),
+            ],
             loadComponent: () => import('./features/access/roles.component').then((m) => m.RolesComponent),
           },
           {
@@ -214,7 +218,7 @@ export const routes: Routes = [
             title: 'Portal users · CBMS',
             canActivate: [
               permissionGuard('users.view'),
-              roleGuard('SuperAdmin', 'Ministry', 'Admin', 'OperationManager'),
+              roleGuard('SuperAdmin', 'Ministry', 'Admin'),
             ],
             data: { scope: 'all' },
             loadComponent: () => import('./features/access/users.component').then((m) => m.UsersComponent),

@@ -450,6 +450,17 @@ public class ProgrammeDto : AuditDto
     public string? PostponementReason { get; set; }
     public DateTime? PostponementRequestedOn { get; set; }
 
+    /* Where the agency has asked to move it to, if it has asked. Read by
+       both sides: the manager decides on it and the agency sees that it
+       is still waiting. */
+    public string? RequestedVenue { get; set; }
+    public string? RequestedCity { get; set; }
+    public string? RequestedDistrict { get; set; }
+    public int? RequestedDistrictCode { get; set; }
+    public string? RequestedPincode { get; set; }
+    public string? VenueChangeReason { get; set; }
+    public DateTime? VenueChangeRequestedOn { get; set; }
+
     public int Id { get; set; }
     public string ProgrammeId { get; set; } = string.Empty;
     public string ProgrammeName { get; set; } = string.Empty;
@@ -539,6 +550,30 @@ public class ProgrammeStatusDto
 public class PostponementRequestDto
 {
     public string Reason { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// The agency asking to hold a batch somewhere else, and where.
+///
+/// The state is not among the fields. Moving a batch between states moves
+/// it out of the allocation both the agency and the manager work in, which
+/// is a different batch rather than a different hall.
+/// </summary>
+public class VenueChangeRequestDto
+{
+    public string Venue { get; set; } = string.Empty;
+    public string? City { get; set; }
+    public int? DistrictCode { get; set; }
+    public string? Pincode { get; set; }
+    public string Reason { get; set; } = string.Empty;
+}
+
+/// <summary>The manager's answer to that.</summary>
+public class VenueChangeDecisionDto
+{
+    public bool Accept { get; set; }
+    /// <summary>Why, where it is refused. Sent to the agency either way.</summary>
+    public string? Remarks { get; set; }
 }
 
 /// <summary>Opening a batch again, and for how many.</summary>

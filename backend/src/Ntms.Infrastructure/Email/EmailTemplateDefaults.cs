@@ -44,6 +44,8 @@ public static class EmailTemplateDefaults
     public const string ProgrammeRaised = "programme-raised";
     public const string ProgrammePermitted = "programme-permitted";
     public const string PostponementRequested = "postponement-requested";
+    public const string VenueChangeRequested = "venue-change-requested";
+    public const string VenueChangeDecided = "venue-change-decided";
     public const string AgencyEmpanelled = "agency-empanelled";
     public const string AccountStatusChanged = "account-status-changed";
     public const string AccountUpdated = "account-updated";
@@ -530,6 +532,61 @@ public static class EmailTemplateDefaults
                 "{{programmeName}} ({{programmeId}}), {{startDate}} to {{endDate}}, "
                 + "{{timing}} each day, {{venue}}. Coordinator {{coordinatorName}}, "
                 + "{{coordinatorMobile}}, {{coordinatorEmail}}. The session plan is attached.",
+        },
+        new()
+        {
+            Key = VenueChangeRequested,
+            Name = "Venue change requested",
+            Description =
+                "Sent to the operation manager when an implementing agency asks to hold "
+                + "a permitted program somewhere else.",
+            Placeholders =
+                "name,agencyName,programmeId,programmeName,startDate,currentVenue,"
+                + "requestedVenue,reason",
+            Subject = "{{programmeId}} — venue change requested",
+            HtmlBody = """
+                <p>Dear {{name}},</p>
+                <p>{{agencyName}} has asked to move <strong>{{programmeName}}</strong>
+                ({{programmeId}}), due to start {{startDate}}.</p>
+                <table style="margin:18px 0;border-collapse:collapse;">
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Now at</td><td>{{currentVenue}}</td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Asked for</td><td>{{requestedVenue}}</td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Reason</td><td>{{reason}}</td></tr>
+                </table>
+                <p>The program stays where it is until you accept the change. Candidates
+                already registered were told the current address.</p>
+                """,
+            PlainTextBody =
+                "{{agencyName}} has asked to move {{programmeId}} ({{programmeName}}) from "
+                + "{{currentVenue}} to {{requestedVenue}}. Reason: {{reason}}. It stays "
+                + "where it is until you accept.",
+        },
+        new()
+        {
+            Key = VenueChangeDecided,
+            Name = "Venue change decided",
+            Description =
+                "Sent to the implementing agency when the operation manager accepts or "
+                + "refuses a venue change.",
+            Placeholders =
+                "name,programmeId,programmeName,startDate,outcome,currentVenue,"
+                + "requestedVenue,remarks",
+            Subject = "{{programmeId}} — venue change {{outcome}}",
+            HtmlBody = """
+                <p>Dear {{name}},</p>
+                <p>Your request to move <strong>{{programmeName}}</strong> ({{programmeId}}),
+                due to start {{startDate}}, was <strong>{{outcome}}</strong>.</p>
+                <table style="margin:18px 0;border-collapse:collapse;">
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Was at</td><td>{{currentVenue}}</td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Asked for</td><td>{{requestedVenue}}</td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Remarks</td><td>{{remarks}}</td></tr>
+                </table>
+                <p>Where the change was accepted, tell anybody already registered: they were
+                given the old address.</p>
+                """,
+            PlainTextBody =
+                "Venue change on {{programmeId}} ({{programmeName}}) was {{outcome}}. "
+                + "{{currentVenue}} to {{requestedVenue}}. {{remarks}}",
         },
         new()
         {

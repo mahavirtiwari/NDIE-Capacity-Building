@@ -58,6 +58,16 @@ public interface INotificationService
     Task SendProgrammePermittedAsync(
         Programme programme, string email, string name, CancellationToken ct = default);
 
+    /// <summary>The agency asking to hold a permitted batch somewhere else.</summary>
+    Task SendVenueChangeRequestedAsync(
+        Programme programme, string agencyName, string reason, string email, string name,
+        CancellationToken ct = default);
+
+    /// <summary>The manager's answer to that, back to the agency.</summary>
+    Task SendVenueChangeDecidedAsync(
+        Programme programme, bool accepted, string from, string to, string remarks,
+        string email, string name, CancellationToken ct = default);
+
     /// <summary>
     /// Tells the holder their access was switched on or off, and on what
     /// grounds. Sent for both directions: somebody locked out deserves to know
@@ -449,6 +459,42 @@ public class NotificationService(
                 : $"Join link: {programme.MeetingLink}",
         }, ct);
     }
+
+    public Task SendVenueChangeRequestedAsync(
+        Programme programme, string agencyName, string reason, string email, string name,
+        CancellationToken ct = default) =>
+        SendAsync(EmailTemplateDefaults.VenueChangeRequested, email, new()
+        {
+            ["name"] = name,
+            ["agencyName"] = agencyName,
+            ["programmeId"] = programme.ProgrammeId,
+            ["programmeName"] = programme.ProgrammeName,
+            ["startDate"] = programme.StartDate.ToString("dd MMM yyyy"),
+            ["currentVenue"] = Place(programme.Venue, programme.City, programme.Pincode),
+            ["requestedVenue"] = Place(
+                programme.RequestedVenue, programme.RequestedCity, programme.RequestedPincode),
+            ["reason"] = reason,
+        }, ct);
+
+    public Task SendVenueChangeDecidedAsync(
+        Programme programme, bool accepted, string from, string to, string remarks,
+        string email, string name, CancellationToken ct = default) =>
+        SendAsync(EmailTemplateDefaults.VenueChangeDecided, email, new()
+        {
+            ["name"] = name,
+            ["programmeId"] = programme.ProgrammeId,
+            ["programmeName"] = programme.ProgrammeName,
+            ["startDate"] = programme.StartDate.ToString("dd MMM yyyy"),
+            ["outcome"] = accepted ? "accepted" : "not accepted",
+            ["currentVenue"] = from,
+            ["requestedVenue"] = to,
+            ["remarks"] = string.IsNullOrWhiteSpace(remarks) ? "None" : remarks,
+        }, ct);
+
+    /// <summary>An address on one line, with the empty parts left out.</summary>
+    private static string Place(string? venue, string? city, string? pincode) =>
+        string.Join(", ", new[] { venue, city, pincode }
+            .Where(part => !string.IsNullOrWhiteSpace(part)));
 
     public Task SendAgencyEmpanelledAsync(
         ImplementingAgency agency, string scope, CancellationToken ct = default) =>

@@ -228,8 +228,14 @@ public class ProgrammeService(
         var entity = new Programme
         {
             ProgrammeId = await codes.NextProgrammeIdAsync(ct),
+            /* The track's own name, as it was set up. Composing one made
+               "5-Day 5-day Assessor Training Training Program" out of a
+               type already called "5-day Assessor Training" - the length
+               is on the type, the word Training is usually in the name,
+               and Program is what the thing is. An agency that wants a
+               batch called something else still types it. */
             ProgrammeName = string.IsNullOrWhiteSpace(dto.ProgrammeName)
-                ? $"{programType.DurationDays}-Day {programType.Name} Training Program"
+                ? programType.Name.Trim()
                 : dto.ProgrammeName.Trim(),
             CurriculumId = dto.CurriculumId,
             CategoryId = programType.CategoryId,
@@ -265,11 +271,28 @@ public class ProgrammeService(
 
         /* The batch is on the manager's register the moment it is raised,
            and they are told so rather than having to notice. Nothing else
-           moves until they permit it. */
+           moves until they permit it.
+
+           Said in the portal as well as by e-mail. An e-mail is read when
+           somebody opens their mail; the notice is on the bell of the
+           screen where the permission is actually given, and it is
+           addressed to that manager rather than to managers in general. */
         entity.Agency = agency;
         await TellTheManagerAsync(entity, async (manager, agencyName) =>
+        {
             await notifications.SendProgrammeRaisedAsync(
-                entity, agencyName, manager.Email, manager.FullName, ct));
+                entity, agencyName, manager.Email, manager.FullName, ct);
+
+            await broadcasts.RaiseAsync(
+                "ProgrammeRaised",
+                "A program needs your permission",
+                $"{agencyName} has raised {entity.ProgrammeName} ({entity.ProgrammeId}), "
+                + $"due to start {entity.StartDate:dd MMM yyyy}.",
+                NotificationAudience.OperationManagers,
+                userId: manager.Id,
+                linkPath: "/operations/programs",
+                ct: ct);
+        });
         return await GetAsync(entity.Id, ct);
     }
 
@@ -509,6 +532,138 @@ public class ProgrammeService(
         await TellTheManagerAsync(entity, async (manager, agencyName) =>
             await notifications.SendPostponementRequestedAsync(
                 entity, agencyName, reason, manager.Email, manager.FullName, ct));
+
+        return await GetAsync(id, ct);
+    }
+
+    /* ------------------------------------------------------ moving it */
+
+    /// <summary>
+    /// The agency asks to hold a permitted batch somewhere else.
+    ///
+    /// It does not move it. The permission the manager gave was for a
+    /// programme at a place - candidates were told that address and will
+    /// travel to it - so the new one is recorded beside the live one and
+    /// the manager decides, exactly as with putting the batch off.
+    ///
+    /// Only for a batch that is actually held somewhere. A virtual batch
+    /// has a joining link rather than a hall, and changing that is not a
+    /// decision anybody needs to approve.
+    /// </summary>
+    public async Task<ProgrammeDto> RequestVenueChangeAsync(
+        int id, VenueChangeRequestDto dto, CancellationToken ct)
+    {
+        var entity = await db.Programmes
+                         .Include(p => p.Agency)
+                         .FirstOrDefaultAsync(p => p.Id == id, ct)
+                     ?? throw AppException.NotFound("Program");
+
+        if (entity.Mode == ProgramMode.Virtual)
+        {
+            throw new AppException(
+                "A virtual program has a joining link rather than a venue. "
+                + "Edit the link on the program instead.");
+        }
+
+        if (entity.Status is not (ProgramStatus.PermissionAccepted or ProgramStatus.CalendarCreated))
+        {
+            throw new AppException(
+                "A program can be moved once it has been permitted and before it is "
+                + "conducted. Until then, edit it.");
+        }
+
+        var venue = dto.Venue?.Trim();
+        var reason = dto.Reason?.Trim();
+
+        Guard.Check()
+            .Required(venue, "Venue")
+            .Required(reason, "Reason")
+            .ThrowIfInvalid();
+
+        if (dto.DistrictCode is { } district
+            && !await db.Districts.AnyAsync(
+                d => d.Code == district && d.StateCode == entity.StateCode, ct))
+        {
+            throw new AppException("Choose a district inside the program's own state.");
+        }
+
+        entity.RequestedVenue = venue;
+        entity.RequestedCity = dto.City?.Trim();
+        entity.RequestedPincode = Formats.Normalise(dto.Pincode);
+        entity.RequestedDistrictCode = dto.DistrictCode;
+        entity.VenueChangeReason = reason;
+        entity.VenueChangeRequestedOn = DateTime.UtcNow;
+        entity.VenueChangeRequestedByUserId = currentUser.UserId;
+        await db.SaveChangesAsync(ct);
+
+        await TellTheManagerAsync(entity, async (manager, agencyName) =>
+            await notifications.SendVenueChangeRequestedAsync(
+                entity, agencyName, reason!, manager.Email, manager.FullName, ct));
+
+        return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// The manager answers it: the batch moves, or it stays where it is.
+    ///
+    /// Accepting writes the proposal onto the live fields, which is the
+    /// only way those fields change once a batch has been permitted.
+    /// Either way the request is cleared and the agency is told - a
+    /// refusal with no word back is a hall nobody books.
+    /// </summary>
+    public async Task<ProgrammeDto> DecideVenueChangeAsync(
+        int id, VenueChangeDecisionDto dto, CancellationToken ct)
+    {
+        var entity = await db.Programmes
+                         .Include(p => p.Agency)
+                         .FirstOrDefaultAsync(p => p.Id == id, ct)
+                     ?? throw AppException.NotFound("Program");
+
+        if (entity.VenueChangeRequestedOn is null)
+            throw new AppException("No venue change has been asked for on this program.");
+
+        var from = entity.Venue;
+
+        if (dto.Accept)
+        {
+            entity.Venue = entity.RequestedVenue ?? entity.Venue;
+            entity.City = entity.RequestedCity ?? entity.City;
+            entity.Pincode = entity.RequestedPincode ?? entity.Pincode;
+            entity.DistrictCode = entity.RequestedDistrictCode ?? entity.DistrictCode;
+        }
+
+        var to = entity.RequestedVenue ?? string.Empty;
+
+        entity.RequestedVenue = null;
+        entity.RequestedCity = null;
+        entity.RequestedPincode = null;
+        entity.RequestedDistrictCode = null;
+        entity.VenueChangeReason = null;
+        entity.VenueChangeRequestedOn = null;
+        entity.VenueChangeRequestedByUserId = null;
+
+        await db.SaveChangesAsync(ct);
+
+        /* The agency that asked, at the address on its record. */
+        if (entity.Agency is { Email.Length: > 0 } agency)
+        {
+            try
+            {
+                await notifications.SendVenueChangeDecidedAsync(
+                    entity, dto.Accept, from, to, dto.Remarks?.Trim() ?? string.Empty,
+                    agency.Email, agency.ContactPerson, ct);
+            }
+            catch (Exception caught)
+            {
+                logger.LogWarning(
+                    caught,
+                    "The venue decision on {Programme} could not be e-mailed to the agency.",
+                    entity.ProgrammeId);
+            }
+        }
+
+        /* And the coordinator, who is the one who has to be at it. */
+        if (dto.Accept) await TellCoordinatorAsync(entity, ct);
 
         return await GetAsync(id, ct);
     }

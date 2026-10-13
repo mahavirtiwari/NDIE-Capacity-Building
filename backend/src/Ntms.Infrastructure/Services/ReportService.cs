@@ -51,6 +51,15 @@ public class ReportService(NtmsDbContext db, ICurrentUser currentUser)
             .Include(p => p.State)
             .Include(p => p.District)
             .WithinScope(currentUser)
+            /* Conducted only.
+
+               A report is the account of what happened: the sessions held,
+               who came, what they scored, the photographs taken at the
+               hall. A batch that has not run has none of that, and listing
+               it offers a report with nothing in it - which reads as a
+               programme that went badly rather than one that has not
+               happened yet. */
+            .Where(p => p.Status == ProgramStatus.Conducted)
             .WhereIf(categoryId.HasValue, p => p.CategoryId == categoryId)
             .WhereIf(subCategoryId.HasValue, p => p.SubCategoryId == subCategoryId)
             .WhereIf(programTypeId.HasValue, p => p.ProgramTypeId == programTypeId)

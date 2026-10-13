@@ -3577,6 +3577,21 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Property<bool>("RegistrationsOpen")
                         .HasColumnType("bit");
 
+                    b.Property<string>("RequestedCity")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<int?>("RequestedDistrictCode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RequestedPincode")
+                        .HasMaxLength(6)
+                        .HasColumnType("nvarchar(6)");
+
+                    b.Property<string>("RequestedVenue")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
                     b.Property<DateOnly>("StartDate")
                         .HasColumnType("date");
 
@@ -3598,6 +3613,16 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<string>("VenueChangeReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("VenueChangeRequestedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("VenueChangeRequestedOn")
+                        .HasColumnType("datetime2");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AgencyId");
@@ -3618,6 +3643,8 @@ namespace Ntms.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ProgrammeId")
                         .IsUnique();
+
+                    b.HasIndex("RequestedDistrictCode");
 
                     b.HasIndex("StateCode");
 
@@ -5979,6 +6006,11 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Ntms.Domain.Entities.LgdDistrict", "RequestedDistrict")
+                        .WithMany()
+                        .HasForeignKey("RequestedDistrictCode")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Ntms.Domain.Entities.LgdState", "State")
                         .WithMany()
                         .HasForeignKey("StateCode")
@@ -6006,6 +6038,8 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Navigation("OperationManager");
 
                     b.Navigation("ProgramType");
+
+                    b.Navigation("RequestedDistrict");
 
                     b.Navigation("State");
 

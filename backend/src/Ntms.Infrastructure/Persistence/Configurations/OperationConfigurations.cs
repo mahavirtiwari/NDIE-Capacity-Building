@@ -321,6 +321,16 @@ public class ProgrammeConfiguration : IEntityTypeConfiguration<Programme>
     public void Configure(EntityTypeBuilder<Programme> b)
     {
         b.ToTable("Programmes");
+        /* The proposed address, held beside the live one until the manager
+           decides. Same lengths as the fields they would replace. */
+        b.Property(x => x.RequestedVenue).HasMaxLength(300);
+        b.Property(x => x.RequestedCity).HasMaxLength(120);
+        b.Property(x => x.RequestedPincode).HasMaxLength(6);
+        b.Property(x => x.VenueChangeReason).HasMaxLength(500);
+        b.HasOne(x => x.RequestedDistrict).WithMany()
+            .HasForeignKey(x => x.RequestedDistrictCode)
+            .HasPrincipalKey(x => x.Code)
+            .OnDelete(DeleteBehavior.Restrict);
         b.Property(x => x.ProgrammeId).HasMaxLength(30).IsRequired();
         b.Property(x => x.ProgrammeName).HasMaxLength(250).IsRequired();
         b.Property(x => x.Venue).HasMaxLength(300).IsRequired();

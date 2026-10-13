@@ -291,7 +291,20 @@ const COLUMNS: ColumnDef[] = [
                 }
                 @if (!canApprove() && actions($any(row)).canAskToPostpone) {
                   <button type="button" class="btn btn--sm btn--secondary" (click)="openAskPostpone($any(row))">
-                    Ask to postpone
+                    Postpone
+                  </button>
+                }
+                <!-- The hall can change after a batch is permitted, and the
+                     change is the manager's to accept: candidates were told
+                     the old address. -->
+                @if (!canApprove() && actions($any(row)).canAskToMove) {
+                  <button type="button" class="btn btn--sm btn--secondary" (click)="openMove($any(row))">
+                    Change venue
+                  </button>
+                }
+                @if (canApprove() && actions($any(row)).canDecideMove) {
+                  <button type="button" class="btn btn--sm btn--primary" (click)="openDecideMove($any(row))">
+                    Venue change
                   </button>
                 }
               </div>
@@ -301,8 +314,123 @@ const COLUMNS: ColumnDef[] = [
       </app-data-table>
     </section>
 
+    <!-- The agency's side: where it should be held instead, and why. -->
+    @if (moveFor(); as programme) {
+      <app-modal title="Change the venue?" size="md" (closed)="moveFor.set(null)">
+        <div class="stack stack-md">
+          <p class="text-sm">
+            {{ programme.programmeId }} is at <strong>{{ programme.venue }}</strong>. The
+            program stays there until the operation manager accepts the change, and anybody
+            already registered was told the old address.
+          </p>
+
+          <div class="form-grid">
+            <div class="field field--span-2">
+              <label class="field-label" for="mvVenue">New venue <span class="req">*</span></label>
+              <input id="mvVenue" class="input" [value]="move.venue()"
+                (input)="move.venue.set(value($event))"
+                placeholder="The hall, and the building it is in" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="mvCity">City</label>
+              <input id="mvCity" class="input" [value]="move.city()"
+                (input)="move.city.set(value($event))" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="mvDistrict">District</label>
+              <select id="mvDistrict" class="select" [value]="move.districtCode() ?? ''"
+                (change)="move.districtCode.set(value($event) ? +value($event) : null)">
+                <option value="">Unchanged</option>
+                @for (district of moveDistricts(); track district.id) {
+                  <option [value]="district.id">{{ district.name }}</option>
+                }
+              </select>
+              <span class="field-hint">Inside the program's own state.</span>
+            </div>
+            <div class="field">
+              <label class="field-label" for="mvPin">Pincode</label>
+              <input id="mvPin" class="input" maxlength="6" inputmode="numeric"
+                [value]="move.pincode()" (input)="move.pincode.set(value($event))" />
+            </div>
+            <div class="field field--span-2">
+              <label class="field-label" for="mvReason">Reason <span class="req">*</span></label>
+              <textarea id="mvReason" class="textarea" rows="3" maxlength="500"
+                [value]="move.reason()" (input)="move.reason.set(textValue($event))"
+                placeholder="e.g. The booked hall is under repair; this one is five minutes away"
+              ></textarea>
+              <span class="field-hint">Sent to the operation manager with the request.</span>
+            </div>
+          </div>
+        </div>
+        <div footer>
+          <button type="button" class="btn btn--secondary" (click)="moveFor.set(null)">Cancel</button>
+          <button type="button" class="btn btn--primary"
+            [disabled]="!canSendMove() || moving()" (click)="sendMove()">
+            @if (moving()) { <span class="spinner"></span> }
+            Send request
+          </button>
+        </div>
+      </app-modal>
+    }
+
+    <!-- The manager's side: what was asked, and the answer. -->
+    @if (decideMoveFor(); as programme) {
+      <app-modal title="Venue change" size="md" (closed)="decideMoveFor.set(null)">
+        <div class="stack stack-md">
+          <div class="facts">
+            <div class="fact">
+              <div class="fact__term">Program</div>
+              <div class="fact__value">{{ programme.programmeId }} · {{ programme.programmeName }}</div>
+            </div>
+            <div class="fact">
+              <div class="fact__term">Starts</div>
+              <div class="fact__value">{{ programme.startDate | date: 'dd MMM yyyy' }}</div>
+            </div>
+            <div class="fact">
+              <div class="fact__term">Now at</div>
+              <div class="fact__value">
+                {{ joined([programme.venue, programme.city, programme.pincode]) }}
+              </div>
+            </div>
+            <div class="fact">
+              <div class="fact__term">Asked for</div>
+              <div class="fact__value">
+                {{ joined([programme.requestedVenue, programme.requestedCity,
+                           programme.requestedDistrict, programme.requestedPincode]) }}
+              </div>
+            </div>
+            <div class="fact fact--reason">
+              <div class="fact__term">Reason given</div>
+              <div class="fact__value">{{ programme.venueChangeReason }}</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="mvRemarks">Remarks</label>
+            <textarea id="mvRemarks" class="textarea" rows="2" maxlength="500"
+              [value]="moveRemarks()" (input)="moveRemarks.set(textValue($event))"
+              placeholder="Sent to the agency with your answer"></textarea>
+          </div>
+        </div>
+        <div footer>
+          <button type="button" class="btn btn--secondary" (click)="decideMoveFor.set(null)">
+            Cancel
+          </button>
+          <button type="button" class="btn btn--subtle-danger" [disabled]="deciding()"
+            (click)="decideMove(false)">
+            Keep it where it is
+          </button>
+          <button type="button" class="btn btn--primary" [disabled]="deciding()"
+            (click)="decideMove(true)">
+            @if (deciding()) { <span class="spinner"></span> }
+            Move it
+          </button>
+        </div>
+      </app-modal>
+    }
+
     @if (askPostponeFor(); as programme) {
-      <app-modal title="Ask to postpone this batch?" size="sm" (closed)="askPostponeFor.set(null)">
+      <app-modal title="Postpone this program?" size="sm" (closed)="askPostponeFor.set(null)">
         <div class="stack stack-sm">
           <p class="text-sm">
             {{ programme.programmeId }} is due to start
@@ -923,6 +1051,103 @@ export class ProgramsComponent {
       },
       error: () => this.asking.set(false),
     });
+  }
+
+  /* ------------------------------------------------------ moving it */
+
+  /** The batch the agency is asking to move, and what it is asking for. */
+  protected readonly moveFor = signal<Program | null>(null);
+  protected readonly moving = signal(false);
+  protected readonly move = {
+    venue: signal(''),
+    city: signal(''),
+    districtCode: signal<number | null>(null),
+    pincode: signal(''),
+    reason: signal(''),
+  };
+
+  /** The districts of the batch's own state; it does not leave the state. */
+  protected readonly moveDistricts = signal<LookupItem[]>([]);
+
+  protected readonly canSendMove = computed(
+    () => this.move.venue().trim().length > 0 && this.move.reason().trim().length > 0,
+  );
+
+  protected openMove(programme: Program): void {
+    /* Prefilled with where it is now: a change of hall in the same town
+       is the common case, and retyping the city invites a typo. */
+    this.move.venue.set(programme.venue ?? '');
+    this.move.city.set(programme.city ?? '');
+    this.move.districtCode.set(programme.districtCode ?? null);
+    this.move.pincode.set(programme.pincode ?? '');
+    this.move.reason.set('');
+    this.moveDistricts.set([]);
+    if (programme.stateCode) {
+      this.lookups
+        .addressDistricts(programme.stateCode)
+        .subscribe((items) => this.moveDistricts.set(items));
+    }
+    this.moveFor.set(programme);
+  }
+
+  protected sendMove(): void {
+    const programme = this.moveFor();
+    if (!programme || !this.canSendMove() || this.moving()) return;
+
+    this.moving.set(true);
+    this.service
+      .requestVenueChange(programme.id, {
+        venue: this.move.venue().trim(),
+        city: this.move.city().trim() || null,
+        districtCode: this.move.districtCode(),
+        pincode: this.move.pincode().trim() || null,
+        reason: this.move.reason().trim(),
+      })
+      .subscribe({
+        next: () => {
+          this.moving.set(false);
+          this.moveFor.set(null);
+          this.toast.success('Sent to the operation manager', programme.programmeId);
+          this.list.reload();
+        },
+        error: () => this.moving.set(false),
+      });
+  }
+
+  /** The batch whose venue change is being answered. */
+  protected readonly decideMoveFor = signal<Program | null>(null);
+  protected readonly moveRemarks = signal('');
+  protected readonly deciding = signal(false);
+
+  protected openDecideMove(programme: Program): void {
+    this.moveRemarks.set('');
+    this.decideMoveFor.set(programme);
+  }
+
+  protected decideMove(accept: boolean): void {
+    const programme = this.decideMoveFor();
+    if (!programme || this.deciding()) return;
+
+    this.deciding.set(true);
+    this.service
+      .decideVenueChange(programme.id, accept, this.moveRemarks().trim() || undefined)
+      .subscribe({
+        next: () => {
+          this.deciding.set(false);
+          this.decideMoveFor.set(null);
+          this.toast.success(
+            accept ? 'The program has been moved' : 'The venue stays as it is',
+            programme.programmeId,
+          );
+          this.list.reload();
+        },
+        error: () => this.deciding.set(false),
+      });
+  }
+
+  /** An address on one line, with the empty parts left out. */
+  protected joined(parts: (string | null | undefined)[]): string {
+    return parts.filter((part) => !!part && part.trim().length > 0).join(', ') || '\u2014';
   }
 
   protected textValue(event: Event): string {

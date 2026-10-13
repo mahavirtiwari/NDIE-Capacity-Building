@@ -65,18 +65,17 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'People and access',
     items: [
       /* The staff register: admins, operation managers and the Ministry.
-         It deliberately leaves out coordinators, agency logins and the
-         Super Admin, which for an implementing agency leaves nothing at
-         all - its own people are its coordinators, and they have a screen
-         of their own. The entry was offered anyway, so an agency that had
-         just created a coordinator came here to find it and found an
-         empty register with no explanation. */
+         It leaves out coordinators, agency logins and the Super Admin,
+         which is everybody the tiers below the Admin deal with - an
+         agency's people are its coordinators, and a manager's are the
+         agencies it empanelled. Both have a screen of their own, and this
+         one could only ever show them an empty table. */
       {
         label: 'Portal users',
         route: '/access/users',
         icon: 'users',
         permissions: ['users.view'],
-        roles: ['SuperAdmin', 'Ministry', 'Admin', 'OperationManager'],
+        roles: ['SuperAdmin', 'Ministry', 'Admin'],
       },
       /* What the scheme says to the handsets: an announcement written here
          and the notices raised when a programme opens or a track is added. */
@@ -86,7 +85,18 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: 'bell',
         permissions: ['notifications.view'],
       },
-      { label: 'Roles & permissions', route: '/access/roles', icon: 'shield', permissions: ['roles.view'] },
+      /* Who may do what is settled at the top. A manager empanels
+         agencies and reads what they run; the shape of the agency role
+         itself is the Admin's and the Super Admin's to decide, and a
+         screen offering a manager one role to edit invited exactly the
+         drift the tiers exist to prevent. */
+      {
+        label: 'Roles & permissions',
+        route: '/access/roles',
+        icon: 'shield',
+        permissions: ['roles.view'],
+        roles: ['SuperAdmin', 'Ministry', 'Admin'],
+      },
       { label: 'Implementing agencies', route: '/admin/agencies', icon: 'building', permissions: ['agencies.view'] },
       { label: 'Coordinators', route: '/operations/coordinators', icon: 'user-check', permissions: ['coordinators.view'] },
     ],

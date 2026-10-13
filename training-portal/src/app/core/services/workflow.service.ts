@@ -171,6 +171,28 @@ export class ProgramService extends CrudService<Program> {
   }
 
   /**
+   * Asks the operation manager to hold a permitted batch somewhere else.
+   *
+   * Same shape as the postponement request, and for the same reason: the
+   * permission was given for a programme at a place, and the candidates
+   * were told that address.
+   */
+  requestVenueChange(
+    programId: Id,
+    change: { venue: string; city?: string | null; districtCode?: number | null; pincode?: string | null; reason: string },
+  ): Observable<Program> {
+    return this.api.post<Program>(`${this.resource}/${programId}/venue-change-request`, change);
+  }
+
+  /** The manager's answer to that. */
+  decideVenueChange(programId: Id, accept: boolean, remarks?: string): Observable<Program> {
+    return this.api.post<Program>(
+      `${this.resource}/${programId}/venue-change-decision`,
+      { accept, remarks },
+    );
+  }
+
+  /**
    * Opens a batch for registration again, for a stated number of places.
    *
    * There is no closing by hand: a batch closes itself when it fills.

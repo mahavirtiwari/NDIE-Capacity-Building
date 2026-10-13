@@ -121,6 +121,16 @@ export interface Program extends AuditInfo {
   postponementReason?: string | null;
   postponementRequestedOn?: string | null;
 
+  /* Where the agency has asked to move it to, if it has asked. The live
+     venue is untouched until the manager accepts. */
+  requestedVenue?: string | null;
+  requestedCity?: string | null;
+  requestedDistrict?: string | null;
+  requestedDistrictCode?: number | null;
+  requestedPincode?: string | null;
+  venueChangeReason?: string | null;
+  venueChangeRequestedOn?: string | null;
+
   id: Id;
   programmeId: string;
   programmeName: string;
@@ -181,13 +191,18 @@ export interface AttendanceMark {
 
 /** Actions the register exposes inline, depending on the current status. */
 export function programActions(
-  program: Pick<Program, 'status' | 'registrationsOpen' | 'examDateTime' | 'startDate'>,
+  program: Pick<
+    Program,
+    'status' | 'registrationsOpen' | 'examDateTime' | 'startDate' | 'mode' | 'venueChangeRequestedOn'
+  >,
 ): {
   canAcceptPermission: boolean;
   canReopenRegistrations: boolean;
   canSetExamTime: boolean;
   canPostpone: boolean;
   canAskToPostpone: boolean;
+  canAskToMove: boolean;
+  canDecideMove: boolean;
   canMarkConducted: boolean;
 } {
   const open = program.status === 'PermissionAccepted' || program.status === 'CalendarCreated';
@@ -206,9 +221,17 @@ export function programActions(
     canReopenRegistrations: open && !program.registrationsOpen && inTime,
     canSetExamTime: open && !program.registrationsOpen,
     canPostpone: open || program.status === 'New',
-    /* The agency asks; the manager decides. Same batches, different act. */
-    canAskToPostpone: open || program.status === 'New',
+    /* The agency asks; the manager decides. Same act, different side of
+       it - but only once the programme has been permitted. There is
+       nothing to put off before that: a batch still waiting on the
+       manager is refused or permitted, and putting off something that
+       may never run is a decision about nothing. */
+    canAskToPostpone: open,
     canMarkConducted: open && !!program.examDateTime,
+    /* Only a batch that is actually held somewhere, and only once it has
+       been permitted: before that the agency edits it outright. */
+    canAskToMove: open && program.mode !== 'Virtual' && !program.venueChangeRequestedOn,
+    canDecideMove: !!program.venueChangeRequestedOn,
   };
 }
 

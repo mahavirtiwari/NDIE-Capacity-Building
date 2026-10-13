@@ -790,13 +790,25 @@ const COLUMNS: ColumnDef[] = [
       }
 
 
-      /* Two columns where the dialog is wide enough, one where it is not.
-         .panel and .fact are in the shared sheet. */
+      /* One section to a row.
+
+         Two columns fitted more on a screen and read worse: an address
+         wrapping over three lines beside a two-line contact block left
+         one column short and the other ragged, and the eye had to pick
+         which half to read first. A section now runs the width of the
+         dialog, and the facts inside it sit side by side where they fit -
+         which is the level at which columns actually help. */
       .sheet {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        grid-template-columns: 1fr;
         align-items: start;
         gap: 0.9rem;
+      }
+      /* Inside a full-width panel the short facts can share a line. */
+      .sheet .panel__body {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.7rem 1.25rem;
       }
       /* A panel heading is a flex row, so the badge goes to the far end
          of it rather than trailing the word. */

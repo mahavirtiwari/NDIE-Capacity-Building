@@ -71,6 +71,28 @@ public class Programme : AuditableEntity
     public DateTime? PostponementRequestedOn { get; set; }
     public int? PostponementRequestedByUserId { get; set; }
 
+    /// <summary>
+    /// Where the agency has asked to move this batch to, if it has asked.
+    ///
+    /// The permission the manager gave was for a programme at a place: the
+    /// candidates were told that address, and somebody will travel to it.
+    /// So the agency proposes the new one and the manager decides, exactly
+    /// as with putting the batch off - the live fields are untouched until
+    /// then, and the proposal sits here where both sides can read it.
+    ///
+    /// The state is not among them. Moving a batch between states moves it
+    /// out of the allocation the manager and the agency were given to work
+    /// in, which is a different batch rather than a different hall.
+    /// </summary>
+    public string? RequestedVenue { get; set; }
+    public string? RequestedCity { get; set; }
+    public string? RequestedPincode { get; set; }
+    public int? RequestedDistrictCode { get; set; }
+    public LgdDistrict? RequestedDistrict { get; set; }
+    public string? VenueChangeReason { get; set; }
+    public DateTime? VenueChangeRequestedOn { get; set; }
+    public int? VenueChangeRequestedByUserId { get; set; }
+
     public int MaxParticipants { get; set; }
     public int ParticipantCount { get; set; }
     public decimal? CumulativeFeedback { get; set; }

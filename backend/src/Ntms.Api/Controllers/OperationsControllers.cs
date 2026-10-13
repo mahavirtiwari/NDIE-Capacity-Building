@@ -361,6 +361,34 @@ public class ProgramsController(ProgrammeService service, MonitoringService moni
             "Sent to the operation manager.");
 
     /// <summary>
+    /// The agency asks to hold a permitted batch somewhere else.
+    ///
+    /// Like the postponement request, it changes nothing by itself: the
+    /// proposal is recorded beside the live address and the manager that
+    /// permitted the batch decides.
+    /// </summary>
+    [HttpPost("{id:int}/venue-change-request")]
+    [HasPermission(Permissions.ProgramsManage)]
+    public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> RequestVenueChange(
+        int id, [FromBody] VenueChangeRequestDto dto, CancellationToken ct) =>
+        Envelope(await service.RequestVenueChangeAsync(id, dto, ct),
+            "Sent to the operation manager.");
+
+    /// <summary>
+    /// The manager's answer: the batch moves, or it stays where it is.
+    ///
+    /// On the approval key rather than the manage one, because this is the
+    /// same act as permitting the batch in the first place - the agency
+    /// that asked must not be able to answer itself.
+    /// </summary>
+    [HttpPost("{id:int}/venue-change-decision")]
+    [HasPermission(Permissions.ProgramsApprove)]
+    public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> DecideVenueChange(
+        int id, [FromBody] VenueChangeDecisionDto dto, CancellationToken ct) =>
+        Envelope(await service.DecideVenueChangeAsync(id, dto, ct),
+            dto.Accept ? "The program has been moved." : "The venue stays as it is.");
+
+    /// <summary>
     /// Opens registration again, with the number of places it is opening
     /// for.
     ///
