@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, font, radius, spacing } from '../theme';
 
 const MONTHS = [
@@ -8,6 +8,11 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const SHORT_MONTHS = MONTHS.map((month) => month.slice(0, 3));
+
+/** Years are shown four to a row; the row height the list scrolls by. */
+const YEARS_PER_ROW = 4;
+const YEAR_ROW = 52;
 
 /** ISO day string in local terms. `toISOString` is UTC and shifts the date. */
 function iso(year: number, month: number, day: number): string {
@@ -78,6 +83,14 @@ export function DateField({
   const [open, setOpen] = useState(false);
   const [view, setView] = useState(() => startingMonth(value));
 
+  /* Which of the three the calendar is showing.
+   *
+   * It only ever showed days, with a month arrow at each side, so a
+   * qualification taken in 1998 meant pressing back three hundred and
+   * thirty times. The month and year in the bar is the way out: it is a
+   * button, and it goes straight to the years. */
+  const [mode, setMode] = useState<'day' | 'month' | 'year'>('day');
+
   const grid = useMemo(() => {
     const total = daysInMonth(view.year, view.month);
     const leading = new Date(view.year, view.month, 1).getDay();
@@ -104,6 +117,34 @@ export function DateField({
     setView({ year, month: ((month % 12) + 12) % 12 });
   };
 
+  /* The years worth offering. The form's own window decides it where
+     there is one - a passing year cannot be after today if the form says
+     so - and a century back covers a date of birth where there is not. */
+  const years = useMemo(() => {
+    const now = new Date().getFullYear();
+    const first = minDate ? Number(minDate.slice(0, 4)) : now - 100;
+    const last = maxDate ? Number(maxDate.slice(0, 4)) : now + 10;
+
+    const rows: number[][] = [];
+    for (let year = first; year <= Math.max(last, first); year += 1) {
+      if (year % YEARS_PER_ROW === first % YEARS_PER_ROW) rows.push([]);
+      rows[rows.length - 1].push(year);
+    }
+    return rows;
+  }, [minDate, maxDate]);
+
+  /* Opened on the year already in view rather than at the top: somebody
+     correcting 1998 should not scroll back to it from 1925. */
+  const yearRow = Math.max(
+    0,
+    years.findIndex((row) => row.includes(view.year)),
+  );
+
+  /** Whether any day of a month is inside the form's window. */
+  const monthOff = (year: number, month: number) =>
+    (!!maxDate && iso(year, month, 1) > maxDate) ||
+    (!!minDate && iso(year, month, daysInMonth(year, month)) < minDate);
+
   const monthStart = iso(view.year, view.month, 1);
   const monthEnd = iso(view.year, view.month, daysInMonth(view.year, view.month));
   const canGoBack = !minDate || monthStart > minDate;
@@ -122,6 +163,7 @@ export function DateField({
         accessibilityState={{ expanded: open }}
         onPress={() => {
           setView(startingMonth(value));
+          setMode('day');
           setOpen(true);
         }}
         style={[styles.control, !!error && styles.controlInvalid]}
@@ -149,27 +191,139 @@ export function DateField({
             </View>
 
             <View style={styles.monthBar}>
+              {/* The arrows belong to the day grid. On the month and year
+                  boards there is nothing to step through, and leaving
+                  them there invited a press that did nothing. */}
+              {mode === 'day' ? (
+                <Pressable
+                  onPress={() => step(-1)}
+                  disabled={!canGoBack}
+                  accessibilityLabel="Previous month"
+                  style={[styles.step, !canGoBack && styles.stepOff]}
+                >
+                  <Ionicons name="chevron-back" size={20} color={colors.ink700} />
+                </Pressable>
+              ) : (
+                <View style={styles.step} />
+              )}
+
               <Pressable
-                onPress={() => step(-1)}
-                disabled={!canGoBack}
-                accessibilityLabel="Previous month"
-                style={[styles.step, !canGoBack && styles.stepOff]}
+                onPress={() => setMode(mode === 'day' ? 'year' : 'day')}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  mode === 'day' ? 'Choose a month and year' : 'Back to the days'
+                }
+                style={styles.monthLabel}
               >
-                <Ionicons name="chevron-back" size={20} color={colors.ink700} />
+                <Text style={styles.month}>
+                  {mode === 'year'
+                    ? 'Choose a year'
+                    : mode === 'month'
+                      ? view.year
+                      : `${MONTHS[view.month]} ${view.year}`}
+                </Text>
+                <Ionicons
+                  name={mode === 'day' ? 'chevron-down' : 'chevron-up'}
+                  size={16}
+                  color={colors.ink600}
+                />
               </Pressable>
-              <Text style={styles.month}>
-                {MONTHS[view.month]} {view.year}
-              </Text>
-              <Pressable
-                onPress={() => step(1)}
-                disabled={!canGoForward}
-                accessibilityLabel="Next month"
-                style={[styles.step, !canGoForward && styles.stepOff]}
-              >
-                <Ionicons name="chevron-forward" size={20} color={colors.ink700} />
-              </Pressable>
+
+              {mode === 'day' ? (
+                <Pressable
+                  onPress={() => step(1)}
+                  disabled={!canGoForward}
+                  accessibilityLabel="Next month"
+                  style={[styles.step, !canGoForward && styles.stepOff]}
+                >
+                  <Ionicons name="chevron-forward" size={20} color={colors.ink700} />
+                </Pressable>
+              ) : (
+                <View style={styles.step} />
+              )}
             </View>
 
+            {mode === 'year' ? (
+              <FlatList
+                data={years}
+                keyExtractor={(row) => String(row[0])}
+                style={styles.board}
+                initialScrollIndex={yearRow}
+                getItemLayout={(_, index) => ({
+                  length: YEAR_ROW,
+                  offset: YEAR_ROW * index,
+                  index,
+                })}
+                renderItem={({ item: row }) => (
+                  <View style={styles.boardRow}>
+                    {row.map((year) => (
+                      <Pressable
+                        key={year}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: year === view.year }}
+                        onPress={() => {
+                          setView((held) => ({ ...held, year }));
+                          setMode('month');
+                        }}
+                        style={({ pressed }) => [
+                          styles.boardCell,
+                          pressed && styles.boardCellPressed,
+                          year === view.year && styles.boardCellChosen,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.boardText,
+                            year === view.year && styles.boardTextChosen,
+                          ]}
+                        >
+                          {year}
+                        </Text>
+                      </Pressable>
+                    ))}
+                    {/* A short last row keeps its columns under the ones above. */}
+                    {Array.from({ length: YEARS_PER_ROW - row.length }, (_, index) => (
+                      <View key={`pad-${index}`} style={styles.boardCell} />
+                    ))}
+                  </View>
+                )}
+              />
+            ) : mode === 'month' ? (
+              <View style={styles.monthBoard}>
+                {SHORT_MONTHS.map((name, month) => {
+                  const off = monthOff(view.year, month);
+                  const chosen = month === view.month;
+                  return (
+                    <Pressable
+                      key={name}
+                      disabled={off}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: chosen, disabled: off }}
+                      onPress={() => {
+                        setView((held) => ({ ...held, month }));
+                        setMode('day');
+                      }}
+                      style={({ pressed }) => [
+                        styles.monthCell,
+                        pressed && !off && styles.boardCellPressed,
+                        chosen && styles.boardCellChosen,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.boardText,
+                          off && styles.dayTextOff,
+                          chosen && styles.boardTextChosen,
+                        ]}
+                      >
+                        {name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : (
+            <>
             <View style={styles.weekdays}>
               {WEEKDAYS.map((day, index) => (
                 <Text key={`${day}-${index}`} style={styles.weekday}>
@@ -215,6 +369,8 @@ export function DateField({
                 );
               })}
             </View>
+            </>
+            )}
 
             {minDate || maxDate ? (
               <Text style={styles.window}>
@@ -300,7 +456,46 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepOff: { opacity: 0.25 },
+  monthLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: radius.sm,
+  },
   month: { fontSize: font.base, fontWeight: '700', color: colors.ink900 },
+
+  /* As tall as six rows of days, so switching between the boards does not
+     make the dialog jump about under the thumb. */
+  board: { height: YEAR_ROW * 5, marginTop: spacing.sm },
+  boardRow: { flexDirection: 'row', paddingHorizontal: spacing.md, height: YEAR_ROW },
+  boardCell: {
+    flex: 1,
+    margin: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.sm,
+  },
+  boardCellPressed: { backgroundColor: colors.brand50 },
+  boardCellChosen: { backgroundColor: colors.brand600 },
+  boardText: { fontSize: font.base, color: colors.ink900 },
+  boardTextChosen: { color: colors.white, fontWeight: '700' },
+
+  monthBoard: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: spacing.md,
+    height: YEAR_ROW * 5,
+    marginTop: spacing.sm,
+  },
+  monthCell: {
+    width: `${100 / 3}%`,
+    height: YEAR_ROW * 5 / 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.sm,
+  },
 
   weekdays: {
     flexDirection: 'row',
