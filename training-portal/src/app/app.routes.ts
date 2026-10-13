@@ -204,9 +204,18 @@ export const routes: Routes = [
             loadComponent: () => import('./features/access/roles.component').then((m) => m.RolesComponent),
           },
           {
+            /* The staff register, and only for the tiers that have staff
+               on it. An implementing agency holds users.view because it
+               appoints coordinators, and coordinators are not on this
+               register - nor are agency logins, nor the Super Admin - so
+               for an agency this screen could only ever be an empty
+               table. Coordinators is their screen. */
             path: 'users',
             title: 'Portal users · CBMS',
-            canActivate: [permissionGuard('users.view')],
+            canActivate: [
+              permissionGuard('users.view'),
+              roleGuard('SuperAdmin', 'Ministry', 'Admin', 'OperationManager'),
+            ],
             data: { scope: 'all' },
             loadComponent: () => import('./features/access/users.component').then((m) => m.UsersComponent),
           },
