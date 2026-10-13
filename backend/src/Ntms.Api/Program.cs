@@ -263,7 +263,39 @@ var hostsPortal = !string.IsNullOrEmpty(webRoot) && File.Exists(Path.Combine(web
 if (hostsPortal)
 {
     app.UseDefaultFiles();
-    app.UseStaticFiles();
+
+    /* Two kinds of file, and they want opposite things.
+
+       index.html names the bundles by their content hash. It has to be
+       re-read on every visit, or a browser holding yesterday's copy asks
+       for a bundle the last deploy deleted - which is a blank page, and
+       a blank page that a hard refresh only fixes for the one path it was
+       done on, because every route caches its own copy of the shell.
+       That is exactly what happened after a release here. Without a
+       Cache-Control header a browser is free to guess, and it guesses
+       from Last-Modified; said plainly, there is nothing to guess.
+
+       Everything with a hash in its name is the opposite: it can never
+       change without changing its name, so it is worth keeping for a year
+       and never revalidating. The two rules together are what make a
+       deploy take effect on the next visit rather than whenever a cache
+       happens to expire. */
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        OnPrepareResponse = ctx =>
+        {
+            var headers = ctx.Context.Response.Headers;
+            var name = ctx.File.Name;
+
+            var hashed = name.Contains('-')
+                && (name.EndsWith(".js", StringComparison.OrdinalIgnoreCase)
+                    || name.EndsWith(".css", StringComparison.OrdinalIgnoreCase));
+
+            headers.CacheControl = hashed
+                ? "public, max-age=31536000, immutable"
+                : "no-cache, no-store, must-revalidate";
+        },
+    });
 }
 
 app.UseCors(CorsPolicy);
@@ -350,8 +382,18 @@ if (hostsPortal)
     /* Everything else is an Angular route — /programmes, /p/{code}, the portal
        itself — so the shell is returned and the browser router takes over.
        MapFallbackToFile ignores paths that look like files, so a missing asset
-       still 404s rather than returning the shell. */
-    app.MapFallbackToFile("index.html");
+       still 404s rather than returning the shell.
+
+       Given the same no-cache rule explicitly: this is the path most of the
+       portal is actually loaded from, and the fallback carries options of
+       its own rather than inheriting the ones set above. Without it a
+       browser keeps a copy of the shell per route, and a deploy reaches
+       each of them whenever that copy happens to expire. */
+    app.MapFallbackToFile("index.html", new StaticFileOptions
+    {
+        OnPrepareResponse = ctx =>
+            ctx.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate",
+    });
 }
 
 /* --------------------------------------------------------------- database */
