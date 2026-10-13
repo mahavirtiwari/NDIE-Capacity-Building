@@ -384,6 +384,17 @@ public class OptionSetItem : AuditableStatusEntity
     /// <summary>What the applicant reads.</summary>
     public string Label { get; set; } = string.Empty;
 
+    /// <summary>
+    /// What the choice means, where the wording alone does not say it.
+    ///
+    /// Shown under the choice on the form rather than in a tooltip: the
+    /// person reading it is deciding between this and the one below, and a
+    /// qualification that turns on the difference between "lead auditor"
+    /// and "auditor" is not something to hide behind a hover. Empty for
+    /// the choices that explain themselves, which is most of them.
+    /// </summary>
+    public string? Description { get; set; }
+
     public int DisplayOrder { get; set; }
 }
 

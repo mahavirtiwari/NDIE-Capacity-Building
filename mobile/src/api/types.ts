@@ -196,6 +196,11 @@ export type FieldType =
 export interface FieldOption {
   value: string;
   label: string;
+  /**
+   * What the choice means, where the wording alone does not say it. Set on
+   * the shared choice list the field points at; most choices have none.
+   */
+  description?: string | null;
 }
 
 export interface FieldValidation {

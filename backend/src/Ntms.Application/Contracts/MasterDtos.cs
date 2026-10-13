@@ -356,6 +356,12 @@ public class OptionSetItemDto
     /// <summary>What is stored against an answer. Fixed once answers exist.</summary>
     public string Value { get; set; } = string.Empty;
     public string Label { get; set; } = string.Empty;
+
+    /// <summary>
+    /// What the choice means, shown under it on the form. Empty for the
+    /// choices that explain themselves.
+    /// </summary>
+    public string? Description { get; set; }
     public int DisplayOrder { get; set; }
 
     /// <summary>

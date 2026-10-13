@@ -373,6 +373,8 @@ export interface OptionSetItem {
   /** What is stored against an answer. Fixed once answers exist. */
   value: string;
   label: string;
+  /** What the choice means, shown under it on the form. */
+  description?: string | null;
   displayOrder: number;
   /** Withdrawn rather than deleted, so old answers keep reading. */
   status: RecordStatus;

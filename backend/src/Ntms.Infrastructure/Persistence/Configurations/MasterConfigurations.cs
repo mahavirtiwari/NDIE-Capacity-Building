@@ -107,6 +107,9 @@ public class OptionSetItemConfiguration : IEntityTypeConfiguration<OptionSetItem
 {
     public void Configure(EntityTypeBuilder<OptionSetItem> b)
     {
+        /* Room for a sentence or two. A choice that needs more than that
+           is a question of its own. */
+        b.Property(x => x.Description).HasMaxLength(500);
         b.ToTable("OptionSetItems");
         b.Property(x => x.Value).HasMaxLength(120).IsRequired();
         b.Property(x => x.Label).HasMaxLength(200).IsRequired();

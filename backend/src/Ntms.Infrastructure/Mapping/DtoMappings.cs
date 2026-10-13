@@ -344,7 +344,12 @@ public static class DtoMappings
                                     .. (f.OptionSet?.Items ?? [])
                                         .Where(i => i.Status == RecordStatus.Active)
                                         .OrderBy(i => i.DisplayOrder).ThenBy(i => i.Id)
-                                        .Select(i => new FieldOptionDto { Value = i.Value, Label = i.Label }),
+                                        .Select(i => new FieldOptionDto
+                                        {
+                                            Value = i.Value,
+                                            Label = i.Label,
+                                            Description = i.Description,
+                                        }),
                                 ],
                             Validation = new FieldValidationDto
                             {

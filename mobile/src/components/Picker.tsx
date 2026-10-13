@@ -15,6 +15,8 @@ import { useKeyboardHeight } from './ui';
 export interface PickerOption {
   value: string;
   label: string;
+  /** What it means, shown under the label where there is one. */
+  description?: string | null;
 }
 
 interface PickerProps {
@@ -196,7 +198,15 @@ export function CheckboxGroup({
               <View style={[styles.box, checked && styles.boxChecked]}>
                 {checked ? <Ionicons name="checkmark" size={14} color={colors.white} /> : null}
               </View>
-              <Text style={styles.checkText}>{option.label}</Text>
+              {/* The words, and under them what they mean. A choice that
+                  needs explaining is explained where it is read, not
+                  behind a tap. */}
+              <View style={styles.checkBody}>
+                <Text style={styles.checkText}>{option.label}</Text>
+                {option.description ? (
+                  <Text style={styles.checkNote}>{option.description}</Text>
+                ) : null}
+              </View>
             </Pressable>
           );
         })}
@@ -242,7 +252,12 @@ export function RadioGroup({
               <View style={[styles.radio, checked && styles.radioChecked]}>
                 {checked ? <View style={styles.radioDot} /> : null}
               </View>
-              <Text style={styles.checkText}>{option.label}</Text>
+              <View style={styles.checkBody}>
+                <Text style={styles.checkText}>{option.label}</Text>
+                {option.description ? (
+                  <Text style={styles.checkNote}>{option.description}</Text>
+                ) : null}
+              </View>
             </Pressable>
           );
         })}
@@ -378,7 +393,9 @@ const styles = StyleSheet.create({
 
   group: { gap: spacing.sm },
   check: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 4 },
+  checkBody: { flex: 1, gap: 1 },
   checkText: { fontSize: font.base, color: colors.ink900, lineHeight: 21, flexShrink: 1 },
+  checkNote: { fontSize: font.xs, color: colors.ink500, lineHeight: 16 },
   checkTextWide: { flex: 1 },
   box: {
     width: 20,

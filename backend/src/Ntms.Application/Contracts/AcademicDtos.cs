@@ -83,6 +83,13 @@ public class FieldOptionDto
 {
     public string Value { get; set; } = string.Empty;
     public string Label { get; set; } = string.Empty;
+
+    /// <summary>
+    /// What the choice means, where the wording alone does not say it.
+    /// Carried from the shared choice list the field points at; a field
+    /// with options typed into it has none.
+    /// </summary>
+    public string? Description { get; set; }
 }
 
 public class ProfileFieldDto

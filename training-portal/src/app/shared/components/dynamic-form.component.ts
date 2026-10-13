@@ -296,18 +296,33 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
                   <option [value]="opt.value">{{ opt.label }}</option>
                 }
               </select>
+              <!-- A native dropdown cannot carry a line under an option,
+                   so the chosen one explains itself underneath. -->
+              @if (describing(group, field); as note) {
+                <span class="choice-note choice-note--under">{{ note }}</span>
+              }
             }
             @case ('multiselect') {
               <div class="check-grid">
                 @for (opt of field.options; track opt.value) {
-                  <label class="check">
+                  <label class="check check--described">
                     <input
                       type="checkbox"
                       [checked]="isChecked(group, field.key, opt.value)"
                       [disabled]="readonly()"
                       (change)="toggleMulti(group, field.key, opt.value, $event)"
                     />
-                    <span>{{ opt.label }}</span>
+                    <span>
+                      {{ opt.label }}
+                      <!-- What the choice means, under the words it
+                           explains. The person reading is deciding between
+                           this and the one below it, and a qualification
+                           that turns on the difference is not something to
+                           hide behind a hover. -->
+                      @if (opt.description) {
+                        <span class="choice-note">{{ opt.description }}</span>
+                      }
+                    </span>
                   </label>
                 }
               </div>
@@ -315,9 +330,14 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
             @case ('radio') {
               <div class="check-grid">
                 @for (opt of field.options; track opt.value) {
-                  <label class="check">
+                  <label class="check check--described">
                     <input type="radio" [value]="opt.value" [formControl]="ctrl(group, field.key)" />
-                    <span>{{ opt.label }}</span>
+                    <span>
+                      {{ opt.label }}
+                      @if (opt.description) {
+                        <span class="choice-note">{{ opt.description }}</span>
+                      }
+                    </span>
                   </label>
                 }
               </div>
@@ -442,6 +462,21 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
   `,
   styles: [
     `
+      /* What a choice means, under the words it explains. Quiet, and
+         indented to the label it belongs to rather than the control. */
+      .choice-note {
+        display: block;
+        font-size: var(--fs-xs);
+        color: var(--ink-500);
+        line-height: 1.35;
+        margin-top: 1px;
+      }
+      .choice-note--under { margin-top: 0.25rem; }
+      /* A described choice is two lines, so the box lines up with the
+         first of them rather than the middle of both. */
+      .check--described { align-items: flex-start; }
+      .check--described input { margin-top: 3px; }
+
       .file-box {
         position: relative;
         display: flex;
@@ -900,6 +935,19 @@ export class DynamicFormComponent {
     if (errors['maxDate']) return `Cannot be after ${field.validation.maxDate}.`;
     if (errors['max']) return `Maximum value is ${field.validation.max}.`;
     return 'Invalid value.';
+  }
+
+  /**
+   * What the chosen option means, for a control that cannot say it inline.
+   *
+   * A native select renders text and nothing else, so the description of
+   * whichever option is chosen goes under the box. Null where nothing is
+   * chosen or the choice carries no description, which is most of them.
+   */
+  protected describing(group: FormGroup, field: ProfileField): string | null {
+    const chosen = group.get(field.key)?.value;
+    if (!chosen) return null;
+    return field.options?.find((option) => option.value === chosen)?.description ?? null;
   }
 
   protected isChecked(group: FormGroup, key: string, option: string): boolean {

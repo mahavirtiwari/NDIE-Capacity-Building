@@ -421,7 +421,12 @@ public class FeedbackService(NtmsDbContext db)
             : (q.OptionSet?.Items ?? [])
                 .Where(i => i.Status == RecordStatus.Active)
                 .OrderBy(i => i.DisplayOrder).ThenBy(i => i.Id)
-                .Select(i => new FieldOptionDto { Value = i.Value, Label = i.Label });
+                .Select(i => new FieldOptionDto
+                {
+                    Value = i.Value,
+                    Label = i.Label,
+                    Description = i.Description,
+                });
 
     private static void Build(FeedbackForm entity, List<FeedbackQuestionDto> questions)
     {

@@ -209,33 +209,51 @@ const COLUMNS: ColumnDef[] = [
             </span>
           </div>
 
-          <!-- Withdrawing a choice. Not a delete, because answers already
-               name it and the history has to keep reading. -->
-          @if (editing(); as current) {
-            @if (current.items.length) {
-              <div class="field field--span-2">
-                <span class="field-label">Which are still offered</span>
-                <div class="row row-sm row-wrap">
-                  @for (item of items(); track item.value) {
+          <!-- Each choice as a row: what it says, what it means, and
+               whether it is still offered.
+
+               The box above is still how choices are added, because typing
+               a list is faster than filling in a form per line. This is
+               where a choice is explained and withdrawn - a description
+               belongs beside the words it explains, and withdrawing is not
+               a delete, because answers already name it and the history
+               has to keep reading. -->
+          @if (items().length) {
+            <div class="field field--span-2">
+              <span class="field-label">What each choice means</span>
+              <div class="choices">
+                @for (item of items(); track item.value; let i = $index) {
+                  <div class="choice" [class.choice--off]="item.status !== 'Active'">
+                    <div class="choice__label">
+                      <span class="choice__text">{{ item.label }}</span>
+                      <code class="choice__value">{{ item.value }}</code>
+                    </div>
+
+                    <input
+                      class="input input--sm"
+                      [value]="item.description ?? ''"
+                      placeholder="What it means, if the wording alone does not say it"
+                      maxlength="500"
+                      (input)="describeItem(item.value, inputValue($event))"
+                    />
+
                     <button
                       type="button"
-                      class="chip"
-                      [class.chip--muted]="item.status !== 'Active'"
+                      class="btn btn--sm"
+                      [class.btn--secondary]="item.status === 'Active'"
+                      [class.btn--subtle-danger]="item.status !== 'Active'"
                       (click)="toggleItem(item.value)"
                     >
-                      {{ item.label }}
-                      <app-icon
-                        [name]="item.status === 'Active' ? 'check' : 'x'"
-                        [size]="12"
-                      />
+                      {{ item.status === 'Active' ? 'Offered' : 'Withdrawn' }}
                     </button>
-                  }
-                </div>
-                <span class="field-hint">
-                  Click one to stop offering it. It keeps its place in answers already given.
-                </span>
+                  </div>
+                }
               </div>
-            }
+              <span class="field-hint">
+                The description is shown under the choice on the form. Withdrawing one stops
+                it being offered; it keeps its place in answers already given.
+              </span>
+            </div>
           }
 
           <div class="field">
@@ -266,6 +284,35 @@ const COLUMNS: ColumnDef[] = [
       </app-modal>
     }
   `,
+  styles: [
+    `
+      /* One choice to a row: the wording, what it means, and whether it is
+         still offered. Chips said only the first of those. */
+      .choices {
+        display: grid;
+        gap: 0.4rem;
+      }
+      .choice {
+        display: grid;
+        grid-template-columns: minmax(160px, 1fr) minmax(200px, 1.6fr) auto;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.45rem 0.6rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+      /* Withdrawn: still listed, because it is still in the answers. */
+      .choice--off { background: var(--surface-muted); opacity: 0.75; }
+      .choice__label { display: grid; gap: 1px; min-width: 0; }
+      .choice__text { font-size: var(--fs-sm); color: var(--ink-900); }
+      .choice__value { font-size: var(--fs-xs); color: var(--ink-500); }
+      .input--sm { padding: 0.3rem 0.5rem; font-size: var(--fs-sm); }
+      @media (max-width: 760px) {
+        .choice { grid-template-columns: 1fr; }
+      }
+    `,
+  ],
 })
 export class OptionSetsComponent {
   protected readonly copy = inject(SiteTextService);
@@ -323,10 +370,26 @@ export class OptionSetsComponent {
             id: was?.id ?? 0,
             value: was?.value ?? label.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
             label,
+            /* Kept with the wording it belongs to: retyping the box must
+               not quietly throw away what somebody wrote underneath. */
+            description: was?.description,
             displayOrder: index + 1,
             status: was?.status ?? ('Active' as RecordStatus),
           };
         }),
+    );
+  }
+
+  /**
+   * What a choice means, kept against the choice rather than the line.
+   *
+   * Typed here instead of in the box above, because the box is split on
+   * newlines and a description is a sentence - the two cannot share a
+   * line without one of them having to be escaped out of the other.
+   */
+  protected describeItem(value: string, description: string): void {
+    this.items.update((list) =>
+      list.map((i) => (i.value === value ? { ...i, description } : i)),
     );
   }
 

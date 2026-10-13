@@ -48,6 +48,11 @@ export function fieldTypeHasOptions(type: FieldType): boolean {
 export interface FieldOption {
   value: string;
   label: string;
+  /**
+   * What the choice means, where the wording alone does not say it.
+   * Carried from the shared choice list the field points at.
+   */
+  description?: string | null;
 }
 
 export interface FieldValidation {

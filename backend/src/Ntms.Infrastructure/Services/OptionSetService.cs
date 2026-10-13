@@ -159,6 +159,7 @@ public class OptionSetService(NtmsDbContext db)
             {
                 Value = string.IsNullOrWhiteSpace(i.Value) ? Slug(i.Label) : Normalise(i.Value),
                 Label = i.Label.Trim(),
+                Description = string.IsNullOrWhiteSpace(i.Description) ? null : i.Description.Trim(),
                 Order = index + 1,
                 Status = EnumMaps.ToStatus(i.Status),
             })
@@ -178,6 +179,7 @@ public class OptionSetService(NtmsDbContext db)
                 {
                     Value = item.Value,
                     Label = item.Label,
+                    Description = item.Description,
                     DisplayOrder = item.Order,
                     Status = item.Status,
                 });
@@ -185,6 +187,7 @@ public class OptionSetService(NtmsDbContext db)
             }
 
             existing.Label = item.Label;
+            existing.Description = item.Description;
             existing.DisplayOrder = item.Order;
             existing.Status = item.Status;
         }
@@ -226,6 +229,7 @@ public class OptionSetService(NtmsDbContext db)
                     Id = i.Id,
                     Value = i.Value,
                     Label = i.Label,
+                    Description = i.Description,
                     DisplayOrder = i.DisplayOrder,
                     Status = i.Status.ToApi(),
                 }),
