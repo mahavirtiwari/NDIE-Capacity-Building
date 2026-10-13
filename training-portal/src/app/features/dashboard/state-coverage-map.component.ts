@@ -258,15 +258,19 @@ interface Region {
     }
     .map__state {
       stroke: var(--surface);
-      stroke-width: 0.6;
+      stroke-width: 0.75;
       stroke-linejoin: round;
       cursor: default;
       outline: none;
       transition: fill 0.12s ease;
     }
+    /* The silhouette under the shading, which is what gives the country
+       an edge when every state in it is empty. Neutral and a shade
+       darker than the empty fill, for the same reason the fill is grey:
+       on an empty map this outline is the whole drawing. */
     .map__outline {
       fill: none;
-      stroke: var(--brand-200);
+      stroke: var(--ink-400);
       stroke-width: 1.6;
       stroke-linejoin: round;
       pointer-events: none;
@@ -694,12 +698,16 @@ export class StateCoverageMapComponent {
   /** Brand ramp from the palest tint to full crimson. */
   protected shade(intensity: number): string {
     /*
-     * A state with nothing recorded still has to be clearly visible. The
-     * palest brand tint is very nearly white, so on an empty dataset — which
-     * is exactly how the map starts life — the whole country disappeared into
-     * the card behind it. The floor is a definite tone instead.
+     * Nothing recorded is grey, not the palest pink.
+     *
+     * The floor was already meant to be "a definite tone", and brand-100 is
+     * not one: at #f7dce0 on a white card the whole country vanished, and an
+     * agency that had run nothing yet opened the dashboard to what looked
+     * like an empty panel where a map should be. Grey also says more than a
+     * fainter pink could - no colour means no programmes, and the first
+     * state to conduct one turns pink rather than merely a shade darker.
      */
-    if (intensity <= 0) return 'var(--brand-100)';
+    if (intensity <= 0) return 'var(--ink-200)';
     const percent = Math.round(18 + intensity * 82);
     return `color-mix(in srgb, var(--brand-600) ${percent}%, var(--brand-50))`;
   }

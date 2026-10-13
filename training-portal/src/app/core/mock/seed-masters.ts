@@ -69,6 +69,9 @@ export const PROGRAM_TYPES: ProgramType[] = PT_SEED.map((p) => ({
   deliveryMode: p.mode,
   minQualification: p.qual,
   minExperienceYears: p.exp,
+  /* The sample data states one bar per track, which is what a type
+     without routes has always meant. */
+  eligibilityRoutes: [],
   minParticipants: 0,
   certificateValidityMonths: 36,
   isExamMandatory: p.exam,

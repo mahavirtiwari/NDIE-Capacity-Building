@@ -399,7 +399,7 @@ interface WayDraft {
               <!-- Where the track states more than one way in, the two
                    figures beneath are the lowest of them and saying both
                    would be saying it twice. -->
-              @if (row.eligibilityRoutes?.length) {
+              @if (row.eligibilityRoutes.length) {
                 <ol class="ways">
                   @for (way of row.eligibilityRoutes; track way.qualificationCode) {
                     <li class="way">
