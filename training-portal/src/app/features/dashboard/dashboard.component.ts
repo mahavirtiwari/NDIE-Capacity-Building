@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { BehaviorSubject, of, switchMap } from 'rxjs';
+import { BehaviorSubject, switchMap } from 'rxjs';
 import { LookupItem, PROGRAM_MODES } from '../../core/models';
 import { AuthService } from '../../core/services/auth.service';
 import { LookupService } from '../../core/services/masters.service';
@@ -134,12 +134,12 @@ const PERIODS: { value: number; label: string }[] = [
            that may not see those gets no empty frames where they were: a
            chart of nothing reads as a scheme at a standstill rather than as
            a view somebody was not given. -->
-      <!-- The map is the whole country, which is the office's view and
-           not everybody's. A coordinator captures one programme at a time
-           and holds no reports key, so the card used to sit on their
-           dashboard asking the server for something it would refuse -
-           leaving a titleless frame around an empty map. -->
-      @if (seesCoverage()) {
+      <!-- The whole country, with the shading narrowed to whatever this
+           account is allocated. Everybody who may see programmes may see
+           this: a coordinator reads their own states shaded against the
+           map of the rest, which is what "how far have we got" looks like
+           from where they sit. -->
+      @if (seesProgrammes()) {
         <div class="mt-lg">
           <app-state-coverage-map [data]="coverage() ?? null" />
         </div>
@@ -281,25 +281,11 @@ export class DashboardComponent {
       the three charts are made of. */
   protected readonly seesProgrammes = computed(() => this.auth.hasPermission('programs.view'));
 
-  /**
-   * Whether this account may read the national map.
-   *
-   * Its own key rather than the programmes one: the figures behind it are
-   * every programme in the scheme, which is what reports.view governs
-   * everywhere else. The two were read as one, so a coordinator - who may
-   * see the programmes they run and no register at all - was shown the
-   * card and refused the data.
-   */
-  protected readonly seesCoverage = computed(() => this.auth.hasPermission('reports.view'));
-
-  /* Not asked for at all where it would be refused. Hiding the card alone
-     would leave the request going out on every filter change. */
+  /* Scoped by the server to what this account is allocated, so the same
+     call serves the Super Admin reading the country and the coordinator
+     reading their own districts. */
   protected readonly coverage = toSignal<StateCoverageResult | undefined>(
-    this.applied.pipe(
-      switchMap((filters) =>
-        this.seesCoverage() ? this.service.stateCoverage(filters) : of(undefined),
-      ),
-    ),
+    this.applied.pipe(switchMap((filters) => this.service.stateCoverage(filters))),
   );
 
   /* An empty profile and an all-zero profile look the same on a chart, so the

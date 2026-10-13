@@ -561,9 +561,17 @@ public class DashboardController(DashboardService service) : ApiControllerBase
     /// <summary>
     /// Programme reach by state, for the dashboard map. Every state is
     /// returned, including those with no activity.
+    ///
+    /// Read by anybody who may see programmes, not only by the registers
+    /// tier. The figures are already narrowed to the caller's own
+    /// allocation - the query runs WithinScope like every other dashboard
+    /// panel - so a coordinator sees the country drawn and their own
+    /// states shaded, which is the answer to "what have I covered". Asking
+    /// for the registers key instead refused the call outright and left a
+    /// frame round an empty map.
     /// </summary>
     [HttpGet("state-coverage")]
-    [HasPermission(Permissions.ReportsView)]
+    [HasPermission(Permissions.ProgramsView)]
     public async Task<ActionResult<ApiEnvelope<StateCoverageResultDto>>> StateCoverage(
         [FromQuery] DashboardFilterDto filter, CancellationToken ct) =>
         Envelope(await service.StateCoverageAsync(filter, ct));
