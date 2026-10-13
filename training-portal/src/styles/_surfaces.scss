@@ -254,6 +254,72 @@
   word-break: break-word;
 }
 
+/* Facts on a detail sheet ------------------------------------------- *\
+   The same .fact as a panel carries, laid out as cards.
+
+   The sheets used to group these under headings - Contact, On the record,
+   Posting - and the headings said nothing the labels beneath them did not.
+   What tells one fact from the next now is the card, which also keeps a
+   wrapped address from reading as part of the value beside it.
+
+   Nothing is printed here that has no value: a column of em-dashes is a
+   list of what a record does not have, and nobody opened the sheet to read
+   that.
+
+   Scoped under .facts rather than written as a second .fact, because a
+   fact inside a panel is already styled above and a flat redefinition
+   would have put a border round every one of those too.
+\* ------------------------------------------------------------------- */
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.65rem;
+}
+
+.facts > .fact {
+  align-content: start;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.facts > .fact .fact__term {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.fact__value .text-muted {
+  margin-left: 0.35rem;
+}
+
+/* A reason is a sentence rather than a value, and reads across the sheet. */
+.fact--reason {
+  grid-column: 1 / -1;
+  background: var(--surface-muted);
+}
+
+.fact--off {
+  border-color: var(--danger-200);
+  background: var(--danger-50);
+}
+
+.fact--off .fact__value {
+  color: var(--danger-700);
+}
+
+/* A heading that is kept because it names something the labels cannot -
+   a table of answers, a timeline. Quiet, and the width of the words. */
+.section-title {
+  margin: 0 0 0.5rem;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-600);
+}
+
 /* Skeleton ---------------------------------------------------------- */
 
 .skeleton {

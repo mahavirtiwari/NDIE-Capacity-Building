@@ -269,66 +269,67 @@ const COLUMNS: ColumnDef[] = [
             </div>
           </div>
 
-          <div class="detail-group">
-            <h4 class="section-title">Contact</h4>
-            <div class="dl">
-              <div>
-                <div class="dl__term">Email</div>
-                <div class="dl__value">{{ row.email }}</div>
-              </div>
-              <div>
-                <div class="dl__term">Mobile</div>
-                <div class="dl__value">{{ row.mobile }}</div>
+          <!-- One run of particulars rather than three groups under
+               headings. "Contact" over an e-mail and a mobile number, and
+               "Activity" over two dates, named nothing the labels beneath
+               them had not already said. -->
+          <div class="facts">
+            <div class="fact">
+              <div class="fact__term">Email</div>
+              <div class="fact__value">
+                <a [href]="'mailto:' + row.email">{{ row.email }}</a>
               </div>
             </div>
-          </div>
-
-          <div class="detail-group">
-            <h4 class="section-title">Registration</h4>
-            <div class="dl">
-              <div>
-                <div class="dl__term">PAN</div>
-                <div class="dl__value">{{ row.pan || '—' }}</div>
+            @if (row.mobile) {
+              <div class="fact">
+                <div class="fact__term">Mobile</div>
+                <div class="fact__value"><a [href]="'tel:' + row.mobile">{{ row.mobile }}</a></div>
               </div>
-              <div>
-                <div class="dl__term">First category</div>
-                <div class="dl__value">{{ row.categoryName || 'Not chosen yet' }}</div>
+            }
+            <!-- Only where there is one: an applicant who has not given a
+                 PAN is not told so in a column of its own. -->
+            @if (row.pan) {
+              <div class="fact">
+                <div class="fact__term">PAN</div>
+                <div class="fact__value tabular">{{ row.pan }}</div>
               </div>
-              <div>
-                <div class="dl__term">First sub-category</div>
-                <div class="dl__value">{{ row.subCategoryName || 'Not chosen yet' }}</div>
-              </div>
-              <div>
-                <div class="dl__term">Gender</div>
-                <div class="dl__value">{{ row.gender || 'Not stated' }}</div>
-              </div>
-              <div>
-                <div class="dl__term">Social category</div>
-                <div class="dl__value">{{ row.socialCategory || 'Not stated' }}</div>
-              </div>
-              @if (row.state || row.city) {
-                <div>
-                  <div class="dl__term">Location</div>
-                  <div class="dl__value">
-                    {{ row.city ? row.city + ', ' + (row.state ?? '') : row.state }}
-                  </div>
-                </div>
-              }
+            }
+            <div class="fact">
+              <div class="fact__term">First category</div>
+              <div class="fact__value">{{ row.categoryName || 'Not chosen yet' }}</div>
             </div>
-          </div>
-
-          <div class="detail-group">
-            <h4 class="section-title">Activity</h4>
-            <div class="dl">
-              <div>
-                <div class="dl__term">Registered</div>
-                <div class="dl__value">{{ row.registeredOn | date: 'dd MMM yyyy' }}</div>
+            <div class="fact">
+              <div class="fact__term">First sub-category</div>
+              <div class="fact__value">{{ row.subCategoryName || 'Not chosen yet' }}</div>
+            </div>
+            @if (row.gender) {
+              <div class="fact">
+                <div class="fact__term">Gender</div>
+                <div class="fact__value">{{ row.gender }}</div>
               </div>
-              <div>
-                <div class="dl__term">Last signed in</div>
-                <div class="dl__value">
-                  {{ row.lastLoginOn ? (row.lastLoginOn | date: 'dd MMM yyyy, HH:mm') : 'Never' }}
+            }
+            @if (row.socialCategory) {
+              <div class="fact">
+                <div class="fact__term">Social category</div>
+                <div class="fact__value">{{ row.socialCategory }}</div>
+              </div>
+            }
+            @if (row.state || row.city) {
+              <div class="fact">
+                <div class="fact__term">Location</div>
+                <div class="fact__value">
+                  {{ row.city ? row.city + ', ' + (row.state ?? '') : row.state }}
                 </div>
+              </div>
+            }
+            <div class="fact">
+              <div class="fact__term">Registered</div>
+              <div class="fact__value">{{ row.registeredOn | date: 'dd MMM yyyy' }}</div>
+            </div>
+            <div class="fact">
+              <div class="fact__term">Last signed in</div>
+              <div class="fact__value">
+                {{ row.lastLoginOn ? (row.lastLoginOn | date: 'dd MMM yyyy, HH:mm') : 'Never' }}
               </div>
             </div>
           </div>
@@ -456,30 +457,28 @@ const COLUMNS: ColumnDef[] = [
         (closed)="history.set(null)"
       >
         <div class="stack stack-md applicant-detail">
-          <div class="detail-group">
-            <h4 class="section-title">Access</h4>
-            <div class="dl">
-              <div>
-                <div class="dl__term">Applicant ID</div>
-                <div class="dl__value"><code>{{ record.applicantCode }}</code></div>
-              </div>
-              <div>
-                <div class="dl__term">Now</div>
-                <div class="dl__value">{{ record.isBlocked ? 'Blocked' : 'Active' }}</div>
-              </div>
-              @if (record.isBlocked) {
-                <div>
-                  <div class="dl__term">Blocked on</div>
-                  <div class="dl__value">
-                    {{ record.blockedOn | date: 'dd MMM yyyy, HH:mm' }}
-                  </div>
-                </div>
-                <div>
-                  <div class="dl__term">Current reason</div>
-                  <div class="dl__value">{{ record.blockReasonLabel }}</div>
-                </div>
-              }
+          <!-- Where the account stands, before what happened to it. The
+               heading over it said "Access", which is not a thing anybody
+               was looking for. -->
+          <div class="facts">
+            <div class="fact">
+              <div class="fact__term">Applicant ID</div>
+              <div class="fact__value"><code>{{ record.applicantCode }}</code></div>
             </div>
+            <div class="fact" [class.fact--off]="record.isBlocked">
+              <div class="fact__term">Now</div>
+              <div class="fact__value">{{ record.isBlocked ? 'Blocked' : 'Active' }}</div>
+            </div>
+            @if (record.isBlocked) {
+              <div class="fact">
+                <div class="fact__term">Blocked on</div>
+                <div class="fact__value">{{ record.blockedOn | date: 'dd MMM yyyy, HH:mm' }}</div>
+              </div>
+              <div class="fact fact--reason fact--off">
+                <div class="fact__term">Current reason</div>
+                <div class="fact__value">{{ record.blockReasonLabel }}</div>
+              </div>
+            }
           </div>
 
           <!-- Everything that has happened, from registration to the

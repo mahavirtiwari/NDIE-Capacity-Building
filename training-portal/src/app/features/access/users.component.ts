@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, formatDate } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -20,6 +20,24 @@ import {
   ScopeAxes,
   UserHistory,
 } from '../../core/models';
+
+/**
+ * One printed particular on the detail sheet.
+ *
+ * A fact exists only when there is something to print, which is the whole
+ * reason the sheet builds a list instead of laying every field out in the
+ * template.
+ */
+interface Fact {
+  label: string;
+  value: string;
+  /** mailto: or tel:, where the value is reachable. */
+  href?: string;
+  /** A trailing aside in the quiet type - who did it, when. */
+  note?: string;
+  /** Digits that should line up: a PAN, a masked Aadhaar. */
+  tabular?: boolean;
+}
 import { AuthService } from '../../core/services/auth.service';
 import { LookupService } from '../../core/services/masters.service';
 import { RoleService, UserService } from '../../core/services/people.service';
@@ -315,8 +333,15 @@ const TIER_DEPTH: Record<string, number> = {
       >
         <!-- Read in the order somebody needs it: how to reach them, who
              they are on the record, where they sit, and how the account
-             itself stands. A single ten-value grid made all ten look
-             equally important, which left the eye to do the sorting. -->
+             itself stands.
+
+             No headings over the groups: "Contact" above an e-mail and a
+             mobile number says nothing the two labels do not, and five of
+             them turned a dozen facts into a document. The grouping is
+             kept - it is the order the facts are in - and the eye is left
+             to the labels. Nor is a fact printed when it is empty: a
+             column of em-dashes is a list of things this account does not
+             have, which nobody came here to read. -->
         <div class="stack stack-md">
           <div class="sheet-id">
             <div class="sheet-id__who">
@@ -331,157 +356,82 @@ const TIER_DEPTH: Record<string, number> = {
             <app-status-badge [value]="row.status" />
           </div>
 
-          <div>
-            <h4 class="section-title">Contact</h4>
-            <div class="dl">
-              <div>
-                <div class="dl__term">Email</div>
-                <div class="dl__value">
-                  <a [href]="'mailto:' + row.email">{{ row.email }}</a>
-                </div>
-              </div>
-              <div>
-                <div class="dl__term">Mobile</div>
-                <div class="dl__value">
-                  @if (row.mobile) {
-                    <a [href]="'tel:' + row.mobile">{{ row.mobile }}</a>
+          <div class="facts">
+            @for (fact of facts(row); track fact.label) {
+              <div class="fact">
+                <div class="fact__term">{{ fact.label }}</div>
+                <div class="fact__value" [class.tabular]="fact.tabular">
+                  @if (fact.href) {
+                    <a [href]="fact.href">{{ fact.value }}</a>
                   } @else {
-                    —
+                    {{ fact.value }}
+                  }
+                  @if (fact.note) {
+                    <span class="text-xs text-muted">{{ fact.note }}</span>
                   }
                 </div>
               </div>
-            </div>
-          </div>
-
-          <div>
-            <h4 class="section-title">On the record</h4>
-            <div class="dl">
-              <div>
-                <div class="dl__term">Designation</div>
-                <div class="dl__value">{{ row.designation || '—' }}</div>
-              </div>
-              <div>
-                <div class="dl__term">Organization</div>
-                <div class="dl__value">{{ row.organisationName || row.agencyName || '—' }}</div>
-              </div>
-              <div>
-                <div class="dl__term">PAN</div>
-                <div class="dl__value tabular">{{ row.pan || '—' }}</div>
-              </div>
-              <div>
-                <div class="dl__term">Aadhaar</div>
-                <div class="dl__value tabular">
-                  {{ row.aadhaarLast4 ? masked(row.aadhaarLast4) : '—' }}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h4 class="section-title">Posting</h4>
-            <div class="dl">
-              <div>
-                <div class="dl__term">Location</div>
-                <div class="dl__value">
-                  {{ row.city || '—' }}@if (row.state) {, {{ row.state }}}@if (row.district) {
-                    ({{ row.district }})
-                  }@if (row.pincode) { — {{ row.pincode }} }
-                </div>
-              </div>
-              <div>
-                <div class="dl__term">Agency</div>
-                <div class="dl__value">{{ row.agencyName || '—' }}</div>
-              </div>
-              <div>
-                <div class="dl__term">Reports to</div>
-                <div class="dl__value">{{ row.reportsToName || '—' }}</div>
-              </div>
-            </div>
+            }
           </div>
 
           <!-- What the account can actually reach. The register used to
                carry two chips counting these, which told nobody which
                ones; the counting column was dropped on the grounds that
                this sheet showed them in full, and then it did not. -->
-          <div>
-            <h4 class="section-title">Allocated scope</h4>
-            <div class="scopes">
-              @for (scope of scopeRows(row); track scope.key) {
-                <div class="scope">
-                  <div class="scope__head">
-                    <span class="scope__term">{{ scope.label }}</span>
-                    @if (scope.names.length) {
-                      <span class="scope__count">{{ scope.names.length }}</span>
-                    }
-                    <!-- Said as well as the names, not instead of them.
-                         Nothing chosen means everything, and which is
-                         which matters: an allocation of all four
-                         categories today is not the same promise as an
-                         unrestricted one when a fifth is added. -->
-                    @if (scope.all) {
-                      <span class="scope__all">
-                        <app-icon name="check" [size]="12" /> All
-                      </span>
-                    }
-                  </div>
-
-                  @if (!scope.names.length) {
-                    <span class="cell-muted text-sm">None on the masters yet</span>
-                  } @else {
-                    <div class="scope__chips">
-                      @for (name of shown(scope); track name) {
-                        <span class="chip">{{ name }}</span>
-                      }
-                      @if (scope.names.length > cap && !opened()[scope.key]) {
-                        <button type="button" class="chip chip--more" (click)="openScope(scope.key)">
-                          +{{ scope.names.length - cap }} more
-                        </button>
-                      }
-                    </div>
+          <div class="scopes">
+            @for (scope of scopeRows(row); track scope.key) {
+              <div class="scope">
+                <div class="scope__head">
+                  <span class="scope__term">{{ scope.label }}</span>
+                  @if (scope.names.length) {
+                    <span class="scope__count">{{ scope.names.length }}</span>
                   }
-                </div>
-              }
-            </div>
-          </div>
-
-          <div>
-            <h4 class="section-title">The account itself</h4>
-            <div class="dl">
-              <div>
-                <div class="dl__term">Created on</div>
-                <div class="dl__value">
-                  {{ row.createdOn | date: 'dd MMM yyyy, HH:mm' }}
-                  @if (row.createdBy) {
-                    <span class="text-xs text-muted">by {{ row.createdBy }}</span>
-                  }
-                </div>
-              </div>
-              <div>
-                <div class="dl__term">Last signed in</div>
-                <div class="dl__value">
-                  {{
-                    row.lastLoginOn
-                      ? (row.lastLoginOn | date: 'dd MMM yyyy, HH:mm')
-                      : 'Never signed in'
-                  }}
-                </div>
-              </div>
-              @if (row.statusReason) {
-                <div>
-                  <div class="dl__term">
-                    {{ row.status === 'Active' ? 'Switched back on' : 'Switched off' }}
-                  </div>
-                  <div class="dl__value" [class.text-danger]="row.status !== 'Active'">
-                    {{ row.statusReason }}
-                    <span class="text-xs text-muted">
-                      {{ row.statusChangedOn | date: 'dd MMM yyyy' }}
-                      @if (row.statusChangedBy) { · {{ row.statusChangedBy }} }
+                  <!-- Said as well as the names, not instead of them.
+                       Nothing chosen means everything, and which is
+                       which matters: an allocation of all four
+                       categories today is not the same promise as an
+                       unrestricted one when a fifth is added. -->
+                  @if (scope.all) {
+                    <span class="scope__all">
+                      <app-icon name="check" [size]="12" /> All
                     </span>
-                  </div>
+                  }
                 </div>
-              }
-            </div>
+
+                @if (!scope.names.length) {
+                  <span class="cell-muted text-sm">None on the masters yet</span>
+                } @else {
+                  <div class="scope__chips">
+                    @for (name of shown(scope); track name) {
+                      <span class="chip">{{ name }}</span>
+                    }
+                    @if (scope.names.length > cap && !opened()[scope.key]) {
+                      <button type="button" class="chip chip--more" (click)="openScope(scope.key)">
+                        +{{ scope.names.length - cap }} more
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
+            }
           </div>
+
+          <!-- The one fact that is not a particular: why somebody turned
+               this account off, in the colour that says so. -->
+          @if (row.statusReason) {
+            <div class="fact fact--reason" [class.fact--off]="row.status !== 'Active'">
+              <div class="fact__term">
+                {{ row.status === 'Active' ? 'Switched back on' : 'Switched off' }}
+              </div>
+              <div class="fact__value">
+                {{ row.statusReason }}
+                <span class="text-xs text-muted">
+                  {{ row.statusChangedOn | date: 'dd MMM yyyy' }}
+                  @if (row.statusChangedBy) { · {{ row.statusChangedBy }} }
+                </span>
+              </div>
+            </div>
+          }
         </div>
 
         <div footer>
@@ -917,6 +867,9 @@ const TIER_DEPTH: Record<string, number> = {
         border-color: var(--brand-300);
         color: var(--brand-700);
       }
+
+      /* The fact cards themselves are in the shared stylesheet: four
+         sheets print particulars this way now. */
 
       /* Who this is and how the account stands, before the particulars. */
       .sheet-id {
@@ -1617,6 +1570,67 @@ export class UsersComponent {
    * The whole number is in the form for whoever may edit the account.
    */
   /** The avatar's letters, the same two the topbar shows. */
+  /**
+   * The particulars worth printing for one account.
+   *
+   * Built here rather than laid out in the template so that an empty one
+   * can simply not be built. The sheet used to print every field it knew
+   * of and fill the blanks with em-dashes, which read as a list of the
+   * things an account was missing - an Admin has no agency, and saying so
+   * eleven times a page is noise.
+   */
+  protected facts(row: PortalUser): Fact[] {
+    const place = [
+      row.city,
+      row.state,
+      row.district ? `(${row.district})` : '',
+    ]
+      .filter(Boolean)
+      .join(', ');
+
+    const located = [place, row.pincode].filter(Boolean).join(' — ');
+
+    const all: (Fact | null)[] = [
+      row.email ? { label: 'Email', value: row.email, href: `mailto:${row.email}` } : null,
+      row.mobile ? { label: 'Mobile', value: row.mobile, href: `tel:${row.mobile}` } : null,
+      row.designation ? { label: 'Designation', value: row.designation } : null,
+      row.organisationName || row.agencyName
+        ? { label: 'Organization', value: (row.organisationName || row.agencyName)! }
+        : null,
+      row.pan ? { label: 'PAN', value: row.pan, tabular: true } : null,
+      row.aadhaarLast4
+        ? { label: 'Aadhaar', value: this.masked(row.aadhaarLast4), tabular: true }
+        : null,
+      located ? { label: 'Location', value: located } : null,
+      /* Only where it is not already the organisation above: an agency
+         user would otherwise read the same name twice. */
+      row.agencyName && row.agencyName !== row.organisationName
+        ? { label: 'Agency', value: row.agencyName }
+        : null,
+      row.reportsToName ? { label: 'Reports to', value: row.reportsToName } : null,
+      {
+        label: 'Created on',
+        value: this.when(row.createdOn),
+        note: row.createdBy ? `by ${row.createdBy}` : undefined,
+      },
+      {
+        label: 'Last signed in',
+        value: row.lastLoginOn ? this.when(row.lastLoginOn) : 'Never signed in',
+      },
+    ];
+
+    return all.filter((fact): fact is Fact => fact !== null);
+  }
+
+  /** The one date format every sheet in the portal prints. */
+  private when(value: string | Date | null | undefined): string {
+    if (!value) return '';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? String(value)
+      : formatDate(date, 'dd MMM yyyy, HH:mm', 'en-IN');
+  }
+
   protected initialsOf(name: string): string {
     const parts = name.trim().split(/\s+/).filter(Boolean);
     if (parts.length === 0) return '?';
