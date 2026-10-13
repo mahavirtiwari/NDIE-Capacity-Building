@@ -267,19 +267,26 @@ const COLUMNS: ColumnDef[] = [
                 <span class="text-xs text-muted">{{ $any(row).postponementReason }}</span>
               </div>
             }
-            @if (canManage()) {
+            <!-- Anybody with something to do on the row, which is two
+                 different jobs: the agency runs the batch, the manager
+                 decides whether it may. Gating the whole block on
+                 programs.manage hid the decision from the only tier that
+                 holds it - a manager is deliberately not given manage, so
+                 that it cannot run what it permits - and a batch waiting
+                 for permission had no button under it at all. -->
+            @if (canManage() || canApprove()) {
               <div class="row row-sm row-wrap">
                 @if (canApprove() && actions($any(row)).canAcceptPermission) {
                   <button type="button" class="btn btn--sm btn--secondary" (click)="advance($any(row), 'PermissionAccepted')">
                     Permission accepted
                   </button>
                 }
-                @if (actions($any(row)).canReopenRegistrations) {
+                @if (canManage() && actions($any(row)).canReopenRegistrations) {
                   <button type="button" class="btn btn--sm btn--secondary" (click)="openReopen($any(row))">
                     Reopen registrations
                   </button>
                 }
-                @if (actions($any(row)).canSetExamTime) {
+                @if (canManage() && actions($any(row)).canSetExamTime) {
                   <button type="button" class="btn btn--sm btn--secondary" (click)="openExam($any(row))">
                     Set exam time
                   </button>
@@ -289,7 +296,7 @@ const COLUMNS: ColumnDef[] = [
                     Postpone
                   </button>
                 }
-                @if (!canApprove() && actions($any(row)).canAskToPostpone) {
+                @if (canManage() && !canApprove() && actions($any(row)).canAskToPostpone) {
                   <button type="button" class="btn btn--sm btn--secondary" (click)="openAskPostpone($any(row))">
                     Postpone
                   </button>
@@ -297,7 +304,7 @@ const COLUMNS: ColumnDef[] = [
                 <!-- The hall can change after a batch is permitted, and the
                      change is the manager's to accept: candidates were told
                      the old address. -->
-                @if (!canApprove() && actions($any(row)).canAskToMove) {
+                @if (canManage() && !canApprove() && actions($any(row)).canAskToMove) {
                   <button type="button" class="btn btn--sm btn--secondary" (click)="openMove($any(row))">
                     Change venue
                   </button>
