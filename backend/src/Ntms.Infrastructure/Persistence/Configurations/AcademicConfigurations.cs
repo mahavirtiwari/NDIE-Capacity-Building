@@ -127,11 +127,15 @@ public class ProfileAttachmentConfiguration : IEntityTypeConfiguration<ProfileAt
         b.Property(x => x.DeviceModel).HasMaxLength(120);
         b.Property(x => x.DeviceOsVersion).HasMaxLength(40);
 
-        /* One per position per field per discipline, so a set of pictures
-           has no gaps and no duplicates and reads in the order it was
-           taken. A file field only ever uses position one. */
-        b.HasIndex(x => new { x.ApplicantId, x.SubCategoryId, x.FieldKey, x.DisplayOrder })
-            .IsUnique();
+        /* One per position per entry per field per discipline, so a set of
+           pictures has no gaps and no duplicates and reads in the order it
+           was taken. A file field only ever uses position one. The entry
+           is in the key because a repeating section asks the same field
+           once per row and each row answers it for itself. */
+        b.HasIndex(x => new
+        {
+            x.ApplicantId, x.SubCategoryId, x.FieldKey, x.EntryIndex, x.DisplayOrder,
+        }).IsUnique();
 
         b.HasOne(x => x.Applicant).WithMany()
             .HasForeignKey(x => x.ApplicantId)

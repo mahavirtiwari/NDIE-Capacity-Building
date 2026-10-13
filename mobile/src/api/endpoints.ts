@@ -185,9 +185,14 @@ export const me = {
 
   /* -------------------------------------------- pictures on a field */
 
-  photoStanding: (subCategoryId: number, fieldKey: string) =>
+  /* `entry` is which row of a repeating section is being answered,
+     counting from zero, and nought for a section asked once. A field key
+     is the same on every row - one marksheet question, ten qualifications
+     - so without it the second row's evidence replaced the first's. */
+
+  photoStanding: (subCategoryId: number, fieldKey: string, entry = 0) =>
     api.getLive<PhotoStanding>(
-      `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}`),
+      `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}?entry=${entry}`),
 
   /**
    * Sends one picture with what the phone knew when it was taken.
@@ -202,49 +207,66 @@ export const me = {
     fieldKey: string,
     picture: { uri: string; type: string },
     facts?: CaptureFacts,
+    entry = 0,
   ) =>
     api.uploadFile<PhotoStanding>(
-      `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}`,
+      `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}?entry=${entry}`,
       'picture',
       { uri: picture.uri, name: 'picture.jpg', type: picture.type },
       facts ? asFields(facts) : {},
     ),
 
   /** Every picture held for a field, in the order taken. */
-  photoList: (subCategoryId: number, fieldKey: string) =>
+  photoList: (subCategoryId: number, fieldKey: string, entry = 0) =>
     api.getLive<PhotoShot[]>(
-      `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}/all`),
+      `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}/all?entry=${entry}`),
 
   /** Where one picture can be fetched from, for the thumbnail beside the field. */
-  photoUri: (subCategoryId: number, fieldKey: string, displayOrder: number) =>
+  photoUri: (subCategoryId: number, fieldKey: string, displayOrder: number, entry = 0) =>
     `${API_BASE_URL}/me/profile-photos/${subCategoryId}`
-    + `/${encodeURIComponent(fieldKey)}/${displayOrder}`,
+    + `/${encodeURIComponent(fieldKey)}/${displayOrder}?entry=${entry}`,
 
-  removePhoto: (subCategoryId: number, fieldKey: string, displayOrder: number) =>
+  removePhoto: (subCategoryId: number, fieldKey: string, displayOrder: number, entry = 0) =>
     api.delete<PhotoStanding>(
-      `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}/${displayOrder}`),
+      `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}`
+      + `/${displayOrder}?entry=${entry}`),
 
   /* ------------------------------------------------ a file on a field */
 
-  profileFile: (subCategoryId: number, fieldKey: string) =>
+  profileFile: (subCategoryId: number, fieldKey: string, entry = 0) =>
     api.getLive<FileStanding>(
-      `me/profile-files/${subCategoryId}/${encodeURIComponent(fieldKey)}`),
+      `me/profile-files/${subCategoryId}/${encodeURIComponent(fieldKey)}?entry=${entry}`),
 
   /** Replaces whatever the field held, because a file field has one answer. */
   setProfileFile: (
     subCategoryId: number,
     fieldKey: string,
     file: { uri: string; name: string; type: string },
+    entry = 0,
   ) =>
     api.uploadFile<FileStanding>(
-      `me/profile-files/${subCategoryId}/${encodeURIComponent(fieldKey)}`,
+      `me/profile-files/${subCategoryId}/${encodeURIComponent(fieldKey)}?entry=${entry}`,
       'document',
       file,
     ),
 
-  profileFileDownload: (subCategoryId: number, fieldKey: string) =>
+  profileFileDownload: (subCategoryId: number, fieldKey: string, entry = 0) =>
     download(
-      `me/profile-files/${subCategoryId}/${encodeURIComponent(fieldKey)}/download`, fieldKey),
+      `me/profile-files/${subCategoryId}/${encodeURIComponent(fieldKey)}`
+      + `/download?entry=${entry}`,
+      fieldKey),
+
+  /**
+   * Drops what an entry of a repeating section held, as it is removed.
+   *
+   * The answers are rewritten whole when the form is saved and need
+   * nothing; the evidence is stored by position, and the rows above the
+   * one removed have to come down with it or every later qualification
+   * ends up showing the marksheet of the one below.
+   */
+  dropProfileEntry: (subCategoryId: number, sectionKey: string, entry: number) =>
+    api.delete<number>(
+      `me/profile-entries/${subCategoryId}/${encodeURIComponent(sectionKey)}/${entry}`),
 
   /** Every picture for the field, merged, in the order taken. */
   /** The form one sub-category asks. */

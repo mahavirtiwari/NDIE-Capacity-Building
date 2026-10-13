@@ -7272,3 +7272,40 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261013121124_AnAttachmentBelongsToItsEntry'
+)
+BEGIN
+    DROP INDEX [IX_ProfileAttachments_ApplicantId_SubCategoryId_FieldKey_DisplayOrder] ON [ProfileAttachments];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261013121124_AnAttachmentBelongsToItsEntry'
+)
+BEGIN
+    ALTER TABLE [ProfileAttachments] ADD [EntryIndex] int NOT NULL DEFAULT 0;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261013121124_AnAttachmentBelongsToItsEntry'
+)
+BEGIN
+    CREATE UNIQUE INDEX [IX_ProfileAttachments_ApplicantId_SubCategoryId_FieldKey_EntryIndex_DisplayOrder] ON [ProfileAttachments] ([ApplicantId], [SubCategoryId], [FieldKey], [EntryIndex], [DisplayOrder]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261013121124_AnAttachmentBelongsToItsEntry'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261013121124_AnAttachmentBelongsToItsEntry', N'10.0.12');
+END;
+
+COMMIT;
+GO
+

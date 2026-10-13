@@ -193,7 +193,7 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
 
             @switch (field.type) {
               @case ('photos') {
-                @if (shots(field.key); as pictures) {
+                @if (shots(field.key, group); as pictures) {
                   <div class="shots">
                     @for (shot of pictures; track shot.displayOrder) {
                       <figure class="shot">
@@ -282,7 +282,7 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
                       <button
                         type="button"
                         class="read-file read-file--link"
-                        (click)="openFile.emit(field.key)"
+                        (click)="openFile.emit({ fieldKey: field.key, entry: entryOf(group) })"
                       >
                         <app-icon name="file" [size]="14" />
                         <span class="read-file__name">{{ value(group, field.key) }}</span>
@@ -451,7 +451,7 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
                  a disabled input containing "1", and the photographs the
                  applicant was asked for could not be seen at all. -->
             @case ('photos') {
-              @if (shots(field.key); as pictures) {
+              @if (shots(field.key, group); as pictures) {
                 <div class="shots">
                   @for (shot of pictures; track shot.displayOrder) {
                     <figure class="shot">
@@ -853,11 +853,13 @@ export class DynamicFormComponent {
   readonly preview = input(false);
 
   /**
-   * The pictures held for each camera field, keyed by field key.
+   * The pictures held for each camera field, keyed by field and row.
    *
-   * Passed in rather than fetched here, because the form has no idea whose
-   * profile it is rendering — the screen that does knows, and is also the
-   * one that has to revoke the object URLs afterwards.
+   * The key is what `photoKey` builds, because a repeating section asks
+   * the same camera field once per entry and the answers have to be told
+   * apart. Passed in rather than fetched here, because the form has no
+   * idea whose profile it is rendering — the screen that does knows, and
+   * is also the one that has to revoke the object URLs afterwards.
    */
   readonly photos = input<Record<string, LoadedPhoto[]>>({});
 
@@ -873,8 +875,8 @@ export class DynamicFormComponent {
 
   readonly submitted = output<Record<string, unknown>>();
 
-  /** The key of a file field somebody asked to see. */
-  readonly openFile = output<string>();
+  /** The file field somebody asked to see, and which row of it. */
+  readonly openFile = output<{ fieldKey: string; entry: number }>();
 
   /**
    * Whether this is somebody reading a filled-in profile.
@@ -938,9 +940,28 @@ export class DynamicFormComponent {
     );
   }
 
-  /** The pictures for one field, or null where there are none to show. */
-  protected shots(fieldKey: string): LoadedPhoto[] | null {
-    const held = this.photos()[fieldKey];
+  /**
+   * Which row of a repeating section a group is, counting from zero.
+   *
+   * Nought for a section asked once. The same field key appears on every
+   * row of a repeating one, so the evidence held against it is told apart
+   * by this and nothing else.
+   */
+  protected entryOf(group: FormGroup): number {
+    const parent = group.parent;
+    return parent instanceof FormArray ? parent.controls.indexOf(group) : 0;
+  }
+
+  /** How the screen above keys what it has fetched. */
+  static photoKey(fieldKey: string, entry: number): string {
+    return `${fieldKey}#${entry}`;
+  }
+
+  /** The pictures for one field on one row, or null where there are none. */
+  protected shots(fieldKey: string, group: FormGroup): LoadedPhoto[] | null {
+    const held = this.photos()[
+      DynamicFormComponent.photoKey(fieldKey, this.entryOf(group))
+    ];
     return held && held.length > 0 ? held : null;
   }
 

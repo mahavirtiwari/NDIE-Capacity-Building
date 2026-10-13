@@ -129,7 +129,7 @@ interface OpenAttachment {
                       [photos]="photos()"
                       [readonly]="true"
                       [openable]="true"
-                      (openFile)="openAttachment(record.id, $event)"
+                      (openFile)="openAttachment(record.id, $event.fieldKey, $event.entry)"
                     />
                   } @else {
                     <p class="text-sm text-muted">
@@ -387,7 +387,7 @@ export class ProfileScrutinyDetailComponent {
   protected readonly saving = signal(false);
   protected readonly rejecting = signal(false);
 
-  /** The pictures for every camera field on this form, keyed by field key. */
+  /** The pictures for every camera field, keyed by field and row. */
   protected readonly photos = signal<Record<string, LoadedPhoto[]>>({});
 
   /** The one attachment being read, if any. */
@@ -447,21 +447,50 @@ export class ProfileScrutinyDetailComponent {
     this.revokePhotos();
     this.photos.set({});
 
-    const camera = form.sections
-      .flatMap((section) => section.fields as ProfileField[])
-      .filter((field) => field.type === 'photos');
+    const record = this.submission();
 
-    for (const field of camera) {
-      this.service.photos(id, field.key).subscribe({
+    for (const section of form.sections) {
+      const camera = (section.fields as ProfileField[])
+        .filter((field) => field.type === 'photos');
+      if (camera.length === 0) continue;
+
+      /* How many rows this section was answered on. A repeating section
+         holds a list under its own key, and the same camera field is
+         asked once on each row - so the pictures are fetched per row and
+         kept apart by it. A section asked once has one row, numbered
+         nought, which is what everything filled in before the rows
+         existed is stored as. */
+      const answered = record?.responses?.[this.keyOf(section)];
+      const rows = section.isRepeatable && Array.isArray(answered)
+        ? Math.max(answered.length, 1)
+        : 1;
+
+      for (const field of camera) {
+        for (let entry = 0; entry < rows; entry += 1) {
+          this.loadField(id, field.key, entry);
+        }
+      }
+    }
+  }
+
+  /** Where the form's section stores its entries. */
+  private keyOf(section: { key?: string | null; id: number }): string {
+    return section.key?.trim() || `section${section.id}`;
+  }
+
+  private loadField(id: number, fieldKey: string, entry: number): void {
+    const held = DynamicFormComponent.photoKey(fieldKey, entry);
+
+    this.service.photos(id, fieldKey, entry).subscribe({
         next: (shots) => {
           for (const shot of shots) {
-            this.service.photo(id, field.key, shot.displayOrder).subscribe({
+            this.service.photo(id, fieldKey, shot.displayOrder, entry).subscribe({
               next: (blob) => {
                 const loaded: LoadedPhoto = { ...shot, url: URL.createObjectURL(blob) };
-                this.photos.update((held) => {
-                  const forField = [...(held[field.key] ?? []), loaded]
+                this.photos.update((kept) => {
+                  const forField = [...(kept[held] ?? []), loaded]
                     .sort((a, b) => a.displayOrder - b.displayOrder);
-                  return { ...held, [field.key]: forField };
+                  return { ...kept, [held]: forField };
                 });
               },
               /* One picture that will not load must not take the others
@@ -473,7 +502,6 @@ export class ProfileScrutinyDetailComponent {
         },
         error: () => undefined,
       });
-    }
   }
 
   /**
@@ -484,11 +512,11 @@ export class ProfileScrutinyDetailComponent {
    * what the Download button hands to the browser. One at a time, and
    * the previous one is released before the next is made.
    */
-  protected openAttachment(id: number, fieldKey: string): void {
+  protected openAttachment(id: number, fieldKey: string, entry: number): void {
     if (this.fetching()) return;
     this.fetching.set(true);
 
-    this.service.file(id, fieldKey).subscribe({
+    this.service.file(id, fieldKey, entry).subscribe({
       next: (blob) => {
         this.fetching.set(false);
         this.closeAttachment();

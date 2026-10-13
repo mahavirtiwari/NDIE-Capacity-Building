@@ -63,9 +63,9 @@ export class ProfileSubmissionService extends CrudService<ProfileSubmission> {
    * may never scroll as far as the fifth one and a profile with twenty
    * photographs should not be twenty megabytes of response.
    */
-  photos(id: Id, fieldKey: string): Observable<ProfilePhoto[]> {
+  photos(id: Id, fieldKey: string, entry = 0): Observable<ProfilePhoto[]> {
     return this.api.get<ProfilePhoto[]>(
-      `${this.resource}/${id}/photos/${encodeURIComponent(fieldKey)}`);
+      `${this.resource}/${id}/photos/${encodeURIComponent(fieldKey)}`, { entry });
   }
 
   /**
@@ -75,10 +75,11 @@ export class ProfileSubmissionService extends CrudService<ProfileSubmission> {
    * and an <img src> would not carry one. The caller makes an object URL
    * of what comes back and revokes it when the screen closes.
    */
-  photo(id: Id, fieldKey: string, displayOrder: number): Observable<Blob> {
+  photo(id: Id, fieldKey: string, displayOrder: number, entry = 0): Observable<Blob> {
     return this.http.get(
       this.api.fileUrl(
-        `${this.resource}/${id}/photos/${encodeURIComponent(fieldKey)}/${displayOrder}`),
+        `${this.resource}/${id}/photos/${encodeURIComponent(fieldKey)}/${displayOrder}`
+        + `?entry=${entry}`),
       { responseType: 'blob' });
   }
 
@@ -90,9 +91,10 @@ export class ProfileSubmissionService extends CrudService<ProfileSubmission> {
    * are never opened. Bearer token, so the same object-URL dance as the
    * pictures.
    */
-  file(id: Id, fieldKey: string): Observable<Blob> {
+  file(id: Id, fieldKey: string, entry = 0): Observable<Blob> {
     return this.http.get(
-      this.api.fileUrl(`${this.resource}/${id}/files/${encodeURIComponent(fieldKey)}`),
+      this.api.fileUrl(
+        `${this.resource}/${id}/files/${encodeURIComponent(fieldKey)}?entry=${entry}`),
       { responseType: 'blob' });
   }
 }

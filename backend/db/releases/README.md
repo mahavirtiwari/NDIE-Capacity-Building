@@ -26,11 +26,14 @@ built from one can be read against what it was given.
 | `2026-10-09-release.sql` | A database at `20261006000958_AnAgencySuspensionIsRecorded` | Superseded; kept for reference. |
 | `2026-10-09-full.sql` | Any database | Superseded; kept for reference. |
 
-The 13 October pair carries four migrations: the ways in to a programme
+The 13 October pair carries five migrations: the ways in to a programme
 type, a notice addressed to one person, the venue a batch may be moved to,
-and the description a choice can carry. Both were run against a fresh
-database and against one sitting at the 11 October release, and the
-release script was run twice to prove it is idempotent.
+the description a choice can carry, and the entry of a repeating section
+an attachment belongs to. Both were run against a fresh database and
+against one sitting at the 11 October release, each twice over to prove
+they are idempotent; the upgrade was done with a row already in
+`ProfileAttachments`, which came through as entry nought - the first
+entry, which is what it was.
 
 The 11 October pair carries five migrations: a registration remembering
 its batch, an address proven before it moves, session start and end

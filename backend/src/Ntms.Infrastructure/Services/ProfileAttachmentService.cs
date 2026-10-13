@@ -66,13 +66,15 @@ public class ProfileAttachmentService(
         int SizeBytes);
 
     /// <summary>How many pictures are held for a field, and how many it takes.</summary>
-    public async Task<Standing> StandingAsync(int applicantId, int subCategoryId, string fieldKey, CancellationToken ct)
+    public async Task<Standing> StandingAsync(
+        int applicantId, int subCategoryId, string fieldKey, int entry, CancellationToken ct)
     {
         var count = await db.ProfileAttachments
             .CountAsync(p => p.ApplicantId == applicantId && p.SubCategoryId == subCategoryId
-                        && p.FieldKey == fieldKey, ct);
+                        && p.FieldKey == fieldKey && p.EntryIndex == entry, ct);
 
-        return new Standing(fieldKey, count, await LimitForAsync(applicantId, subCategoryId, fieldKey, ct));
+        return new Standing(
+            fieldKey, count, await LimitForAsync(applicantId, subCategoryId, fieldKey, entry, ct));
     }
 
     /// <summary>
@@ -83,8 +85,8 @@ public class ProfileAttachmentService(
     /// kept is worse than being told no.
     /// </summary>
     public async Task<Standing> AddAsync(
-        int applicantId, int subCategoryId, string fieldKey, byte[] content, string? contentType,
-        Capture? capture, CancellationToken ct)
+        int applicantId, int subCategoryId, string fieldKey, int entry, byte[] content,
+        string? contentType, Capture? capture, CancellationToken ct)
     {
         if (content.Length == 0) throw new AppException("The picture is empty.");
         if (content.Length > MaxBytes)
@@ -94,11 +96,11 @@ public class ProfileAttachmentService(
         if (!type.StartsWith("image/", StringComparison.Ordinal))
             throw new AppException("Only pictures can be added to this field.");
 
-        var limit = await LimitForAsync(applicantId, subCategoryId, fieldKey, ct);
+        var limit = await LimitForAsync(applicantId, subCategoryId, fieldKey, entry, ct);
 
         var existing = await db.ProfileAttachments
             .Where(p => p.ApplicantId == applicantId && p.SubCategoryId == subCategoryId
-                        && p.FieldKey == fieldKey)
+                        && p.FieldKey == fieldKey && p.EntryIndex == entry)
             .ToListAsync(ct);
 
         if (existing.Count >= limit)
@@ -124,6 +126,7 @@ public class ProfileAttachmentService(
             ApplicantId = applicantId,
             SubCategoryId = subCategoryId,
             FieldKey = fieldKey,
+            EntryIndex = entry,
             DisplayOrder = existing.Count == 0 ? 1 : existing.Max(p => p.DisplayOrder) + 1,
             ContentType = stamp.Stamped ? stamp.ContentType : type,
             Content = stamp.Content,
@@ -149,11 +152,12 @@ public class ProfileAttachmentService(
     /// was vacated.
     /// </summary>
     public async Task<Standing> RemoveAsync(
-        int applicantId, int subCategoryId, string fieldKey, int displayOrder, CancellationToken ct)
+        int applicantId, int subCategoryId, string fieldKey, int entry, int displayOrder,
+        CancellationToken ct)
     {
         var photos = await db.ProfileAttachments
             .Where(p => p.ApplicantId == applicantId && p.SubCategoryId == subCategoryId
-                        && p.FieldKey == fieldKey)
+                        && p.FieldKey == fieldKey && p.EntryIndex == entry)
             .OrderBy(p => p.DisplayOrder)
             .ToListAsync(ct);
 
@@ -170,27 +174,35 @@ public class ProfileAttachmentService(
 
         await db.SaveChangesAsync(ct);
         return new Standing(fieldKey, photos.Count - 1,
-            await LimitForAsync(applicantId, subCategoryId, fieldKey, ct));
+            await LimitForAsync(applicantId, subCategoryId, fieldKey, entry, ct));
     }
 
     /// <summary>Clears a field's set, for an applicant starting it again.</summary>
-    public async Task<Standing> ClearAsync(int applicantId, int subCategoryId, string fieldKey, CancellationToken ct)
+    public async Task<Standing> ClearAsync(
+        int applicantId, int subCategoryId, string fieldKey, int entry, CancellationToken ct)
     {
         await db.ProfileAttachments
             .Where(p => p.ApplicantId == applicantId && p.SubCategoryId == subCategoryId
-                        && p.FieldKey == fieldKey)
+                        && p.FieldKey == fieldKey && p.EntryIndex == entry)
             .ExecuteDeleteAsync(ct);
 
-        return new Standing(fieldKey, 0, await LimitForAsync(applicantId, subCategoryId, fieldKey, ct));
+        return new Standing(
+            fieldKey, 0, await LimitForAsync(applicantId, subCategoryId, fieldKey, entry, ct));
     }
 
     /// <summary>One picture, for a thumbnail.</summary>
     public async Task<(byte[] Content, string ContentType)> OneAsync(
-        int applicantId, int subCategoryId, string fieldKey, int displayOrder, CancellationToken ct)
+        int applicantId, int subCategoryId, string fieldKey, int entry, int displayOrder,
+        CancellationToken ct)
     {
+        /* The discipline is part of the key and was missing from this one
+           read, which let a picture be asked for by field key alone and
+           answered from whichever profile happened to hold that key. */
         var photo = await db.ProfileAttachments.AsNoTracking()
             .FirstOrDefaultAsync(p => p.ApplicantId == applicantId
+                                      && p.SubCategoryId == subCategoryId
                                       && p.FieldKey == fieldKey
+                                      && p.EntryIndex == entry
                                       && p.DisplayOrder == displayOrder, ct)
             ?? throw AppException.NotFound("Picture");
 
@@ -206,10 +218,10 @@ public class ProfileAttachmentService(
     /// each image fetched by its position.
     /// </summary>
     public async Task<IReadOnlyList<Shot>> ShotsAsync(
-        int applicantId, int subCategoryId, string fieldKey, CancellationToken ct) =>
+        int applicantId, int subCategoryId, string fieldKey, int entry, CancellationToken ct) =>
         await db.ProfileAttachments.AsNoTracking()
             .Where(p => p.ApplicantId == applicantId && p.SubCategoryId == subCategoryId
-                        && p.FieldKey == fieldKey)
+                        && p.FieldKey == fieldKey && p.EntryIndex == entry)
             .OrderBy(p => p.DisplayOrder)
             .Select(p => new Shot(
                 p.DisplayOrder,
@@ -239,11 +251,11 @@ public class ProfileAttachmentService(
 
     /// <summary>What is held for a file field, if anything.</summary>
     public async Task<FileStanding> FileStandingAsync(
-        int applicantId, int subCategoryId, string fieldKey, CancellationToken ct)
+        int applicantId, int subCategoryId, string fieldKey, int entry, CancellationToken ct)
     {
         var held = await db.ProfileAttachments.AsNoTracking()
             .Where(a => a.ApplicantId == applicantId && a.SubCategoryId == subCategoryId
-                        && a.FieldKey == fieldKey)
+                        && a.FieldKey == fieldKey && a.EntryIndex == entry)
             .Select(a => new { a.FileName, Size = (long)a.Content.Length })
             .FirstOrDefaultAsync(ct);
 
@@ -260,12 +272,13 @@ public class ProfileAttachmentService(
     /// tightening them is a settings change rather than a release.
     /// </summary>
     public async Task<FileStanding> SetFileAsync(
-        int applicantId, int subCategoryId, string fieldKey, byte[] content, string? fileName,
-        string? contentType, CancellationToken ct)
+        int applicantId, int subCategoryId, string fieldKey, int entry, byte[] content,
+        string? fileName, string? contentType, CancellationToken ct)
     {
         if (content.Length == 0) throw new AppException("The file is empty.");
 
-        var field = await FieldForAsync(applicantId, subCategoryId, fieldKey, FieldType.File, ct);
+        var field = await FieldForAsync(
+            applicantId, subCategoryId, fieldKey, FieldType.File, entry, ct);
 
         var limitMb = Math.Clamp(field.Validation.MaxFileSizeMb ?? 5, 1, 64);
         if (content.Length > limitMb * 1024L * 1024L)
@@ -291,10 +304,12 @@ public class ProfileAttachmentService(
         }
 
         /* Cleared first, so a field that somehow holds several ends up with
-           one rather than with the new file behind the old ones. */
+           one rather than with the new file behind the old ones. This
+           entry only: the same field on the row above is a different
+           question with a different answer. */
         await db.ProfileAttachments
             .Where(a => a.ApplicantId == applicantId && a.SubCategoryId == subCategoryId
-                        && a.FieldKey == fieldKey)
+                        && a.FieldKey == fieldKey && a.EntryIndex == entry)
             .ExecuteDeleteAsync(ct);
 
         db.ProfileAttachments.Add(new ProfileAttachment
@@ -302,6 +317,7 @@ public class ProfileAttachmentService(
             ApplicantId = applicantId,
             SubCategoryId = subCategoryId,
             FieldKey = fieldKey,
+            EntryIndex = entry,
             DisplayOrder = 1,
             FileName = name,
             ContentType = string.IsNullOrWhiteSpace(contentType)
@@ -317,14 +333,74 @@ public class ProfileAttachmentService(
 
     /// <summary>The file itself, as it arrived.</summary>
     public async Task<(byte[] Content, string ContentType, string FileName)> FileAsync(
-        int applicantId, int subCategoryId, string fieldKey, CancellationToken ct)
+        int applicantId, int subCategoryId, string fieldKey, int entry, CancellationToken ct)
     {
         var held = await db.ProfileAttachments.AsNoTracking()
             .FirstOrDefaultAsync(a => a.ApplicantId == applicantId && a.SubCategoryId == subCategoryId
-                        && a.FieldKey == fieldKey, ct)
+                        && a.FieldKey == fieldKey && a.EntryIndex == entry, ct)
             ?? throw AppException.NotFound("File for this field");
 
         return (held.Content, held.ContentType, held.FileName ?? $"{fieldKey}");
+    }
+
+    /* --------------------------------------------------- a whole entry */
+
+    /// <summary>
+    /// Drops everything attached to one entry of a repeating section and
+    /// closes the gap behind it.
+    ///
+    /// The entries are a list: removing the second makes the third into
+    /// the second, and the answers move with it because they are stored
+    /// as a list and rewritten whole. The attachments are stored by
+    /// position, so without this they would stay where they were and the
+    /// third entry's marksheet would hang under the second entry's
+    /// qualification.
+    ///
+    /// Every field of the section at once, not one at a time: half a
+    /// renumbered section is worse than either state.
+    /// </summary>
+    public async Task<int> DropEntryAsync(
+        int applicantId, int subCategoryId, string sectionKey, int entry, CancellationToken ct)
+    {
+        if (entry < 0) throw new AppException("That entry does not exist.");
+
+        var form = await forms.ActiveForAsync(subCategoryId, ct);
+        var section = form?.Sections.FirstOrDefault(
+            s => s.Key == sectionKey && s.IsRepeatable);
+
+        if (section is null) throw AppException.NotFound("Repeating section");
+
+        var keys = section.Fields
+            .Where(f => f.Type is FieldType.File or FieldType.Photos)
+            .Select(f => f.Key)
+            .ToList();
+
+        if (keys.Count == 0) return 0;
+
+        /* Two statements, and in this order. Written as a set rather than
+           a row at a time because every row above the gap moves into the
+           position of the one below it, and the unique index would be
+           violated halfway through if they moved one by one. A single
+           UPDATE is checked once it has finished, so the whole column
+           slides down at once. The transaction is because the delete and
+           the slide are one change: a profile with the gap closed but the
+           entry still in it would pair every later marksheet with the
+           wrong qualification. */
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        var dropped = await db.ProfileAttachments
+            .Where(a => a.ApplicantId == applicantId && a.SubCategoryId == subCategoryId
+                        && keys.Contains(a.FieldKey) && a.EntryIndex == entry)
+            .ExecuteDeleteAsync(ct);
+
+        await db.ProfileAttachments
+            .Where(a => a.ApplicantId == applicantId && a.SubCategoryId == subCategoryId
+                        && keys.Contains(a.FieldKey) && a.EntryIndex > entry)
+            .ExecuteUpdateAsync(
+                set => set.SetProperty(a => a.EntryIndex, a => a.EntryIndex - 1), ct);
+
+        await tx.CommitAsync(ct);
+        return dropped;
     }
 
     /* ---------------------------------------------------------- helpers */
@@ -338,13 +414,15 @@ public class ProfileAttachmentService(
     /// another, and so a limit an administrator changes applies at once.
     /// </summary>
     private async Task<ProfileField> FieldForAsync(
-        int applicantId, int subCategoryId, string fieldKey, FieldType expected, CancellationToken ct)
+        int applicantId, int subCategoryId, string fieldKey, FieldType expected, int entry,
+        CancellationToken ct)
     {
         var form = await forms.ActiveForAsync(subCategoryId, ct);
 
-        var field = form?.Sections
-            .SelectMany(s => s.Fields)
-            .FirstOrDefault(f => f.Key == fieldKey && f.Type == expected);
+        var owner = form?.Sections
+            .FirstOrDefault(s => s.Fields.Any(f => f.Key == fieldKey && f.Type == expected));
+
+        var field = owner?.Fields.First(f => f.Key == fieldKey && f.Type == expected);
 
         if (field is null)
         {
@@ -352,6 +430,15 @@ public class ProfileAttachmentService(
                 ? "This field does not take a file."
                 : "This field does not take pictures.");
         }
+
+        /* Which row of the section this belongs to, checked against the
+           section rather than trusted. A field asked once has one answer
+           and the entry can only be nought; a repeating one is bounded by
+           the entries the form allows, so a request cannot write rows
+           past the end of a section that only ever shows ten. */
+        var ceiling = owner!.IsRepeatable ? Math.Max(owner.MaxEntries, 1) : 1;
+        if (entry < 0 || entry >= ceiling)
+            throw new AppException("That entry does not exist on this form.");
 
         return field;
     }
@@ -364,9 +451,10 @@ public class ProfileAttachmentService(
     /// without anything being republished to the device.
     /// </summary>
     private async Task<int> LimitForAsync(
-        int applicantId, int subCategoryId, string fieldKey, CancellationToken ct)
+        int applicantId, int subCategoryId, string fieldKey, int entry, CancellationToken ct)
     {
-        var field = await FieldForAsync(applicantId, subCategoryId, fieldKey, FieldType.Photos, ct);
+        var field = await FieldForAsync(
+            applicantId, subCategoryId, fieldKey, FieldType.Photos, entry, ct);
         return Math.Clamp(field.Validation.MaxPhotos ?? DefaultLimit, 1, 20);
     }
 }

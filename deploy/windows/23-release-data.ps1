@@ -111,7 +111,8 @@ FROM (VALUES
     ('Notifications', 'UserId'),
     ('Programmes', 'RequestedVenue'),
     ('Programmes', 'VenueChangeRequestedOn'),
-    ('OptionSetItems', 'Description')
+    ('OptionSetItems', 'Description'),
+    ('ProfileAttachments', 'EntryIndex')
 ) AS v(t, c);
 "@
 

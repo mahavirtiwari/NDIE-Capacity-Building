@@ -706,11 +706,11 @@ public class ProfileSubmissionsController(ProfileSubmissionService service) : Ap
     public async Task<ActionResult<ApiEnvelope<IReadOnlyList<ProfileAttachmentService.Shot>>>>
         Photos(
             int id, string fieldKey, [FromServices] ProfileAttachmentService photos,
-            CancellationToken ct)
+            CancellationToken ct, [FromQuery] int entry = 0)
     {
         var submission = await service.GetAsync(id, ct);
         return Envelope(await photos.ShotsAsync(
-            submission.ApplicantId, submission.SubCategoryId, fieldKey, ct));
+            submission.ApplicantId, submission.SubCategoryId, fieldKey, entry, ct));
     }
 
     /// <summary>One of those pictures, as it is stored.</summary>
@@ -718,11 +718,12 @@ public class ProfileSubmissionsController(ProfileSubmissionService service) : Ap
     [HasPermission(Permissions.ApplicationsView)]
     public async Task<IActionResult> Photo(
         int id, string fieldKey, int displayOrder,
-        [FromServices] ProfileAttachmentService photos, CancellationToken ct)
+        [FromServices] ProfileAttachmentService photos, CancellationToken ct,
+        [FromQuery] int entry = 0)
     {
         var submission = await service.GetAsync(id, ct);
         var (content, type) = await photos.OneAsync(
-            submission.ApplicantId, submission.SubCategoryId, fieldKey, displayOrder, ct);
+            submission.ApplicantId, submission.SubCategoryId, fieldKey, entry, displayOrder, ct);
 
         /* Not rendered as a document, and not sniffed into one. The same
            rule the logo is served under, for the same reason. */
@@ -735,12 +736,12 @@ public class ProfileSubmissionsController(ProfileSubmissionService service) : Ap
     [HasPermission(Permissions.ApplicationsView)]
     public async Task<IActionResult> AttachedFile(
         int id, string fieldKey, [FromServices] ProfileAttachmentService attachments,
-        CancellationToken ct)
+        CancellationToken ct, [FromQuery] int entry = 0)
     {
         var submission = await service.GetAsync(id, ct);
         var (content, type, name) =
             await attachments.FileAsync(
-                submission.ApplicantId, submission.SubCategoryId, fieldKey, ct);
+                submission.ApplicantId, submission.SubCategoryId, fieldKey, entry, ct);
 
         /* Served as the type it was stored under and not sniffed into
            another: the scrutiny screen now shows these rather than only

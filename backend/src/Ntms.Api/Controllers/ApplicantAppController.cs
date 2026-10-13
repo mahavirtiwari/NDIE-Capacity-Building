@@ -232,12 +232,18 @@ public class ApplicantAppController(
        A field of the profile form can ask for photographs rather than a
        file, because a phone is what the applicant has. They go up one at
        a time, carrying what the handset knew when the shutter went, and
-       come back one at a time as the pictures they are. */
+       come back one at a time as the pictures they are.
+
+       `entry` says which row of a repeating section is being answered,
+       counting from zero. It is a query parameter with a default rather
+       than part of the path because a section asked once has only ever
+       had one answer, and an older copy of the app that does not send it
+       means the first. */
 
     [HttpGet("profile-photos/{subCategoryId:int}/{fieldKey}")]
     public async Task<ActionResult<ApiEnvelope<ProfileAttachmentService.Standing>>> Photos(
-        int subCategoryId, string fieldKey, CancellationToken ct) =>
-        Envelope(await photos.StandingAsync(ApplicantId, subCategoryId, fieldKey, ct));
+        int subCategoryId, string fieldKey, CancellationToken ct, [FromQuery] int entry = 0) =>
+        Envelope(await photos.StandingAsync(ApplicantId, subCategoryId, fieldKey, entry, ct));
 
     /// <summary>
     /// Adds one picture, with what the phone knew about it.
@@ -255,6 +261,7 @@ public class ApplicantAppController(
         string fieldKey,
         IFormFile picture,
         CancellationToken ct,
+        [FromQuery] int entry = 0,
         [FromForm] DateTime? capturedOn = null,
         [FromForm] decimal? latitude = null,
         [FromForm] decimal? longitude = null,
@@ -272,22 +279,25 @@ public class ApplicantAppController(
             capturedOn, latitude, longitude, platform, model, osVersion);
 
         return Envelope(await photos.AddAsync(
-            ApplicantId, subCategoryId, fieldKey, buffer.ToArray(), picture.ContentType,
+            ApplicantId, subCategoryId, fieldKey, entry, buffer.ToArray(), picture.ContentType,
             capture, ct));
     }
 
     [HttpDelete("profile-photos/{subCategoryId:int}/{fieldKey}/{displayOrder:int}")]
     public async Task<ActionResult<ApiEnvelope<ProfileAttachmentService.Standing>>> RemovePhoto(
-        int subCategoryId, string fieldKey, int displayOrder, CancellationToken ct) =>
-        Envelope(await photos.RemoveAsync(ApplicantId, subCategoryId, fieldKey, displayOrder, ct));
+        int subCategoryId, string fieldKey, int displayOrder, CancellationToken ct,
+        [FromQuery] int entry = 0) =>
+        Envelope(await photos.RemoveAsync(
+            ApplicantId, subCategoryId, fieldKey, entry, displayOrder, ct));
 
     /// <summary>One picture, for the thumbnail beside the field.</summary>
     [HttpGet("profile-photos/{subCategoryId:int}/{fieldKey}/{displayOrder:int}")]
     public async Task<IActionResult> Photo(
-        int subCategoryId, string fieldKey, int displayOrder, CancellationToken ct)
+        int subCategoryId, string fieldKey, int displayOrder, CancellationToken ct,
+        [FromQuery] int entry = 0)
     {
         var (content, type) = await photos.OneAsync(
-            ApplicantId, subCategoryId, fieldKey, displayOrder, ct);
+            ApplicantId, subCategoryId, fieldKey, entry, displayOrder, ct);
         return File(content, type);
     }
 
@@ -299,8 +309,10 @@ public class ApplicantAppController(
     /// </summary>
     [HttpGet("profile-photos/{subCategoryId:int}/{fieldKey}/all")]
     public async Task<ActionResult<ApiEnvelope<IReadOnlyList<ProfileAttachmentService.Shot>>>>
-        PhotoList(int subCategoryId, string fieldKey, CancellationToken ct) =>
-        Envelope(await photos.ShotsAsync(ApplicantId, subCategoryId, fieldKey, ct));
+        PhotoList(
+            int subCategoryId, string fieldKey, CancellationToken ct,
+            [FromQuery] int entry = 0) =>
+        Envelope(await photos.ShotsAsync(ApplicantId, subCategoryId, fieldKey, entry, ct));
 
     /* ------------------------------------------------------ files ----
        A file field used to record only the name of what the applicant
@@ -308,14 +320,15 @@ public class ApplicantAppController(
 
     [HttpGet("profile-files/{subCategoryId:int}/{fieldKey}")]
     public async Task<ActionResult<ApiEnvelope<ProfileAttachmentService.FileStanding>>> ProfileFile(
-        int subCategoryId, string fieldKey, CancellationToken ct) =>
-        Envelope(await photos.FileStandingAsync(ApplicantId, subCategoryId, fieldKey, ct));
+        int subCategoryId, string fieldKey, CancellationToken ct, [FromQuery] int entry = 0) =>
+        Envelope(await photos.FileStandingAsync(ApplicantId, subCategoryId, fieldKey, entry, ct));
 
     /// <summary>Attaches a file, replacing whatever the field held.</summary>
     [HttpPost("profile-files/{subCategoryId:int}/{fieldKey}")]
     [RequestSizeLimit(68_157_440)]
     public async Task<ActionResult<ApiEnvelope<ProfileAttachmentService.FileStanding>>> SetProfileFile(
-        int subCategoryId, string fieldKey, IFormFile document, CancellationToken ct)
+        int subCategoryId, string fieldKey, IFormFile document, CancellationToken ct,
+        [FromQuery] int entry = 0)
     {
         if (document is null || document.Length == 0)
             throw new AppException("Choose a file to attach.");
@@ -325,7 +338,7 @@ public class ApplicantAppController(
 
         return Envelope(
             await photos.SetFileAsync(
-                ApplicantId, subCategoryId, fieldKey, buffer.ToArray(),
+                ApplicantId, subCategoryId, fieldKey, entry, buffer.ToArray(),
                 document.FileName, document.ContentType, ct),
             "File attached.");
     }
@@ -333,12 +346,26 @@ public class ApplicantAppController(
     /// <summary>The file back, as it arrived.</summary>
     [HttpGet("profile-files/{subCategoryId:int}/{fieldKey}/download")]
     public async Task<IActionResult> DownloadProfileFile(
-        int subCategoryId, string fieldKey, CancellationToken ct)
+        int subCategoryId, string fieldKey, CancellationToken ct, [FromQuery] int entry = 0)
     {
         var (content, type, name) = await photos.FileAsync(
-            ApplicantId, subCategoryId, fieldKey, ct);
+            ApplicantId, subCategoryId, fieldKey, entry, ct);
         return File(content, type, name);
     }
+
+    /// <summary>
+    /// Drops what an entry of a repeating section held, when the applicant
+    /// removes that entry.
+    ///
+    /// The answers are rewritten whole when the form is saved, so they
+    /// need nothing; the attachments are stored by position and would
+    /// otherwise stay where they were, leaving every later row paired
+    /// with the row below's evidence.
+    /// </summary>
+    [HttpDelete("profile-entries/{subCategoryId:int}/{sectionKey}/{entry:int}")]
+    public async Task<ActionResult<ApiEnvelope<int>>> DropProfileEntry(
+        int subCategoryId, string sectionKey, int entry, CancellationToken ct) =>
+        Envelope(await photos.DropEntryAsync(ApplicantId, subCategoryId, sectionKey, entry, ct));
 
     /// <summary>
     /// Keeps what has been filled in so far, without sending it.

@@ -53,6 +53,11 @@ export function ProfileScope({
   );
 }
 
+/** The discipline, or null where the form is being filled outside one. */
+function useSubCategoryIdOrNull(): number | null {
+  return useContext(SubCategoryContext);
+}
+
 function useSubCategoryId(): number {
   const held = useContext(SubCategoryContext);
   /* Loud rather than silently posting to sub-category zero, which the API
@@ -683,6 +688,11 @@ export function DynamicSectionView({
 }) {
   const { values, errors, setValue, entryCount, addEntry, removeEntry } = state;
 
+  /* Read here rather than beside its use further down: a section that
+     does not repeat returns before that point, and a hook called after a
+     return runs on some renders and not others. */
+  const scope = useSubCategoryIdOrNull();
+
   const visible = (field: ProfileField, index: number | null): boolean => {
     if (!field.visibleWhenFieldKey) return true;
     const scoped = storageKey(section, index, field.visibleWhenFieldKey);
@@ -702,6 +712,11 @@ export function DynamicSectionView({
           <FieldRenderer
             key={key}
             field={field}
+            /* Which row this is. The answers are kept under a key built
+               from the section and the position; the evidence is kept on
+               the server, where the field key is the same on every row,
+               so the position has to travel with it. */
+            entry={index ?? 0}
             value={values[key] ?? defaultFor(field)}
             error={errors[key]}
             onChange={(value) => setValue(key, value)}
@@ -734,6 +749,23 @@ export function DynamicSectionView({
 
   const shown = entryCount(section);
   const noun = entryNoun(section);
+
+  /**
+   * Removes an entry, and what was attached to it.
+   *
+   * The evidence is held on the server by position, so the entry going
+   * has to be dropped there and the ones above it slid down - otherwise
+   * the next qualification is left showing this one's marksheet. The
+   * answers move on screen without waiting for it: a press should not
+   * hang on the network, and a drop that failed is corrected the next
+   * time the form is opened, which re-reads what is really held.
+   */
+  const dropEntry = (index: number) => {
+    if (scope !== null) {
+      void me.dropProfileEntry(scope, sectionKeyOf(section), index).catch(() => undefined);
+    }
+    removeEntry(section, index);
+  };
   const floor = Math.max(minOf(section), 1);
   const ceiling = maxOf(section);
   const sectionError = errors[sectionKeyOf(section)];
@@ -757,7 +789,7 @@ export function DynamicSectionView({
                 accessibilityRole="button"
                 accessibilityLabel={`Remove ${noun.toLowerCase()} ${index + 1}`}
                 hitSlop={8}
-                onPress={() => removeEntry(section, index)}
+                onPress={() => dropEntry(index)}
               >
                 <Ionicons name="trash-outline" size={18} color={colors.danger500} />
               </Pressable>
@@ -808,11 +840,13 @@ export function DynamicFormView({
 
 function FieldRenderer({
   field,
+  entry,
   value,
   error,
   onChange,
 }: {
   field: ProfileField;
+  entry: number;
   value: FormValue;
   error?: string;
   onChange: (value: FormValue) => void;
@@ -876,6 +910,7 @@ function FieldRenderer({
       return (
         <PhotosField
           field={field}
+          entry={entry}
           value={typeof value === 'string' ? value : ''}
           error={error}
           onChange={onChange}
@@ -950,6 +985,7 @@ function FieldRenderer({
       return (
         <FileField
           field={field}
+          entry={entry}
           value={typeof value === 'string' ? value : ''}
           error={error}
           onChange={onChange}
@@ -1003,11 +1039,13 @@ function FieldRenderer({
  */
 function FileField({
   field,
+  entry,
   value,
   error,
   onChange,
 }: {
   field: ProfileField;
+  entry: number;
   value: string;
   error?: string;
   onChange: (value: string) => void;
@@ -1024,7 +1062,7 @@ function FileField({
     let cancelled = false;
     (async () => {
       try {
-        const held = await me.profileFile(subCategoryId, field.key);
+        const held = await me.profileFile(subCategoryId, field.key, entry);
         if (!cancelled && held.fileName) onChange(held.fileName);
       } catch {
         /* Offline, or nothing attached yet. What is in the form stands. */
@@ -1034,7 +1072,7 @@ function FileField({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subCategoryId, field.key]);
+  }, [subCategoryId, field.key, entry]);
 
   const pick = async () => {
     setFailure(null);
@@ -1054,11 +1092,16 @@ function FileField({
        looked like it had worked and had not. */
     setBusy(true);
     try {
-      const held = await me.setProfileFile(subCategoryId, field.key, {
-        uri: asset.uri,
-        name: asset.name,
-        type: asset.mimeType ?? 'application/octet-stream',
-      });
+      const held = await me.setProfileFile(
+        subCategoryId,
+        field.key,
+        {
+          uri: asset.uri,
+          name: asset.name,
+          type: asset.mimeType ?? 'application/octet-stream',
+        },
+        entry,
+      );
       onChange(held.fileName ?? asset.name);
     } catch (caught) {
       setFailure(caught instanceof Error ? caught.message : 'Could not attach the file.');
@@ -1072,7 +1115,7 @@ function FileField({
     setFailure(null);
     try {
       await saveAndShare(
-        await me.profileFileDownload(subCategoryId, field.key), field.label);
+        await me.profileFileDownload(subCategoryId, field.key, entry), field.label);
     } catch (caught) {
       setFailure(caught instanceof Error ? caught.message : 'Could not open the file.');
     } finally {
@@ -1150,11 +1193,13 @@ function FileField({
  */
 function PhotosField({
   field,
+  entry,
   value,
   error,
   onChange,
 }: {
   field: ProfileField;
+  entry: number;
   value: string;
   error?: string;
   onChange: (value: string) => void;
@@ -1177,7 +1222,7 @@ function PhotosField({
     let cancelled = false;
     (async () => {
       try {
-        const held = await me.photoList(subCategoryId, field.key);
+        const held = await me.photoList(subCategoryId, field.key, entry);
         if (cancelled) return;
         setShots(held);
         setCount(held.length);
@@ -1193,7 +1238,7 @@ function PhotosField({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subCategoryId, field.key]);
+  }, [subCategoryId, field.key, entry]);
 
   const take = async () => {
     setFailure(null);
@@ -1221,6 +1266,7 @@ function PhotosField({
         field.key,
         { uri: asset.uri, type: asset.mimeType ?? 'image/jpeg' },
         facts,
+        entry,
       );
 
       setCount(standing.count);
@@ -1237,7 +1283,7 @@ function PhotosField({
   /** Re-reads the set, so the captions under the thumbnails are current. */
   const refresh = async () => {
     try {
-      const held = await me.photoList(subCategoryId, field.key);
+      const held = await me.photoList(subCategoryId, field.key, entry);
       setShots(held);
       setCount(held.length);
       setStamp(Date.now());
@@ -1251,7 +1297,7 @@ function PhotosField({
     setBusy(true);
     setFailure(null);
     try {
-      const standing = await me.removePhoto(subCategoryId, field.key, count);
+      const standing = await me.removePhoto(subCategoryId, field.key, count, entry);
       setCount(standing.count);
       setStamp(Date.now());
       onChange(standing.count > 0 ? String(standing.count) : '');
@@ -1289,7 +1335,7 @@ function PhotosField({
               <View key={`${order}-${stamp}`} style={styles.shotRow}>
                 <Image
                   source={{
-                    uri: `${me.photoUri(subCategoryId, field.key, order)}?v=${stamp}`,
+                    uri: `${me.photoUri(subCategoryId, field.key, order, entry)}&v=${stamp}`,
                     headers: authHeaders(),
                   }}
                   style={styles.photoThumb}

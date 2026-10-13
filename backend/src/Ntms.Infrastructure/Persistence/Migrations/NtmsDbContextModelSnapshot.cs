@@ -2937,6 +2937,9 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("int");
 
+                    b.Property<int>("EntryIndex")
+                        .HasColumnType("int");
+
                     b.Property<string>("FieldKey")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -2971,7 +2974,7 @@ namespace Ntms.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SubCategoryId");
 
-                    b.HasIndex("ApplicantId", "SubCategoryId", "FieldKey", "DisplayOrder")
+                    b.HasIndex("ApplicantId", "SubCategoryId", "FieldKey", "EntryIndex", "DisplayOrder")
                         .IsUnique();
 
                     b.ToTable("ProfileAttachments", (string)null);

@@ -40,7 +40,22 @@ public class ProfileAttachment : AuditableEntity
     /// <summary>The field on the form these belong to.</summary>
     public string FieldKey { get; set; } = string.Empty;
 
-    /// <summary>Position in the set, from one. The order of the PDF's pages.</summary>
+    /// <summary>
+    /// Which entry of a repeating section, counting from zero.
+    ///
+    /// A section asked once holds nought. A section asked several times -
+    /// a qualification per entry, each with its own marksheet - holds the
+    /// position of the entry the file was attached to, because the field
+    /// key is the same on all of them. Without this the second entry's
+    /// marksheet replaced the first's: the form named a different file
+    /// against each row and every row pointed at the same bytes.
+    ///
+    /// Rows written before the column existed are nought, which is right:
+    /// what they hold is what the first entry was given.
+    /// </summary>
+    public int EntryIndex { get; set; }
+
+    /// <summary>Position in the set, from one, within one entry.</summary>
     public int DisplayOrder { get; set; }
 
     /// <summary>
