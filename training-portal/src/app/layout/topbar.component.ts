@@ -1,14 +1,16 @@
+import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, HostListener, inject, output, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/services/auth.service';
 import { BrandingService } from '../core/services/branding.service';
+import { MyNotificationsService } from '../core/services/my-notifications.service';
 import { IconComponent } from '../shared/components/icon.component';
 
 @Component({
   selector: 'app-topbar',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, IconComponent],
+  imports: [DatePipe, RouterLink, IconComponent],
   template: `
     <header class="topbar">
       <button type="button" class="btn btn--icon" (click)="toggleSidebar.emit()" aria-label="Toggle navigation">
@@ -24,9 +26,54 @@ import { IconComponent } from '../shared/components/icon.component';
 
       <div class="topbar__spacer"></div>
 
-      <button type="button" class="btn btn--icon" aria-label="Notifications">
-        <app-icon name="bell" [size]="18" />
-      </button>
+      <!-- What the scheme has said to this account: a programme waiting
+           on their permission, a report sent back. It was a button with
+           nothing behind it, so the only word anybody got was an e-mail -
+           read wherever mail is read, which is not the screen where the
+           thing is actually done. -->
+      <div class="topbar__bell">
+        <button
+          type="button"
+          class="btn btn--icon"
+          aria-label="Notifications"
+          (click)="toggleBell()"
+        >
+          <app-icon name="bell" [size]="18" />
+          @if (notices.unread() > 0) {
+            <span class="bell__count">{{ notices.unread() > 9 ? '9+' : notices.unread() }}</span>
+          }
+        </button>
+
+        @if (bellOpen()) {
+          <div class="menu menu--wide">
+            <div class="menu__head">
+              <strong class="text-sm">Notifications</strong>
+              @if (notices.unread() > 0) {
+                <span class="text-xs text-muted">{{ notices.unread() }} unread</span>
+              }
+            </div>
+
+            @if (notices.items().length === 0) {
+              <p class="menu__empty">Nothing yet.</p>
+            } @else {
+              <div class="menu__list">
+                @for (notice of notices.items(); track notice.id) {
+                  <button
+                    type="button"
+                    class="notice"
+                    [class.notice--unread]="!notice.read"
+                    (click)="openNotice(notice)"
+                  >
+                    <span class="notice__title">{{ notice.title }}</span>
+                    <span class="notice__body">{{ notice.body }}</span>
+                    <span class="notice__when">{{ notice.sentOn | date: 'dd MMM, HH:mm' }}</span>
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
 
       <div class="topbar__user">
         <button type="button" class="user-trigger" (click)="menuOpen.set(!menuOpen())">
@@ -74,6 +121,69 @@ import { IconComponent } from '../shared/components/icon.component';
         color: var(--ink-900);
       }
       .topbar__spacer { flex: 1; }
+
+      /* The bell, and what hangs under it. */
+      .topbar__bell { position: relative; }
+      .bell__count {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        min-width: 15px;
+        height: 15px;
+        padding: 0 3px;
+        border-radius: 999px;
+        background: var(--danger-600, #b3300d);
+        color: #fff;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 15px;
+        text-align: center;
+      }
+      .menu--wide { min-width: 320px; max-width: 360px; padding: 0; }
+      .menu__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 0.6rem 0.75rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .menu__empty {
+        margin: 0;
+        padding: 1rem 0.75rem;
+        font-size: var(--fs-sm);
+        color: var(--ink-500);
+        text-align: center;
+      }
+      .menu__list { max-height: 340px; overflow-y: auto; }
+      .notice {
+        display: grid;
+        gap: 2px;
+        width: 100%;
+        text-align: left;
+        padding: 0.6rem 0.75rem;
+        border: 0;
+        border-bottom: 1px solid var(--border);
+        background: transparent;
+        font: inherit;
+        cursor: pointer;
+      }
+      .notice:last-child { border-bottom: 0; }
+      .notice:hover { background: var(--ink-100); }
+      /* Unread carries the brand tint and a weight, so a glance down the
+         list separates what is new from what has been seen. */
+      .notice--unread { background: var(--brand-50); }
+      .notice__title {
+        font-size: var(--fs-sm);
+        font-weight: 700;
+        color: var(--ink-900);
+      }
+      .notice__body {
+        font-size: var(--fs-sm);
+        color: var(--ink-600);
+        line-height: 1.35;
+      }
+      .notice__when { font-size: var(--fs-xs); color: var(--ink-400); }
       .topbar__user { position: relative; }
       .user-trigger {
         display: flex;
@@ -134,12 +244,45 @@ export class TopbarComponent {
   protected readonly usingMockApi = environment.useMockApi;
   protected readonly menuOpen = signal(false);
 
+  protected readonly notices = inject(MyNotificationsService);
+  private readonly router = inject(Router);
+  protected readonly bellOpen = signal(false);
+
   readonly toggleSidebar = output<void>();
+
+  constructor() {
+    /* Once, when the bar is first put up. The count is refreshed when the
+       panel is opened rather than on a timer: a poll every minute on
+       every open tab is a lot of traffic for a number that changes a
+       handful of times a day. */
+    this.notices.refresh();
+  }
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as HTMLElement;
     if (!target.closest('.topbar__user')) this.menuOpen.set(false);
+    if (!target.closest('.topbar__bell')) this.bellOpen.set(false);
+  }
+
+  protected toggleBell(): void {
+    const opening = !this.bellOpen();
+    this.bellOpen.set(opening);
+    this.menuOpen.set(false);
+    if (opening) this.notices.refresh();
+  }
+
+  /**
+   * Opens what a notice is about, and marks it read on the way.
+   *
+   * Read means seen rather than acted on: somebody who opens the notice
+   * about a programme waiting on them has seen it, whether or not they
+   * permit it there and then.
+   */
+  protected openNotice(notice: { id: number; read: boolean; linkPath?: string | null }): void {
+    this.notices.markRead(notice.id);
+    this.bellOpen.set(false);
+    if (notice.linkPath) void this.router.navigateByUrl(notice.linkPath);
   }
 
   protected signOut(): void {

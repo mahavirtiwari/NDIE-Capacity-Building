@@ -246,6 +246,23 @@ type Tab =
                   }
                 </span>
               </div>
+
+              <!-- A move the agency has asked for and the manager has not
+                   answered. On the sheet rather than only in the register,
+                   because this is the screen somebody opens to find out
+                   where the programme actually is. -->
+              @if (batch.venueChangeRequestedOn) {
+                <div class="fact fact--wide fact--pending">
+                  <span class="fact__term">Venue change requested</span>
+                  <span class="fact__value">
+                    {{ batch.requestedVenue }}@if (batch.requestedCity) {, {{ batch.requestedCity }}}@if (batch.requestedPincode) { — {{ batch.requestedPincode }}}
+                    <span class="text-xs text-muted">
+                      asked {{ batch.venueChangeRequestedOn | date: 'dd MMM yyyy' }} ·
+                      {{ batch.venueChangeReason }}
+                    </span>
+                  </span>
+                </div>
+              }
             </div>
           </section>
 
@@ -777,16 +794,26 @@ type Tab =
          three lines of enrolment stood as tall as the longest column
          beside it. The grouping is worth keeping; the chrome around it
          was not. align-items: start is most of the saving. */
+      /* One section to a row.
+
+         Five sections across a line gave each of them 175px, which is
+         narrower than an address, a platform link or a coordinator's
+         e-mail - so every one of them wrapped, and the strip read as a
+         wall. A section now has the width of the sheet and its own facts
+         share the line instead, which is the level at which columns help:
+         short values beside each other, long ones with room to be read. */
       .record {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+        grid-template-columns: 1fr;
         align-items: start;
-        /* Generous between rows, tight between columns. Without the boxes
-           there is nothing but space to separate one group from the next,
-           and on a narrow window they stack — where 0.5rem put a caption
-           hard against the fact above it. */
-        gap: 1.15rem 1.4rem;
+        gap: 0.9rem;
         padding: 0.9rem 1.15rem 1rem;
+      }
+      /* A rule between sections, now that they are stacked: without the
+         columns there was nothing to say where one ended. */
+      .record .group + .group {
+        border-top: 1px solid var(--border);
+        padding-top: 0.9rem;
       }
 
       .group__head {
@@ -803,7 +830,21 @@ type Tab =
       /* The one the desk is ringing about keeps a little weight. */
       .group--accent .group__head { color: var(--brand-800); }
 
-      .group__body { display: flex; flex-direction: column; gap: 0.5rem; }
+      .group__body {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        align-items: start;
+        gap: 0.55rem 1.4rem;
+      }
+      /* A fact that is a sentence rather than a value takes the row. */
+      .fact--wide { grid-column: 1 / -1; }
+      /* Waiting on somebody: tinted, so it is not read as settled. */
+      .fact--pending {
+        padding: 0.5rem 0.7rem;
+        border: 1px solid var(--warning-200, #fde68a);
+        border-radius: var(--radius);
+        background: var(--warning-50, #fefce8);
+      }
 
       /* Seven columns do not fit a narrow window, and a table told to fit
          anyway takes the width out of the one flexible column — which is

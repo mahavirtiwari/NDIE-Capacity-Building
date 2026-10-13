@@ -105,10 +105,24 @@ export default function Workshops() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={async () => {
+            /* try/finally, and only one at a time.
+
+               The spinner is dismissed by the state going back to false,
+               so anything that can leave it true leaves a wheel turning
+               in the middle of the screen with nothing behind it. A pull
+               that lands while another is still in flight did exactly
+               that: the second one set it true, the first one set it
+               false, and the second had nothing left to turn it off. */
+            onRefresh={() => {
+              if (refreshing) return;
               setRefreshing(true);
-              await load();
-              setRefreshing(false);
+              void (async () => {
+                try {
+                  await load();
+                } finally {
+                  setRefreshing(false);
+                }
+              })();
             }}
           />
         }
