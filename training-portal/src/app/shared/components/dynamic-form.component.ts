@@ -11,16 +11,21 @@ import {
   Validators,
 } from '@angular/forms';
 import {
+  DurationValue,
   FieldType,
   LoadedPhoto,
   ProfileField,
   ProfileForm,
   ProfileSection,
+  durationWords,
+  monthsBetween,
 } from '../../core/models';
 import { FORMAT_MESSAGES, FORMAT_PATTERNS } from '../../core/validation/formats';
 import { IconComponent } from './icon.component';
 
-type FieldValue = string | string[] | number | boolean | null;
+/* A span is a value like any other: the control holds an object, which is
+   what a duration field stores against its answer. */
+type FieldValue = string | string[] | number | boolean | DurationValue | null;
 
 /** One filling of a repeating section: the same fields, answered again. */
 type EntryValues = Record<string, FieldValue>;
@@ -220,6 +225,16 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
                   </div>
                 } @else {
                   <div class="read-field__value is-empty">{{ taken(group, field.key) }}</div>
+                }
+              }
+              @case ('duration') {
+                @if (span(group, field.key).from && span(group, field.key).to) {
+                  <div class="read-field__value">
+                    {{ span(group, field.key).from }} to {{ span(group, field.key).to }}
+                    <span class="text-xs text-muted">{{ spanWords(group, field.key) }}</span>
+                  </div>
+                } @else {
+                  <div class="read-field__value is-empty">Not answered</div>
                 }
               }
               @case ('multiselect') {
@@ -425,6 +440,51 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
                 [class.is-invalid]="invalid(group, field.key)"
               />
             }
+            <!-- Two dates and the length between them. Asked as one
+                 question because it is one fact: "how long" answered on
+                 its own is somebody's arithmetic done from memory, and
+                 two people doing it from the same dates do not always
+                 agree. -->
+            @case ('duration') {
+              <div class="span">
+                <div class="span__date">
+                  <label class="span__cap" [attr.for]="idFor(field, group) + '-from'">From</label>
+                  <input
+                    type="date"
+                    class="input"
+                    [id]="idFor(field, group) + '-from'"
+                    [value]="span(group, field.key).from"
+                    [disabled]="readonly()"
+                    [attr.min]="field.validation.minDate || null"
+                    [attr.max]="field.validation.maxDate || null"
+                    [class.is-invalid]="invalid(group, field.key)"
+                    (change)="setSpan(group, field.key, 'from', dateValue($event))"
+                  />
+                </div>
+
+                <div class="span__date">
+                  <label class="span__cap" [attr.for]="idFor(field, group) + '-to'">To</label>
+                  <input
+                    type="date"
+                    class="input"
+                    [id]="idFor(field, group) + '-to'"
+                    [value]="span(group, field.key).to"
+                    [disabled]="readonly()"
+                    [attr.min]="span(group, field.key).from || field.validation.minDate || null"
+                    [attr.max]="field.validation.maxDate || null"
+                    [class.is-invalid]="invalid(group, field.key)"
+                    (change)="setSpan(group, field.key, 'to', dateValue($event))"
+                  />
+                </div>
+
+                <!-- Worked out, not typed. It is a reading of the two
+                     dates beside it and changes with them. -->
+                <div class="span__total">
+                  <span class="span__cap">Duration</span>
+                  <strong class="span__words">{{ spanWords(group, field.key) }}</strong>
+                </div>
+              </div>
+            }
             @case ('number') {
               <input
                 type="number"
@@ -462,6 +522,30 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
   `,
   styles: [
     `
+      /* Two dates and what they add up to, on one line where there is
+         room and stacked where there is not. */
+      .span {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.5rem 0.75rem;
+        align-items: end;
+      }
+      .span__date { display: grid; gap: 0.2rem; }
+      .span__cap {
+        font-size: var(--fs-xs);
+        color: var(--ink-500);
+        font-weight: 600;
+      }
+      .span__total {
+        display: grid;
+        gap: 0.2rem;
+        padding: 0.35rem 0.6rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface-muted);
+      }
+      .span__words { font-size: var(--fs-sm); color: var(--ink-900); }
+
       /* What a choice means, under the words it explains. Quiet, and
          indented to the label it belongs to rather than the control. */
       .choice-note {
@@ -950,6 +1034,60 @@ export class DynamicFormComponent {
     return field.options?.find((option) => option.value === chosen)?.description ?? null;
   }
 
+  /**
+   * The span held against one field, as a shape the template can read.
+   *
+   * Answers are stored as whatever the field's type says, and this one
+   * stores an object. Anything else - a blank, or a string written by an
+   * older build - reads as an unanswered span rather than throwing.
+   */
+  /** What an <input type="date"> now holds. */
+  protected dateValue(event: Event): string {
+    return (event.target as HTMLInputElement).value;
+  }
+
+  protected span(group: FormGroup, key: string): { from: string; to: string } {
+    const raw = group.get(key)?.value as Partial<DurationValue> | null | undefined;
+    if (!raw || typeof raw !== 'object') return { from: '', to: '' };
+    return { from: raw.from ?? '', to: raw.to ?? '' };
+  }
+
+  /**
+   * Sets one end of it, and works the length out again.
+   *
+   * The months are stored with the dates rather than left to each reader:
+   * a report that groups by length should not have to know how a length
+   * is worked out. They are recomputed here on every change, so they
+   * cannot drift from the dates they came from.
+   */
+  protected setSpan(group: FormGroup, key: string, end: 'from' | 'to', value: string): void {
+    const control = group.get(key);
+    if (!control) return;
+
+    const current = this.span(group, key);
+    const next = { ...current, [end]: value } as DurationValue;
+
+    /* A to-date before the from-date is not a span. The later one moves
+       to meet the earlier rather than being refused: somebody correcting
+       the start of a period should not have to clear the end of it. */
+    if (next.from && next.to && next.to < next.from) {
+      if (end === 'from') next.to = next.from;
+      else next.from = next.to;
+    }
+
+    next.months = monthsBetween(next.from, next.to);
+    control.setValue(next);
+    control.markAsDirty();
+    control.markAsTouched();
+  }
+
+  /** The length, in words, for the line under the two dates. */
+  protected spanWords(group: FormGroup, key: string): string {
+    const { from, to } = this.span(group, key);
+    if (!from || !to) return 'Pick both dates';
+    return durationWords(monthsBetween(from, to));
+  }
+
   protected isChecked(group: FormGroup, key: string, option: string): boolean {
     const raw = group.get(key)?.value;
     return Array.isArray(raw) && raw.includes(option);
@@ -976,6 +1114,10 @@ export class DynamicFormComponent {
 function defaultFor(field: ProfileField): FieldValue {
   if (field.type === 'multiselect') return [];
   if (field.type === 'checkbox') return false;
+  /* An unanswered span is an empty one rather than a blank string: the
+     control reads an object, and a string would make every read of it
+     check the type first. */
+  if (field.type === 'duration') return { from: '', to: '', months: 0 };
   return '';
 }
 

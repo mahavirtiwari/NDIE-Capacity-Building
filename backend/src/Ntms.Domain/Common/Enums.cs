@@ -75,6 +75,22 @@ public enum FieldType
     /// the pages add up to, not five separate images.
     /// </summary>
     Photos = 18,
+
+    /// <summary>
+    /// A span of time: two dates, and the length between them.
+    ///
+    /// Asked as one question because it is one fact. "How long did you
+    /// work there" answered on its own is somebody's arithmetic, done
+    /// from memory, and two people doing it from the same two dates will
+    /// not always agree; asked as the dates, the answer carries what it
+    /// was worked out from. The length is calculated as the dates are
+    /// picked rather than typed, so nobody can disagree with it.
+    ///
+    /// The answer is an object - from, to, and the months between them -
+    /// where the other types store a string. A reader that expects one
+    /// shows nothing for it rather than something wrong.
+    /// </summary>
+    Duration = 19,
 }
 
 public enum FeeComponentKind

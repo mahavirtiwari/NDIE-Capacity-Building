@@ -15,6 +15,7 @@ export type FieldType =
   | 'date'
   | 'select'
   | 'multiselect'
+  | 'duration'
   | 'radio'
   | 'checkbox'
   | 'file'
@@ -39,7 +40,51 @@ export const FIELD_TYPES: { value: FieldType; label: string; hasOptions: boolean
   { value: 'checkbox', label: 'Checkbox', hasOptions: false },
   { value: 'file', label: 'File upload', hasOptions: false },
   { value: 'photos', label: 'Pictures from the camera', hasOptions: false },
+  /* Two dates and the length between them, asked as one question because
+     it is one fact. */
+  { value: 'duration', label: 'Duration (from and to dates)', hasOptions: false },
 ];
+
+/**
+ * A span of time, as it is stored against an answer.
+ *
+ * The dates are what the applicant gave; the months are what they add up
+ * to, and are carried rather than recomputed by every reader - a report
+ * that groups by length should not have to know how the length is worked
+ * out. Anything reading it back checks the arithmetic against the dates,
+ * because the dates are the answer and the number is a convenience.
+ */
+export interface DurationValue {
+  from: string;
+  to: string;
+  months: number;
+}
+
+/** Whole months between two ISO dates, counting a part month as served. */
+export function monthsBetween(from: string, to: string): number {
+  if (!from || !to) return 0;
+  const start = new Date(from);
+  const end = new Date(to);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 0;
+
+  let months =
+    (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+  /* The day of the month decides the last one: 1 Jan to 31 Jan is a month
+     served, 1 Jan to 15 Feb is one month and a part. */
+  if (end.getDate() < start.getDate()) months -= 1;
+  return Math.max(0, months);
+}
+
+/** "2 years 3 months", or "3 months", or "Less than a month". */
+export function durationWords(months: number): string {
+  if (months <= 0) return 'Less than a month';
+  const years = Math.floor(months / 12);
+  const rest = months % 12;
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} year${years === 1 ? '' : 's'}`);
+  if (rest > 0) parts.push(`${rest} month${rest === 1 ? '' : 's'}`);
+  return parts.join(' ');
+}
 
 export function fieldTypeHasOptions(type: FieldType): boolean {
   return FIELD_TYPES.find((f) => f.value === type)?.hasOptions ?? false;

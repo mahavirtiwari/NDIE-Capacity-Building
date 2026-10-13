@@ -191,7 +191,21 @@ export interface ApplicantProgram {
 export type FieldType =
   | 'text' | 'textarea' | 'number' | 'email' | 'mobile' | 'pan' | 'tan' | 'gstin'
   | 'ifsc' | 'pincode' | 'aadhaar' | 'date' | 'select' | 'multiselect' | 'radio'
-  | 'checkbox' | 'file' | 'photos';
+  | 'checkbox' | 'file' | 'photos' | 'duration';
+
+/**
+ * A span of time, as it is stored against an answer.
+ *
+ * The dates are what the applicant gave; the months are what they add up
+ * to. Carried with them rather than recomputed by every reader - and
+ * worked out as the dates are picked, so nobody is doing the arithmetic
+ * from memory.
+ */
+export interface DurationValue {
+  from: string;
+  to: string;
+  months: number;
+}
 
 export interface FieldOption {
   value: string;

@@ -10,7 +10,13 @@ import {
   useState,
 } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import type { PhotoShot, ProfileField, ProfileForm, ProfileSection } from '../api/types';
+import type {
+  DurationValue,
+  PhotoShot,
+  ProfileField,
+  ProfileForm,
+  ProfileSection,
+} from '../api/types';
 import { colors, font, radius, spacing } from '../theme';
 import { MAX_LENGTHS, UPPERCASE_TYPES, dateBoundsError, formatErrorFor } from '../validation/formats';
 import { authHeaders } from '../api/client';
@@ -21,7 +27,7 @@ import { Card, Chip, Field } from './ui';
 import { DateField } from './DateField';
 import { CheckboxGroup, Picker, RadioGroup, Switch } from './Picker';
 
-export type FormValue = string | string[] | boolean | null;
+export type FormValue = string | string[] | boolean | DurationValue | null;
 export type FormValues = Record<string, FormValue>;
 
 /**
@@ -141,7 +147,45 @@ export function storageKey(
 function defaultFor(field: ProfileField): FormValue {
   if (field.type === 'multiselect') return [];
   if (field.type === 'checkbox') return false;
+  /* An unanswered span is an empty one rather than a blank string: the
+     control reads an object either way. */
+  if (field.type === 'duration') return { from: '', to: '', months: 0 };
   return '';
+}
+
+/** Whole months between two ISO dates, counting a part month as served. */
+export function monthsBetween(from: string, to: string): number {
+  if (!from || !to) return 0;
+  const start = new Date(from);
+  const end = new Date(to);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 0;
+
+  let months =
+    (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+  /* The day of the month decides the last one: 1 Jan to 31 Jan is a month
+     served, 1 Jan to 15 Feb is one month and a part. */
+  if (end.getDate() < start.getDate()) months -= 1;
+  return Math.max(0, months);
+}
+
+/** "2 years 3 months", or "3 months", or "Less than a month". */
+export function durationWords(months: number): string {
+  if (months <= 0) return 'Less than a month';
+  const years = Math.floor(months / 12);
+  const rest = months % 12;
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} year${years === 1 ? '' : 's'}`);
+  if (rest > 0) parts.push(`${rest} month${rest === 1 ? '' : 's'}`);
+  return parts.join(' ');
+}
+
+/** The span held against a field, whatever else the value turns out to be. */
+function spanOf(value: FormValue): DurationValue {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { from: '', to: '', months: 0 };
+  }
+  const span = value as Partial<DurationValue>;
+  return { from: span.from ?? '', to: span.to ?? '', months: span.months ?? 0 };
 }
 
 /**
@@ -152,6 +196,12 @@ function defaultFor(field: ProfileField): FormValue {
 function isBlank(raw: FormValue): boolean {
   if (Array.isArray(raw)) return raw.length === 0;
   if (typeof raw === 'boolean') return !raw;
+  /* A span is answered when both ends of it are: one date and a blank is
+     half a question. */
+  if (raw && typeof raw === 'object') {
+    const span = raw as Partial<DurationValue>;
+    return !span.from || !span.to;
+  }
   return (raw ?? '').trim() === '';
 }
 
@@ -185,6 +235,13 @@ const asText = (value: FormValue): string => {
   if (value === null || value === undefined) return '';
   if (Array.isArray(value)) return value.join(',');
   if (typeof value === 'boolean') return value ? 'true' : 'false';
+  /* A span reads as the two dates it is: anything printing an answer as
+     one line - a summary, a review screen - gets something legible rather
+     than [object Object]. */
+  if (typeof value === 'object') {
+    const span = value as Partial<DurationValue>;
+    return span.from && span.to ? `${span.from} to ${span.to}` : '';
+  }
   return value;
 };
 
@@ -838,6 +895,56 @@ function FieldRenderer({
         />
       );
 
+    case 'duration': {
+      const span = spanOf(value);
+
+      /* A to-date before the from-date is not a span. The later one moves
+         to meet the earlier rather than being refused: somebody fixing
+         the start of a period should not have to clear the end of it. */
+      const settle = (next: DurationValue): DurationValue => {
+        const fixed = { ...next };
+        if (fixed.from && fixed.to && fixed.to < fixed.from) fixed.to = fixed.from;
+        fixed.months = monthsBetween(fixed.from, fixed.to);
+        return fixed;
+      };
+
+      return (
+        <View style={styles.span}>
+          <Text style={styles.spanLabel}>
+            {field.label}
+            {field.validation.required ? <Text style={styles.spanRequired}> *</Text> : null}
+          </Text>
+
+          <DateField
+            label="From"
+            value={span.from || null}
+            minDate={field.validation.minDate}
+            maxDate={field.validation.maxDate}
+            onChange={(next) => onChange(settle({ ...span, from: next ?? '' }))}
+          />
+          <DateField
+            label="To"
+            value={span.to || null}
+            minDate={span.from || field.validation.minDate}
+            maxDate={field.validation.maxDate}
+            error={error}
+            onChange={(next) => onChange(settle({ ...span, to: next ?? '' }))}
+          />
+
+          {/* Worked out, not typed: it is a reading of the two dates above
+              and changes with them. */}
+          <View style={styles.spanTotal}>
+            <Text style={styles.spanTotalCap}>Duration</Text>
+            <Text style={styles.spanTotalWords}>
+              {span.from && span.to ? durationWords(monthsBetween(span.from, span.to)) : 'Pick both dates'}
+            </Text>
+          </View>
+
+          {field.helpText ? <Text style={styles.spanHint}>{field.helpText}</Text> : null}
+        </View>
+      );
+    }
+
     case 'file':
       return (
         <FileField
@@ -1286,6 +1393,23 @@ const mimeFor = (extension: string): string => {
 
 const styles = StyleSheet.create({
   stack: { gap: spacing.lg },
+  /* Two dates and what they add up to, asked as one question. */
+  span: { gap: spacing.sm },
+  spanLabel: { fontSize: font.sm, fontWeight: '600', color: colors.ink700 },
+  spanRequired: { color: colors.danger700 },
+  spanTotal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.ink50,
+  },
+  spanTotalCap: { fontSize: font.xs, color: colors.ink500, fontWeight: '600' },
+  spanTotalWords: { fontSize: font.sm, fontWeight: '700', color: colors.ink900 },
+  spanHint: { fontSize: font.xs, color: colors.ink500 },
   /* Tinted rather than white: on a screen that is otherwise cards on a pale
      page, the questions being asked should read as one block and not as
      more of the page. */
