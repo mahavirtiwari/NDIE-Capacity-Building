@@ -1,5 +1,15 @@
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  HostListener,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import {
   AbstractControl,
   FormArray,
@@ -317,28 +327,73 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
                 <span class="choice-note choice-note--under">{{ note }}</span>
               }
             }
+            <!-- A dropdown you tick several things in.
+
+                 It was a flat grid of checkboxes, which reads as a
+                 different kind of question from the dropdown beside it and
+                 takes the height of the whole list whether or not anybody
+                 is answering it. Closed it says what has been chosen;
+                 open it is the same tick list as before, descriptions and
+                 all. -->
             @case ('multiselect') {
-              <div class="check-grid">
-                @for (opt of field.options; track opt.value) {
-                  <label class="check check--described">
-                    <input
-                      type="checkbox"
-                      [checked]="isChecked(group, field.key, opt.value)"
-                      [disabled]="readonly()"
-                      (change)="toggleMulti(group, field.key, opt.value, $event)"
-                    />
-                    <span>
-                      {{ opt.label }}
-                      <!-- What the choice means, under the words it
-                           explains. The person reading is deciding between
-                           this and the one below it, and a qualification
-                           that turns on the difference is not something to
-                           hide behind a hover. -->
-                      @if (opt.description) {
-                        <span class="choice-note">{{ opt.description }}</span>
-                      }
-                    </span>
-                  </label>
+              <div class="multi" [attr.data-key]="field.key">
+                <button
+                  type="button"
+                  class="input multi__trigger"
+                  [class.is-invalid]="invalid(group, field.key)"
+                  [disabled]="readonly()"
+                  [attr.aria-expanded]="openMulti() === multiId(field, group)"
+                  (click)="toggleMultiPanel(field, group)"
+                >
+                  @if (chosen(group, field); as picked) {
+                    @if (picked.length === 0) {
+                      <span class="multi__placeholder">Select</span>
+                    } @else {
+                      <span class="multi__chips">
+                        @for (label of picked.slice(0, 3); track label) {
+                          <span class="chip">{{ label }}</span>
+                        }
+                        @if (picked.length > 3) {
+                          <span class="chip chip--count">+{{ picked.length - 3 }}</span>
+                        }
+                      </span>
+                    }
+                  }
+                  <app-icon name="chevron-down" [size]="14" />
+                </button>
+
+                @if (openMulti() === multiId(field, group)) {
+                  <div class="multi__panel">
+                    @for (opt of field.options; track opt.value) {
+                      <label class="check check--described">
+                        <input
+                          type="checkbox"
+                          [checked]="isChecked(group, field.key, opt.value)"
+                          (change)="toggleMulti(group, field.key, opt.value, $event)"
+                        />
+                        <span>
+                          {{ opt.label }}
+                          <!-- What the choice means, under the words it
+                               explains: the person reading is deciding
+                               between this and the one below it. -->
+                          @if (opt.description) {
+                            <span class="choice-note">{{ opt.description }}</span>
+                          }
+                        </span>
+                      </label>
+                    }
+
+                    <div class="multi__foot">
+                      <button type="button" class="btn btn--sm btn--ghost"
+                        (click)="clearMulti(group, field.key)">
+                        Clear
+                      </button>
+                      <button type="button" class="btn btn--sm btn--secondary"
+                        (click)="openMulti.set(null)">
+                        Done
+                      </button>
+                    </div>
+                  </div>
                 }
               </div>
             }
@@ -522,6 +577,56 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
   `,
   styles: [
     `
+      /* The closed control reads like the dropdown beside it; the panel
+         under it is the tick list it always was. */
+      .multi { position: relative; }
+      .multi__trigger {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: 100%;
+        min-height: 2.25rem;
+        text-align: left;
+        cursor: pointer;
+        background: var(--surface);
+      }
+      .multi__trigger:disabled { cursor: default; opacity: 0.7; }
+      .multi__trigger app-icon { margin-left: auto; color: var(--ink-500); }
+      .multi__placeholder { color: var(--ink-400); }
+      .multi__chips { display: flex; flex-wrap: wrap; gap: 0.25rem; min-width: 0; }
+      .chip--count { background: var(--ink-100); color: var(--ink-600); }
+
+      .multi__panel {
+        position: absolute;
+        z-index: 40;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        max-height: 280px;
+        overflow-y: auto;
+        padding: 0.5rem;
+        display: grid;
+        gap: 0.15rem;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-lg);
+      }
+      .multi__panel .check { padding: 0.3rem 0.35rem; border-radius: var(--radius-sm); }
+      .multi__panel .check:hover { background: var(--ink-100); }
+      /* Sticky, so Done is reachable without scrolling a long list back. */
+      .multi__foot {
+        position: sticky;
+        bottom: -0.5rem;
+        display: flex;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin: 0.35rem -0.5rem -0.5rem;
+        padding: 0.4rem 0.5rem;
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+      }
+
       /* Two dates and what they add up to, on one line where there is
          room and stacked where there is not. */
       .span {
@@ -1086,6 +1191,46 @@ export class DynamicFormComponent {
     const { from, to } = this.span(group, key);
     if (!from || !to) return 'Pick both dates';
     return durationWords(monthsBetween(from, to));
+  }
+
+  /**
+   * Which multi-select panel is open, if any.
+   *
+   * One at a time, and held by the component rather than per control: two
+   * panels open at once overlap each other, and the second one to open is
+   * the one somebody is reading.
+   */
+  protected readonly openMulti = signal<string | null>(null);
+
+  /** A panel's identity: the field, and which entry of a repeated section. */
+  protected multiId(field: ProfileField, group: FormGroup): string {
+    return `${field.key}:${this.idFor(field, group)}`;
+  }
+
+  protected toggleMultiPanel(field: ProfileField, group: FormGroup): void {
+    const id = this.multiId(field, group);
+    this.openMulti.set(this.openMulti() === id ? null : id);
+  }
+
+  protected clearMulti(group: FormGroup, key: string): void {
+    const control = group.get(key);
+    if (!control) return;
+    control.setValue([]);
+    control.markAsDirty();
+    control.markAsTouched();
+  }
+
+  /** Closes an open panel when the click lands anywhere else. */
+  @HostListener('document:click', ['$event'])
+  protected onDocumentClick(event: MouseEvent): void {
+    if (!this.openMulti()) return;
+    const target = event.target as HTMLElement;
+    if (!target.closest('.multi')) this.openMulti.set(null);
+  }
+
+  @HostListener('document:keydown.escape')
+  protected onEscape(): void {
+    this.openMulti.set(null);
   }
 
   protected isChecked(group: FormGroup, key: string, option: string): boolean {

@@ -5,7 +5,7 @@ import { ApiError } from '../../src/api/client';
 import { auth } from '../../src/api/endpoints';
 import type { Gender, SignupField, SignupForm, SocialCategory } from '../../src/api/types';
 import { GENDER_OPTIONS, SOCIAL_CATEGORY_OPTIONS } from '../../src/api/types';
-import { CheckboxGroup, Picker, RadioGroup, Switch } from '../../src/components/Picker';
+import { MultiPicker, Picker, RadioGroup, Switch } from '../../src/components/Picker';
 import {
   Banner,
   Button,
@@ -250,12 +250,13 @@ function SignupControl({
 
     case 'multiselect':
       return (
-        <CheckboxGroup
+        <MultiPicker
           label={field.label}
           required={field.required}
           options={options}
           values={value ? value.split(',') : []}
           error={error}
+          hint={field.helpText}
           onChange={(next) => blurAfter(next.join(','))}
         />
       );

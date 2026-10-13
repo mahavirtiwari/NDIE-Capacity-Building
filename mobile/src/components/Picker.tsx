@@ -156,7 +156,168 @@ export function Picker({
   );
 }
 
-/** Multi-select variant used by `multiselect` fields. */
+/**
+ * A dropdown that takes more than one answer.
+ *
+ * The same control as Picker - closed it says what has been chosen, open
+ * it is a sheet - except that choosing does not close it, because the
+ * next thing somebody does is usually choose another. It replaced a flat
+ * grid of checkboxes, which read as a different kind of question from the
+ * dropdown beside it and took the height of the whole list whether or not
+ * anybody was answering it.
+ */
+export function MultiPicker({
+  label,
+  placeholder = 'Select',
+  values,
+  options,
+  required,
+  error,
+  hint,
+  disabled,
+  searchable,
+  onChange,
+}: {
+  label: string;
+  placeholder?: string;
+  values: string[];
+  options: PickerOption[];
+  required?: boolean;
+  error?: string | null;
+  hint?: string | null;
+  disabled?: boolean;
+  searchable?: boolean;
+  onChange: (values: string[]) => void;
+}) {
+  const keyboard = useKeyboardHeight();
+  const [open, setOpen] = useState(false);
+  const [term, setTerm] = useState('');
+
+  const showSearch = searchable ?? options.length > 8;
+  const visible = useMemo(() => {
+    const needle = term.trim().toLowerCase();
+    if (!needle) return options;
+    return options.filter((option) => option.label.toLowerCase().includes(needle));
+  }, [options, term]);
+
+  /* What the closed control says. Names while they fit, a count after
+     that: three long certifications would otherwise push the chevron off
+     the end of the row. */
+  const chosen = options.filter((option) => values.includes(option.value));
+  const summary =
+    chosen.length === 0
+      ? placeholder
+      : chosen.length <= 2
+        ? chosen.map((option) => option.label).join(', ')
+        : `${chosen.length} selected`;
+
+  const toggle = (value: string) =>
+    onChange(values.includes(value) ? values.filter((v) => v !== value) : [...values, value]);
+
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>
+        {label}
+        {required ? <Text style={styles.required}> *</Text> : null}
+      </Text>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !!disabled, expanded: open }}
+        onPress={() => {
+          if (disabled) return;
+          setTerm('');
+          setOpen(true);
+        }}
+        style={[styles.control, !!error && styles.controlInvalid, disabled && styles.controlDisabled]}
+      >
+        <Text style={chosen.length ? styles.value : styles.placeholder} numberOfLines={1}>
+          {summary}
+        </Text>
+        <Ionicons name="chevron-down" size={16} color={colors.ink500} />
+      </Pressable>
+
+      {error ? (
+        <Text style={styles.error}>{error}</Text>
+      ) : hint ? (
+        <Text style={styles.hint}>{hint}</Text>
+      ) : null}
+
+      <Modal visible={open} animationType="fade" transparent onRequestClose={() => setOpen(false)}>
+        <Pressable
+          style={[styles.backdrop, { paddingBottom: spacing.lg + keyboard }]}
+          onPress={() => setOpen(false)}
+        >
+          <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>{label}</Text>
+              <Pressable onPress={() => setOpen(false)} accessibilityLabel="Close">
+                <Ionicons name="close" size={22} color={colors.ink600} />
+              </Pressable>
+            </View>
+
+            {showSearch ? (
+              <TextInput
+                value={term}
+                onChangeText={setTerm}
+                placeholder="Search"
+                placeholderTextColor={colors.ink500}
+                style={styles.search}
+                autoCorrect={false}
+              />
+            ) : null}
+
+            <FlatList
+              data={visible}
+              keyExtractor={(item) => item.value}
+              keyboardShouldPersistTaps="handled"
+              style={styles.list}
+              ListEmptyComponent={<Text style={styles.empty}>Nothing matches that search.</Text>}
+              renderItem={({ item }) => {
+                const isSelected = values.includes(item.value);
+                return (
+                  <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: isSelected }}
+                    onPress={() => toggle(item.value)}
+                    style={({ pressed }) => [
+                      styles.option,
+                      pressed && styles.optionActive,
+                    ]}
+                  >
+                    <View style={[styles.box, isSelected && styles.boxChecked]}>
+                      {isSelected ? (
+                        <Ionicons name="checkmark" size={14} color={colors.white} />
+                      ) : null}
+                    </View>
+                    <View style={styles.optionBody}>
+                      <Text style={[styles.optionText, isSelected && styles.optionTextActive]}>
+                        {item.label}
+                      </Text>
+                      {item.description ? (
+                        <Text style={styles.optionNote}>{item.description}</Text>
+                      ) : null}
+                    </View>
+                  </Pressable>
+                );
+              }}
+            />
+
+            {/* Choosing does not close the sheet, so there has to be a way
+                out that is not the backdrop. */}
+            <Pressable style={styles.done} onPress={() => setOpen(false)}>
+              <Text style={styles.doneText}>
+                Done{chosen.length ? ` (${chosen.length})` : ''}
+              </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </View>
+  );
+}
+
+/** The flat list of tick boxes, still used where every choice should be on screen. */
 export function CheckboxGroup({
   label,
   options,
@@ -394,6 +555,16 @@ const styles = StyleSheet.create({
   group: { gap: spacing.sm },
   check: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 4 },
   checkBody: { flex: 1, gap: 1 },
+  /* The sheet's own rows, which carry a box and a description. */
+  optionBody: { flex: 1, gap: 1 },
+  optionNote: { fontSize: font.xs, color: colors.ink500, lineHeight: 16 },
+  done: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  doneText: { fontSize: font.base, fontWeight: '700', color: colors.brand700 },
   checkText: { fontSize: font.base, color: colors.ink900, lineHeight: 21, flexShrink: 1 },
   checkNote: { fontSize: font.xs, color: colors.ink500, lineHeight: 16 },
   checkTextWide: { flex: 1 },

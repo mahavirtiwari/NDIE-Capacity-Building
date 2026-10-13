@@ -25,7 +25,7 @@ import { captureFacts } from '../files/captureFacts';
 import { saveAndShare } from '../files/saveAndShare';
 import { Card, Chip, Field } from './ui';
 import { DateField } from './DateField';
-import { CheckboxGroup, Picker, RadioGroup, Switch } from './Picker';
+import { MultiPicker, Picker, RadioGroup, Switch } from './Picker';
 
 export type FormValue = string | string[] | boolean | DurationValue | null;
 export type FormValues = Record<string, FormValue>;
@@ -838,12 +838,13 @@ function FieldRenderer({
 
     case 'multiselect':
       return (
-        <CheckboxGroup
+        <MultiPicker
           label={field.label}
           required={field.validation.required}
           options={options}
           values={Array.isArray(value) ? value : []}
           error={error}
+          hint={field.helpText}
           onChange={onChange}
         />
       );

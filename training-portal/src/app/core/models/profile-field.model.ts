@@ -34,8 +34,11 @@ export const FIELD_TYPES: { value: FieldType; label: string; hasOptions: boolean
   { value: 'pincode', label: 'Pincode', hasOptions: false },
   { value: 'aadhaar', label: 'Aadhaar', hasOptions: false },
   { value: 'date', label: 'Date', hasOptions: false },
-  { value: 'select', label: 'Dropdown', hasOptions: true },
-  { value: 'multiselect', label: 'Multi select', hasOptions: true },
+  { value: 'select', label: 'Dropdown (one answer)', hasOptions: true },
+  /* Named for what it is rather than for the word a developer would use:
+     beside "Dropdown (one answer)" nobody has to guess whether "Multi
+     select" is a dropdown or a list of tick boxes. It is a dropdown. */
+  { value: 'multiselect', label: 'Dropdown (choose several)', hasOptions: true },
   { value: 'radio', label: 'Radio group', hasOptions: true },
   { value: 'checkbox', label: 'Checkbox', hasOptions: false },
   { value: 'file', label: 'File upload', hasOptions: false },
