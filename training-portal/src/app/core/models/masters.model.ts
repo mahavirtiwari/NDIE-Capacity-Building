@@ -72,6 +72,12 @@ export interface EligibilityRoute {
   requirements: string[];
   /** Server-filled single line, so no screen words it for itself. */
   summary?: string;
+  /**
+   * True for the route a particular applicant's qualification puts them
+   * on. Always false on the portal, which reads the type rather than
+   * anybody's standing against it.
+   */
+  applies?: boolean;
 }
 
 /**

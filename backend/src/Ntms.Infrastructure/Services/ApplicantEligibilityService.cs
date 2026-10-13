@@ -47,6 +47,16 @@ public class ApplicantEligibilityService(NtmsDbContext db)
         public required HashSet<int> Taken { get; init; }
 
         /// <summary>
+        /// What their accepted profile says, per discipline.
+        ///
+        /// Carried on the standing because the listing needs it for more
+        /// than the yes or no: a card showing the ways in has to say which
+        /// of them is this reader's, and reading the profiles a second
+        /// time to find out would be two answers to one question.
+        /// </summary>
+        public required Dictionary<int, ProgramTypeEligibility.Profile> Profiles { get; init; }
+
+        /// <summary>
         /// Tracks the applicant's own profile does not clear, and why.
         ///
         /// Keyed by programme type, because the bar belongs to the track
@@ -245,6 +255,7 @@ public class ApplicantEligibilityService(NtmsDbContext db)
             Exhausted = exhausted,
             AttemptsAllowed = allowed,
             Taken = taken,
+            Profiles = profiles,
             Ineligible = ineligible,
             Committed = committed,
         };

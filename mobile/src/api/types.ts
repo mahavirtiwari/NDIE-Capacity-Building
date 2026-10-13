@@ -141,6 +141,12 @@ export interface EligibilityRoute {
   minExperienceYears: number;
   requirements: string[];
   summary: string;
+  /**
+   * True for the route this applicant's own qualification puts them on.
+   * Everything on that route is asked of them; the others are somebody
+   * else's.
+   */
+  applies: boolean;
 }
 
 export interface ApplicantProgram {

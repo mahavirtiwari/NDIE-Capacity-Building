@@ -440,7 +440,8 @@ public class ApplicantAuthService(
                     MinExperienceYears = pt.MinExperienceYears,
                     /* Every way in, so the app can say what this program
                        asks of somebody it is closed to. */
-                    EligibilityRoutes = ProgramTypeEligibility.Describe(pt.EligibilityRoutes),
+                    EligibilityRoutes =
+                        ProgramTypeEligibility.Describe(pt.EligibilityRoutes, profile),
                     IsExamMandatory = pt.IsExamMandatory,
                     FeePayable = pt.IsFeeApplicable ? Math.Round(taxable + nonTaxable + gst, 2) : 0m,
                     TdsOptions = EnumMaps.SplitInts(fee?.TdsOptions),

@@ -238,7 +238,13 @@ public class ProgrammeCatalogueService(NtmsDbContext db, ApplicantEligibilitySer
                     AgencyName = dto.AgencyName,
                     MinQualificationLabel = dto.MinQualificationLabel,
                     MinExperienceYears = dto.MinExperienceYears,
-                    EligibilityRoutes = dto.EligibilityRoutes,
+                    /* Described again rather than taken from the public
+                       reading: this one knows who is asking, and marks
+                       the way in their qualification puts them on. */
+                    EligibilityRoutes = ProgramTypeEligibility.Describe(
+                        p.ProgramType?.EligibilityRoutes,
+                        standing.Profiles.GetValueOrDefault(
+                            p.SubCategoryId, ProgramTypeEligibility.Profile.Unknown)),
                     IsFeeApplicable = dto.IsFeeApplicable,
                 };
             }),

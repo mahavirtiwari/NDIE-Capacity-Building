@@ -181,16 +181,47 @@ public static class ProgramTypeEligibility
     /* ------------------------------------------------------- the ruling */
 
     /// <summary>
+    /// The way in this applicant is on, or null where none of them is
+    /// theirs.
+    ///
+    /// Chosen by the educational qualification, because that is what the
+    /// rule is written on: "a graduate needs five years, a diploma holder
+    /// needs eight" is one condition per qualification, not a set of
+    /// alternatives anybody may pick from. A graduate with four years does
+    /// not get in through the diploma route by having more service than a
+    /// diploma holder would need - they are not a diploma holder.
+    ///
+    /// Where the catalogue holds a rung the routes do not name - a post
+    /// graduate, on a type that lists graduation and diploma - the highest
+    /// route at or below them applies. A qualification above the bar
+    /// clears the bar; it does not fall through it.
+    /// </summary>
+    public static ProgramTypeEligibilityRoute? Applicable(
+        IEnumerable<ProgramTypeEligibilityRoute>? routes, Profile profile)
+    {
+        if (!profile.HasQualification) return null;
+
+        return Ordered(routes)
+            .Where(route =>
+                QualificationLevels.RankOf(route.QualificationCode) <= profile.QualificationRank)
+            .OrderByDescending(route => QualificationLevels.RankOf(route.QualificationCode))
+            .FirstOrDefault();
+    }
+
+    /// <summary>
     /// Why this programme type is closed to that profile, or null where it
     /// is not.
     ///
-    /// Any one route is enough. Where the type lists none, its single
-    /// minimum is the whole rule — which is what every type set up before
-    /// routes existed has, and reads exactly as it did then.
+    /// One route applies - the one their qualification puts them on - and
+    /// everything on it has to be met. Where the type lists none, its
+    /// single minimum is the whole rule, which is what every type set up
+    /// before routes existed has, and reads exactly as it did then.
     ///
-    /// The evidence a route asks for is not weighed here. It is produced
-    /// with the profile and read by the officer scrutinising it; refusing
-    /// on it would hide programmes from people whose papers are in order.
+    /// The evidence a route asks for is not weighed here, because it is
+    /// not a thing this can read. It is produced with the profile and
+    /// checked by the officer scrutinising it; the applicant is shown it
+    /// before they register, and the route they are on is the one whose
+    /// papers they have to produce.
     /// </summary>
     public static string? Refuse(
         string? minQualification,
@@ -202,12 +233,32 @@ public static class ProgramTypeEligibility
 
         if (ways.Count > 0)
         {
-            if (ways.Any(route => Satisfies(route, profile))) return null;
+            /* Nothing to choose a route by. A programme with a bar and a
+               form that never said which answer holds the qualification is
+               left open: the officer who accepted the profile is the one
+               who checked, and guessing here would hide programmes for no
+               reason anybody could see. */
+            if (!profile.HasQualification) return null;
 
-            var wanted = string.Join(", or ", ways.Select(route =>
-                Summarise(route.QualificationCode, route.MinExperienceYears)));
+            var mine = Applicable(ways, profile);
 
-            return $"This program asks for {wanted}. Your profile says {profile.Describe()}.";
+            if (mine is null)
+            {
+                var lowest = Summarise(
+                    ways[0].QualificationCode, ways[0].MinExperienceYears);
+
+                return $"This program asks for {lowest} at the least. "
+                       + $"Your profile says {profile.Describe()}.";
+            }
+
+            if (profile.HasExperience && profile.ExperienceYears < mine.MinExperienceYears)
+            {
+                var held = QualificationLevels.LabelFor(profile.QualificationCode);
+                return $"With {held}, this program asks for {Years(mine.MinExperienceYears)}. "
+                       + $"Your profile says {Years(profile.ExperienceYears)}.";
+            }
+
+            return null;
         }
 
         if (profile.HasQualification
@@ -233,33 +284,35 @@ public static class ProgramTypeEligibility
     public static string? Refuse(ProgramType type, Profile profile) =>
         Refuse(type.MinQualification, type.MinExperienceYears, type.EligibilityRoutes, profile);
 
-    /// <summary>
-    /// Whether this one route is cleared.
-    ///
-    /// A dimension the profile does not measure clears every route on that
-    /// dimension, so a form that asks for a qualification and not for
-    /// years of service gates on the qualification alone.
-    /// </summary>
-    private static bool Satisfies(ProgramTypeEligibilityRoute route, Profile profile) =>
-        (!profile.HasQualification
-         || profile.QualificationRank >= QualificationLevels.RankOf(route.QualificationCode))
-        && (!profile.HasExperience || profile.ExperienceYears >= route.MinExperienceYears);
-
     /* ------------------------------------------------------ the wording */
 
-    /// <summary>The routes as the clients read them, in the listed order.</summary>
+    /// <summary>
+    /// The routes as the clients read them, in the listed order.
+    ///
+    /// Given a profile, the one that applies to it is marked: every other
+    /// route is somebody else's, and a screen that does not say which is
+    /// which invites an applicant to read the easiest row and expect to be
+    /// held to it.
+    /// </summary>
     public static List<EligibilityRouteDto> Describe(
-        IEnumerable<ProgramTypeEligibilityRoute>? routes) =>
-    [
-        .. Ordered(routes).Select(route => new EligibilityRouteDto
-        {
-            QualificationCode = route.QualificationCode,
-            QualificationLabel = QualificationLevels.LabelFor(route.QualificationCode),
-            MinExperienceYears = route.MinExperienceYears,
-            Requirements = SplitRequirements(route.Requirements),
-            Summary = Summarise(route.QualificationCode, route.MinExperienceYears),
-        }),
-    ];
+        IEnumerable<ProgramTypeEligibilityRoute>? routes, Profile? profile = null)
+    {
+        var ways = Ordered(routes);
+        var mine = profile is null ? null : Applicable(ways, profile);
+
+        return
+        [
+            .. ways.Select(route => new EligibilityRouteDto
+            {
+                QualificationCode = route.QualificationCode,
+                QualificationLabel = QualificationLevels.LabelFor(route.QualificationCode),
+                MinExperienceYears = route.MinExperienceYears,
+                Requirements = SplitRequirements(route.Requirements),
+                Summary = Summarise(route.QualificationCode, route.MinExperienceYears),
+                Applies = mine is not null && ReferenceEquals(mine, route),
+            }),
+        ];
+    }
 
     /// <summary>One route as a single line.</summary>
     public static string Summarise(string? qualificationCode, int years)

@@ -313,16 +313,27 @@ function ProgramDetails({
             {program.eligibilityRoutes.length > 0 ? (
               <View style={styles.ways}>
                 {program.eligibilityRoutes.length > 1 ? (
-                  <Text style={styles.waysLead}>Meeting any one of these is enough.</Text>
+                  <Text style={styles.waysLead}>
+                    What is asked depends on your educational qualification. Everything on
+                    your row has to be met.
+                  </Text>
                 ) : null}
 
                 {program.eligibilityRoutes.map((route, index) => (
-                  <View key={route.qualificationCode} style={styles.way}>
+                  <View
+                    key={route.qualificationCode}
+                    style={[styles.way, route.applies && styles.wayMine]}
+                  >
                     <View style={styles.wayHead}>
-                      <View style={styles.wayNo}>
+                      <View style={[styles.wayNo, route.applies && styles.wayNoMine]}>
                         <Text style={styles.wayNoText}>{index + 1}</Text>
                       </View>
                       <Text style={styles.wayTitle}>{route.summary}</Text>
+                      {route.applies ? (
+                        <View style={styles.wayMineFlag}>
+                          <Text style={styles.wayMineFlagText}>Yours</Text>
+                        </View>
+                      ) : null}
                     </View>
 
                     {route.requirements.map((ask) => (
@@ -590,6 +601,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brand700,
   },
   wayNoText: { fontSize: font.xs, fontWeight: '700', color: colors.white },
+  wayMine: { borderColor: colors.brand100, backgroundColor: colors.brand50 },
+  wayNoMine: { backgroundColor: colors.brand700 },
+  wayMineFlag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.brand700,
+  },
+  wayMineFlagText: { fontSize: font.xs, fontWeight: '700', color: colors.white },
   wayTitle: { flex: 1, fontSize: font.sm, fontWeight: '700', color: colors.ink900, lineHeight: 19 },
   ask: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingLeft: 30 },
   askText: { flex: 1, fontSize: font.sm, color: colors.ink600, lineHeight: 18 },

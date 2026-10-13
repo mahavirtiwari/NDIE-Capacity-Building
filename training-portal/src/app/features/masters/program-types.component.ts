@@ -415,8 +415,9 @@ interface WayDraft {
                   }
                 </ol>
                 <span class="text-xs text-muted">
-                  Any one of these is enough. What has to be produced is read with the
-                  profile at scrutiny.
+                  An applicant is held to the row their educational qualification puts them
+                  on, and has to meet all of it. What they produce is read with the profile
+                  at scrutiny.
                 </span>
               } @else {
                 <div class="fact">
@@ -617,8 +618,10 @@ interface WayDraft {
             <div class="field field--span-2">
               <span class="field-label">Ways in</span>
               <span class="field-hint">
-                Leave empty and the single minimum above is the whole rule. List two or
-                more and an applicant qualifies by satisfying any one of them.
+                Leave empty and the single minimum above is the whole rule. List one per
+                educational qualification: an applicant is held to the row their own
+                qualification puts them on, and has to meet all of it. A qualification
+                above every row listed is held to the highest row.
               </span>
 
               @if (ways().length) {

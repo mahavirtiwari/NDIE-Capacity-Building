@@ -129,6 +129,16 @@ public class EligibilityRouteDto
 
     /// <summary>The route as one line, for a card that has room for one.</summary>
     public string Summary { get; set; } = string.Empty;
+
+    /// <summary>
+    /// True for the route this applicant's own qualification puts them on,
+    /// and everything on that route is asked of them.
+    ///
+    /// False on every route where nobody is being measured - the portal
+    /// reading the type, the public catalogue - because the question has
+    /// no subject there.
+    /// </summary>
+    public bool Applies { get; set; }
 }
 
 public class ProgramTypeDto : AuditDto

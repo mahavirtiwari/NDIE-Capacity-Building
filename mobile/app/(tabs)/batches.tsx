@@ -290,18 +290,31 @@ export default function Batches() {
 
           <Text style={styles.sheetLead}>
             {(eligibility?.eligibilityRoutes.length ?? 0) > 1
-              ? 'You qualify by meeting any one of these.'
-              : 'What this program asks for.'}
+              ? 'What is asked depends on your educational qualification. '
+                + 'Everything on your row has to be met.'
+              : 'What this program asks for. All of it has to be met.'}
           </Text>
 
           <ScrollView style={styles.sheetBody} contentContainerStyle={styles.sheetBodyInner}>
             {(eligibility?.eligibilityRoutes ?? []).map((route, index) => (
-              <View key={route.qualificationCode} style={styles.way}>
+              <View
+                key={route.qualificationCode}
+                style={[styles.way, route.applies && styles.wayMine]}
+              >
                 <View style={styles.wayHead}>
-                  <View style={styles.wayNo}>
+                  <View style={[styles.wayNo, route.applies && styles.wayNoMine]}>
                     <Text style={styles.wayNoText}>{index + 1}</Text>
                   </View>
                   <Text style={styles.wayTitle}>{route.summary}</Text>
+                  {/* Said on the row rather than above the list: with two
+                      rows on screen, "everything has to be met" is only
+                      an instruction once the reader knows which row is
+                      theirs. */}
+                  {route.applies ? (
+                    <View style={styles.wayMineFlag}>
+                      <Text style={styles.wayMineFlagText}>Yours</Text>
+                    </View>
+                  ) : null}
                 </View>
 
                 {route.requirements.map((ask) => (
@@ -401,6 +414,15 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.ink50,
   },
+  wayMine: { borderColor: colors.brand100, backgroundColor: colors.brand50 },
+  wayNoMine: { backgroundColor: colors.brand700 },
+  wayMineFlag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.brand700,
+  },
+  wayMineFlagText: { fontSize: font.xs, fontWeight: '700', color: colors.white },
   wayHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   wayNo: {
     width: 22,
