@@ -286,7 +286,13 @@ const COLUMNS: ColumnDef[] = [
                     Reopen registrations
                   </button>
                 }
-                @if (canManage() && actions($any(row)).canSetExamTime) {
+                <!-- The manager's, like permitting and postponing: the
+                     agency delivers the training, the manager decides when
+                     it is examined. The endpoint has always been on
+                     programs.approve; the button was on programs.manage,
+                     so the agency was shown one it would be refused and
+                     the manager was shown none. -->
+                @if (canApprove() && actions($any(row)).canSetExamTime) {
                   <button type="button" class="btn btn--sm btn--secondary" (click)="openExam($any(row))">
                     Set exam time
                   </button>
