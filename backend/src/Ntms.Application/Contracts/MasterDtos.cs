@@ -102,6 +102,35 @@ public class SubCategoryUpsertDto
 
 /* ----------------------------------------------------------- program type */
 
+/// <summary>
+/// One way in to a programme type, as every client reads it.
+///
+/// The same shape goes out and comes back. <see cref="QualificationLabel"/>
+/// and <see cref="Summary"/> are the server's to fill - a client that sends
+/// them is sending something it was given - so no screen has to compose
+/// "Graduation with 5 years of experience" for itself and get it worded
+/// differently from the next one.
+/// </summary>
+public class EligibilityRouteDto
+{
+    /// <summary>Stored code from the qualification catalogue.</summary>
+    public string QualificationCode { get; set; } = string.Empty;
+    /// <summary>Display text for that code.</summary>
+    public string? QualificationLabel { get; set; }
+    public int MinExperienceYears { get; set; }
+
+    /// <summary>
+    /// What has to be produced on top of the qualification and the
+    /// experience - a certificate, evidence of work done. Read by the
+    /// officer who scrutinises the profile, so it is shown to the applicant
+    /// and not enforced by the listing.
+    /// </summary>
+    public List<string> Requirements { get; set; } = [];
+
+    /// <summary>The route as one line, for a card that has room for one.</summary>
+    public string Summary { get; set; } = string.Empty;
+}
+
 public class ProgramTypeDto : AuditDto
 {
     public int Id { get; set; }
@@ -119,6 +148,14 @@ public class ProgramTypeDto : AuditDto
     /// <summary>Display text for that code, so clients need no lookup.</summary>
     public string? MinQualificationLabel { get; set; }
     public int MinExperienceYears { get; set; }
+
+    /// <summary>
+    /// The ways in, where the track has more than one. Empty means the
+    /// single minimum above is the whole rule; where it is not empty, that
+    /// minimum is the lowest of these.
+    /// </summary>
+    public List<EligibilityRouteDto> EligibilityRoutes { get; set; } = [];
+
     /// <summary>The fewest candidates a batch of this type is run for.</summary>
     public int MinParticipants { get; set; }
     public int CertificateValidityMonths { get; set; }
@@ -218,6 +255,18 @@ public class ProgramTypeUpsertDto
     public string DeliveryMode { get; set; } = "Physical";
     public string? MinQualification { get; set; }
     public int MinExperienceYears { get; set; }
+
+    /// <summary>
+    /// The ways in. Null on the wire leaves the existing ones alone, the
+    /// same way the marking pattern does, so an older client cannot wipe a
+    /// set of routes it does not know about. An empty list clears them.
+    ///
+    /// Where any are sent, the single minimum above is taken from the
+    /// lowest of them rather than from the two fields: one rule, written
+    /// once.
+    /// </summary>
+    public List<EligibilityRouteDto>? EligibilityRoutes { get; set; }
+
     /// <summary>The fewest candidates a batch of this type is run for.</summary>
     public int MinParticipants { get; set; }
     public int CertificateValidityMonths { get; set; } = 36;

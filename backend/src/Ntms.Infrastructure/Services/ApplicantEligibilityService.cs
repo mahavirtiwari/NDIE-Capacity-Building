@@ -47,6 +47,15 @@ public class ApplicantEligibilityService(NtmsDbContext db)
         public required HashSet<int> Taken { get; init; }
 
         /// <summary>
+        /// Tracks the applicant's own profile does not clear, and why.
+        ///
+        /// Keyed by programme type, because the bar belongs to the track
+        /// rather than to the batch: every batch of a track asks the same
+        /// qualification and the same service of somebody.
+        /// </summary>
+        public required Dictionary<int, string> Ineligible { get; init; }
+
+        /// <summary>
         /// Dates already committed to. Whole ranges, not start dates: a
         /// five-day programme occupies five days, and the second booking
         /// that clashes is usually the one that overlaps rather than the
@@ -69,6 +78,12 @@ public class ApplicantEligibilityService(NtmsDbContext db)
 
             if (Exhausted.Contains(programme.ProgramTypeId))
                 return $"You have used all {AttemptsAllowed} attempts at this program.";
+
+            /* Before the booking clauses: somebody who does not meet the
+               bar is told the bar, not told to finish something else
+               first. */
+            if (Ineligible.TryGetValue(programme.ProgramTypeId, out var unmet))
+                return unmet;
 
             if (Booked.Contains(programme.ProgramTypeId))
             {
@@ -144,6 +159,43 @@ public class ApplicantEligibilityService(NtmsDbContext db)
             })
             .ToListAsync(ct);
 
+        /* ---- the bar the track sets --------------------------------
+           Read here rather than at the listing so that the card, the
+           register call and the applicant's home screen all answer with
+           the same sentence. A track may state more than one way in and
+           any one of them is enough; the reading of what the profile says
+           is the same reading the home screen does.
+
+           Only the active tracks: a retired one is not offered, and the
+           dictionary is asked about programme types that are. */
+        var profiles = await ProgramTypeEligibility.ReadProfilesAsync(db, applicantId, ct);
+
+        var tracks = await db.ProgramTypes.AsNoTracking()
+            .Where(p => p.Status == RecordStatus.Active)
+            .Select(p => new
+            {
+                p.Id,
+                p.SubCategoryId,
+                p.MinQualification,
+                p.MinExperienceYears,
+                Routes = p.EligibilityRoutes.ToList(),
+            })
+            .ToListAsync(ct);
+
+        var ineligible = new Dictionary<int, string>();
+        foreach (var track in tracks)
+        {
+            var profile = profiles.GetValueOrDefault(
+                track.SubCategoryId, ProgramTypeEligibility.Profile.Unknown);
+
+            if (ProgramTypeEligibility.Refuse(
+                    track.MinQualification, track.MinExperienceYears,
+                    track.Routes, profile) is { } unmet)
+            {
+                ineligible[track.Id] = unmet;
+            }
+        }
+
         var allowed = await db.SystemSettings.AsNoTracking()
             .Where(s => s.Id == 1)
             .Select(s => s.ProgramTypeMaxAttempts)
@@ -193,6 +245,7 @@ public class ApplicantEligibilityService(NtmsDbContext db)
             Exhausted = exhausted,
             AttemptsAllowed = allowed,
             Taken = taken,
+            Ineligible = ineligible,
             Committed = committed,
         };
     }

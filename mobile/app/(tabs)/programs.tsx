@@ -304,18 +304,58 @@ function ProgramDetails({
             ) : null}
 
             <Text style={styles.sheetSection}>What is asked of you</Text>
-            <DetailList
-              rows={[
-                { label: 'Minimum qualification', value: program.minQualification ?? 'None' },
-                {
-                  label: 'Minimum experience',
-                  value:
-                    program.minExperienceYears > 0
-                      ? `${program.minExperienceYears} years`
-                      : 'None',
-                },
-              ]}
-            />
+            {/* A program may state more than one way in - a graduate with
+                five years, or a diploma holder with eight - and any one
+                of them is enough. Two rows cannot say that, so where
+                there are routes they are listed instead of the pair.
+
+                The label, not the code: this read "GRADUATION". */}
+            {program.eligibilityRoutes.length > 0 ? (
+              <View style={styles.ways}>
+                {program.eligibilityRoutes.length > 1 ? (
+                  <Text style={styles.waysLead}>Meeting any one of these is enough.</Text>
+                ) : null}
+
+                {program.eligibilityRoutes.map((route, index) => (
+                  <View key={route.qualificationCode} style={styles.way}>
+                    <View style={styles.wayHead}>
+                      <View style={styles.wayNo}>
+                        <Text style={styles.wayNoText}>{index + 1}</Text>
+                      </View>
+                      <Text style={styles.wayTitle}>{route.summary}</Text>
+                    </View>
+
+                    {route.requirements.map((ask) => (
+                      <View key={ask} style={styles.ask}>
+                        <Ionicons name="document-text-outline" size={14} color={colors.ink600} />
+                        <Text style={styles.askText}>{ask}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ))}
+
+                <Text style={styles.waysNote}>
+                  Qualification and experience are read from your approved profile. Anything
+                  else listed here is checked with your profile at scrutiny.
+                </Text>
+              </View>
+            ) : (
+              <DetailList
+                rows={[
+                  {
+                    label: 'Minimum qualification',
+                    value: program.minQualificationLabel ?? program.minQualification ?? 'None',
+                  },
+                  {
+                    label: 'Minimum experience',
+                    value:
+                      program.minExperienceYears > 0
+                        ? `${program.minExperienceYears} years`
+                        : 'None',
+                  },
+                ]}
+              />
+            )}
 
             <Text style={styles.sheetSection}>The program</Text>
             <DetailList
@@ -528,6 +568,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   searchInput: { flex: 1, paddingVertical: 11, fontSize: font.base, color: colors.ink900 },
+
+  /* The ways in, where a program states more than one. */
+  ways: { gap: spacing.sm },
+  waysLead: { fontSize: font.sm, color: colors.ink600 },
+  way: {
+    gap: 6,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.ink50,
+  },
+  wayHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  wayNo: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.brand700,
+  },
+  wayNoText: { fontSize: font.xs, fontWeight: '700', color: colors.white },
+  wayTitle: { flex: 1, fontSize: font.sm, fontWeight: '700', color: colors.ink900, lineHeight: 19 },
+  ask: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingLeft: 30 },
+  askText: { flex: 1, fontSize: font.sm, color: colors.ink600, lineHeight: 18 },
+  waysNote: { fontSize: font.xs, color: colors.ink500, lineHeight: 17 },
 
   card: { gap: spacing.sm },
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },

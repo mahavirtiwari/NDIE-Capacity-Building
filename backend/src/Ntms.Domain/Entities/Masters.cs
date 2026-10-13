@@ -63,8 +63,23 @@ public class ProgramType : AuditableStatusEntity
     public string? ShortDescription { get; set; }
     public int DurationDays { get; set; }
     public DeliveryMode DeliveryMode { get; set; } = DeliveryMode.Physical;
+    /// <summary>
+    /// The easiest way in, as a single pair.
+    ///
+    /// Kept because a great deal reads it - the public catalogue, the batch
+    /// card, the older clients - and none of them can show a table. Where
+    /// <see cref="EligibilityRoutes"/> are listed this is the lowest of
+    /// them, written back on save rather than typed, so the one-line
+    /// version and the full version cannot disagree.
+    /// </summary>
     public string? MinQualification { get; set; }
     public int MinExperienceYears { get; set; }
+
+    /// <summary>
+    /// The ways in, where there is more than one. Empty means the single
+    /// pair above is the whole rule.
+    /// </summary>
+    public ICollection<ProgramTypeEligibilityRoute> EligibilityRoutes { get; set; } = [];
 
     /// <summary>
     /// The fewest candidates a batch of this type is worth running for.
@@ -102,6 +117,47 @@ public class ProgramType : AuditableStatusEntity
         CertificationPolicy.QualificationOnly;
 
     public ICollection<CertificateTemplate> CertificateTemplates { get; set; } = [];
+}
+
+/// <summary>
+/// One way in to a programme type: a qualification, the experience that has
+/// to come with <i>that</i> qualification, and whatever else has to be
+/// produced alongside.
+///
+/// A single minimum could not say what the scheme actually says. "A graduate
+/// with five years, or a diploma holder with eight" is two bars, and the
+/// lower qualification carries the longer service precisely because the
+/// qualification is lower. Stored as one row each, and an applicant is
+/// eligible when <b>any</b> row is satisfied.
+///
+/// <see cref="QualificationCode"/> holds the catalogue code rather than a
+/// foreign key, for the same reason <see cref="ProgramType.MinQualification"/>
+/// does: a route whose rung was renamed keeps the value it was set up with.
+///
+/// <see cref="Requirements"/> is not machine-checked. A lead auditor
+/// certificate and evidence of twenty-five mandays of assessment are read by
+/// the officer scrutinising the profile, not by the listing - so they are
+/// shown to the applicant before they register and left to scrutiny after.
+/// Mixing them into the gate would hide programmes from people whose
+/// evidence was in order.
+/// </summary>
+public class ProgramTypeEligibilityRoute
+{
+    public int Id { get; set; }
+
+    public int ProgramTypeId { get; set; }
+    public ProgramType? ProgramType { get; set; }
+
+    /// <summary>Code from the qualification catalogue. Never blank.</summary>
+    public string QualificationCode { get; set; } = string.Empty;
+
+    /// <summary>Years of experience this route asks of that qualification.</summary>
+    public int MinExperienceYears { get; set; }
+
+    /// <summary>What has to be produced, one requirement per line.</summary>
+    public string? Requirements { get; set; }
+
+    public int DisplayOrder { get; set; }
 }
 
 /// <summary>

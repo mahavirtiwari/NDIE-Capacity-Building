@@ -239,84 +239,6 @@ public class ApplicantAuthService(
     }
 
     /// <summary>Programmes the applicant is eligible to apply for.</summary>
-    /// <summary>
-    /// Pulls the qualification and the years of experience out of an
-    /// accepted profile, using whichever fields the form designer pointed
-    /// at.
-    ///
-    /// Each answer comes back with a flag rather than a default, because
-    /// "they did not say" and "they said none" are different things and
-    /// only the second is a reason to close a program.
-    /// </summary>
-    private async Task<(bool HasQualification, int QualificationRank,
-                        bool HasExperience, decimal ExperienceYears)>
-        ReadEligibilityAsync(ProfileSubmission? accepted, CancellationToken ct)
-    {
-        if (accepted?.ProfileFormId is not { } formId) return (false, 0, false, 0m);
-
-        var mapped = await db.ProfileFields.AsNoTracking()
-            .Where(f => f.Section!.FormId == formId
-                        && f.Role != ProfileFieldRole.None)
-            .Select(f => new { f.Key, f.Role })
-            .ToListAsync(ct);
-
-        if (mapped.Count == 0) return (false, 0, false, 0m);
-
-        Dictionary<string, JsonElement>? answers;
-        try
-        {
-            answers = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
-                accepted.Responses);
-        }
-        catch (JsonException)
-        {
-            /* A profile whose answers cannot be read must not close every
-               program to somebody. It is left unmeasured. */
-            return (false, 0, false, 0m);
-        }
-
-        if (answers is null) return (false, 0, false, 0m);
-
-        var hasQualification = false;
-        var rank = 0;
-        var hasExperience = false;
-        var years = 0m;
-
-        foreach (var field in mapped)
-        {
-            if (!answers.TryGetValue(field.Key, out var value)) continue;
-
-            var text = value.ValueKind switch
-            {
-                JsonValueKind.String => value.GetString(),
-                JsonValueKind.Number => value.ToString(),
-                _ => null,
-            };
-
-            if (string.IsNullOrWhiteSpace(text)) continue;
-
-            if (field.Role == ProfileFieldRole.Qualification)
-            {
-                var found = QualificationLevels.RankOf(text);
-                /* Rank 0 means the catalogue does not know the value, which
-                   is not the same as the lowest rung — treat it as unsaid. */
-                if (found > 0)
-                {
-                    hasQualification = true;
-                    rank = found;
-                }
-            }
-            else if (field.Role == ProfileFieldRole.ExperienceYears
-                     && decimal.TryParse(text, out var parsed))
-            {
-                hasExperience = true;
-                years = parsed;
-            }
-        }
-
-        return (hasQualification, rank, hasExperience, years);
-    }
-
     public async Task<List<ApplicantProgramDto>> AvailableProgramsAsync(
         int applicantId, CancellationToken ct)
     {
@@ -335,15 +257,12 @@ public class ApplicantAuthService(
            the assessor programs; if they later enter a second category and
            that profile is still with scrutiny, the first set stays open
            and the second has not opened yet. Both are true at once. */
-        var accepted = await db.ProfileSubmissions.AsNoTracking()
+        var cleared = await db.ProfileSubmissions.AsNoTracking()
             .Where(s => s.ApplicantId == applicantId
                         && s.Status == ProfileSubmissionStatus.Approved)
-            .OrderByDescending(s => s.AttemptNo)
+            .Select(s => s.SubCategoryId)
+            .Distinct()
             .ToListAsync(ct);
-
-        var acceptedBySubCategory = accepted
-            .GroupBy(s => s.SubCategoryId)
-            .ToDictionary(g => g.Key, g => g.First());
 
         /* Disciplines that ask for no profile form at all are open to
            anybody with an account, so they come in alongside. */
@@ -352,21 +271,18 @@ public class ApplicantAuthService(
             .Select(c => c.Id)
             .ToListAsync(ct);
 
-        var visible = acceptedBySubCategory.Keys.Concat(openWithoutForm).Distinct().ToList();
+        var visible = cleared.Concat(openWithoutForm).Distinct().ToList();
         if (visible.Count == 0) return [];
 
         /* What each accepted profile says about qualification and
            experience — but only from fields the form designer nominated.
            Nothing is inferred from a field's name. Read per discipline,
            because the answer that matters for a program is the one on the
-           profile for that program's own sub-category. */
-        var eligibility = new Dictionary<int, (bool HasQualification, int Rank,
-                                               bool HasExperience, decimal Years)>();
+           profile for that program's own sub-category.
 
-        foreach (var (subCategoryId, submission) in acceptedBySubCategory)
-        {
-            eligibility[subCategoryId] = await ReadEligibilityAsync(submission, ct);
-        }
+           The same reading the batch listing and the register call use, so
+           a track that is open here cannot be refused there. */
+        var profiles = await ProgramTypeEligibility.ReadProfilesAsync(db, applicantId, ct);
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
@@ -394,6 +310,7 @@ public class ApplicantAuthService(
         var programTypes = await db.ProgramTypes.AsNoTracking()
             .Include(p => p.Category)
             .Include(p => p.SubCategory)
+            .Include(p => p.EligibilityRoutes)
             .Where(p => p.Status == RecordStatus.Active
                         && visible.Contains(p.SubCategoryId)
                         && offerable.Contains(p.Id))
@@ -473,8 +390,8 @@ public class ApplicantAuthService(
 
                 /* Measured against the profile for this program's own
                    discipline. Nothing is carried over from another one. */
-                var (hasQualification, qualificationRank, hasExperience, experienceYears) =
-                    eligibility.GetValueOrDefault(pt.SubCategoryId);
+                var profile = profiles.GetValueOrDefault(
+                    pt.SubCategoryId, ProgramTypeEligibility.Profile.Unknown);
 
                 /* ---- is this track finished with them? ----------------
                    Passing closes it, because the certificate is the point
@@ -497,31 +414,16 @@ public class ApplicantAuthService(
                         : null;
 
                 /* ---- do they meet the bar? ----------------------------
+                   Any one of the ways in is enough, and a track that lists
+                   none has its single minimum read instead.
+
                    Checked only where the form actually nominated a field
                    to measure against. A program with a minimum and a form
                    that never said which answer holds it is left open: the
                    officer who accepted the profile is the one who checked,
                    and guessing here would hide programs for no reason
                    anybody could see. */
-                if (closedReason is null
-                    && hasQualification
-                    && !string.IsNullOrWhiteSpace(pt.MinQualification)
-                    && qualificationRank < QualificationLevels.RankOf(pt.MinQualification))
-                {
-                    closedReason =
-                        $"This program needs {QualificationLevels.LabelFor(pt.MinQualification)}. "
-                        + "Your profile says otherwise.";
-                }
-
-                if (closedReason is null
-                    && hasExperience
-                    && pt.MinExperienceYears > 0
-                    && experienceYears < pt.MinExperienceYears)
-                {
-                    closedReason =
-                        $"This program needs {pt.MinExperienceYears} years of experience. "
-                        + $"Your profile says {experienceYears}.";
-                }
+                closedReason ??= ProgramTypeEligibility.Refuse(pt, profile);
 
                 return new ApplicantProgramDto
                 {
@@ -536,6 +438,9 @@ public class ApplicantAuthService(
                     MinQualification = pt.MinQualification,
                     MinQualificationLabel = QualificationLevels.LabelFor(pt.MinQualification),
                     MinExperienceYears = pt.MinExperienceYears,
+                    /* Every way in, so the app can say what this program
+                       asks of somebody it is closed to. */
+                    EligibilityRoutes = ProgramTypeEligibility.Describe(pt.EligibilityRoutes),
                     IsExamMandatory = pt.IsExamMandatory,
                     FeePayable = pt.IsFeeApplicable ? Math.Round(taxable + nonTaxable + gst, 2) : 0m,
                     TdsOptions = EnumMaps.SplitInts(fee?.TdsOptions),

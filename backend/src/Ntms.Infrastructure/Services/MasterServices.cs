@@ -307,7 +307,8 @@ public class ProgramTypeService(
             .Include(p => p.Category)
             .Include(p => p.SubCategory)
             .Include(p => p.CertificateTemplates)
-            .Include(p => p.Skills);
+            .Include(p => p.Skills)
+            .Include(p => p.EligibilityRoutes);
 
     /// <summary>The base query already narrowed to what the caller may see.</summary>
     private async Task<IQueryable<ProgramType>> VisibleAsync(CancellationToken ct)
@@ -361,7 +362,12 @@ public class ProgramTypeService(
 
     public async Task<ProgramTypeDto> UpdateAsync(int id, ProgramTypeUpsertDto dto, CancellationToken ct)
     {
-        var entity = await db.ProgramTypes.FirstOrDefaultAsync(p => p.Id == id, ct)
+        /* The routes come with it: they are replaced wholesale on save,
+           and replacing a collection that was never loaded would add a
+           second set beside the first. */
+        var entity = await db.ProgramTypes
+                         .Include(p => p.EligibilityRoutes)
+                         .FirstOrDefaultAsync(p => p.Id == id, ct)
                      ?? throw AppException.NotFound("Program type");
         /* Blank on edit means "leave it alone", not "wipe it". */
         var code = Formats.Normalise(dto.Code) is { Length: > 0 } typed ? typed : entity.Code;
@@ -398,6 +404,44 @@ public class ProgramTypeService(
         entity.CertificationPolicy = EnumMaps.ParseEnum(
             dto.CertificationPolicy, CertificationPolicy.QualificationOnly);
         entity.Status = EnumMaps.ToStatus(dto.Status);
+
+        /* The ways in, where the caller sent any. Null leaves them alone
+           for the same reason the marking pattern does; an empty list is a
+           deliberate "there is only the one minimum" and clears them.
+
+           Replaced rather than reconciled: a route has no identity of its
+           own that anything refers to - it is a line on a rule - and
+           matching them up by qualification only to write the same two
+           fields is work for nothing. */
+        if (dto.EligibilityRoutes is not null)
+        {
+            entity.EligibilityRoutes.Clear();
+
+            var order = 0;
+            foreach (var route in dto.EligibilityRoutes)
+            {
+                entity.EligibilityRoutes.Add(new ProgramTypeEligibilityRoute
+                {
+                    QualificationCode = QualificationLevels.Normalise(route.QualificationCode)
+                                        ?? QualificationLevels.None,
+                    MinExperienceYears = route.MinExperienceYears,
+                    Requirements = ProgramTypeEligibility.JoinRequirements(route.Requirements),
+                    DisplayOrder = order++,
+                });
+            }
+        }
+
+        /* The single minimum is the lowest route, written here rather than
+           taken from the two fields. Everything with room for one line
+           reads those fields - the public catalogue, the batch card, the
+           older clients - and the lowest qualification the track accepts,
+           with the service that route asks of it, is the one pair that is
+           true of somebody. Left as typed where there are no routes. */
+        if (ProgramTypeEligibility.Ordered(entity.EligibilityRoutes) is { Count: > 0 } ways)
+        {
+            entity.MinQualification = ways[0].QualificationCode;
+            entity.MinExperienceYears = ways[0].MinExperienceYears;
+        }
 
         /* A caller that sends no scheme leaves the existing one alone, so an
            older client cannot wipe a marking pattern it does not know about. */
@@ -589,11 +633,37 @@ public class ProgramTypeService(
         var knownQualification = qualification is null
             || await db.Qualifications.AnyAsync(q => q.Code == qualification, ct);
 
+        /* Each route's rung is checked against the catalogue the same way,
+           and for the same reason: a route nobody can be measured against
+           would close the programme to everyone who took that way in. */
+        var routes = dto.EligibilityRoutes ?? [];
+        var routeCodes = routes
+            .Select(r => QualificationLevels.Normalise(r.QualificationCode))
+            .ToList();
+
+        var namedRoutes = routeCodes
+            .Where(code => code is not null && code != QualificationLevels.None)
+            .Select(code => code!)
+            .ToList();
+
+        var knownRoutes = namedRoutes.Count == 0
+            || await db.Qualifications
+                .Where(q => namedRoutes.Contains(q.Code))
+                .CountAsync(ct) == namedRoutes.Distinct().Count();
+
         Guard.Check()
             .CodeIfPresent(dto.Code, "Program type code")
             .Required(dto.Name, "Name")
             .When(!knownQualification,
                 "Select a minimum educational qualification from the list.")
+            .When(namedRoutes.Count != routeCodes.Count,
+                "Every way in needs an educational qualification of its own.")
+            .When(!knownRoutes,
+                "One of the ways in names a qualification that is not in the list.")
+            .When(namedRoutes.Count != namedRoutes.Distinct().Count(),
+                "Two ways in name the same qualification. Keep the one that applies.")
+            .When(routes.Any(r => r.MinExperienceYears is < 0 or > 60),
+                "Experience on a way in has to be between 0 and 60 years.")
             .Range(dto.DurationDays, 1, 365, "Duration (days)")
             .Range(dto.MinExperienceYears, 0, 60, "Minimum experience")
             .Range(dto.MinParticipants, 0, 10000, "Minimum participants")

@@ -3428,6 +3428,42 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.ToTable("ProgramTypes", (string)null);
                 });
 
+            modelBuilder.Entity("Ntms.Domain.Entities.ProgramTypeEligibilityRoute", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MinExperienceYears")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProgramTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("QualificationCode")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Requirements")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProgramTypeId", "DisplayOrder");
+
+                    b.HasIndex("ProgramTypeId", "QualificationCode")
+                        .IsUnique();
+
+                    b.ToTable("ProgramTypeEligibilityRoutes", (string)null);
+                });
+
             modelBuilder.Entity("Ntms.Domain.Entities.Programme", b =>
                 {
                     b.Property<int>("Id")
@@ -5874,6 +5910,17 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Navigation("SubCategory");
                 });
 
+            modelBuilder.Entity("Ntms.Domain.Entities.ProgramTypeEligibilityRoute", b =>
+                {
+                    b.HasOne("Ntms.Domain.Entities.ProgramType", "ProgramType")
+                        .WithMany("EligibilityRoutes")
+                        .HasForeignKey("ProgramTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProgramType");
+                });
+
             modelBuilder.Entity("Ntms.Domain.Entities.Programme", b =>
                 {
                     b.HasOne("Ntms.Domain.Entities.ImplementingAgency", "Agency")
@@ -6466,6 +6513,8 @@ namespace Ntms.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Ntms.Domain.Entities.ProgramType", b =>
                 {
                     b.Navigation("CertificateTemplates");
+
+                    b.Navigation("EligibilityRoutes");
 
                     b.Navigation("Skills");
                 });

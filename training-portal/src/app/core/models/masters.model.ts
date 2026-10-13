@@ -53,6 +53,28 @@ export type DeliveryMode = 'Physical' | 'Virtual' | 'Hybrid';
 export const DELIVERY_MODES: DeliveryMode[] = ['Physical', 'Virtual', 'Hybrid'];
 
 /**
+ * One way in to a programme type.
+ *
+ * A single minimum cannot say what a scheme often says: a graduate with
+ * five years, or a diploma holder with eight - the lower qualification
+ * carrying the longer service precisely because it is lower. One of these
+ * per alternative, and an applicant needs to satisfy only one.
+ *
+ * `requirements` are read by the officer scrutinising the profile rather
+ * than by the listing - a lead auditor certificate, evidence of twenty-five
+ * mandays of assessment - so they are shown and not enforced.
+ */
+export interface EligibilityRoute {
+  qualificationCode: string;
+  /** Server-filled display text for that code. */
+  qualificationLabel?: string;
+  minExperienceYears: number;
+  requirements: string[];
+  /** Server-filled single line, so no screen words it for itself. */
+  summary?: string;
+}
+
+/**
  * The applicant-facing program type, e.g. Master Trainer / Assessor /
  * Consultant. Drives the profile form, fee, curriculum and exam paper.
  */
@@ -71,6 +93,12 @@ export interface ProgramType extends AuditInfo {
   /** Display text for the stored code. */
   minQualificationLabel?: string;
   minExperienceYears: number;
+  /**
+   * The ways in, where the track has more than one. Empty means the single
+   * minimum above is the whole rule; where it is not, that minimum is the
+   * lowest of these and the server writes it, so the two cannot disagree.
+   */
+  eligibilityRoutes: EligibilityRoute[];
   /** The fewest candidates a batch of this type is run for. */
   minParticipants: number;
   certificateValidityMonths: number;

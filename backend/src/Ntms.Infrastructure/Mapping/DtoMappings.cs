@@ -3,6 +3,7 @@ using Ntms.Application.Common;
 using Ntms.Application.Contracts;
 using Ntms.Domain.Common;
 using Ntms.Domain.Entities;
+using Ntms.Infrastructure.Services;
 
 namespace Ntms.Infrastructure.Mapping;
 
@@ -90,6 +91,7 @@ public static class DtoMappings
             MinQualification = e.MinQualification,
             MinQualificationLabel = QualificationLevels.LabelFor(e.MinQualification),
             MinExperienceYears = e.MinExperienceYears,
+            EligibilityRoutes = ProgramTypeEligibility.Describe(e.EligibilityRoutes),
             MinParticipants = e.MinParticipants,
             CertificateValidityMonths = e.CertificateValidityMonths,
             IsExamMandatory = e.IsExamMandatory,

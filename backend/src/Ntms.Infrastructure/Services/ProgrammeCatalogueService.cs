@@ -33,7 +33,7 @@ public class ProgrammeCatalogueService(NtmsDbContext db, ApplicantEligibilitySer
     ];
 
     private IQueryable<Programme> Base => db.Programmes.AsNoTracking()
-        .Include(p => p.ProgramType)
+        .Include(p => p.ProgramType).ThenInclude(t => t!.EligibilityRoutes)
         .Include(p => p.Category)
         .Include(p => p.SubCategory)
         .Include(p => p.State)
@@ -212,6 +212,11 @@ public class ProgrammeCatalogueService(NtmsDbContext db, ApplicantEligibilitySer
                        says Registered rather than giving a reason why not. */
                     CanRegister = seated || refused is null,
                     BlockReason = seated ? null : refused,
+                    /* Said apart from the block reason because it is the
+                       one refusal the applicant cannot do anything about
+                       today, and the screen offers to show what the track
+                       asks for instead of only refusing. */
+                    IsEligible = !standing.Ineligible.ContainsKey(p.ProgramTypeId),
                     ProgrammeId = dto.ProgrammeId,
                     ProgrammeName = dto.ProgrammeName,
                     ProgramTypeName = dto.ProgramTypeName,
@@ -233,6 +238,7 @@ public class ProgrammeCatalogueService(NtmsDbContext db, ApplicantEligibilitySer
                     AgencyName = dto.AgencyName,
                     MinQualificationLabel = dto.MinQualificationLabel,
                     MinExperienceYears = dto.MinExperienceYears,
+                    EligibilityRoutes = dto.EligibilityRoutes,
                     IsFeeApplicable = dto.IsFeeApplicable,
                 };
             }),
@@ -338,6 +344,10 @@ public class ProgrammeCatalogueService(NtmsDbContext db, ApplicantEligibilitySer
             AgencyName = p.Agency?.Name,
             MinQualificationLabel = QualificationLevels.LabelFor(p.ProgramType?.MinQualification),
             MinExperienceYears = p.ProgramType?.MinExperienceYears ?? 0,
+            /* The alternatives, where the track has them. The two fields
+               above are the lowest of these, so a reader that shows one
+               line is not misled and one that can show them all does. */
+            EligibilityRoutes = ProgramTypeEligibility.Describe(p.ProgramType?.EligibilityRoutes),
             IsFeeApplicable = p.ProgramType?.IsFeeApplicable ?? false,
         };
     }

@@ -150,6 +150,14 @@ public class ProgramTypeConfiguration : IEntityTypeConfiguration<ProgramType>
         b.HasIndex(x => x.Code).IsUnique();
         b.HasIndex(x => new { x.CategoryId, x.SubCategoryId });
 
+        /* A table of its own rather than owned: the rows are read on their
+           own by the listing, which asks "which of these types is this
+           applicant eligible for" across every type at once. */
+        b.HasMany(x => x.EligibilityRoutes)
+            .WithOne(x => x.ProgramType!)
+            .HasForeignKey(x => x.ProgramTypeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         /* Owned, so the marking pattern reads as part of the programme type
            rather than as a table nobody would think to join. */
         b.OwnsOne(x => x.Evaluation, e =>
@@ -166,6 +174,24 @@ public class ProgramTypeConfiguration : IEntityTypeConfiguration<ProgramType>
             e.Ignore(p => p.HasWritten);
             e.Ignore(p => p.HasViva);
         });
+    }
+}
+
+public class ProgramTypeEligibilityRouteConfiguration
+    : IEntityTypeConfiguration<ProgramTypeEligibilityRoute>
+{
+    public void Configure(EntityTypeBuilder<ProgramTypeEligibilityRoute> b)
+    {
+        b.ToTable("ProgramTypeEligibilityRoutes");
+        b.Property(x => x.QualificationCode).HasMaxLength(200).IsRequired();
+        /* Several lines of free text, so no tighter bound than the form
+           itself needs. */
+        b.Property(x => x.Requirements).HasMaxLength(2000);
+        /* Read whole, per type, in the order the administrator listed. */
+        b.HasIndex(x => new { x.ProgramTypeId, x.DisplayOrder });
+        /* One route per qualification: two rows for the same rung are two
+           different answers to the same question. */
+        b.HasIndex(x => new { x.ProgramTypeId, x.QualificationCode }).IsUnique();
     }
 }
 

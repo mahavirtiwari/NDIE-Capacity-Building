@@ -125,6 +125,24 @@ export interface LookupItem {
   parentId?: number | null;
 }
 
+/**
+ * One way in to a program.
+ *
+ * A program may state more than one - a graduate with five years, or a
+ * diploma holder with eight - and any one of them is enough. `summary` is
+ * the server's wording of the first two, so the app never words it
+ * differently from the portal; `requirements` are what has to be produced
+ * besides, and are read by the officer at scrutiny rather than by the
+ * listing.
+ */
+export interface EligibilityRoute {
+  qualificationCode: string;
+  qualificationLabel?: string | null;
+  minExperienceYears: number;
+  requirements: string[];
+  summary: string;
+}
+
 export interface ApplicantProgram {
   programTypeId: number;
   code: string;
@@ -135,7 +153,10 @@ export interface ApplicantProgram {
   durationDays: number;
   deliveryMode: string;
   minQualification?: string;
+  minQualificationLabel?: string | null;
   minExperienceYears: number;
+  /** Every way in, for the eligibility sheet. Empty where there is one bar. */
+  eligibilityRoutes: EligibilityRoute[];
   isExamMandatory: boolean;
   feePayable: number;
   tdsOptions: number[];
@@ -726,6 +747,16 @@ export interface ApplicantBatch {
   agencyName?: string | null;
   minQualificationLabel?: string | null;
   minExperienceYears: number;
+  /** Every way in to the track this batch runs under. */
+  eligibilityRoutes: EligibilityRoute[];
+  /**
+   * Whether their profile clears the bar.
+   *
+   * Apart from `canRegister` because the two are different kinds of no:
+   * being booked elsewhere is a matter of timing, and this is a matter of
+   * what the program asks for.
+   */
+  isEligible: boolean;
   isFeeApplicable: boolean;
   isEnrolled: boolean;
   hasApplied: boolean;

@@ -54,6 +54,19 @@ const COLUMNS: ColumnDef[] = [
   { key: 'actions', header: '', width: '140px', align: 'right' },
 ];
 
+/**
+ * One way in, while it is being edited.
+ *
+ * Requirements are the text in the box rather than the lines it will
+ * become: splitting on every keystroke would take the cursor with it the
+ * moment somebody pressed Enter.
+ */
+interface WayDraft {
+  qualificationCode: string;
+  minExperienceYears: number;
+  requirements: string;
+}
+
 @Component({
   selector: 'app-program-types',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -383,18 +396,42 @@ const COLUMNS: ColumnDef[] = [
           <section class="panel">
             <h2 class="panel__head"><app-icon name="graduation" [size]="14" /> Who may apply</h2>
             <div class="panel__body">
-              <div class="fact">
-                <span class="fact__term">Minimum qualification</span>
-                <span class="fact__value">
-                  {{ row.minQualificationLabel || row.minQualification || 'Not specified' }}
+              <!-- Where the track states more than one way in, the two
+                   figures beneath are the lowest of them and saying both
+                   would be saying it twice. -->
+              @if (row.eligibilityRoutes?.length) {
+                <ol class="ways">
+                  @for (way of row.eligibilityRoutes; track way.qualificationCode) {
+                    <li class="way">
+                      <span class="way__head">{{ way.summary }}</span>
+                      @if (way.requirements.length) {
+                        <ul class="way__asks">
+                          @for (ask of way.requirements; track ask) {
+                            <li>{{ ask }}</li>
+                          }
+                        </ul>
+                      }
+                    </li>
+                  }
+                </ol>
+                <span class="text-xs text-muted">
+                  Any one of these is enough. What has to be produced is read with the
+                  profile at scrutiny.
                 </span>
-              </div>
-              <div class="fact">
-                <span class="fact__term">Minimum experience</span>
-                <span class="fact__value">
-                  {{ row.minExperienceYears ? row.minExperienceYears + ' years' : 'None' }}
-                </span>
-              </div>
+              } @else {
+                <div class="fact">
+                  <span class="fact__term">Minimum qualification</span>
+                  <span class="fact__value">
+                    {{ row.minQualificationLabel || row.minQualification || 'Not specified' }}
+                  </span>
+                </div>
+                <div class="fact">
+                  <span class="fact__term">Minimum experience</span>
+                  <span class="fact__value">
+                    {{ row.minExperienceYears ? row.minExperienceYears + ' years' : 'None' }}
+                  </span>
+                </div>
+              }
             </div>
           </section>
 
@@ -540,21 +577,108 @@ const COLUMNS: ColumnDef[] = [
                 }
               </select>
             </div>
+            <!-- The single bar, where that is the whole rule. Taken from
+                 the lowest way in as soon as any are listed, because the
+                 public catalogue and the batch card have room for one line
+                 and that line has to stay true. -->
             <div class="field">
               <label class="field-label" for="ptQual">Minimum educational qualification</label>
-              <select id="ptQual" class="select" formControlName="minQualification">
+              <select id="ptQual" class="select" formControlName="minQualification"
+                [attr.disabled]="ways().length ? '' : null">
                 @for (level of qualifications(); track level.code) {
                   <option [value]="level.code">{{ level.name }}</option>
                 }
               </select>
-              <span class="field-hint">
-                Not listed? Add it under
-                <a routerLink="/masters/qualifications">Qualifications</a>.
-              </span>
+              @if (ways().length) {
+                <span class="field-hint">Taken from the first way in below.</span>
+              } @else {
+                <span class="field-hint">
+                  Not listed? Add it under
+                  <a routerLink="/masters/qualifications">Qualifications</a>.
+                </span>
+              }
             </div>
             <div class="field">
               <label class="field-label" for="ptExp">Minimum experience (years)</label>
-              <input id="ptExp" type="number" class="input" formControlName="minExperienceYears" />
+              <input id="ptExp" type="number" class="input" formControlName="minExperienceYears"
+                [attr.disabled]="ways().length ? '' : null" />
+              @if (ways().length) {
+                <span class="field-hint">Taken from the first way in below.</span>
+              }
+            </div>
+
+            <!-- More than one bar, where the scheme sets more than one.
+
+                 "A graduate with five years, or a diploma holder with
+                 eight" cannot be said in a single minimum: the lower
+                 qualification carries the longer service precisely because
+                 it is lower, and one pair of fields can only say the one
+                 thing. An applicant has to satisfy any one row. -->
+            <div class="field field--span-2">
+              <span class="field-label">Ways in</span>
+              <span class="field-hint">
+                Leave empty and the single minimum above is the whole rule. List two or
+                more and an applicant qualifies by satisfying any one of them.
+              </span>
+
+              @if (ways().length) {
+                <div class="ways-editor">
+                  @for (way of ways(); track $index) {
+                    <div class="way-row">
+                      <div class="way-row__field">
+                        <label class="field-label" [attr.for]="'wayQual' + $index">
+                          Qualification
+                        </label>
+                        <select [id]="'wayQual' + $index" class="select"
+                          [value]="way.qualificationCode"
+                          (change)="editWay($index, { qualificationCode: value($event) })"
+                        >
+                          @for (level of qualifications(); track level.code) {
+                            <option [value]="level.code">{{ level.name }}</option>
+                          }
+                        </select>
+                      </div>
+
+                      <div class="way-row__field way-row__field--years">
+                        <label class="field-label" [attr.for]="'wayExp' + $index">
+                          Experience (years)
+                        </label>
+                        <input [id]="'wayExp' + $index" type="number" class="input"
+                          min="0" max="60" [value]="way.minExperienceYears"
+                          (input)="editWay($index, { minExperienceYears: +value($event) })"
+                        />
+                      </div>
+
+                      <div class="way-row__field way-row__field--asks">
+                        <label class="field-label" [attr.for]="'wayAsk' + $index">
+                          Also has to produce
+                        </label>
+                        <textarea [id]="'wayAsk' + $index" class="textarea" rows="2"
+                          placeholder="Lead auditor certificate&#10;Evidence of 25 mandays of assessment"
+                          [value]="way.requirements"
+                          (input)="editWay($index, { requirements: value($event) })"
+                        ></textarea>
+                        <span class="field-hint">One per line. Read at scrutiny, not by the listing.</span>
+                      </div>
+
+                      <button type="button" class="btn btn--icon btn--ghost way-row__drop"
+                        title="Remove this way in" (click)="dropWay($index)">
+                        <app-icon name="trash" [size]="15" />
+                      </button>
+                    </div>
+                  }
+                </div>
+              }
+
+              <div class="row row-sm">
+                <button type="button" class="btn btn--secondary btn--sm" (click)="addWay()">
+                  <app-icon name="plus" [size]="14" /> Add a way in
+                </button>
+              </div>
+
+              @if (wayProblem(); as problem) {
+                <span class="field-error">{{ problem }}</span>
+              }
             </div>
             <div class="field">
               <label class="field-label" for="ptMinPax">Minimum participants</label>
@@ -757,6 +881,69 @@ const COLUMNS: ColumnDef[] = [
   `,
   styles: [
     `
+      /* The ways in, on the sheet: numbered, because "any one of these"
+         is a list of alternatives and a bullet does not say that. */
+      .ways {
+        display: grid;
+        gap: 0.5rem;
+        margin: 0;
+        padding-left: 1.1rem;
+      }
+      .way__head {
+        font-size: var(--fs-base);
+        color: var(--ink-900);
+        font-weight: 600;
+      }
+      .way__asks {
+        margin: 0.2rem 0 0;
+        padding-left: 1rem;
+        display: grid;
+        gap: 0.1rem;
+      }
+      .way__asks li {
+        font-size: var(--fs-sm);
+        color: var(--ink-600);
+      }
+
+      /* And in the form: one row per way, the qualification and the years
+         side by side with what has to be produced beneath them. */
+      .ways-editor {
+        display: grid;
+        gap: 0.6rem;
+        margin: 0.35rem 0 0.6rem;
+      }
+      .way-row {
+        display: grid;
+        grid-template-columns: minmax(160px, 1.1fr) 150px 1fr auto;
+        gap: 0.6rem;
+        align-items: start;
+        padding: 0.7rem 0.8rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface-muted);
+      }
+      .way-row__field {
+        display: grid;
+        gap: 0.25rem;
+        min-width: 0;
+      }
+      .way-row__drop {
+        align-self: center;
+        color: var(--danger-600);
+      }
+      @media (max-width: 860px) {
+        .way-row {
+          grid-template-columns: 1fr 1fr;
+        }
+        .way-row__field--asks {
+          grid-column: 1 / -1;
+        }
+        .way-row__drop {
+          grid-column: 2;
+          justify-self: end;
+        }
+      }
+
       /* Two columns where the dialog is wide enough for them, one
          where it is not. The panels themselves are in the shared sheet. */
       .config {
@@ -811,6 +998,16 @@ export class ProgramTypesComponent {
   protected readonly modes = DELIVERY_MODES;
   /* Ordered lowest to highest, straight from the server's catalogue, so the
      dropdown and the validation behind it cannot drift apart. */
+  /**
+   * The ways in, as the form holds them.
+   *
+   * Outside the reactive form on purpose: it is a list that grows and
+   * shrinks, and a FormArray of three controls each would be more
+   * plumbing than the three values are worth. Requirements are held as
+   * the text in the box and split on save.
+   */
+  protected readonly ways = signal<WayDraft[]>([]);
+
   protected readonly qualifications = toSignal(this.lookups.qualifications(), {
     initialValue: [] as LookupItem[],
   });
@@ -1158,6 +1355,13 @@ export class ProgramTypesComponent {
       },
       status: row?.status ?? 'Active',
     });
+    this.ways.set(
+      (row?.eligibilityRoutes ?? []).map((route) => ({
+        qualificationCode: route.qualificationCode,
+        minExperienceYears: route.minExperienceYears,
+        requirements: route.requirements.join('\n'),
+      })),
+    );
     this.formOpen.set(true);
   }
 
@@ -1165,6 +1369,59 @@ export class ProgramTypesComponent {
     this.formOpen.set(false);
     this.editing.set(null);
   }
+
+  /** A way in is added at the bar the form already carries. */
+  protected addWay(): void {
+    this.ways.update((rows) => [
+      ...rows,
+      {
+        qualificationCode:
+          rows.length === 0
+            ? (this.form.getRawValue().minQualification ?? 'NONE')
+            : 'NONE',
+        minExperienceYears:
+          rows.length === 0 ? (this.form.getRawValue().minExperienceYears ?? 0) : 0,
+        requirements: '',
+      },
+    ]);
+  }
+
+  protected editWay(index: number, patch: Partial<WayDraft>): void {
+    this.ways.update((rows) =>
+      rows.map((row, at) => (at === index ? { ...row, ...patch } : row)),
+    );
+  }
+
+  protected dropWay(index: number): void {
+    this.ways.update((rows) => rows.filter((_, at) => at !== index));
+  }
+
+  /**
+   * What is wrong with the ways in, said before the server says it.
+   *
+   * Two rows on the same qualification are two different answers to one
+   * question - which of them applies to a graduate? - so the server
+   * refuses them, and this says so while there is still something to fix.
+   */
+  protected readonly wayProblem = computed(() => {
+    const rows = this.ways();
+    if (rows.length === 0) return null;
+
+    if (rows.some((row) => !row.qualificationCode || row.qualificationCode === 'NONE')) {
+      return 'Every way in needs a qualification of its own.';
+    }
+
+    const codes = rows.map((row) => row.qualificationCode);
+    if (new Set(codes).size !== codes.length) {
+      return 'Two ways in name the same qualification. Keep the one that applies.';
+    }
+
+    if (rows.some((row) => row.minExperienceYears < 0 || row.minExperienceYears > 60)) {
+      return 'Experience on a way in has to be between 0 and 60 years.';
+    }
+
+    return null;
+  });
 
   protected save(): void {
     if (this.form.invalid) {
@@ -1175,6 +1432,10 @@ export class ProgramTypesComponent {
       this.toast.error('Check the marks', this.marksProblem()!);
       return;
     }
+    if (this.wayProblem()) {
+      this.toast.error('Check who may apply', this.wayProblem()!);
+      return;
+    }
 
     this.saving.set(true);
     const raw = this.form.getRawValue();
@@ -1183,6 +1444,16 @@ export class ProgramTypesComponent {
        server derives the same answer. */
     const payload = {
       ...raw,
+      /* Sent whether or not there are any: an empty list is how a track
+         goes back to stating a single minimum. */
+      eligibilityRoutes: this.ways().map((way) => ({
+        qualificationCode: way.qualificationCode,
+        minExperienceYears: way.minExperienceYears,
+        requirements: way.requirements
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean),
+      })),
       isExamMandatory: raw.evaluation.kind !== 'None',
       evaluation: {
         ...raw.evaluation,

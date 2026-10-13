@@ -63,6 +63,13 @@ public class ApplicantProgramDto
     /// <summary>Display text; the mobile app shows this, not the code.</summary>
     public string? MinQualificationLabel { get; set; }
     public int MinExperienceYears { get; set; }
+
+    /// <summary>
+    /// Every way in to this track, for the View eligibility sheet. Empty
+    /// where the track states a single minimum, which the two fields above
+    /// already say.
+    /// </summary>
+    public List<EligibilityRouteDto> EligibilityRoutes { get; set; } = [];
     public bool IsExamMandatory { get; set; }
     public decimal FeePayable { get; set; }
     public List<int> TdsOptions { get; set; } = [];

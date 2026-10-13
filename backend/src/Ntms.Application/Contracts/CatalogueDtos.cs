@@ -56,6 +56,13 @@ public class PublicProgrammeDto
     /// <summary>What an applicant needs before they can apply for this track.</summary>
     public string? MinQualificationLabel { get; set; }
     public int MinExperienceYears { get; set; }
+
+    /// <summary>
+    /// The alternative ways in, where the track has more than one. The two
+    /// fields above are the lowest of these, so a reader with room for one
+    /// line is still told the truth.
+    /// </summary>
+    public List<EligibilityRouteDto> EligibilityRoutes { get; set; } = [];
     public bool IsFeeApplicable { get; set; }
 }
 
@@ -78,6 +85,17 @@ public class ApplicantBatchDto : PublicProgrammeDto
     /// </summary>
     public bool CanRegister { get; set; } = true;
     public string? BlockReason { get; set; }
+
+    /// <summary>
+    /// Whether their profile clears the bar this track sets.
+    ///
+    /// Apart from <see cref="CanRegister"/> because the two are different
+    /// kinds of no. Being booked on something else is a matter of timing;
+    /// not holding the qualification is a matter of what the track asks
+    /// for, and the screen answers that by showing the ways in rather than
+    /// by refusing alone.
+    /// </summary>
+    public bool IsEligible { get; set; } = true;
 }
 
 /// <summary>What narrows the public programme listing.</summary>
