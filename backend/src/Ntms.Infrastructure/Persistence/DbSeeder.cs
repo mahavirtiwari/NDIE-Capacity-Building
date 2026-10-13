@@ -437,7 +437,16 @@ public class DbSeeder(
                 [Permissions.UsersStatus, Permissions.RolesView, Permissions.RolesManage,
                  /* It raises the batch and it runs it: the exam, the
                     sessions, the attendance, the enrolment. */
-                 Permissions.ProgramsManage], []),
+                 Permissions.ProgramsManage,
+                 /* Setting the exam means choosing which paper sits on it,
+                    and the agency could not read the list to choose from.
+                    The dialog then said the program type had no live paper
+                    and the written mark would be entered by hand - which
+                    was not true, and would have put batches onto manual
+                    marking for want of a read permission. Reading the
+                    papers is not writing one: exams.manage stays with the
+                    people who set the questions. */
+                 Permissions.ExamsView], []),
             /* Oversight only: the Ministry must never gain a write key. */
             /* The notifications screen is new, and a permission on no role
                is a screen nobody can reach. The Super Admin owns the portal
