@@ -35,15 +35,21 @@
         waiting on their permission, a venue change asked for - counted and
         unread first.
 
+      * Forms that can say more. A choice on a shared list carries a
+        description, shown under it on the form - "qualified lead auditor"
+        and "auditor" are a distinction no reader should have to carry -
+        and a new Duration field asks for two dates and works the length
+        out as they are picked.
+
       * A good deal of tidying that was asked for screen by screen: retired
         roles are no longer offered, a coordinator is picked by name and
         user ID, reports list conducted programmes, detail sheets put one
         section to a row, and the tiers are offered only the screens that
         have anything on them.
 
-    Three migrations:
+    Four migrations:
       MoreThanOneWayIntoAProgramme, ANoticeCanBeAddressedToOnePerson,
-      AVenueMovesOnlyWhenTheManagerSaysSo.
+      AVenueMovesOnlyWhenTheManagerSaysSo, AChoiceCanSayWhatItMeans.
 
     It runs in three parts, and stops at the first that fails:
 
@@ -208,6 +214,9 @@ if (-not $Plan) {
     Write-Host "    5. As the agency, Change venue on that program; as the manager, answer it."
     Write-Host "    6. Administration -> Email: 'Program permitted', 'Venue change requested'"
     Write-Host "       and 'Venue change decided' are in the list and switched on."
+    Write-Host "    7. Masters -> Choice lists -> edit one: each choice takes a description,"
+    Write-Host "       and it reads under the choice on the form. Program setup -> Profile"
+    Write-Host "       forms offers a Duration field that adds up two dates."
     Write-Host ""
     Write-Host "  The APKs are in E:\cbms-apk unless -WebOnly was passed." -ForegroundColor Cyan
     Write-Host "  Both apps changed in this release - install them both." -ForegroundColor Cyan

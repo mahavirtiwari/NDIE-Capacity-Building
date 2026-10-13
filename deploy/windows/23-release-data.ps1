@@ -3,7 +3,7 @@
     The data the 13 October release needs that a migration cannot write.
 
 .DESCRIPTION
-    Most of this release lands on its own. Three migrations add their
+    Most of this release lands on its own. Four migrations add their
     columns, and the application writes the rest when it starts: the three
     new e-mail templates are seeded because their keys are missing, and the
     implementing agency role gains exams.view from the seeder's own
@@ -110,7 +110,8 @@ FROM (VALUES
     ('ProgramTypeEligibilityRoutes', 'QualificationCode'),
     ('Notifications', 'UserId'),
     ('Programmes', 'RequestedVenue'),
-    ('Programmes', 'VenueChangeRequestedOn')
+    ('Programmes', 'VenueChangeRequestedOn'),
+    ('OptionSetItems', 'Description')
 ) AS v(t, c);
 "@
 

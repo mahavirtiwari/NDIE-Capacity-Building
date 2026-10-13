@@ -7251,3 +7251,24 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261013040504_AChoiceCanSayWhatItMeans'
+)
+BEGIN
+    ALTER TABLE [OptionSetItems] ADD [Description] nvarchar(500) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261013040504_AChoiceCanSayWhatItMeans'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261013040504_AChoiceCanSayWhatItMeans', N'10.0.12');
+END;
+
+COMMIT;
+GO
+
