@@ -3,10 +3,12 @@ import { ApiError, API_BASE_URL, api, readAuthToken, readUserCode } from './clie
 import { enqueue, keepPhoto, newLocalId } from '../offline/outbox';
 import { appendFacts, deviceFacts, factsQuery, type DeviceFacts } from './captureFacts';
 import type {
+  AuthUser,
   Branding,
   LoginResponse,
   Marksheet,
   MarksheetRowSave,
+  MaterialTicket,
   MonitoringPhoto,
   MyNotifications,
   MonitoringSession,
@@ -16,6 +18,7 @@ import type {
   Submission,
   Trainer,
   TrainerUpsert,
+  TrainingMaterial,
   Venue,
   Workshop,
   WorkshopDetail,
@@ -37,6 +40,34 @@ export const auth = {
   /** Portal credentials: the system generated user ID, never an email. */
   login: (username: string, password: string) =>
     api.post<LoginResponse>('auth/login', { username, password }, true),
+
+  /**
+   * Who the server says this is, with the role and everything it grants.
+   *
+   * Asked for rather than taken from the session: a role can be reshaped
+   * while somebody is signed in, and the profile screen should show what
+   * is true today rather than what was true at sign-in.
+   */
+  me: () => api.get<AuthUser>('auth/me'),
+
+  /** The server ends every other session on success, so the app signs out. */
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.post<boolean>('auth/change-password', { currentPassword, newPassword }),
+};
+
+export const materials = {
+  /** Only what this role is allowed to open; the server decides. */
+  mine: () => api.get<TrainingMaterial[]>('materials/mine'),
+
+  /**
+   * A one-shot address for an uploaded file.
+   *
+   * The viewer that opens a PDF cannot carry a bearer token, so the
+   * permission is settled here and what is handed over is a ticket good
+   * for that one file, for a couple of minutes.
+   */
+  ticket: (id: number, download = false) =>
+    api.post<MaterialTicket>(`materials/${id}/ticket?download=${download}`),
 };
 
 /* ------------------------------------------------------- writing offline */

@@ -1524,6 +1524,20 @@ export class UsersComponent {
     this.editing.set(null);
   }
 
+  /**
+   * The lookups that stop being true when an account changes.
+   *
+   * Dropdowns elsewhere are served from a cache held for the session, so
+   * a coordinator disabled on this screen went on being offered on the
+   * New program form until somebody reloaded the whole portal. The server
+   * had it right all along - it never returned them - and the browser was
+   * answering from the copy it took before.
+   */
+  private refreshPeopleLookups(): void {
+    this.lookups.invalidate('coordinators');
+    this.lookups.invalidate('operation-managers');
+  }
+
   protected save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -1548,6 +1562,7 @@ export class UsersComponent {
         next: (saved) => {
           this.saving.set(false);
           this.closeForm();
+          this.refreshPeopleLookups();
           this.list.reload();
           this.toast.success('User updated', saved.fullName);
         },
@@ -1560,6 +1575,9 @@ export class UsersComponent {
       next: (credentials) => {
         this.saving.set(false);
         this.closeForm();
+        /* A coordinator created here should be pickable on the next
+           program raised, without a reload. */
+        this.refreshPeopleLookups();
         this.list.reload();
         /* The generated user ID, and where the password went. The password
            itself is not held here at all — the server e-mails it and this
@@ -1724,6 +1742,7 @@ export class UsersComponent {
           `User ${prompt.status === 'Active' ? 'enabled' : 'disabled'}`,
           `${prompt.row.fullName} has been told by e-mail.`,
         );
+        this.refreshPeopleLookups();
         this.list.reload();
       },
       error: () => this.savingStatus.set(false),

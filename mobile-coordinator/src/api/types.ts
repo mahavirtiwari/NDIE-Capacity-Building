@@ -295,6 +295,10 @@ export interface Branding {
   portalTitle: string;
   tagline?: string | null;
   supportEmail?: string | null;
+  /** Where the department takes questions. Empty where none is published. */
+  supportUrl?: string | null;
+  /** What the department says about the scheme, for the About screen. */
+  aboutText?: string | null;
   hasLogo: boolean;
   logoFileName?: string | null;
   /** Relative to the API base, already carrying a cache-busting version. */
@@ -317,4 +321,48 @@ export interface MyNotification {
 export interface MyNotifications {
   items: MyNotification[];
   unread: number;
+}
+
+/**
+ * The signed-in account as the server describes it.
+ *
+ * Read on the profile screen rather than kept in the session: a role can
+ * be reshaped while somebody is signed in, and what the app should show is
+ * what the server says today.
+ */
+export interface AuthUser {
+  id: number;
+  userCode: string;
+  fullName: string;
+  email: string;
+  mobile: string;
+  role: string;
+  roleName: string;
+  permissions: string[];
+  agencyId?: number | null;
+  avatarInitials: string;
+  mustChangePassword: boolean;
+}
+
+/** One published item of training material, as the coordinator may read it. */
+export interface TrainingMaterial {
+  id: number;
+  title: string;
+  description?: string;
+  kind: string;
+  programTypeName?: string;
+  fileName?: string;
+  fileSizeKb?: number;
+  url?: string;
+  durationMinutes?: number | null;
+  language: string;
+  version: string;
+  publishedOn: string;
+  downloadAllowed: boolean;
+}
+
+/** A short-lived address for one uploaded file. */
+export interface MaterialTicket {
+  url: string;
+  expiresInSeconds: number;
 }

@@ -410,8 +410,16 @@ const COLUMNS: ColumnDef[] = [
             <label class="field-label" for="npCoordinator">Coordinator <span class="req">*</span></label>
             <select id="npCoordinator" class="select" formControlName="coordinatorId">
               <option [ngValue]="null">Select</option>
+              <!-- The user ID beside the name, always. Two coordinators
+                   called the same thing are two identical lines in a
+                   dropdown, and the agency picking one has no way to tell
+                   which person they just put on the batch. The ID is the
+                   identity everywhere else in the system; it is the thing
+                   that tells them apart here too. -->
               @for (coordinator of coordinators(); track coordinator.id) {
-                <option [ngValue]="coordinator.id">{{ coordinator.name }}</option>
+                <option [ngValue]="coordinator.id">
+                  {{ coordinator.name }} · {{ coordinator.code }}
+                </option>
               }
             </select>
           </div>
