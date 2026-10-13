@@ -42,6 +42,7 @@ public static class EmailTemplateDefaults
     public const string ScrutinyOutcome = "scrutiny-outcome";
     public const string ProgrammeSchedule = "programme-schedule";
     public const string ProgrammeRaised = "programme-raised";
+    public const string ProgrammePermitted = "programme-permitted";
     public const string PostponementRequested = "postponement-requested";
     public const string AgencyEmpanelled = "agency-empanelled";
     public const string AccountStatusChanged = "account-status-changed";
@@ -529,6 +530,40 @@ public static class EmailTemplateDefaults
                 "{{programmeName}} ({{programmeId}}), {{startDate}} to {{endDate}}, "
                 + "{{timing}} each day, {{venue}}. Coordinator {{coordinatorName}}, "
                 + "{{coordinatorMobile}}, {{coordinatorEmail}}. The session plan is attached.",
+        },
+        new()
+        {
+            Key = ProgrammePermitted,
+            Name = "Program permitted",
+            Description =
+                "Sent to the coordinator when the operation manager permits a program "
+                + "they are assigned to. It is the point at which they can start "
+                + "recording it on the app.",
+            Placeholders =
+                "name,programmeName,programmeId,startDate,endDate,timing,mode,venue,"
+                + "city,state,agencyName,meetingLink",
+            Subject = "{{programmeId}} is approved — {{startDate}}",
+            HtmlBody = """
+                <p>Dear {{name}},</p>
+                <p><strong>{{programmeName}}</strong> ({{programmeId}}) has been permitted by
+                the operation manager. It is now on your app, and you can record it from the
+                first day.</p>
+                <table style="margin:18px 0;border-collapse:collapse;">
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Dates</td><td>{{startDate}} to {{endDate}}</td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Timing</td><td>{{timing}} each day</td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Mode</td><td>{{mode}}</td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Venue</td><td>{{venue}}</td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Place</td><td>{{city}}, {{state}}</td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#7a716f;">Raised by</td><td>{{agencyName}}</td></tr>
+                </table>
+                <p>{{meetingLink}}</p>
+                <p>On the day, open the app and record the venue, the trainers, the sessions,
+                the participants and their attendance. Submit the report when the program is
+                over — nothing can be changed after that.</p>
+                """,
+            PlainTextBody =
+                "{{programmeName}} ({{programmeId}}) is approved. {{startDate}} to {{endDate}}, "
+                + "{{timing}} each day, {{venue}}, {{city}}. It is now on your app.",
         },
     ];
 }

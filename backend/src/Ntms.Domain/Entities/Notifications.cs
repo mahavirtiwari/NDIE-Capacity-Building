@@ -74,6 +74,20 @@ public class Notification : AuditableEntity
     public LgdState? State { get; set; }
 
     /// <summary>
+    /// One portal account, where the notice is about something only they
+    /// need to hear - their programme has been permitted, their report was
+    /// sent back.
+    ///
+    /// An audience says what kind of person a notice is for; this says
+    /// which one. Where it is set the audience is ignored on both sides of
+    /// the question: the notice reaches this account and no other, and no
+    /// other account sees it on their list. Null for every broadcast,
+    /// which is what the audiences are for.
+    /// </summary>
+    public int? UserId { get; set; }
+    public PortalUser? User { get; set; }
+
+    /// <summary>
     /// Where tapping it should land, as a path inside the app — "/programs",
     /// "/profile-form". Empty opens the notification list itself.
     /// </summary>

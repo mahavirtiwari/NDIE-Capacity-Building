@@ -52,6 +52,13 @@ public interface INotificationService
         ImplementingAgency agency, string scope, CancellationToken ct = default);
 
     /// <summary>
+    /// Tells the assigned coordinator that the programme may now run, with
+    /// everything they need to turn up to it.
+    /// </summary>
+    Task SendProgrammePermittedAsync(
+        Programme programme, string email, string name, CancellationToken ct = default);
+
+    /// <summary>
     /// Tells the holder their access was switched on or off, and on what
     /// grounds. Sent for both directions: somebody locked out deserves to know
     /// why, and somebody let back in needs to know they can work again.
@@ -405,6 +412,42 @@ public class NotificationService(
                 ? string.Empty
                 : $"Join link: {programme.MeetingLink}",
         }, ct, schedule is null ? [] : [schedule]);
+    }
+
+    public async Task SendProgrammePermittedAsync(
+        Programme programme, string email, string name, CancellationToken ct = default)
+    {
+        var agency = programme.Agency?.Name
+                     ?? await db.Agencies.AsNoTracking()
+                         .Where(a => a.Id == programme.AgencyId)
+                         .Select(a => a.Name)
+                         .FirstOrDefaultAsync(ct)
+                     ?? string.Empty;
+
+        var state = programme.State?.Name
+                    ?? await db.States.AsNoTracking()
+                        .Where(s => s.Code == programme.StateCode)
+                        .Select(s => s.Name)
+                        .FirstOrDefaultAsync(ct)
+                    ?? string.Empty;
+
+        await SendAsync(EmailTemplateDefaults.ProgrammePermitted, email, new()
+        {
+            ["name"] = name,
+            ["programmeName"] = programme.ProgrammeName,
+            ["programmeId"] = programme.ProgrammeId,
+            ["startDate"] = programme.StartDate.ToString("dd MMM yyyy"),
+            ["endDate"] = programme.EndDate.ToString("dd MMM yyyy"),
+            ["timing"] = $"{programme.StartTime:hh\\:mm} to {programme.EndTime:hh\\:mm}",
+            ["mode"] = programme.Mode.ToString(),
+            ["venue"] = programme.Venue,
+            ["city"] = programme.City ?? string.Empty,
+            ["state"] = state,
+            ["agencyName"] = agency,
+            ["meetingLink"] = string.IsNullOrWhiteSpace(programme.MeetingLink)
+                ? string.Empty
+                : $"Join link: {programme.MeetingLink}",
+        }, ct);
     }
 
     public Task SendAgencyEmpanelledAsync(

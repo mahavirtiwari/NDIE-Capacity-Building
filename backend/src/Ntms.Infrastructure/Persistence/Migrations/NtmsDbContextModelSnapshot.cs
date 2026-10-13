@@ -2259,6 +2259,9 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("nvarchar(120)");
 
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("SentOn");
@@ -2266,6 +2269,8 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.HasIndex("StateCode");
 
                     b.HasIndex("SubCategoryId");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("Notifications", (string)null);
                 });
@@ -5492,9 +5497,16 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .HasForeignKey("SubCategoryId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Ntms.Domain.Entities.PortalUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("State");
 
                     b.Navigation("SubCategory");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Ntms.Domain.Entities.NotificationRead", b =>

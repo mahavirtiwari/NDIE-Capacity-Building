@@ -228,6 +228,11 @@ public class NotificationBroadcastService(
     /// way, so the notice is on the list in the app even when the push
     /// failed.
     /// </summary>
+    /// <param name="userId">
+    /// One portal account to address it to. Where given, the audience is
+    /// not consulted on either side: this account is told and nobody else
+    /// sees it.
+    /// </param>
     public async Task RaiseAsync(
         string kind,
         string title,
@@ -236,6 +241,7 @@ public class NotificationBroadcastService(
         int? subCategoryId = null,
         int? stateCode = null,
         string? linkPath = null,
+        int? userId = null,
         CancellationToken ct = default)
     {
         try
@@ -248,6 +254,7 @@ public class NotificationBroadcastService(
                 SubCategoryId = subCategoryId,
                 StateCode = stateCode,
                 LinkPath = linkPath,
+                UserId = userId,
                 Kind = kind,
                 Status = NotificationStatus.Draft,
             };
@@ -342,26 +349,36 @@ public class NotificationBroadcastService(
 
         if (applicantId is not null)
         {
+            /* A notice addressed to one portal account is nobody else's,
+               applicants included. */
             return query.Where(n =>
-                n.Audience == NotificationAudience.Everyone
-                || n.Audience == NotificationAudience.Applicants);
+                n.UserId == null
+                && (n.Audience == NotificationAudience.Everyone
+                    || n.Audience == NotificationAudience.Applicants));
         }
 
         return query.Where(n =>
-            n.Audience == NotificationAudience.Everyone
-            || n.Audience == NotificationAudience.PortalUsers
-            || (n.Audience == NotificationAudience.Coordinators
-                && db.Users.Any(u => u.Id == userId && u.BaseRole == BaseRole.Coordinator))
-            || (n.Audience == NotificationAudience.ImplementingAgencies
-                && db.Users.Any(u => u.Id == userId && u.BaseRole == BaseRole.AgencyAdmin))
-            || (n.Audience == NotificationAudience.OperationManagers
-                && db.Users.Any(u => u.Id == userId && u.BaseRole == BaseRole.OperationManager)));
+            n.UserId == userId
+            || (n.UserId == null
+                && (n.Audience == NotificationAudience.Everyone
+                    || n.Audience == NotificationAudience.PortalUsers
+                    || (n.Audience == NotificationAudience.Coordinators
+                        && db.Users.Any(u => u.Id == userId && u.BaseRole == BaseRole.Coordinator))
+                    || (n.Audience == NotificationAudience.ImplementingAgencies
+                        && db.Users.Any(u => u.Id == userId && u.BaseRole == BaseRole.AgencyAdmin))
+                    || (n.Audience == NotificationAudience.OperationManagers
+                        && db.Users.Any(u => u.Id == userId && u.BaseRole == BaseRole.OperationManager)))));
     }
 
     /// <summary>The live handsets a notice is addressed to.</summary>
     private IQueryable<PushDevice> HandsetsFor(Notification notice)
     {
         var devices = db.PushDevices.AsNoTracking().Where(d => d.IsActive);
+
+        /* Addressed to one account: their handsets, and no audience or
+           state to narrow further. */
+        if (notice.UserId is { } only)
+            return devices.Where(d => d.UserId == only);
 
         devices = notice.Audience switch
         {

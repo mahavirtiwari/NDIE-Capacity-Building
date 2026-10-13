@@ -54,6 +54,26 @@ public class MonitoringService(
     /// The programme, if this account may read it: the assigned coordinator, or
     /// anyone whose portal scope already covers the programme.
     /// </summary>
+    /// <summary>
+    /// The statuses at which a programme is the coordinator's to run.
+    ///
+    /// Permission comes from the operation manager above the agency that
+    /// raised it. Before that there is nothing for anybody to record: the
+    /// batch may yet be refused or put off, and a hall booked, a trainer
+    /// named and twenty participants registered against a programme that
+    /// never runs is a record of something that did not happen.
+    ///
+    /// Rejected and postponed are not here either. A postponed batch comes
+    /// back to PermissionAccepted when it is re-permitted, and reappears
+    /// then.
+    /// </summary>
+    private static readonly ProgramStatus[] Permitted =
+    [
+        ProgramStatus.PermissionAccepted,
+        ProgramStatus.CalendarCreated,
+        ProgramStatus.Conducted,
+    ];
+
     private async Task<Programme> ForReadAsync(int programmeId, CancellationToken ct)
     {
         var programme = await db.Programmes
@@ -91,6 +111,17 @@ public class MonitoringService(
         if (programme.CoordinatorId != currentUser.UserId)
             throw AppException.Forbidden("This program is not assigned to you.");
 
+        /* Nothing is captured against a programme that has not been
+           permitted. The app does not list one, so this is the second lock
+           rather than the first - a phone that was holding the screen when
+           the batch was put off still cannot write to it. */
+        if (!Permitted.Contains(programme.Status))
+        {
+            throw new AppException(
+                "This program is waiting for permission from the operation manager. "
+                + "Nothing can be recorded against it yet.");
+        }
+
         var sealedOn = await db.ProgrammeSubmissions.AsNoTracking()
             .Where(s => s.ProgrammeId == programmeId)
             .Select(s => (DateTime?)s.SubmittedOn)
@@ -114,7 +145,7 @@ public class MonitoringService(
         var rows = await db.Programmes.AsNoTracking()
             .Include(p => p.ProgramType)
             .Include(p => p.State)
-            .Where(p => p.CoordinatorId == userId)
+            .Where(p => p.CoordinatorId == userId && Permitted.Contains(p.Status))
             .OrderByDescending(p => p.StartDate)
             .ToListAsync(ct);
 

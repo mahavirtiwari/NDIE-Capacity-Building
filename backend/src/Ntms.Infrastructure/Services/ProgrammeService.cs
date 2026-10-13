@@ -412,7 +412,65 @@ public class ProgrammeService(
                 linkPath: "/programs",
                 ct: ct);
         }
+
+        /* And the person who has to turn up and record it.
+
+           Permission is the moment the programme becomes theirs: before it
+           the app does not list it and nothing can be captured against it,
+           so being told is the difference between a coordinator who knows
+           to go and one who finds out by opening the app on the off
+           chance. Said twice on purpose - a notice on the handset, which
+           is what they carry, and an e-mail with the particulars, which is
+           what they can forward and read on the day. */
+        if (target == ProgramStatus.PermissionAccepted)
+        {
+            await TellCoordinatorAsync(entity, ct);
+        }
+
         return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// Tells the assigned coordinator that the programme may now run.
+    ///
+    /// Never throws into the caller: a permission that has been granted is
+    /// granted, and an unreachable mail server or push service must not
+    /// undo it.
+    /// </summary>
+    private async Task TellCoordinatorAsync(Programme programme, CancellationToken ct)
+    {
+        var coordinatorId = programme.CoordinatorId;
+
+        var coordinator = await db.Users.AsNoTracking()
+            .Where(u => u.Id == coordinatorId)
+            .Select(u => new { u.FullName, u.Email })
+            .FirstOrDefaultAsync(ct);
+
+        /* An account that has since been removed leaves nobody to tell. */
+        if (coordinator is null) return;
+
+        await broadcasts.RaiseAsync(
+            "ProgrammePermitted",
+            "A program is yours to run",
+            $"{programme.ProgrammeName} ({programme.ProgrammeId}) is approved and starts on "
+            + $"{programme.StartDate:dd MMM yyyy}. Open it to record the day.",
+            NotificationAudience.Coordinators,
+            userId: coordinatorId,
+            linkPath: $"/workshop/{programme.Id}/registration",
+            ct: ct);
+
+        try
+        {
+            await notifications.SendProgrammePermittedAsync(
+                programme, coordinator.Email, coordinator.FullName, ct);
+        }
+        catch (Exception caught)
+        {
+            logger.LogWarning(
+                caught,
+                "Program {Programme} was permitted but the coordinator could not be e-mailed.",
+                programme.ProgrammeId);
+        }
     }
 
     /// <summary>

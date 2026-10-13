@@ -44,6 +44,13 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
         b.HasOne(x => x.State).WithMany()
             .HasForeignKey(x => x.StateCode).HasPrincipalKey(x => x.Code)
             .OnDelete(DeleteBehavior.Restrict);
+        /* The one account a personal notice is for. Restricted rather than
+           cascaded: a notice is a record of something the scheme said, and
+           deleting the account does not unsay it. */
+        b.HasOne(x => x.User).WithMany()
+            .HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+        /* Read on every handset's notification list, filtered by this. */
+        b.HasIndex(x => x.UserId);
     }
 }
 
