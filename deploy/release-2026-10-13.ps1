@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     The 13 October release: the web, both apps, and the data that goes with
     them.
