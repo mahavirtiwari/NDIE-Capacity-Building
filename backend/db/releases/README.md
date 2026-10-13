@@ -19,10 +19,18 @@ built from one can be read against what it was given.
 
 | File | Runs against | Use it when |
 | --- | --- | --- |
-| `2026-10-11-release.sql` | A database at `20261009112017_TrainerEngagementAndCredentials` | You know what the database is on, and want only this release's changes to read. |
-| `2026-10-11-full.sql` | Any database, including an empty one | You do not know what it is on, or you are building one from nothing. |
+| `2026-10-13-release.sql` | A database at `20261011023832_SupportAndAboutAreTheirsToWrite` | You know what the database is on, and want only this release's changes to read. |
+| `2026-10-13-full.sql` | Any database, including an empty one | You do not know what it is on, or you are building one from nothing. |
+| `2026-10-11-release.sql` | A database at `20261009112017_TrainerEngagementAndCredentials` | Superseded; kept for reference. |
+| `2026-10-11-full.sql` | Any database | Superseded; kept for reference. |
 | `2026-10-09-release.sql` | A database at `20261006000958_AnAgencySuspensionIsRecorded` | Superseded; kept for reference. |
 | `2026-10-09-full.sql` | Any database | Superseded; kept for reference. |
+
+The 13 October pair carries three migrations: the ways in to a programme
+type, a notice addressed to one person, and the venue a batch may be moved
+to. Both were run against a fresh database and against one sitting at the
+11 October release, and the release script was run twice to prove it is
+idempotent.
 
 The 11 October pair carries five migrations: a registration remembering
 its batch, an address proven before it moves, session start and end
