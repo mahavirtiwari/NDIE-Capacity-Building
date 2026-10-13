@@ -1,9 +1,9 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Faculty, Id, Qualification } from '../../core/models';
+import { Faculty, Id, LookupItem } from '../../core/models';
 import { FacultyService } from '../../core/services/report.service';
-import { LookupService, QualificationService } from '../../core/services/masters.service';
+import { LookupService } from '../../core/services/masters.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import {
@@ -291,7 +291,7 @@ const COLUMNS: ColumnDef[] = [
             <select id="tfQual" class="select" formControlName="qualification">
               <option [ngValue]="null">Not stated</option>
               @for (option of qualifications(); track option.id) {
-                <option [value]="option.label">{{ option.label }}</option>
+                <option [value]="option.name">{{ option.name }}</option>
               }
             </select>
           </div>
@@ -336,7 +336,6 @@ export class TrainersComponent {
   private readonly toast = inject(ToastService);
   private readonly fb = inject(FormBuilder);
 
-  private readonly qualificationService = inject(QualificationService);
 
   protected readonly columns = COLUMNS;
   protected readonly list = new ListState<Faculty>((request) => this.service.list(request), {
@@ -369,8 +368,23 @@ export class TrainersComponent {
   });
 
   /* The same ladder the app offers, so the two agree. */
-  protected readonly qualifications = toSignal(this.qualificationService.all({ status: 'Active' }), {
-    initialValue: [] as Qualification[],
+  /**
+   * The qualification ladder, from the lookup rather than from the master.
+   *
+   * A trainer is put on the record by the coordinator who was in the room,
+   * and a coordinator holds none of the masters keys - the masters are not
+   * theirs to read, let alone edit. Asking the master endpoint for them
+   * came back refused, which left the Qualification dropdown empty for the
+   * one role that fills this form most often, and offered them no way to
+   * record what they plainly knew.
+   *
+   * The lookup is the same ladder, live rungs only, and is open to
+   * everybody: it already feeds the sign-up form, which is read by people
+   * with no account at all. The stored value is unchanged - the label, as
+   * before.
+   */
+  protected readonly qualifications = toSignal(this.lookups.qualifications(), {
+    initialValue: [] as LookupItem[],
   });
 
   constructor() {

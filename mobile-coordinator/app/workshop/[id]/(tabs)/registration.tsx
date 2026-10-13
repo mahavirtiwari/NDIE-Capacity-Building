@@ -12,7 +12,7 @@ export default function Registration() {
   const { id, detail, loading, failure, refresh, locked } = useWorkshop();
   const [refreshing, setRefreshing] = useState(false);
 
-  if (loading && !detail) return <Loading label="Loading workshop…" />;
+  if (loading && !detail) return <Loading label="Loading program…" />;
 
   const progress = detail?.progress;
   const venue = detail?.venue2;
@@ -56,7 +56,7 @@ export default function Registration() {
 
       {locked ? (
         <Banner tone="info">
-          This workshop was finally submitted. Everything below is read only.
+          This program was finally submitted. Everything below is read only.
         </Banner>
       ) : null}
 

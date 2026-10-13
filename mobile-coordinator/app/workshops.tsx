@@ -22,7 +22,7 @@ export default function Workshops() {
     try {
       setRows(await workshops.mine());
     } catch (caught) {
-      setFailure(caught instanceof ApiError ? caught.message : 'Could not load your workshops.');
+      setFailure(caught instanceof ApiError ? caught.message : 'Could not load your programs.');
       setRows([]);
     }
   }, []);
@@ -37,7 +37,7 @@ export default function Workshops() {
     setRefreshing(false);
   };
 
-  if (rows === null) return <Loading label="Loading your workshops…" />;
+  if (rows === null) return <Loading label="Loading your programs…" />;
 
   return (
     <View style={styles.flex}>
@@ -64,8 +64,8 @@ export default function Workshops() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
         ListEmptyComponent={
           <EmptyState
-            title="No workshops assigned"
-            message="Workshops appear here once your implementing agency assigns them to you."
+            title="No programs assigned"
+            message="Programs appear here once your implementing agency assigns them to you."
           />
         }
         renderItem={({ item }) => (

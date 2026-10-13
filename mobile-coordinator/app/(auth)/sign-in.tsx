@@ -57,8 +57,8 @@ export default function SignIn() {
               device, so this screen is branded even with no signal. */}
           <BrandLogo size={46} />
           <Text style={styles.org}>{branding.organisationName}</Text>
-          <Title>Workshop monitoring</Title>
-          <Subtitle>
+          <Title>Program monitoring</Title>
+          <Subtitle style={styles.lead}>
             Sign in with the coordinator ID issued to you — not your email address.
           </Subtitle>
         </View>
@@ -103,8 +103,11 @@ export default function SignIn() {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.blush },
   content: { padding: spacing.lg, paddingTop: spacing.xxl * 2, gap: spacing.lg, flexGrow: 1 },
-  header: { gap: spacing.xs, alignItems: 'flex-start' },
-  org: { color: colors.ink600, fontSize: 12, marginBottom: spacing.sm },
+  header: { gap: spacing.xs, alignItems: 'center' },
+  org: { color: colors.ink600, fontSize: 12, marginBottom: spacing.sm, textAlign: 'center' },
+  /* Centred on its own as well as in the column: a line that wraps is laid
+     out inside the text block, and alignItems does not reach in there. */
+  lead: { textAlign: 'center' },
   card: { gap: spacing.lg },
   footnote: { marginTop: 'auto', textAlign: 'center', color: colors.ink500, fontSize: 12 },
 });

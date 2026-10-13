@@ -21,7 +21,7 @@ export default function ProgrammeManagement() {
   const words = useSiteText();
   const [refreshing, setRefreshing] = useState(false);
 
-  if (loading && !detail) return <Loading label="Loading workshop…" />;
+  if (loading && !detail) return <Loading label="Loading program…" />;
 
   const p = detail?.progress;
   const go = (path: string) => router.push(`/workshop/${id}/${path}`);
@@ -40,7 +40,7 @@ export default function ProgrammeManagement() {
         />
       }
     >
-      <Text style={styles.lead}>Record the workshop as it happens.</Text>
+      <Text style={styles.lead}>Record the program as it happens.</Text>
 
       {failure ? <Banner tone="danger">{failure}</Banner> : null}
 

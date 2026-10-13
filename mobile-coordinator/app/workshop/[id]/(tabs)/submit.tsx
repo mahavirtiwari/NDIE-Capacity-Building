@@ -30,7 +30,7 @@ export default function FinalSubmission() {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
-  if (loading && !detail) return <Loading label="Loading workshop…" />;
+  if (loading && !detail) return <Loading label="Loading program…" />;
 
   const p = detail?.progress;
   const blockers = p?.blockers ?? [];
@@ -38,7 +38,7 @@ export default function FinalSubmission() {
   const submit = () => {
     Alert.alert(
       'Submit finally?',
-      'Once submitted, nothing on this workshop can be changed — not from this app and not from the back office. Make sure every photo and every name is right.',
+      'Once submitted, nothing on this program can be changed — not from this app and not from the back office. Make sure every photo and every name is right.',
       [
         { text: 'Not yet', style: 'cancel' },
         {
@@ -50,7 +50,7 @@ export default function FinalSubmission() {
             try {
               await workshops.submit(id, remarks.trim() || undefined);
               await refresh();
-              Alert.alert('Submitted', 'This workshop is now sealed.', [
+              Alert.alert('Submitted', 'This program is now sealed.', [
                 { text: 'OK', onPress: () => router.replace('/workshops') },
               ]);
             } catch (caught) {

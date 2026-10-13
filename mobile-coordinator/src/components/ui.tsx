@@ -12,6 +12,7 @@ import {
   type KeyboardEvent,
   type StyleProp,
   type TextInputProps,
+  type TextStyle,
   type ViewStyle,
 } from 'react-native';
 import { colors, font, radius, spacing, toneColors, toneFor, labelFor, type Tone } from '../theme';
@@ -22,8 +23,8 @@ export function Title({ children, style }: { children: ReactNode; style?: ViewSt
   return <Text style={[styles.title, style]}>{children}</Text>;
 }
 
-export function Subtitle({ children }: { children: ReactNode }) {
-  return <Text style={styles.subtitle}>{children}</Text>;
+export function Subtitle({ children, style }: { children: ReactNode; style?: TextStyle }) {
+  return <Text style={[styles.subtitle, style]}>{children}</Text>;
 }
 
 export function Muted({ children }: { children: ReactNode }) {

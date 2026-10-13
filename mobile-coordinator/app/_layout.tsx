@@ -36,7 +36,7 @@ export default function RootLayout() {
         >
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="workshops" options={{ title: 'My workshops' }} />
+          <Stack.Screen name="workshops" options={{ title: 'My programs' }} />
           <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
           <Stack.Screen name="workshop/[id]" options={{ headerShown: false }} />
               </Stack>

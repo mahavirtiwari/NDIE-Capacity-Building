@@ -81,7 +81,7 @@ export function InstallGate({ children }: { children: ReactNode }) {
         {
           key: 'location',
           label: 'Location',
-          why: 'To geo-tag the venue, so the record shows where the workshop was actually held.',
+          why: 'To geo-tag the venue, so the record shows where the program was actually held.',
           icon: 'location-outline',
           standing: await standingOf(
             () => Location.getForegroundPermissionsAsync(),

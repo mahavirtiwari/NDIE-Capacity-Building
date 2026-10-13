@@ -184,7 +184,7 @@ export default function RegisterVenue() {
         <Card style={styles.card}>
           <PhotoPicker
             label="Interior photo"
-            hint="The hall as set up for the workshop."
+            hint="The hall as set up for the program."
             value={interior}
             existingUrl={
               existing?.interiorPhoto ? photos.src(undefined, existing.interiorPhoto.url) : null
