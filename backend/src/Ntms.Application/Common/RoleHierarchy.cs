@@ -202,6 +202,40 @@ public static class RoleHierarchy
     private static readonly IReadOnlyDictionary<BaseRole, string[]> Ceiling =
         new Dictionary<BaseRole, string[]>
         {
+            /* The Ministry observes and creates nothing - which is said in
+               the comment on its depth, and on users.status, and was
+               enforced nowhere. It had no entry on either list, so it was
+               the only tier in the system with the whole catalogue
+               available to it: a Ministry role could be given empanelling,
+               scrutiny and the permitting of batches, while the Admin
+               beside it in the chain could not. The tier that decides
+               least was being offered the most.
+
+               A ceiling rather than a deny list, for the reason the
+               Coordinator has one: every key added to the catalogue later
+               would otherwise arrive grantable to an observer unless
+               somebody remembered to bar it. Reading is reading, so every
+               view key is here and nothing else - no manage, no approve,
+               no scrutiny, no sending, no switching an account off. */
+            [BaseRole.Ministry] =
+            [
+                Permissions.MastersView,
+                Permissions.CurriculumView,
+                Permissions.FeesView,
+                Permissions.ExamsView,
+                Permissions.MaterialsView,
+                Permissions.RolesView,
+                Permissions.UsersView,
+                Permissions.AgenciesView,
+                Permissions.ApplicationsView,
+                Permissions.ProgramsView,
+                Permissions.CoordinatorsView,
+                Permissions.ReportsView,
+                Permissions.ProfessionalsView,
+                Permissions.TrainersView,
+                Permissions.NotificationsView,
+            ],
+
             [BaseRole.Coordinator] =
             [
                 Permissions.ProgramsView,
