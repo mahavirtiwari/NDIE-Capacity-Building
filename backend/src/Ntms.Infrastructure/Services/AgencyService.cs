@@ -156,6 +156,13 @@ public class AgencyService(
            login yet" and which made Issue login look as though it had done
            nothing. */
         await FillLoginsAsync([dto], ct);
+
+        /* And why it stands where it does, for the same reason: this is
+           what every write on this service answers with, so a suspension
+           reported here without its grounds is a suspension the screen
+           that just made it cannot show. */
+        await FillStatusReasonAsync([dto], ct);
+
         return dto;
     }
 
@@ -329,6 +336,18 @@ public class AgencyService(
                goes on to do. The tier above sees it through them. */
             OwnerUserId = currentUser.UserId,
         };
+        /* Not onto a term that has already finished. The sweep would
+           suspend it within the hour, so empanelling it is a round trip to
+           nowhere. Only on the way in: a lapsed date already on a record is
+           a fact about it, and must not stand between somebody and
+           correcting its address. */
+        if (dto.EmpanelmentValidTill is { } ended
+            && ended < DateOnly.FromDateTime(DateTime.UtcNow))
+        {
+            throw new AppException(
+                "That empanelment has already run out. Give a validity in the future.");
+        }
+
         Apply(entity, dto, code);
         ReplaceMappings(entity, scope);
 
@@ -524,12 +543,46 @@ public class AgencyService(
            an identity that changes is not one. */
         var scope = await ResolveEmpanelmentAsync(dto, ct);
 
+        /* What it was, before the form's own status is applied over it. */
+        var wasActive = entity.Status == RecordStatus.Active;
+
         Apply(entity, dto, entity.Code);
         entity.Categories.Clear();
         entity.SubCategories.Clear();
         entity.ProgramTypes.Clear();
         entity.States.Clear();
         ReplaceMappings(entity, scope);
+
+        /* The form carries a status of its own, so this path can set one
+           Active without going anywhere near SetStatusAsync - and the
+           sweep would put it straight back out. Same rule, said here too,
+           but only where this edit is what turns it on: an agency whose
+           term ran out an hour ago is still Active until the next sweep,
+           and correcting its address must not be refused for that. */
+        if (entity.Status == RecordStatus.Active
+            && entity.EmpanelmentValidTill is { } till
+            && till < DateOnly.FromDateTime(DateTime.UtcNow))
+        {
+            /* Two ways to arrive here and they want different words: one
+               is turning a suspended agency back on without extending its
+               term, the other is backdating a running agency's term into
+               the past, which is suspending it by the back door and would
+               be done by the sweep within the hour with nobody's name on
+               it. Both are refused; neither stands in the way of editing
+               an agency that is already out, because then the lapsed date
+               is a fact about the record rather than something this edit
+               is doing to it. */
+            throw new AppException(wasActive
+                ? $"{entity.Name} is running on this empanelment. A validity of "
+                  + $"{till:dd MMM yyyy} has already passed - suspend it instead, "
+                  + "or give a date in the future."
+                : $"{entity.Name}'s empanelment ran out on {till:dd MMM yyyy}. "
+                  + "Extend the validity to empanel it back in.");
+        }
+
+        /* After the new dates are on it, so an extended term is read from
+           what was just saved rather than from what it replaced. */
+        await ReinstateIfTermExtendedAsync(entity, ct);
 
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
@@ -572,6 +625,23 @@ public class AgencyService(
         {
             throw new AppException(
                 $"{entity.Name} is already {(next == RecordStatus.Active ? "active" : "suspended")}.");
+        }
+
+        /* Not back in on an empanelment that has run out.
+
+           The sweep would put it straight back out, and the two would take
+           turns: an operation manager who pressed the button would see it
+           work and find the agency suspended again within the hour, with
+           no way to tell which of them had done what. Extending the term
+           is the act that lets it back in, and doing that brings it back
+           by itself. */
+        if (next == RecordStatus.Active
+            && entity.EmpanelmentValidTill is { } till
+            && till < DateOnly.FromDateTime(DateTime.UtcNow))
+        {
+            throw new AppException(
+                $"{entity.Name}'s empanelment ran out on {till:dd MMM yyyy}. "
+                + "Extend the validity to empanel it back in.");
         }
 
         db.AgencyStatusEvents.Add(new AgencyStatusEvent
@@ -636,6 +706,54 @@ public class AgencyService(
         entity.EmpanelledOn = dto.EmpanelledOn;
         entity.EmpanelmentValidTill = dto.EmpanelmentValidTill;
         entity.Status = EnumMaps.ToStatus(dto.Status);
+    }
+
+    /// <summary>
+    /// Brings back an agency that was only out because its term had run
+    /// out, once the term is extended.
+    ///
+    /// The sweep suspends on the date alone, so extending the date removes
+    /// the whole of the reason - and leaving it suspended would mean the
+    /// manager has to extend the term and then separately argue the agency
+    /// back in, for a suspension nobody decided. Only where the last switch
+    /// was the sweep's: an agency a person put out for something else stays
+    /// out until that person says otherwise.
+    /// </summary>
+    private async Task ReinstateIfTermExtendedAsync(
+        ImplementingAgency entity, CancellationToken ct)
+    {
+        if (entity.Status != RecordStatus.Inactive) return;
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (entity.EmpanelmentValidTill is { } till && till < today) return;
+
+        var last = await db.AgencyStatusEvents.AsNoTracking()
+            .Where(e => e.AgencyId == entity.Id)
+            .OrderByDescending(e => e.On)
+            .FirstOrDefaultAsync(ct);
+
+        if (last is null
+            || last.ToStatus != RecordStatus.Inactive
+            || last.Reason != LapsedEmpanelmentWorker.Reason)
+        {
+            return;
+        }
+
+        db.AgencyStatusEvents.Add(new AgencyStatusEvent
+        {
+            AgencyId = entity.Id,
+            FromStatus = RecordStatus.Inactive,
+            ToStatus = RecordStatus.Active,
+            Reason = entity.EmpanelmentValidTill is { } extended
+                ? $"Empanelment extended to {extended:dd MMM yyyy}"
+                : "Empanelment made open ended",
+            ByUserId = currentUser.UserId,
+            ByUserName = currentUser.DisplayName ?? "System",
+            ByUserCode = currentUser.UserCode ?? string.Empty,
+            On = DateTime.UtcNow,
+        });
+
+        entity.Status = RecordStatus.Active;
     }
 
     /// <summary>What the agency may be empanelled for, narrowed to the

@@ -61,6 +61,12 @@ public static class DependencyInjection
         services.AddSingleton<IEmailQueue>(sp => sp.GetRequiredService<EmailQueue>());
         services.AddHostedService<EmailQueueWorker>();
 
+        /* An empanelment is a term, and the register has to notice when one
+           ends. Swept rather than read at display time: the question is
+           asked in a dozen places and a status all of them already read
+           beats a condition each would have to remember. */
+        services.AddHostedService<LapsedEmpanelmentWorker>();
+
         /* Through the factory so the handler is pooled and the timeout is the
            one in settings rather than the default hundred seconds. */
         services.AddHttpClient(nameof(PanVerifier))
