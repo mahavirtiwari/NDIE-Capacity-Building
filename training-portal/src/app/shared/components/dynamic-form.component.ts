@@ -28,7 +28,7 @@ import {
   ProfileField,
   ProfileForm,
   ProfileSection,
-  durationWords,
+  spanInWords,
   monthsBetween,
 } from '../../core/models';
 import { FORMAT_MESSAGES, FORMAT_PATTERNS } from '../../core/validation/formats';
@@ -1314,7 +1314,7 @@ export class DynamicFormComponent {
   protected spanWords(group: FormGroup, key: string): string {
     const { from, to } = this.span(group, key);
     if (!from || !to) return 'Pick both dates';
-    return durationWords(monthsBetween(from, to));
+    return spanInWords(from, to);
   }
 
   /**

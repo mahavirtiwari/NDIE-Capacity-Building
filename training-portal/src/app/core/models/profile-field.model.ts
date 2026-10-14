@@ -64,6 +64,69 @@ export interface DurationValue {
 }
 
 /** Whole months between two ISO dates, counting a part month as served. */
+/**
+ * A span broken into years, months and days.
+ *
+ * Calendar arithmetic rather than a division: the months between two
+ * dates depend on which months they are, and 1 September to 1 October is
+ * a month whether or not that month had 30 days in it. Days are borrowed
+ * from the month before, the way anybody counting on a calendar does it.
+ */
+export function spanParts(from: string, to: string): {
+  years: number;
+  months: number;
+  days: number;
+} {
+  const none = { years: 0, months: 0, days: 0 };
+  if (!from || !to) return none;
+
+  const start = new Date(from);
+  const end = new Date(to);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return none;
+
+  let years = end.getFullYear() - start.getFullYear();
+  let months = end.getMonth() - start.getMonth();
+
+  /* The last month only counts once the day of it has come round. */
+  if (end.getDate() < start.getDate()) months -= 1;
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  /* The days are what is left after those whole months, counted from the
+     date they land on rather than borrowed arithmetically - borrowing is
+     wrong whenever the month landed on is shorter than the day started
+     from, and 31 January to 1 March is exactly that case. A month added
+     to the 31st rolls into the next one in JavaScript, so it is pulled
+     back to the last day of the month it was meant to be. */
+  const wanted = start.getMonth() + years * 12 + months;
+  const anchor = new Date(start.getFullYear(), wanted, start.getDate());
+  if (anchor.getMonth() !== ((wanted % 12) + 12) % 12) anchor.setDate(0);
+
+  /* Counted in UTC days, so an hour lost to a clock change somewhere is
+     not a day lost here. */
+  const days = Math.round(
+    (Date.UTC(end.getFullYear(), end.getMonth(), end.getDate())
+      - Date.UTC(anchor.getFullYear(), anchor.getMonth(), anchor.getDate()))
+    / 86_400_000,
+  );
+
+  return { years, months, days: Math.max(0, days) };
+}
+
+/** "1 year 2 months 5 days", or "3 days", or "Same day". */
+export function spanInWords(from: string, to: string): string {
+  const { years, months, days } = spanParts(from, to);
+
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} year${years === 1 ? '' : 's'}`);
+  if (months > 0) parts.push(`${months} month${months === 1 ? '' : 's'}`);
+  if (days > 0) parts.push(`${days} day${days === 1 ? '' : 's'}`);
+
+  return parts.length > 0 ? parts.join(' ') : 'Same day';
+}
+
 export function monthsBetween(from: string, to: string): number {
   if (!from || !to) return 0;
   const start = new Date(from);

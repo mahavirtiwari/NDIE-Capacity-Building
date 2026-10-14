@@ -90,6 +90,13 @@ export function Picker({
         <Ionicons name="chevron-down" size={16} color={colors.ink500} />
       </Pressable>
 
+      {/* What the chosen option means, kept on screen. Reopening the
+          sheet to re-read why one was the right answer is a thing nobody
+          does; they guess instead. */}
+      {selected?.description ? (
+        <Text style={styles.chosenNote}>{selected.description}</Text>
+      ) : null}
+
       {error ? (
         <Text style={styles.error}>{error}</Text>
       ) : hint ? (
@@ -139,9 +146,18 @@ export function Picker({
                       (pressed || isSelected) && styles.optionActive,
                     ]}
                   >
-                    <Text style={[styles.optionText, isSelected && styles.optionTextActive]}>
-                      {item.label}
-                    </Text>
+                    <View style={styles.optionBody}>
+                      <Text style={[styles.optionText, isSelected && styles.optionTextActive]}>
+                        {item.label}
+                      </Text>
+                      {/* What the choice means, under the words it
+                          explains: somebody is deciding between this and
+                          the one below it, and the difference is often
+                          the whole of the question. */}
+                      {item.description ? (
+                        <Text style={styles.optionNote}>{item.description}</Text>
+                      ) : null}
+                    </View>
                     {isSelected ? (
                       <Ionicons name="checkmark" size={18} color={colors.brand700} />
                     ) : null}
@@ -557,6 +573,9 @@ const styles = StyleSheet.create({
   checkBody: { flex: 1, gap: 1 },
   /* The sheet's own rows, which carry a box and a description. */
   optionBody: { flex: 1, gap: 1 },
+  /* Under the closed control, in the hint's voice: it explains the
+     answer rather than correcting it. */
+  chosenNote: { fontSize: font.xs, color: colors.ink600, lineHeight: 16 },
   optionNote: { fontSize: font.xs, color: colors.ink500, lineHeight: 16 },
   done: {
     alignItems: 'center',
