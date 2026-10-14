@@ -446,7 +446,14 @@ public class DbSeeder(
                     marking for want of a read permission. Reading the
                     papers is not writing one: exams.manage stays with the
                     people who set the questions. */
-                 Permissions.ExamsView], []),
+                 Permissions.ExamsView,
+                 /* The faculty register, which the agency answers for: its
+                    coordinators put the trainers there from the app, and
+                    the one that was missed is the agency's to add. Nobody
+                    held this key - not even the Super Admin, which is
+                    withheld it on purpose - so the register's own Add
+                    trainer was a button on nobody's screen. */
+                 Permissions.TrainersView, Permissions.TrainersManage], []),
             /* Oversight only: the Ministry must never gain a write key. */
             /* The notifications screen is new, and a permission on no role
                is a screen nobody can reach. The Super Admin owns the portal

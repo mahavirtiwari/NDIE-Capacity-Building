@@ -158,14 +158,18 @@ public static class RoleHierarchy
             ],
 
             /* A trainer is put on the record by the coordinator who was in
-               the room, as the register's own empty state says. The agency
-               appoints the coordinator and reads the faculty; it does not
-               enter one itself. Coordinators are unaffected: they register a
-               trainer against a batch of their own, which is gated by
-               holding that batch rather than by this key. */
+               the room, which is still how nearly every one of them gets
+               there. The agency keeps the register, though: it answers for
+               the batch and for who delivered it, and the one the
+               coordinator missed - or took down wrongly - has to be
+               correctable by somebody who is not still at the venue. So
+               the agency holds this key and the coordinator does not,
+               which is the opposite way round from how it reads, and is
+               the point: a coordinator writes from the app with the person
+               in front of them, the agency writes from the office
+               afterwards. */
             [BaseRole.AgencyAdmin] =
             [
-                Permissions.TrainersManage,
                 Permissions.MaterialsManage,
                 Permissions.ApplicationsScrutinise,
                 /* An agency does not permit its own batch. It raises one and
