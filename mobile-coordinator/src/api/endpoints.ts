@@ -13,7 +13,6 @@ import type {
   MyNotifications,
   MonitoringSession,
   Participant,
-  PhotoKind,
   SessionTopic,
   Submission,
   Trainer,
@@ -448,8 +447,11 @@ export const photos = {
   attendanceSheet: (id: number, image: CapturedImage, fix?: Fix | null) =>
     upload(`coordinator/programmes/${id}/attendance/photo`, image, fix),
 
-  /** Absolute URL for showing a stored photo back. */
-  src: (kind: PhotoKind | undefined, relative: string) => `${API_BASE_URL}/${relative}`,
+  /* There was an `src` here that built an absolute url for showing a
+     stored photo back. The route needs a bearer token and an image
+     loader sends none, so every one of them drew an empty frame. They
+     are fetched through `StoredImage` now, and this is gone rather than
+     left for somebody to reach for again. */
 };
 
 

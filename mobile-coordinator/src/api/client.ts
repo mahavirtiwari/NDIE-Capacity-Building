@@ -79,6 +79,44 @@ export function readAuthToken(): string | null {
   return readToken();
 }
 
+/** Bytes of something the server keeps behind the sign-in. */
+export interface DownloadedBytes {
+  bytes: ArrayBuffer;
+  contentType: string;
+}
+
+/**
+ * Fetches a file the caller has to be signed in to read.
+ *
+ * Separate from `request`, which expects a JSON envelope. A photograph
+ * is bytes and a content type, and the only thing shared is the bearer
+ * token - which is the whole reason this exists rather than the url
+ * being handed to an image loader.
+ */
+export async function downloadBytes(path: string): Promise<DownloadedBytes> {
+  const url = `${API_BASE_URL}/${path.replace(/^\//, '')}`;
+  const headers: Record<string, string> = {};
+
+  const token = readToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, { headers });
+  } catch {
+    throw new ApiError(`Cannot reach the server at ${API_BASE_URL}.`, 0);
+  }
+
+  if (!response.ok) {
+    throw new ApiError(`That file could not be fetched (${response.status}).`, response.status);
+  }
+
+  return {
+    bytes: await response.arrayBuffer(),
+    contentType: response.headers.get('Content-Type') ?? 'application/octet-stream',
+  };
+}
+
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;

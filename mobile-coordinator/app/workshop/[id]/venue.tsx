@@ -173,9 +173,7 @@ export default function RegisterVenue() {
             label="Exterior photo"
             hint="The building front, with any signage visible."
             value={exterior}
-            existingUrl={
-              existing?.exteriorPhoto ? photos.src(undefined, existing.exteriorPhoto.url) : null
-            }
+            existingPath={existing?.exteriorPhoto?.url ?? null}
             onPick={setExterior}
             disabled={locked}
           />
@@ -186,9 +184,7 @@ export default function RegisterVenue() {
             label="Interior photo"
             hint="The hall as set up for the program."
             value={interior}
-            existingUrl={
-              existing?.interiorPhoto ? photos.src(undefined, existing.interiorPhoto.url) : null
-            }
+            existingPath={existing?.interiorPhoto?.url ?? null}
             onPick={setInterior}
             disabled={locked}
           />

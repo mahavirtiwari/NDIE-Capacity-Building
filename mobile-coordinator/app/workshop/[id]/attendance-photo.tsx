@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../../src/api/client';
 import { photos, type CapturedImage } from '../../../src/api/endpoints';
 import { PhotoPicker } from '../../../src/components/PhotoPicker';
+import { StoredImage } from '../../../src/files/storedImage';
 import { Banner, Button, Card } from '../../../src/components/ui';
 import { useGeoFix } from '../../../src/location/useGeoFix';
 import { colors, radius, spacing } from '../../../src/theme';
@@ -51,12 +52,7 @@ export default function AttendancePhoto() {
         ) : (
           <View style={styles.grid}>
             {uploaded.map((sheet) => (
-              <Image
-                key={sheet.id}
-                source={{ uri: photos.src(sheet.kind, sheet.url) }}
-                style={styles.thumb}
-                resizeMode="cover"
-              />
+              <StoredImage key={sheet.id} path={sheet.url} style={styles.thumb} />
             ))}
           </View>
         )}

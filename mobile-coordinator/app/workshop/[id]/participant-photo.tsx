@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../../src/api/client';
 import { photos, type CapturedImage } from '../../../src/api/endpoints';
 import { PhotoPicker } from '../../../src/components/PhotoPicker';
+import { StoredImage } from '../../../src/files/storedImage';
 import { Banner, Button, Card, EmptyState } from '../../../src/components/ui';
 import { useGeoFix } from '../../../src/location/useGeoFix';
 import { colors, radius, spacing } from '../../../src/theme';
@@ -69,9 +70,14 @@ export default function ParticipantPhoto() {
             }}
           >
             {item.photo ? (
-              <Image
-                source={{ uri: photos.src(item.photo.kind, item.photo.url) }}
+              <StoredImage
+                path={item.photo.url}
                 style={styles.avatar}
+                placeholder={
+                  <View style={[styles.avatar, styles.avatarEmpty]}>
+                    <Text style={styles.initial}>{item.fullName.charAt(0).toUpperCase()}</Text>
+                  </View>
+                }
               />
             ) : (
               <View style={[styles.avatar, styles.avatarEmpty]}>
@@ -96,7 +102,7 @@ export default function ParticipantPhoto() {
             label="Participant photo"
             hint="Optional. A clear head and shoulders shot."
             value={image}
-            existingUrl={person.photo ? photos.src(person.photo.kind, person.photo.url) : null}
+            existingPath={person.photo?.url ?? null}
             onPick={setImage}
           />
           {failure ? <Banner tone="danger">{failure}</Banner> : null}

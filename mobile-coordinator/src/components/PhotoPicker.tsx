@@ -2,6 +2,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { CapturedImage } from '../api/endpoints';
+import { useStoredImage } from '../files/storedImage';
 import { colors, radius, spacing } from '../theme';
 
 /**
@@ -19,21 +20,29 @@ export function PhotoPicker({
   label,
   hint,
   value,
-  existingUrl,
+  existingPath,
   onPick,
   disabled,
 }: {
   label: string;
   hint?: string;
   value?: CapturedImage | null;
-  /** A photo already stored on the server, shown until a new one is taken. */
-  existingUrl?: string | null;
+  /**
+   * A photo already stored on the server, shown until a new one is taken.
+   *
+   * The server-relative path, not a url: the route needs a bearer token
+   * and the image loader sends none, so it is fetched here rather than
+   * pointed at. It used to be pointed at, and drew an empty frame.
+   */
+  existingPath?: string | null;
   onPick: (image: CapturedImage) => void;
   disabled?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
 
-  const preview = value?.uri ?? existingUrl ?? null;
+  /* The one on the server, until the coordinator takes a new one. */
+  const stored = useStoredImage(value ? null : existingPath);
+  const preview = value?.uri ?? stored;
 
   const run = async (source: 'camera' | 'library') => {
     setBusy(true);
