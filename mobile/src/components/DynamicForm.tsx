@@ -21,7 +21,7 @@ import { colors, font, radius, spacing } from '../theme';
 import { MAX_LENGTHS, UPPERCASE_TYPES, dateBoundsError, formatErrorFor } from '../validation/formats';
 import { authHeaders } from '../api/client';
 import { me } from '../api/endpoints';
-import { captureFacts } from '../files/captureFacts';
+import { captureFacts, locationNote } from '../files/captureFacts';
 import { saveAndShare } from '../files/saveAndShare';
 import { Card, Chip, Field } from './ui';
 import { DateField } from './DateField';
@@ -1211,6 +1211,9 @@ function PhotosField({
   const [shots, setShots] = useState<PhotoShot[]>([]);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  /* Not a failure: the picture was taken and kept. It is the stamp on it
+     that is short of a position, and this says what to do about that. */
+  const [note, setNote] = useState<string | null>(null);
   /* Bumped whenever the set changes, so a thumbnail is re-fetched rather
      than served from the cache under a url that has not changed. */
   const [stamp, setStamp] = useState(() => Date.now());
@@ -1268,6 +1271,8 @@ function PhotosField({
         facts,
         entry,
       );
+
+      setNote(locationNote(facts));
 
       setCount(standing.count);
       setStamp(Date.now());
@@ -1398,6 +1403,9 @@ function PhotosField({
       </View>
 
       {failure ? <Text style={styles.error}>{failure}</Text> : null}
+      {/* Not red: the picture was taken and kept. This is the stamp on it
+          going up without a position, and what to do if that matters. */}
+      {note ? <Text style={styles.notice}>{note}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {field.helpText ? <Text style={styles.hint}>{field.helpText}</Text> : null}
     </View>
@@ -1576,4 +1584,7 @@ const styles = StyleSheet.create({
   fileTextChosen: { color: colors.ink900, fontWeight: '500' },
   error: { fontSize: font.xs, color: colors.danger700, fontWeight: '500' },
   hint: { fontSize: font.xs, color: colors.ink500 },
+  /* Said, not shouted: the picture is safe, only its stamp is short
+     of a position. */
+  notice: { fontSize: font.xs, color: colors.warning700, lineHeight: 17 },
 });

@@ -114,8 +114,15 @@ public static class PhotoStamp
         /* Sized to the picture, not to a fixed number of points. A phone
            sends anything from 480 to 4000 pixels across, and 12pt text is
            unreadable on one and lost on the other. Floored so a thumbnail
-           is still legible and capped so a large frame is not defaced. */
-        var size = Math.Clamp(Math.Min(width, height) / 32f, 11f, 42f);
+           is still legible and capped so a large frame is not defaced.
+
+           Twice what it was. A photograph is read on a phone or in a
+           browser scaled to fit a window, and at a thirty-second of the
+           frame the stamp came out as a grey smudge in the corner of
+           both - there, and not readable, which is the same as not being
+           there for anybody checking when and where a certificate was
+           photographed. */
+        var size = Math.Clamp(Math.Min(width, height) / 16f, 22f, 84f);
 
         using var font = new System.Drawing.Font(
             "Segoe UI", size, System.Drawing.FontStyle.Bold,
