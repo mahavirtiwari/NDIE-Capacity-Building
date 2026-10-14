@@ -208,7 +208,11 @@ function SignupControl({
           label={field.label}
           required={field.required}
           value={value || null}
-          options={options.map((item) => ({ value: item.value, label: item.label }))}
+          options={options.map((item) => ({
+            value: item.value,
+            label: item.label,
+            description: 'description' in item ? item.description : undefined,
+          }))}
           hint={field.helpText}
           error={error}
           onChange={blurAfter}
@@ -217,9 +221,13 @@ function SignupControl({
     }
   }
 
+  /* The description comes with the choice. Dropped here, every control
+     below had nothing to render however carefully it was worded on the
+     form builder - the same omission the profile form had. */
   const options = field.options.map((option) => ({
     value: option.value,
     label: option.label,
+    description: option.description,
   }));
 
   switch (field.type) {

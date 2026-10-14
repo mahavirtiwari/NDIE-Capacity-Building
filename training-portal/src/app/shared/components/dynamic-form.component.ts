@@ -249,14 +249,21 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
                 }
               }
               @case ('multiselect') {
-                @if (chosen(group, field) .length > 0) {
-                  <div class="read-chips">
-                    @for (label of chosen(group, field); track label) {
-                      <span class="chip">{{ label }}</span>
-                    }
-                  </div>
-                } @else {
-                  <div class="read-field__value is-empty">Not answered</div>
+                @if (chosenWithNotes(group, field); as picked) {
+                  @if (picked.length > 0) {
+                    <div class="read-picked">
+                      @for (one of picked; track one.label) {
+                        <div class="read-picked__one">
+                          <span class="chip">{{ one.label }}</span>
+                          @if (one.description) {
+                            <span class="choice-note">{{ one.description }}</span>
+                          }
+                        </div>
+                      }
+                    </div>
+                  } @else {
+                    <div class="read-field__value is-empty">Not answered</div>
+                  }
                 }
               }
               @case ('textarea') {
@@ -312,6 +319,14 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
               @default {
                 @if (shown(group, field)) {
                   <div class="read-field__value">{{ shown(group, field) }}</div>
+                  <!-- And what the form said that choice means. The
+                       officer is deciding on this answer; the sentence
+                       that told the applicant which option to pick is
+                       the same sentence that says whether they picked
+                       the right one. -->
+                  @if (describing(group, field); as note) {
+                    <span class="choice-note choice-note--under">{{ note }}</span>
+                  }
                 } @else {
                   <div class="read-field__value is-empty">Not answered</div>
                 }
@@ -820,6 +835,10 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
       .doc__size { font-size: 0.72rem; color: var(--ink-500); }
       .doc__open { margin-left: auto; flex: none; }
 
+      /* A ticked choice and, under it, what the form says it means. */
+      .read-picked { display: grid; gap: 0.4rem; }
+      .read-picked__one { display: grid; gap: 0.1rem; justify-items: start; }
+
       .read-file { display: inline-flex; align-items: center; gap: 0.35rem; }
       .read-file--link {
         padding: 0;
@@ -968,6 +987,20 @@ export class DynamicFormComponent {
    */
   protected place(shot: LoadedPhoto): string {
     return `${(shot.latitude ?? 0).toFixed(6)}, ${(shot.longitude ?? 0).toFixed(6)}`;
+  }
+
+  /** What was ticked, each with whatever the form says it means. */
+  protected chosenWithNotes(
+    group: FormGroup,
+    field: ProfileField,
+  ): { label: string; description?: string | null }[] {
+    const raw = group.get(field.key)?.value;
+    if (!Array.isArray(raw)) return [];
+
+    return raw.map((value) => {
+      const option = field.options?.find((one) => one.value === String(value));
+      return { label: option?.label ?? String(value), description: option?.description };
+    });
   }
 
   /** The labels of whatever was ticked on a multi-select. */
