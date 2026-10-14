@@ -317,7 +317,10 @@ const COLUMNS: ColumnDef[] = [
                     Keep the dates
                   </button>
                 }
-                @if (canManage() && !canApprove() && actions($any(row)).canAskToPostpone) {
+                <!-- The agency's, not the coordinator's: both hold
+                     programs.manage, because both run the batch, but only
+                     the agency answers for the empanelment it runs under. -->
+                @if (isAgency() && actions($any(row)).canAskToPostpone) {
                   <button type="button" class="btn btn--sm btn--secondary" (click)="openAskPostpone($any(row))">
                     Postpone
                   </button>
@@ -325,7 +328,7 @@ const COLUMNS: ColumnDef[] = [
                 <!-- The hall can change after a batch is permitted, and the
                      change is the manager's to accept: candidates were told
                      the old address. -->
-                @if (canManage() && !canApprove() && actions($any(row)).canAskToMove) {
+                @if (isAgency() && actions($any(row)).canAskToMove) {
                   <button type="button" class="btn btn--sm btn--secondary" (click)="openMove($any(row))">
                     Change venue
                   </button>
@@ -978,6 +981,11 @@ export class ProgramsComponent {
   /* Deciding whether a batch may run is not the same as running it. The
      agency that raised it holds the second and never the first. */
   protected readonly canApprove = computed(() => this.auth.hasPermission('programs.approve'));
+
+  /* Who may ask for a batch to be put off or moved. Not a permission:
+     programs.manage is held by the agency and by the coordinators it
+     appoints, and only the first of those answers for the batch. */
+  protected readonly isAgency = computed(() => this.auth.hasRole('AgencyAdmin'));
 
   protected readonly form = this.fb.group({
     programTypeId: [null as number | null, Validators.required],

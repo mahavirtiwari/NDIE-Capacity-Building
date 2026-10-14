@@ -513,6 +513,8 @@ public class ProgrammeService(
                          .FirstOrDefaultAsync(p => p.Id == id, ct)
                      ?? throw AppException.NotFound("Program");
 
+        EnsureTheAgencyIsAsking("put off");
+
         if (entity.Status is ProgramStatus.Conducted or ProgramStatus.Postponed
             or ProgramStatus.PermissionRejected or ProgramStatus.QCRejected)
         {
@@ -534,6 +536,26 @@ public class ProgrammeService(
                 entity, agencyName, reason, manager.Email, manager.FullName, ct));
 
         return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// Only the agency asks.
+    ///
+    /// The ask is on programs.manage, which the agency holds because it
+    /// runs the batch - and so does the coordinator, who runs the room.
+    /// That is not the same authority: a coordinator is appointed by the
+    /// agency to deliver one batch and does not answer for the empanelment
+    /// the batch is run under, so a request to move or postpone it is not
+    /// theirs to make. It went to the Operation Manager as though it came
+    /// from the agency, and the agency never knew it had been sent.
+    /// </summary>
+    private void EnsureTheAgencyIsAsking(string what)
+    {
+        if (currentUser.Tier == BaseRole.AgencyAdmin) return;
+
+        throw AppException.Forbidden(
+            $"Only the implementing agency can ask for a program to be {what}. "
+            + "Ask the agency that holds this batch to raise it.");
     }
 
     /// <summary>
@@ -605,6 +627,8 @@ public class ProgrammeService(
     public async Task<ProgrammeDto> RequestVenueChangeAsync(
         int id, VenueChangeRequestDto dto, CancellationToken ct)
     {
+        EnsureTheAgencyIsAsking("held somewhere else");
+
         var entity = await db.Programmes
                          .Include(p => p.Agency)
                          .FirstOrDefaultAsync(p => p.Id == id, ct)
