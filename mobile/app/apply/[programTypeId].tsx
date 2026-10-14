@@ -39,6 +39,7 @@ import {
   Loading,
   StatusPill,
   inr,
+  actedBy,
   shortDate,
 } from '../../src/components/ui';
 import { colors, font, radius, spacing } from '../../src/theme';
@@ -569,7 +570,7 @@ export default function Apply() {
                       <View style={styles.eventBody}>
                         <Text style={styles.eventAction}>{event.action}</Text>
                         <Text style={styles.eventMeta}>
-                          {`${event.byUserName} · ${shortDate(event.on)}`}
+                          {`${actedBy(event.byRole)} · ${shortDate(event.on)}`}
                         </Text>
                         {event.rejectionReasonLabel ? (
                           <Text style={styles.eventReason}>{event.rejectionReasonLabel}</Text>

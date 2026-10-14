@@ -15,6 +15,7 @@ import {
   Loading,
   StatusPill,
   inr,
+  actedBy,
   shortDate,
 } from '../../src/components/ui';
 import { colors, font, radius, spacing } from '../../src/theme';
@@ -168,7 +169,7 @@ export default function ApplicationDetail() {
                 <View style={styles.eventBody}>
                   <Text style={styles.eventAction}>{event.action}</Text>
                   <Text style={styles.eventMeta}>
-                    {`${event.byUserName} · ${event.byRole} · ${shortDate(event.on)}`}
+                    {`${actedBy(event.byRole)} · ${shortDate(event.on)}`}
                   </Text>
                   {event.remarks ? <Text style={styles.eventRemarks}>{event.remarks}</Text> : null}
                 </View>

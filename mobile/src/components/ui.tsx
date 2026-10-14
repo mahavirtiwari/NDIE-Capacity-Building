@@ -264,6 +264,19 @@ export const inr = (amount: number): string =>
     maximumFractionDigits: 2,
   }).format(amount);
 
+/**
+ * Who moved a step, as the applicant should read it.
+ *
+ * Their own acts are theirs; everything else is "System". The timeline
+ * named the officer who scrutinised the profile and their tier - which
+ * is the office's own record, not the applicant's business, and reads
+ * to them as a stranger's name against their file. What they need from
+ * a progress line is what happened and when, and whether it was waiting
+ * on them.
+ */
+export const actedBy = (role?: string | null): string =>
+  (role ?? '').replace(/\s+/g, '').toLowerCase() === 'applicant' ? 'Applicant' : 'System';
+
 export const shortDate = (value?: string | null): string => {
   if (!value) return '—';
   const date = new Date(value);

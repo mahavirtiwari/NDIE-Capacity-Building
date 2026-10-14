@@ -13,6 +13,7 @@ import {
   EmptyState,
   Loading,
   StatusPill,
+  actedBy,
   shortDate,
 } from '../../src/components/ui';
 import { colors, font, radius, spacing } from '../../src/theme';
@@ -208,7 +209,7 @@ export default function ProfileSubmissionDetail() {
                 <View style={styles.eventBody}>
                   <Text style={styles.eventAction}>{event.action}</Text>
                   <Text style={styles.eventMeta}>
-                    {`${event.byUserName} · ${event.byRole} · ${shortDate(event.on)}`}
+                    {`${actedBy(event.byRole)} · ${shortDate(event.on)}`}
                   </Text>
                   {event.rejectionReasonLabel ? (
                     <Text style={styles.eventReason}>{event.rejectionReasonLabel}</Text>
