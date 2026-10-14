@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Faculty, Id, LookupItem } from '../../core/models';
+import { AuthService } from '../../core/services/auth.service';
 import { FacultyService } from '../../core/services/report.service';
 import { LookupService } from '../../core/services/masters.service';
 import { SiteTextService } from '../../core/services/site-text.service';
@@ -11,7 +12,6 @@ import {
   ColumnDef,
   DataTableComponent,
 } from '../../shared/components/data-table.component';
-import { CanDirective } from '../../shared/directives/can.directive';
 import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
@@ -36,7 +36,6 @@ const COLUMNS: ColumnDef[] = [
   selector: 'app-trainers',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CanDirective,
     ReactiveFormsModule,
     PageHeaderComponent,
     DataTableComponent,
@@ -51,9 +50,15 @@ const COLUMNS: ColumnDef[] = [
       icon="user-check"
       [breadcrumbs]="[{ label: 'Reports' }, { label: copy.text('page.trainers.title') }]"
     >
-      <button *appCan="'trainers.manage'" type="button" class="btn btn--primary" (click)="openForm()">
+      <!-- Not for a coordinator, who holds trainers.manage because
+           they are the ones who take this down - from the app, at the
+           venue, with the person in front of them. The web form is the
+           administrator's, for the one that was missed. -->
+      @if (canWrite()) {
+      <button type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> Add trainer
       </button>
+      }
     </app-page-header>
 
     <section class="card">
@@ -200,10 +205,12 @@ const COLUMNS: ColumnDef[] = [
         </ng-template>
 
         <ng-template appCell="actions" let-row>
-          <button *appCan="'trainers.manage'" type="button" class="btn btn--icon" title="Edit"
+          @if (canWrite()) {
+          <button type="button" class="btn btn--icon" title="Edit"
             (click)="openForm($any(row))">
             <app-icon name="edit" [size]="15" />
           </button>
+          }
         </ng-template>
       </app-data-table>
     </section>
@@ -331,6 +338,18 @@ const COLUMNS: ColumnDef[] = [
 })
 export class TrainersComponent {
   protected readonly copy = inject(SiteTextService);
+  private readonly auth = inject(AuthService);
+
+  /**
+   * Whether this account writes trainers here.
+   *
+   * The permission alone is not the answer: a coordinator holds it, and
+   * registers trainers from the app rather than from this screen. What
+   * they get here is their own list, to read.
+   */
+  protected readonly canWrite = computed(
+    () => this.auth.hasPermission('trainers.manage') && !this.auth.hasRole('Coordinator'),
+  );
   private readonly service = inject(FacultyService);
   private readonly lookups = inject(LookupService);
   private readonly toast = inject(ToastService);

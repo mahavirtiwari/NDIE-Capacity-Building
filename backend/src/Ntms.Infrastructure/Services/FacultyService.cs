@@ -34,8 +34,19 @@ public class FacultyService(NtmsDbContext db, ICurrentUser currentUser)
            trainer is visible because the programme is. */
         var scoped = db.Programmes.AsNoTracking().WithinScope(currentUser).Select(p => p.Id);
 
+        /* Except for a coordinator, who is scoped to their own work.
+           Programme scope is by allocation - program types and states -
+           so a coordinator could read every trainer on every batch of
+           its discipline in its state, including the ones other
+           coordinators registered. What a coordinator registers is a
+           record of who turned up for the batch they were running, and
+           theirs is the only one they have any business in. */
+        var self = currentUser.UserId ?? 0;
+        var coordinator = currentUser.Tier == Domain.Common.BaseRole.Coordinator;
+
         var query = db.ProgrammeTrainers.AsNoTracking()
             .Where(t => scoped.Contains(t.ProgrammeId))
+            .WhereIf(coordinator, t => t.RegisteredByUserId == self)
             .WhereIf(programmeId.HasValue, t => t.ProgrammeId == programmeId)
             .WhereIf(categoryId.HasValue, t => t.Programme!.CategoryId == categoryId)
             .WhereIf(subCategoryId.HasValue, t => t.Programme!.SubCategoryId == subCategoryId)
@@ -113,7 +124,19 @@ public class FacultyService(NtmsDbContext db, ICurrentUser currentUser)
         await ForWriteAsync(programmeId, ct);
         Validate(dto);
 
-        var trainer = new ProgrammeTrainer { ProgrammeId = programmeId };
+        /* The web is not where a coordinator does this. They register
+           whoever turned up from the app, on the day and on the spot,
+           and this door is the administrator's - for adding one that was
+           missed and for correcting what was taken down. Held here as
+           well as hidden on the screen, because a hidden button is not a
+           rule. */
+        EnsureNotACoordinator();
+
+        var trainer = new ProgrammeTrainer
+        {
+            ProgrammeId = programmeId,
+            RegisteredByUserId = currentUser.UserId,
+        };
         Apply(trainer, dto);
 
         db.ProgrammeTrainers.Add(trainer);
@@ -125,6 +148,8 @@ public class FacultyService(NtmsDbContext db, ICurrentUser currentUser)
     public async Task<FacultyDto> UpdateAsync(
         int trainerId, TrainerUpsertDto dto, CancellationToken ct)
     {
+        EnsureNotACoordinator();
+
         var trainer = await db.ProgrammeTrainers.FirstOrDefaultAsync(t => t.Id == trainerId, ct)
                       ?? throw AppException.NotFound("Trainer");
 
@@ -144,6 +169,24 @@ public class FacultyService(NtmsDbContext db, ICurrentUser currentUser)
     /// stops accepting changes from everybody, because "sealed" that an
     /// administrator can quietly reopen is not sealed.
     /// </summary>
+    /// <summary>
+    /// Keeps the portal's door shut to a coordinator.
+    ///
+    /// They hold trainers.manage because they are the people who take
+    /// this down - from the app, at the venue, with the person in front
+    /// of them. The web form is the administrator's, for the one that
+    /// was missed and for correcting what was written, and a coordinator
+    /// reaching it is a coordinator who has left the room.
+    /// </summary>
+    private void EnsureNotACoordinator()
+    {
+        if (currentUser.Tier != Domain.Common.BaseRole.Coordinator) return;
+
+        throw AppException.Forbidden(
+            "Trainers are registered from the coordinator app, on the day. "
+            + "Ask the implementing agency to add one that was missed.");
+    }
+
     private async Task ForWriteAsync(int programmeId, CancellationToken ct)
     {
         var visible = await db.Programmes.AsNoTracking()

@@ -3926,6 +3926,9 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("nvarchar(120)");
 
+                    b.Property<int?>("RegisteredByUserId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("YearsExperience")
                         .HasColumnType("int");
 

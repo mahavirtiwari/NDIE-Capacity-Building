@@ -158,6 +158,20 @@ public static class MasterScopeExtensions
         {
             query = query.Where(p => p.Agency!.OwnerUser!.ReportsToUserId == self);
         }
+        /* And at the bottom, the batch itself.
+
+           A coordinator is named on one batch at a time and their work is
+           that batch: the sessions, the attendance, the trainers who
+           turned up. Allocation alone gave them every batch of their
+           program types in their states - their colleagues' work, other
+           agencies' work, read in full and listed beside their own with
+           nothing to tell them apart. The app has always worked this way,
+           refusing anything not assigned to them; the register they read
+           on the web did not, and the two have to tell the same story. */
+        else if (user.Tier == Domain.Common.BaseRole.Coordinator)
+        {
+            query = query.Where(p => p.CoordinatorId == self);
+        }
 
         return query;
     }

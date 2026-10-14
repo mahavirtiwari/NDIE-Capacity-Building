@@ -282,6 +282,10 @@ public class MonitoringService(
         var trainer = new ProgrammeTrainer
         {
             ProgrammeId = programmeId,
+            /* Whose register this trainer joins. The app is where a
+               coordinator does this, and it is their own list they are
+               adding to. */
+            RegisteredByUserId = currentUser.UserId,
             FullName = dto.FullName.Trim(),
             Mobile = dto.Mobile.Trim(),
             Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim().ToLowerInvariant(),

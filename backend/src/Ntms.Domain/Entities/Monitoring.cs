@@ -52,6 +52,18 @@ public class ProgrammeTrainer : AuditableEntity
     public int ProgrammeId { get; set; }
     public Programme? Programme { get; set; }
 
+    /// <summary>
+    /// Who put this trainer on the record.
+    ///
+    /// Kept as the account rather than read off CreatedBy, which is a
+    /// name: two coordinators of the same name are a real thing on this
+    /// register, and "the trainers I registered" has to mean the account
+    /// and not the spelling. Null on rows written before it was asked
+    /// for, which belong to nobody in particular and are read by the
+    /// tiers that see the whole estate.
+    /// </summary>
+    public int? RegisteredByUserId { get; set; }
+
     public string FullName { get; set; } = string.Empty;
     public string Mobile { get; set; } = string.Empty;
     public string? Email { get; set; }
