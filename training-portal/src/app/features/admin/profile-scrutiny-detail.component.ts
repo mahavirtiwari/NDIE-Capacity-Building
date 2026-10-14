@@ -127,6 +127,7 @@ interface OpenAttachment {
                       [definition]="form"
                       [values]="$any(record.responses)"
                       [photos]="photos()"
+                      [attachments]="record.attachments ?? []"
                       [readonly]="true"
                       [openable]="true"
                       (openFile)="openAttachment(record.id, $event.fieldKey, $event.entry)"

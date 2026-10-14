@@ -24,6 +24,7 @@ import {
   DurationValue,
   FieldType,
   LoadedPhoto,
+  ProfileAttachment,
   ProfileField,
   ProfileForm,
   ProfileSection,
@@ -271,29 +272,38 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
                   <div class="read-field__value is-empty">Not answered</div>
                 }
               }
+              <!-- A document is "there, and it arrived on this date",
+                   with a button to look at it. It used to print the name
+                   the applicant's phone gave the upload - a string of hex
+                   - which told the officer nothing they could use and
+                   read as a storage key. -->
               @case ('file') {
                 <div class="read-field__value">
-                  @if (value(group, field.key)) {
-                    <!-- The name on its own was all this said, which told
-                         the officer that something had been attached and
-                         nothing about what. The document itself is what
-                         they are reading the profile for. -->
-                    @if (openable()) {
-                      <button
-                        type="button"
-                        class="read-file read-file--link"
-                        (click)="openFile.emit({ fieldKey: field.key, entry: entryOf(group) })"
-                      >
-                        <app-icon name="file" [size]="14" />
-                        <span class="read-file__name">{{ value(group, field.key) }}</span>
-                        <app-icon name="eye" [size]="13" />
-                      </button>
-                    } @else {
-                      <span class="read-file">
-                        <app-icon name="file" [size]="14" />
-                        {{ value(group, field.key) }}
+                  @if (held(field.key, group); as document) {
+                    <div class="doc">
+                      <span class="doc__icon"><app-icon name="file" [size]="15" /></span>
+                      <span class="doc__facts">
+                        <span class="doc__when">
+                          Submitted {{ document.submittedOn | date: 'dd MMM yyyy' }}
+                        </span>
+                        <span class="doc__size">{{ size(document.sizeBytes) }}</span>
                       </span>
-                    }
+                      @if (openable()) {
+                        <button
+                          type="button"
+                          class="btn btn--sm btn--secondary doc__open"
+                          (click)="openFile.emit({ fieldKey: field.key, entry: entryOf(group) })"
+                        >
+                          <app-icon name="eye" [size]="14" /> View
+                        </button>
+                      }
+                    </div>
+                  } @else if (value(group, field.key)) {
+                    <!-- Named on the form but not held: the applicant
+                         chose a file on a copy of the app that recorded
+                         the name and never sent it. Saying so is more use
+                         than printing the name as though it were there. -->
+                    <span class="is-empty">Named, but no document was sent</span>
                   } @else {
                     <span class="is-empty">Not uploaded</span>
                   }
@@ -784,6 +794,32 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
         font-style: italic;
       }
       .read-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+      /* A line that says there is a document, when it came, and offers
+         to show it - rather than a filename nobody can act on. */
+      .doc {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.45rem 0.6rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface-muted);
+      }
+      .doc__icon {
+        display: grid;
+        place-items: center;
+        width: 1.9rem;
+        height: 1.9rem;
+        flex: none;
+        border-radius: var(--radius-sm);
+        background: var(--brand-50);
+        color: var(--brand-700);
+      }
+      .doc__facts { display: grid; gap: 0.05rem; min-width: 0; }
+      .doc__when { font-size: 0.8rem; font-weight: 600; color: var(--ink-800); }
+      .doc__size { font-size: 0.72rem; color: var(--ink-500); }
+      .doc__open { margin-left: auto; flex: none; }
+
       .read-file { display: inline-flex; align-items: center; gap: 0.35rem; }
       .read-file--link {
         padding: 0;
@@ -873,6 +909,9 @@ export class DynamicFormComponent {
    */
   readonly openable = input(false);
 
+  /** What the server holds for this profile's file fields. */
+  readonly attachments = input<ProfileAttachment[]>([]);
+
   readonly submitted = output<Record<string, unknown>>();
 
   /** The file field somebody asked to see, and which row of it. */
@@ -955,6 +994,30 @@ export class DynamicFormComponent {
   /** How the screen above keys what it has fetched. */
   static photoKey(fieldKey: string, entry: number): string {
     return `${fieldKey}#${entry}`;
+  }
+
+  /**
+   * The document held against one field on one row, if any.
+   *
+   * Keyed the same way the pictures are, and read from what the server
+   * holds rather than from the answer: a form that names a file nobody
+   * sent is a different state from one that has it, and the officer has
+   * to be able to tell them apart.
+   */
+  protected held(fieldKey: string, group: FormGroup): ProfileAttachment | null {
+    const entry = this.entryOf(group);
+    return (
+      this.attachments().find(
+        (one) => one.fieldKey === fieldKey && one.entryIndex === entry,
+      ) ?? null
+    );
+  }
+
+  /** A size somebody can read, rather than a count of bytes. */
+  protected size(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   /** The pictures for one field on one row, or null where there are none. */

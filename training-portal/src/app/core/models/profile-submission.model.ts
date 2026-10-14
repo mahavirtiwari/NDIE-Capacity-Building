@@ -22,6 +22,18 @@ export interface ProfileScrutinyCounts {
   rejected: number;
 }
 
+/** One document held against a field, without its bytes. */
+export interface ProfileAttachment {
+  fieldKey: string;
+  /** Which row of a repeating section, counting from zero. */
+  entryIndex: number;
+  fileName?: string | null;
+  contentType: string;
+  sizeBytes: number;
+  /** When it reached the server, which is when it was submitted. */
+  submittedOn: string;
+}
+
 export interface ProfileSubmission extends AuditInfo {
   id: Id;
   applicantId: Id;
@@ -49,6 +61,16 @@ export interface ProfileSubmission extends AuditInfo {
   rejectionReasonId?: Id | null;
   rejectionReasonLabel?: string | null;
   remarks?: string | null;
+  /**
+   * What is actually attached, field by field and row by row.
+   *
+   * The answer to a file field is the name the applicant's device gave
+   * the upload, which on a phone is a string of hex. This is what the
+   * officer is shown instead: that a document is there, when it arrived,
+   * and a way to look at it.
+   */
+  attachments?: ProfileAttachment[];
+
   /** Answers keyed by the form's own field keys. */
   responses: Record<string, unknown>;
   history: ScrutinyEvent[];

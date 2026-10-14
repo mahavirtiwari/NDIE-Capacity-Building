@@ -133,6 +133,34 @@ public class ProfileSubmissionDto
     public string? Remarks { get; set; }
     public Dictionary<string, object?> Responses { get; set; } = [];
     public List<ScrutinyEventDto> History { get; set; } = [];
+
+    /// <summary>
+    /// What is actually attached, field by field and row by row.
+    ///
+    /// The answer to a file field is the name the applicant's device gave
+    /// the upload, which on a phone is a string of hex - of no use to
+    /// anybody reading the profile. What the officer wants to know is that
+    /// a document is there and when it arrived, and then to look at it.
+    /// Read from the store rather than from the answers, so a field whose
+    /// answer names a file that was never sent says so.
+    /// </summary>
+    public List<ProfileAttachmentDto> Attachments { get; set; } = [];
+}
+
+/// <summary>One document held against a field, without its bytes.</summary>
+public class ProfileAttachmentDto
+{
+    public string FieldKey { get; set; } = string.Empty;
+
+    /// <summary>Which row of a repeating section, counting from zero.</summary>
+    public int EntryIndex { get; set; }
+
+    public string? FileName { get; set; }
+    public string ContentType { get; set; } = string.Empty;
+    public long SizeBytes { get; set; }
+
+    /// <summary>When it reached the server, which is when it was submitted.</summary>
+    public DateTime SubmittedOn { get; set; }
 }
 
 public class ProfileDecisionDto

@@ -20,7 +20,10 @@ namespace Ntms.Infrastructure.Services;
 /// a new one can start from the answers they already gave.
 /// </summary>
 public class ProfileSubmissionService(
-    NtmsDbContext db, ProfileFormService forms, ICurrentUser currentUser)
+    NtmsDbContext db,
+    ProfileFormService forms,
+    ProfileAttachmentService attachments,
+    ICurrentUser currentUser)
 {
     private IQueryable<ProfileSubmission> Base => db.ProfileSubmissions
         .Include(s => s.AssignedToUser)
@@ -640,9 +643,21 @@ public class ProfileSubmissionService(
         };
     }
 
-    public async Task<ProfileSubmissionDto> GetAsync(int id, CancellationToken ct) =>
-        Map(await Visible().FirstOrDefaultAsync(s => s.Id == id, ct)
-            ?? throw AppException.NotFound("Profile submission"));
+    public async Task<ProfileSubmissionDto> GetAsync(int id, CancellationToken ct)
+    {
+        var submission = await Visible().FirstOrDefaultAsync(s => s.Id == id, ct)
+                         ?? throw AppException.NotFound("Profile submission");
+
+        var dto = Map(submission);
+
+        /* Only on the one profile being read, never on the queue: the list
+           shows a row per applicant and has no use for what is attached to
+           each. */
+        dto.Attachments = [.. await attachments.HeldForAsync(
+            submission.ApplicantId, submission.SubCategoryId, ct)];
+
+        return dto;
+    }
 
     /// <summary>Accepts a profile, which opens the discipline to the applicant.</summary>
     public async Task<ProfileSubmissionDto> ApproveAsync(

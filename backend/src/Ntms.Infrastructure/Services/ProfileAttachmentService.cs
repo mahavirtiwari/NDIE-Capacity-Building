@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Ntms.Application.Common;
+using Ntms.Application.Contracts;
 using Ntms.Domain.Common;
 using Ntms.Domain.Entities;
 using Ntms.Infrastructure.Persistence;
@@ -342,6 +343,30 @@ public class ProfileAttachmentService(
 
         return (held.Content, held.ContentType, held.FileName ?? $"{fieldKey}");
     }
+
+    /// <summary>
+    /// Everything attached to one profile, listed without its bytes.
+    ///
+    /// One read for the whole sheet. The scrutiny screen draws a line per
+    /// file field per row and would otherwise ask once for each, which on
+    /// a form with ten qualifications is ten round trips to learn ten
+    /// dates.
+    /// </summary>
+    public async Task<IReadOnlyList<ProfileAttachmentDto>> HeldForAsync(
+        int applicantId, int subCategoryId, CancellationToken ct) =>
+        await db.ProfileAttachments.AsNoTracking()
+            .Where(a => a.ApplicantId == applicantId && a.SubCategoryId == subCategoryId)
+            .OrderBy(a => a.FieldKey).ThenBy(a => a.EntryIndex).ThenBy(a => a.DisplayOrder)
+            .Select(a => new ProfileAttachmentDto
+            {
+                FieldKey = a.FieldKey,
+                EntryIndex = a.EntryIndex,
+                FileName = a.FileName,
+                ContentType = a.ContentType,
+                SizeBytes = a.Content.Length,
+                SubmittedOn = a.SyncedOn,
+            })
+            .ToListAsync(ct);
 
     /* --------------------------------------------------- a whole entry */
 
