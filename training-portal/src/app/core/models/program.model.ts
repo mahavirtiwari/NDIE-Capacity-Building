@@ -193,13 +193,20 @@ export interface AttendanceMark {
 export function programActions(
   program: Pick<
     Program,
-    'status' | 'registrationsOpen' | 'examDateTime' | 'startDate' | 'mode' | 'venueChangeRequestedOn'
+    | 'status'
+    | 'registrationsOpen'
+    | 'examDateTime'
+    | 'startDate'
+    | 'mode'
+    | 'venueChangeRequestedOn'
+    | 'postponementRequestedOn'
   >,
 ): {
   canAcceptPermission: boolean;
+  canRejectPermission: boolean;
   canReopenRegistrations: boolean;
   canSetExamTime: boolean;
-  canPostpone: boolean;
+  canDecidePostponement: boolean;
   canAskToPostpone: boolean;
   canAskToMove: boolean;
   canDecideMove: boolean;
@@ -216,17 +223,31 @@ export function programActions(
     !!startsOn &&
     new Date(new Date().toDateString()) < new Date(startsOn.getTime() - 86_400_000);
 
+  const asked = !!program.postponementRequestedOn;
+
   return {
+    /* A batch the agency has raised is waiting on one answer, and there
+       are two of them. Rejecting was reachable by no button at all, so a
+       batch the manager did not want sat at New for ever or was quietly
+       postponed instead - which is a different thing and says a different
+       thing to the agency. */
     canAcceptPermission: program.status === 'New',
+    canRejectPermission: program.status === 'New',
     canReopenRegistrations: open && !program.registrationsOpen && inTime,
     canSetExamTime: open && !program.registrationsOpen,
-    canPostpone: open || program.status === 'New',
+    /* Putting a batch off is an answer to an ask, not something done to a
+       running batch out of nowhere: the agency is the one that knows the
+       hall has flooded. It was offered on every open batch and on every
+       new one, which invited the manager to postpone a batch nobody had
+       asked about and left the agency's ask looking unanswerable. */
+    canDecidePostponement: asked,
     /* The agency asks; the manager decides. Same act, different side of
        it - but only once the programme has been permitted. There is
        nothing to put off before that: a batch still waiting on the
        manager is refused or permitted, and putting off something that
-       may never run is a decision about nothing. */
-    canAskToPostpone: open,
+       may never run is a decision about nothing. And not twice: an ask
+       already on the row is waiting to be answered. */
+    canAskToPostpone: open && !asked,
     canMarkConducted: open && !!program.examDateTime,
     /* Only a batch that is actually held somewhere, and only once it has
        been permitted: before that the agency edits it outright. */

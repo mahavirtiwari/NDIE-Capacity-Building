@@ -58,6 +58,11 @@ public interface INotificationService
     Task SendProgrammePermittedAsync(
         Programme programme, string email, string name, CancellationToken ct = default);
 
+    /// <summary>The manager not agreeing to put a batch off, back to the agency.</summary>
+    Task SendPostponementDeclinedAsync(
+        Programme programme, string asked, string remarks, string email, string name,
+        CancellationToken ct = default);
+
     /// <summary>The agency asking to hold a permitted batch somewhere else.</summary>
     Task SendVenueChangeRequestedAsync(
         Programme programme, string agencyName, string reason, string email, string name,
@@ -474,6 +479,19 @@ public class NotificationService(
             ["requestedVenue"] = Place(
                 programme.RequestedVenue, programme.RequestedCity, programme.RequestedPincode),
             ["reason"] = reason,
+        }, ct);
+
+    public Task SendPostponementDeclinedAsync(
+        Programme programme, string asked, string remarks, string email, string name,
+        CancellationToken ct = default) =>
+        SendAsync(EmailTemplateDefaults.PostponementDeclined, email, new()
+        {
+            ["name"] = name,
+            ["programmeId"] = programme.ProgrammeId,
+            ["programmeName"] = programme.ProgrammeName,
+            ["startDate"] = programme.StartDate.ToString("dd MMM yyyy"),
+            ["reason"] = string.IsNullOrWhiteSpace(asked) ? "No reason was recorded" : asked,
+            ["remarks"] = string.IsNullOrWhiteSpace(remarks) ? "None given" : remarks,
         }, ct);
 
     public Task SendVenueChangeDecidedAsync(

@@ -536,6 +536,58 @@ public class ProgrammeService(
         return await GetAsync(id, ct);
     }
 
+    /// <summary>
+    /// The manager refuses the ask: the batch stays where it is and stops
+    /// asking.
+    ///
+    /// The agency is told, with whatever the manager said, because an ask
+    /// that simply disappears reads as one that was never received.
+    /// </summary>
+    public async Task<ProgrammeDto> DeclinePostponementAsync(
+        int id, PostponementDecisionDto dto, CancellationToken ct)
+    {
+        var entity = await db.Programmes
+                         .Include(p => p.Agency)
+                         .FirstOrDefaultAsync(p => p.Id == id, ct)
+                     ?? throw AppException.NotFound("Program");
+
+        if (entity.PostponementRequestedOn is null)
+            throw new AppException("No postponement has been asked for on this program.");
+
+        var asked = entity.PostponementReason;
+
+        entity.PostponementRequestedOn = null;
+        entity.PostponementRequestedByUserId = null;
+        entity.PostponementReason = null;
+
+        var remarks = dto.Remarks?.Trim();
+        if (!string.IsNullOrWhiteSpace(remarks)) entity.Comments = remarks;
+
+        await db.SaveChangesAsync(ct);
+
+        /* The agency that asked, at the address on its record - same as the
+           venue decision next door, and for the same reason: an ask that
+           simply disappears reads as one that never arrived. */
+        if (entity.Agency is { Email.Length: > 0 } agency)
+        {
+            try
+            {
+                await notifications.SendPostponementDeclinedAsync(
+                    entity, asked ?? string.Empty, remarks ?? string.Empty,
+                    agency.Email, agency.ContactPerson, ct);
+            }
+            catch (Exception caught)
+            {
+                logger.LogWarning(
+                    caught,
+                    "The postponement answer on {Programme} could not be e-mailed to the agency.",
+                    entity.ProgrammeId);
+            }
+        }
+
+        return await GetAsync(id, ct);
+    }
+
     /* ------------------------------------------------------ moving it */
 
     /// <summary>

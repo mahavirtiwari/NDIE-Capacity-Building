@@ -44,6 +44,7 @@ public static class EmailTemplateDefaults
     public const string ProgrammeRaised = "programme-raised";
     public const string ProgrammePermitted = "programme-permitted";
     public const string PostponementRequested = "postponement-requested";
+    public const string PostponementDeclined = "postponement-declined";
     public const string VenueChangeRequested = "venue-change-requested";
     public const string VenueChangeDecided = "venue-change-decided";
     public const string AgencyEmpanelled = "agency-empanelled";
@@ -532,6 +533,25 @@ public static class EmailTemplateDefaults
                 "{{programmeName}} ({{programmeId}}), {{startDate}} to {{endDate}}, "
                 + "{{timing}} each day, {{venue}}. Coordinator {{coordinatorName}}, "
                 + "{{coordinatorMobile}}, {{coordinatorEmail}}. The session plan is attached.",
+        },
+        new()
+        {
+            Key = PostponementDeclined,
+            Name = "Postponement not agreed",
+            Description =
+                "Sent to the agency when the operation manager does not agree to put a batch off.",
+            Placeholders = "name,programmeName,programmeId,startDate,reason,remarks",
+            Subject = "{{programmeId}} stays as it is",
+            HtmlBody =
+                "<p>Dear {{name}},</p>"
+                + "<p>The operation manager has not agreed to put this batch off.</p>"
+                + "<p><strong>{{programmeName}}</strong> ({{programmeId}}) still starts "
+                + "{{startDate}}, at the address and time already published.</p>"
+                + "<p>You had asked:</p><blockquote>{{reason}}</blockquote>"
+                + "<p>Their answer:</p><blockquote>{{remarks}}</blockquote>",
+            PlainTextBody =
+                "{{programmeId}} ({{programmeName}}) stays as it is and still starts "
+                + "{{startDate}}. You asked: {{reason}}. The answer: {{remarks}}",
         },
         new()
         {

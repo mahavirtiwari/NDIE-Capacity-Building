@@ -553,6 +553,19 @@ public class PostponementRequestDto
 }
 
 /// <summary>
+/// The manager's answer to an ask to put a batch off.
+///
+/// Granting it is a status change and goes the usual way; this is here
+/// for the other answer. Without it a request the manager disagreed with
+/// stayed on the row for ever, with no button under it but the one that
+/// agreed.
+/// </summary>
+public class PostponementDecisionDto
+{
+    public string? Remarks { get; set; }
+}
+
+/// <summary>
 /// The agency asking to hold a batch somewhere else, and where.
 ///
 /// The state is not among the fields. Moving a batch between states moves

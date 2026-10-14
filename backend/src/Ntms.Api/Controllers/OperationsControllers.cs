@@ -361,6 +361,20 @@ public class ProgramsController(ProgrammeService service, MonitoringService moni
             "Sent to the operation manager.");
 
     /// <summary>
+    /// The manager refuses the ask, and the batch stays where it is.
+    ///
+    /// Granting it is a status change and goes through the status route;
+    /// only the other answer needs one of its own. On the approval key,
+    /// because it is the manager's answer and not the agency's ask.
+    /// </summary>
+    [HttpPost("{id:int}/postponement-decline")]
+    [HasPermission(Permissions.ProgramsApprove)]
+    public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> DeclinePostponement(
+        int id, [FromBody] PostponementDecisionDto dto, CancellationToken ct) =>
+        Envelope(await service.DeclinePostponementAsync(id, dto, ct),
+            "The batch stays where it is.");
+
+    /// <summary>
     /// The agency asks to hold a permitted batch somewhere else.
     ///
     /// Like the postponement request, it changes nothing by itself: the

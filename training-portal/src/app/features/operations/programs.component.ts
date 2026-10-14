@@ -276,9 +276,18 @@ const COLUMNS: ColumnDef[] = [
                  for permission had no button under it at all. -->
             @if (canManage() || canApprove()) {
               <div class="row row-sm row-wrap">
+                <!-- While it waits, there are two answers and both are
+                     here. -->
                 @if (canApprove() && actions($any(row)).canAcceptPermission) {
-                  <button type="button" class="btn btn--sm btn--secondary" (click)="advance($any(row), 'PermissionAccepted')">
-                    Permission accepted
+                  <button type="button" class="btn btn--sm btn--success"
+                    (click)="advance($any(row), 'PermissionAccepted')">
+                    <app-icon name="check" [size]="14" /> Accept
+                  </button>
+                }
+                @if (canApprove() && actions($any(row)).canRejectPermission) {
+                  <button type="button" class="btn btn--sm btn--subtle-danger"
+                    (click)="openReject($any(row))">
+                    <app-icon name="x" [size]="14" /> Reject
                   </button>
                 }
                 @if (canManage() && actions($any(row)).canReopenRegistrations) {
@@ -297,9 +306,15 @@ const COLUMNS: ColumnDef[] = [
                     Set exam time
                   </button>
                 }
-                @if (canApprove() && actions($any(row)).canPostpone) {
-                  <button type="button" class="btn btn--sm btn--subtle-danger" (click)="postpone($any(row))">
+                <!-- Only against an ask, and then both answers to it. -->
+                @if (canApprove() && actions($any(row)).canDecidePostponement) {
+                  <button type="button" class="btn btn--sm btn--subtle-danger"
+                    (click)="postpone($any(row))">
                     Postpone
+                  </button>
+                  <button type="button" class="btn btn--sm btn--secondary"
+                    (click)="openDeclinePostpone($any(row))">
+                    Keep the dates
                   </button>
                 }
                 @if (canManage() && !canApprove() && actions($any(row)).canAskToPostpone) {
@@ -476,6 +491,87 @@ const COLUMNS: ColumnDef[] = [
           >
             @if (asking()) { <span class="spinner"></span> }
             Send request
+          </button>
+        </div>
+      </app-modal>
+    }
+
+    <!-- Turning a batch down, which has to say why: the agency reads
+         this on the register and in its mail, and "rejected" on its own
+         is not something anybody can act on. -->
+    @if (rejectFor(); as programme) {
+      <app-modal title="Reject this program?" size="sm" (closed)="rejectFor.set(null)">
+        <div class="stack stack-sm">
+          <p class="text-sm">
+            {{ programme.programmeId }} will not run. {{ programme.agencyName }} is told,
+            and can raise it again with whatever you ask for here put right.
+          </p>
+          <div class="field">
+            <label class="field-label" for="rejectWhy">Reason <span class="req">*</span></label>
+            <textarea
+              id="rejectWhy"
+              class="textarea"
+              rows="3"
+              maxlength="500"
+              [value]="rejectWhy()"
+              (input)="rejectWhy.set(textValue($event))"
+              placeholder="e.g. The dates clash with another batch in the same state"
+            ></textarea>
+            <span class="field-hint">Shown to the agency against the batch.</span>
+          </div>
+        </div>
+        <div footer>
+          <button type="button" class="btn btn--secondary" (click)="rejectFor.set(null)">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="btn btn--danger"
+            [disabled]="rejectWhy().trim().length === 0 || rejecting()"
+            (click)="confirmReject()"
+          >
+            @if (rejecting()) { <span class="spinner"></span> }
+            Reject program
+          </button>
+        </div>
+      </app-modal>
+    }
+
+    <!-- Not agreeing to put a batch off. The ask has to be answered either
+         way, or it sits on the row with only the button that agrees. -->
+    @if (declineFor(); as programme) {
+      <app-modal title="Keep the dates?" size="sm" (closed)="declineFor.set(null)">
+        <div class="stack stack-sm">
+          <p class="text-sm">
+            {{ programme.agencyName }} asked for {{ programme.programmeId }} to be put off:
+          </p>
+          <p class="text-sm text-muted">&ldquo;{{ programme.postponementReason }}&rdquo;</p>
+          <p class="text-sm">
+            The batch still starts {{ programme.startDate | date: 'dd MMM yyyy' }}, and the
+            ask comes off the register.
+          </p>
+          <div class="field">
+            <label class="field-label" for="declineWhy">Your answer</label>
+            <textarea
+              id="declineWhy"
+              class="textarea"
+              rows="3"
+              maxlength="500"
+              [value]="declineWhy()"
+              (input)="declineWhy.set(textValue($event))"
+              placeholder="e.g. The hall next door is free that week - please use it"
+            ></textarea>
+            <span class="field-hint">Sent to the agency with the decision.</span>
+          </div>
+        </div>
+        <div footer>
+          <button type="button" class="btn btn--secondary" (click)="declineFor.set(null)">
+            Cancel
+          </button>
+          <button type="button" class="btn btn--primary" [disabled]="declining()"
+            (click)="confirmDecline()">
+            @if (declining()) { <span class="spinner"></span> }
+            Keep the dates
           </button>
         </div>
       </app-modal>
@@ -1063,6 +1159,61 @@ export class ProgramsComponent {
         this.list.reload();
       },
       error: () => this.asking.set(false),
+    });
+  }
+
+  /* --------------------------------------------- the manager's answers */
+
+  /** The batch being turned down, and why. */
+  protected readonly rejectFor = signal<Program | null>(null);
+  protected readonly rejectWhy = signal('');
+  protected readonly rejecting = signal(false);
+
+  protected openReject(programme: Program): void {
+    this.rejectWhy.set('');
+    this.rejectFor.set(programme);
+  }
+
+  protected confirmReject(): void {
+    const programme = this.rejectFor();
+    const why = this.rejectWhy().trim();
+    if (!programme || why.length === 0 || this.rejecting()) return;
+
+    this.rejecting.set(true);
+    this.service.advance(programme.id, 'PermissionRejected', why).subscribe({
+      next: () => {
+        this.rejecting.set(false);
+        this.rejectFor.set(null);
+        this.toast.success('Program rejected', programme.programmeId);
+        this.list.reload();
+      },
+      error: () => this.rejecting.set(false),
+    });
+  }
+
+  /** The ask being refused, and the answer going back with it. */
+  protected readonly declineFor = signal<Program | null>(null);
+  protected readonly declineWhy = signal('');
+  protected readonly declining = signal(false);
+
+  protected openDeclinePostpone(programme: Program): void {
+    this.declineWhy.set('');
+    this.declineFor.set(programme);
+  }
+
+  protected confirmDecline(): void {
+    const programme = this.declineFor();
+    if (!programme || this.declining()) return;
+
+    this.declining.set(true);
+    this.service.declinePostponement(programme.id, this.declineWhy().trim()).subscribe({
+      next: () => {
+        this.declining.set(false);
+        this.declineFor.set(null);
+        this.toast.success('The batch keeps its dates', programme.programmeId);
+        this.list.reload();
+      },
+      error: () => this.declining.set(false),
     });
   }
 

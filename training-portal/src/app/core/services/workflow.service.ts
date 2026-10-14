@@ -179,6 +179,18 @@ export class ProgramService extends CrudService<Program> {
    * The batch does not move: the agency running it knows the hall has
    * flooded, and the manager that permitted it decides.
    */
+  /**
+   * The manager's other answer: the batch stays where it is.
+   *
+   * Agreeing is a status change and goes through `advance`; only this one
+   * needs a call of its own, because nothing about the batch moves - the
+   * ask is simply answered and stops standing.
+   */
+  declinePostponement(programId: Id, remarks: string): Observable<Program> {
+    return this.api.post<Program>(
+      `${this.resource}/${programId}/postponement-decline`, { remarks });
+  }
+
   requestPostponement(programId: Id, reason: string): Observable<Program> {
     return this.api.post<Program>(
       `${this.resource}/${programId}/postponement-request`,
