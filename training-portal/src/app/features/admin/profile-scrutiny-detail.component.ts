@@ -171,12 +171,15 @@ interface OpenAttachment {
               <div class="fact">
                 <span class="fact__term">Assigned to</span>
                 <span class="fact__value">{{ record.assignedToName || 'Unassigned' }}</span>
-                <!-- Nobody places these by hand any more, so the sheet has
-                     to say how the desk was chosen. -->
-                <span class="text-xs text-muted">
-                  Chosen automatically from the managers whose program types and states
-                  cover this profile.
-                </span>
+                <!-- The account and what it is, rather than a sentence
+                     about how the desk was picked: two managers can share
+                     a name, and what the reader needs is which one. -->
+                @if (record.assignedToCode) {
+                  <span class="text-xs text-muted">
+                    <code>{{ record.assignedToCode }}</code>
+                    @if (record.assignedToRole) { · {{ record.assignedToRole }} }
+                  </span>
+                }
               </div>
             </div>
           </section>

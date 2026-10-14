@@ -128,6 +128,12 @@ public class ProfileSubmissionDto
     /// <summary>The Operation Manager whose desk this is on, if anybody's.</summary>
     public int? AssignedToUserId { get; set; }
     public string? AssignedToName { get; set; }
+
+    /* The ID and the role beside the name, because the name is not the
+       answer to "who has this": two managers can share one, and the
+       officer reading the sheet needs the account and what it is. */
+    public string? AssignedToCode { get; set; }
+    public string? AssignedToRole { get; set; }
     public int? RejectionReasonId { get; set; }
     public string? RejectionReasonLabel { get; set; }
     public string? Remarks { get; set; }

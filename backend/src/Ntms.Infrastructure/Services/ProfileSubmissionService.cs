@@ -26,7 +26,7 @@ public class ProfileSubmissionService(
     ICurrentUser currentUser)
 {
     private IQueryable<ProfileSubmission> Base => db.ProfileSubmissions
-        .Include(s => s.AssignedToUser)
+        .Include(s => s.AssignedToUser)!.ThenInclude(u => u!.Role)
         .Include(s => s.Category)
         .Include(s => s.SubCategory)
         .Include(s => s.Applicant)
@@ -874,6 +874,8 @@ public class ProfileSubmissionService(
         DecidedByUserName = s.DecidedByUserName,
         AssignedToUserId = s.AssignedToUserId,
         AssignedToName = s.AssignedToUser?.FullName,
+        AssignedToCode = s.AssignedToUser?.UserCode,
+        AssignedToRole = s.AssignedToUser?.Role?.Name,
         RejectionReasonId = s.RejectionReasonId,
         RejectionReasonLabel = s.RejectionReasonLabel,
         Remarks = s.Remarks,

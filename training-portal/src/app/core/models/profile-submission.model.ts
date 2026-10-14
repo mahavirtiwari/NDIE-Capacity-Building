@@ -58,6 +58,9 @@ export interface ProfileSubmission extends AuditInfo {
   /** The Operation Manager whose desk this is on, if anybody's. */
   assignedToUserId?: Id | null;
   assignedToName?: string | null;
+  /** The account and what it is - a name alone does not identify a desk. */
+  assignedToCode?: string | null;
+  assignedToRole?: string | null;
   rejectionReasonId?: Id | null;
   rejectionReasonLabel?: string | null;
   remarks?: string | null;
