@@ -19,7 +19,9 @@ export type FieldType =
   | 'radio'
   | 'checkbox'
   | 'file'
-  | 'photos';
+  | 'photos'
+  | 'state'
+  | 'district';
 
 export const FIELD_TYPES: { value: FieldType; label: string; hasOptions: boolean }[] = [
   { value: 'text', label: 'Single line text', hasOptions: false },
@@ -46,6 +48,16 @@ export const FIELD_TYPES: { value: FieldType; label: string; hasOptions: boolean
   /* Two dates and the length between them, asked as one question because
      it is one fact. */
   { value: 'duration', label: 'Duration (from and to dates)', hasOptions: false },
+  /* The LGD master, not a choice list somebody types out. The rest of
+     the system already keys off it - an agency's empanelment, a batch's
+     venue, a coordinator's districts - and a form carrying its own copy
+     would drift from all of them the first time a state was renamed. */
+  { value: 'state', label: 'State/UT (from the LGD list)', hasOptions: false },
+  {
+    value: 'district',
+    label: 'District (follows the State above it)',
+    hasOptions: false,
+  },
 ];
 
 /**

@@ -6,6 +6,7 @@ import { auth } from '../../src/api/endpoints';
 import type { Gender, SignupField, SignupForm, SocialCategory } from '../../src/api/types';
 import { GENDER_OPTIONS, SOCIAL_CATEGORY_OPTIONS } from '../../src/api/types';
 import { MultiPicker, Picker, RadioGroup, Switch } from '../../src/components/Picker';
+import { PlaceField } from '../../src/components/DynamicForm';
 import {
   Banner,
   Button,
@@ -85,6 +86,22 @@ export default function SignUp() {
     [form],
   );
 
+  /**
+   * The State a district field follows: the nearest one before it on the
+   * form. Sign-up is one flat list, so position is the whole of it.
+   */
+  const stateAbove = (field: SignupField): number | null => {
+    if (field.type !== 'district') return null;
+
+    const mine = fields.findIndex((one) => one.key === field.key);
+    for (let at = mine - 1; at >= 0; at -= 1) {
+      if (fields[at].type !== 'state') continue;
+      const held = Number(values[fields[at].key]);
+      return Number.isFinite(held) && held > 0 ? held : null;
+    }
+    return null;
+  };
+
   const errors = useMemo(() => {
     const found: Record<string, string> = {};
     for (const field of fields) {
@@ -152,6 +169,7 @@ export default function SignUp() {
                 field={field}
                 value={values[field.key] ?? ''}
                 error={showError(field.key)}
+                stateAbove={stateAbove(field)}
                 onChange={(next) => set(field.key, next)}
                 onBlur={() => setTouched((current) => ({ ...current, [field.key]: true }))}
               />
@@ -180,10 +198,13 @@ function SignupControl({
   field,
   value,
   error,
+  stateAbove,
   onChange,
   onBlur,
 }: {
   field: SignupField;
+  /** The LGD state answered before this field, for a district to follow. */
+  stateAbove?: number | null;
   value: string;
   error: string | null;
   onChange: (next: string) => void;
@@ -231,6 +252,36 @@ function SignupControl({
   }));
 
   switch (field.type) {
+    /* The LGD masters, as the profile form asks them. A district follows
+       the nearest State before it on the form. */
+    case 'state':
+      return (
+        <PlaceField
+          label={field.label}
+          required={field.required}
+          hint={field.helpText}
+          kind="state"
+          value={value}
+          stateCode={null}
+          error={error ?? undefined}
+          onChange={blurAfter}
+        />
+      );
+
+    case 'district':
+      return (
+        <PlaceField
+          label={field.label}
+          required={field.required}
+          hint={field.helpText}
+          kind="district"
+          value={value}
+          stateCode={stateAbove ?? null}
+          error={error ?? undefined}
+          onChange={blurAfter}
+        />
+      );
+
     case 'select':
       return (
         <Picker

@@ -91,6 +91,29 @@ public enum FieldType
     /// shows nothing for it rather than something wrong.
     /// </summary>
     Duration = 19,
+
+    /// <summary>
+    /// A State or Union Territory, chosen from the LGD master.
+    ///
+    /// Not a Select with the states typed into it. The list is a national
+    /// master that the rest of the system already keys off - an agency's
+    /// empanelment, a batch's venue, a coordinator's districts - and a
+    /// form that carried its own copy would drift from all of them the
+    /// first time a state was renamed. The answer stored is the LGD code,
+    /// so it means the same thing as every other state on the record.
+    /// </summary>
+    State = 20,
+
+    /// <summary>
+    /// A district of whichever State was answered above it.
+    ///
+    /// Follows the nearest State field before it in the same section -
+    /// and, in a repeating section, in the same entry - because that is
+    /// how an address is laid out and asking the designer to wire the two
+    /// together would be asking them to say twice what the order already
+    /// says. The answer stored is the LGD district code.
+    /// </summary>
+    District = 21,
 }
 
 public enum FeeComponentKind

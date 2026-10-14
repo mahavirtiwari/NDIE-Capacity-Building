@@ -24,6 +24,7 @@ import {
   DurationValue,
   FieldType,
   LoadedPhoto,
+  LookupItem,
   ProfileAttachment,
   ProfileField,
   ProfileForm,
@@ -31,6 +32,8 @@ import {
   spanInWords,
   monthsBetween,
 } from '../../core/models';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { LookupService } from '../../core/services/masters.service';
 import { FORMAT_MESSAGES, FORMAT_PATTERNS } from '../../core/validation/formats';
 import { IconComponent } from './icon.component';
 
@@ -284,6 +287,20 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
                    the applicant's phone gave the upload - a string of hex
                    - which told the officer nothing they could use and
                    read as a storage key. -->
+              @case ('state') {
+                @if (placeName(group, field); as name) {
+                  <div class="read-field__value">{{ name }}</div>
+                } @else {
+                  <div class="read-field__value is-empty">Not answered</div>
+                }
+              }
+              @case ('district') {
+                @if (placeName(group, field); as name) {
+                  <div class="read-field__value">{{ name }}</div>
+                } @else {
+                  <div class="read-field__value is-empty">Not answered</div>
+                }
+              }
               @case ('file') {
                 <div class="read-field__value">
                   @if (held(field.key, group); as document) {
@@ -349,6 +366,39 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
                 [placeholder]="field.placeholder || ''"
                 [class.is-invalid]="invalid(group, field.key)"
               ></textarea>
+            }
+            <!-- The LGD masters. A State is the national list, and a
+                 District is the list under whichever State was answered
+                 before it in the same section - in a repeating section,
+                 in the same entry. -->
+            @case ('state') {
+              <select
+                class="select"
+                [id]="idFor(field, group)"
+                [formControl]="ctrl(group, field.key)"
+                [class.is-invalid]="invalid(group, field.key)"
+                (change)="onStatePicked(group)"
+              >
+                <option value="">Select</option>
+                @for (one of states(); track one.id) {
+                  <option [value]="one.id">{{ one.name }}</option>
+                }
+              </select>
+            }
+            @case ('district') {
+              <select
+                class="select"
+                [id]="idFor(field, group)"
+                [formControl]="ctrl(group, field.key)"
+                [class.is-invalid]="invalid(group, field.key)"
+              >
+                <option value="">
+                  {{ stateFor(group, field) ? 'Select' : 'Choose a State first' }}
+                </option>
+                @for (one of districtsFor(group, field); track one.id) {
+                  <option [value]="one.id">{{ one.name }}</option>
+                }
+              </select>
             }
             @case ('select') {
               <select
@@ -894,6 +944,7 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
 })
 export class DynamicFormComponent {
   private readonly fb = inject(FormBuilder);
+  private readonly lookups = inject(LookupService);
 
   readonly definition = input.required<ProfileForm>();
   readonly values = input<Record<string, FieldValue | EntryValues[]>>({});
@@ -1348,6 +1399,92 @@ export class DynamicFormComponent {
     const { from, to } = this.span(group, key);
     if (!from || !to) return 'Pick both dates';
     return spanInWords(from, to);
+  }
+
+  /* --------------------------------------------------- the LGD masters */
+
+  /**
+   * The national list of States, fetched once for the whole form.
+   *
+   * Deliberately the address list rather than the caller's allocation:
+   * where somebody lives is a fact about them, not a slice of the estate
+   * an officer happens to cover.
+   */
+  protected readonly states = toSignal(this.lookups.addressStates(), {
+    initialValue: [] as LookupItem[],
+  });
+
+  /** The districts of each State asked for so far, by LGD state code. */
+  private readonly districts = signal<Record<number, LookupItem[]>>({});
+
+  /**
+   * The State a district field belongs to: the nearest one before it in
+   * the same section, read from the same entry.
+   *
+   * By position rather than by a setting on the field. An address is
+   * laid out State then District, and asking the designer to wire the
+   * two together would be asking them to say twice what the order
+   * already says.
+   */
+  protected stateFor(group: FormGroup, field: ProfileField): number | null {
+    const section = this.definition().sections.find(
+      (one) => (one.fields as ProfileField[]).some((f) => f.key === field.key),
+    );
+    if (!section) return null;
+
+    const fields = section.fields as ProfileField[];
+    const mine = fields.findIndex((one) => one.key === field.key);
+
+    for (let at = mine - 1; at >= 0; at -= 1) {
+      if (fields[at].type !== 'state') continue;
+      const held = Number(group.get(fields[at].key)?.value);
+      return Number.isFinite(held) && held > 0 ? held : null;
+    }
+    return null;
+  }
+
+  protected districtsFor(group: FormGroup, field: ProfileField): LookupItem[] {
+    const state = this.stateFor(group, field);
+    if (!state) return [];
+
+    const held = this.districts()[state];
+    if (held) return held;
+
+    /* Asked for once per State, the first time a field needs it. */
+    this.districts.update((kept) => ({ ...kept, [state]: [] }));
+    this.lookups.addressDistricts(state).subscribe((items) =>
+      this.districts.update((kept) => ({ ...kept, [state]: items })),
+    );
+    return [];
+  }
+
+  /**
+   * Clears the district under a State that has just changed.
+   *
+   * A district of the old State is not a district of the new one, and
+   * leaving it there stores a pairing that does not exist.
+   */
+  protected onStatePicked(group: FormGroup): void {
+    const section = this.definition().sections.find((one) =>
+      (one.fields as ProfileField[]).some((f) => group.get(f.key) !== null),
+    );
+    if (!section) return;
+
+    for (const field of section.fields as ProfileField[]) {
+      if (field.type === 'district') group.get(field.key)?.setValue('');
+    }
+  }
+
+  /** What a stored LGD code is called, for the read-only sheet. */
+  protected placeName(group: FormGroup, field: ProfileField): string | null {
+    const code = Number(group.get(field.key)?.value);
+    if (!Number.isFinite(code) || code <= 0) return null;
+
+    const list = field.type === 'state'
+      ? this.states()
+      : this.districtsFor(group, field);
+
+    return list.find((one) => one.id === code)?.name ?? String(code);
   }
 
   /**

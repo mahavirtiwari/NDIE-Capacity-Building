@@ -19,7 +19,7 @@ import type {
 } from '../api/types';
 import { colors, font, radius, spacing } from '../theme';
 import { MAX_LENGTHS, UPPERCASE_TYPES, dateBoundsError, formatErrorFor } from '../validation/formats';
-import { me } from '../api/endpoints';
+import { lookups, me } from '../api/endpoints';
 import { cacheImage, releaseImage } from '../files/cachedImage';
 import { captureFacts, locationNote } from '../files/captureFacts';
 import { saveAndShare } from '../files/saveAndShare';
@@ -766,6 +766,29 @@ export function DynamicSectionView({
     return wanted.some((candidate) => candidate.toLowerCase() === trigger.toLowerCase());
   };
 
+  /**
+   * The State a district field follows: the nearest one before it in
+   * this section, read from this entry.
+   *
+   * By position rather than by a setting on the field. An address is
+   * laid out State then District, and asking the designer to wire the
+   * two together would be asking them to say twice what the order
+   * already says.
+   */
+  const stateAbove = (field: ProfileField, index: number | null): number | null => {
+    if (field.type !== 'district') return null;
+
+    const live = section.fields.filter((one) => one.isEnabled);
+    const mine = live.findIndex((one) => one.key === field.key);
+
+    for (let at = mine - 1; at >= 0; at -= 1) {
+      if (live[at].type !== 'state') continue;
+      const held = Number(values[storageKey(section, index, live[at].key)]);
+      return Number.isFinite(held) && held > 0 ? held : null;
+    }
+    return null;
+  };
+
   const renderFields = (index: number | null) =>
     section.fields
       .filter((field) => field.isEnabled && visible(field, index))
@@ -782,6 +805,7 @@ export function DynamicSectionView({
             entry={index ?? 0}
             value={values[key] ?? defaultFor(field)}
             error={errors[key]}
+            stateAbove={stateAbove(field, index)}
             onChange={(value) => setValue(key, value)}
           />
         );
@@ -906,12 +930,15 @@ function FieldRenderer({
   entry,
   value,
   error,
+  stateAbove,
   onChange,
 }: {
   field: ProfileField;
   entry: number;
   value: FormValue;
   error?: string;
+  /** The LGD state answered before this field, for a district to follow. */
+  stateAbove?: number | null;
   onChange: (value: FormValue) => void;
 }) {
   /* The description comes with the choice. It was dropped here, which
@@ -968,6 +995,37 @@ function FieldRenderer({
           label={field.helpText || field.label}
           required={field.validation.required}
           checked={value === true}
+          error={error}
+          onChange={onChange}
+        />
+      );
+
+    /* The LGD masters. A State is the national list; a District is the
+       list under whichever State was answered before it in the same
+       section - and, in a repeating section, the same entry. */
+    case 'state':
+      return (
+        <PlaceField
+          label={field.label}
+          required={field.validation.required}
+          hint={field.helpText}
+          kind="state"
+          value={typeof value === 'string' ? value : ''}
+          stateCode={null}
+          error={error}
+          onChange={onChange}
+        />
+      );
+
+    case 'district':
+      return (
+        <PlaceField
+          label={field.label}
+          required={field.validation.required}
+          hint={field.helpText}
+          kind="district"
+          value={typeof value === 'string' ? value : ''}
+          stateCode={stateAbove ?? null}
           error={error}
           onChange={onChange}
         />
@@ -1098,6 +1156,92 @@ function FieldRenderer({
       );
     }
   }
+}
+
+/**
+ * A State or a District, from the LGD master.
+ *
+ * The list is fetched rather than carried on the form: the rest of the
+ * system keys off this master - an agency's empanelment, a batch's
+ * venue, a coordinator's districts - and a form holding its own copy
+ * would drift from all of them the first time a state was renamed. The
+ * answer stored is the LGD code, so it means the same thing wherever it
+ * is read.
+ */
+export function PlaceField({
+  label,
+  required,
+  hint,
+  kind,
+  value,
+  stateCode,
+  error,
+  onChange,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: string | null;
+  kind: 'state' | 'district';
+  value: string;
+  /** Which State's districts to offer. Null for a State field. */
+  stateCode: number | null;
+  error?: string;
+  onChange: (value: string) => void;
+}) {
+  const [places, setPlaces] = useState<{ value: string; label: string }[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (kind === 'district' && !stateCode) {
+      setPlaces([]);
+      return;
+    }
+
+    (async () => {
+      try {
+        const held = kind === 'state'
+          ? await lookups.states()
+          : await lookups.districts(stateCode);
+
+        if (cancelled) return;
+        setPlaces(held.map((one) => ({ value: String(one.id), label: one.name })));
+      } catch {
+        /* Offline, or the master could not be read. The field shows
+           nothing to choose rather than an error over a form somebody is
+           part way through; the cached answer is served where there is
+           one, because these calls are cached. */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [kind, stateCode]);
+
+  /* A district picked under one State is not a district of another, and
+     leaving it there would store a pairing that does not exist. */
+  useEffect(() => {
+    if (kind !== 'district' || !value) return;
+    if (places.length > 0 && !places.some((one) => one.value === value)) onChange('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [places]);
+
+  return (
+    <Picker
+      label={label}
+      required={required}
+      value={value || null}
+      options={places}
+      placeholder={
+        kind === 'district' && !stateCode ? 'Choose a State first' : 'Select'
+      }
+      error={error}
+      hint={hint}
+      searchable
+      onChange={onChange}
+    />
+  );
 }
 
 /**

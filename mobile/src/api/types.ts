@@ -191,7 +191,7 @@ export interface ApplicantProgram {
 export type FieldType =
   | 'text' | 'textarea' | 'number' | 'email' | 'mobile' | 'pan' | 'tan' | 'gstin'
   | 'ifsc' | 'pincode' | 'aadhaar' | 'date' | 'select' | 'multiselect' | 'radio'
-  | 'checkbox' | 'file' | 'photos' | 'duration';
+  | 'checkbox' | 'file' | 'photos' | 'duration' | 'state' | 'district';
 
 /**
  * A span of time, as it is stored against an answer.
