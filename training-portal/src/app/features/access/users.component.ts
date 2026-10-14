@@ -1280,7 +1280,12 @@ export class UsersComponent {
 
   protected readonly form = this.fb.group({
     fullName: ['', Validators.required],
-    designation: [''],
+    /* Asked of everybody, so it sits on the control rather than being
+       hung on by the role. It used to be added by applyRecordRules, which
+       runs when a role is picked - so the field was starred from the first
+       moment but demanded nothing until then, and stopped demanding
+       anything again if the role was changed to a coordinator. */
+    designation: ['', Validators.required],
     email: ['', requiredFormat('email')],
     mobile: ['', requiredFormat('mobile')],
     roleId: [null as number | null, Validators.required],
@@ -1480,8 +1485,7 @@ export class UsersComponent {
     const full = this.needsFullRecord();
     const c = this.form.controls;
 
-    const plain: [typeof c.designation, ValidatorFn[]][] = [
-      [c.designation, [Validators.required]],
+    const plain: [typeof c.city, ValidatorFn[]][] = [
       [c.city, [Validators.required]],
       [c.organisationName, [Validators.required]],
     ];

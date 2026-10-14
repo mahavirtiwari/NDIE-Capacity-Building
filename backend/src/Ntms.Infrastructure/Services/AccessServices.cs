@@ -856,7 +856,6 @@ public class UserService(
         if (tier is not (BaseRole.Admin or BaseRole.Ministry or BaseRole.OperationManager)) return;
 
         Guard.Check()
-            .Required(dto.Designation, "Designation")
             .Required(dto.OrganisationName, "Organisation name")
             .Required(dto.City, "City")
             .When(dto.StateCode is null, "Select a State/UT.")
@@ -869,6 +868,12 @@ public class UserService(
     private static void Validate(PortalUserUpsertDto dto) =>
         Guard.Check()
             .Required(dto.FullName, "Full name")
+            /* Asked of everybody, not only of the tiers that carry a full
+               record. What somebody is on the scheme is how the rest of it
+               addresses them - it is on the letters their account sends and
+               on the register the next officer reads - and a coordinator
+               without one is as unaddressable as an Admin without one. */
+            .Required(dto.Designation, "Designation")
             .Email(dto.Email)
             .Mobile(dto.Mobile)
             /* Both optional, both checked where given: an account made
