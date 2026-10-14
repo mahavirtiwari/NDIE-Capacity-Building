@@ -10,9 +10,12 @@ const MONTHS = [
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const SHORT_MONTHS = MONTHS.map((month) => month.slice(0, 3));
 
-/** Years are shown four to a row; the row height the list scrolls by. */
-const YEARS_PER_ROW = 4;
-const YEAR_ROW = 52;
+/** Years are shown six to a row; the row height the list scrolls by. */
+const YEARS_PER_ROW = 6;
+const YEAR_ROW = 48;
+
+/** Rows of years on screen at once. Six of six is thirty-six years. */
+const YEAR_ROWS_SHOWN = 6;
 
 /** ISO day string in local terms. `toISOString` is UTC and shifts the date. */
 function iso(year: number, month: number, day: number): string {
@@ -133,11 +136,16 @@ export function DateField({
     return rows;
   }, [minDate, maxDate]);
 
-  /* Opened on the year already in view rather than at the top: somebody
-     correcting 1998 should not scroll back to it from 1925. */
+  /* Opened around the year already in view rather than at the top of the
+     century: somebody correcting 1998 should not scroll to it from 1925,
+     and somebody entering a date of birth should start where the
+     calendar is and work back. Placed a couple of rows down from the top
+     of the viewport so the years either side of it are visible too - a
+     list that opens with the answer flush against the top edge reads as
+     the beginning of the list. */
   const yearRow = Math.max(
     0,
-    years.findIndex((row) => row.includes(view.year)),
+    years.findIndex((row) => row.includes(view.year)) - 2,
   );
 
   /** Whether any day of a month is inside the form's window. */
@@ -468,7 +476,7 @@ const styles = StyleSheet.create({
 
   /* As tall as six rows of days, so switching between the boards does not
      make the dialog jump about under the thumb. */
-  board: { height: YEAR_ROW * 5, marginTop: spacing.sm },
+  board: { height: YEAR_ROW * YEAR_ROWS_SHOWN, marginTop: spacing.sm },
   boardRow: { flexDirection: 'row', paddingHorizontal: spacing.md, height: YEAR_ROW },
   boardCell: {
     flex: 1,
@@ -479,19 +487,23 @@ const styles = StyleSheet.create({
   },
   boardCellPressed: { backgroundColor: colors.brand50 },
   boardCellChosen: { backgroundColor: colors.brand600 },
-  boardText: { fontSize: font.base, color: colors.ink900 },
+  /* Six to a row is a narrower cell, and a year is four digits. */
+  boardText: { fontSize: font.sm, color: colors.ink900 },
   boardTextChosen: { color: colors.white, fontWeight: '700' },
 
   monthBoard: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: spacing.md,
-    height: YEAR_ROW * 5,
+    height: YEAR_ROW * YEAR_ROWS_SHOWN,
     marginTop: spacing.sm,
   },
+  /* Twelve months in four rows of three, filling the same hole the years
+     left, so switching between the boards does not make the dialog jump
+     about under the thumb. */
   monthCell: {
     width: `${100 / 3}%`,
-    height: YEAR_ROW * 5 / 4,
+    height: (YEAR_ROW * YEAR_ROWS_SHOWN) / 4,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.sm,
