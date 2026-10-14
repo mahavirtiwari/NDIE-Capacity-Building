@@ -1,4 +1,5 @@
 import { Redirect, Stack, useSegments } from 'expo-router';
+import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -8,6 +9,7 @@ import { Loading } from '../src/components/ui';
 import { SiteTextProvider } from '../src/content/SiteTextContext';
 import { NetworkProvider } from '../src/offline/NetworkContext';
 import { InstallGate } from '../src/permissions/InstallGate';
+import { listenForNotificationTaps } from '../src/notifications/push';
 import { OfflineNotice } from '../src/offline/OfflineNotice';
 import { colors } from '../src/theme';
 
@@ -50,6 +52,14 @@ export default function RootLayout() {
 function Routes() {
   const { loading, applicant } = useAuth();
   const segments = useSegments();
+
+  /* Started here rather than beside the push registration, because a tap
+     has to go somewhere and the router only exists once this is mounted.
+     Registered once for the life of the app; the listener itself guards
+     against a second one. */
+  useEffect(() => {
+    listenForNotificationTaps();
+  }, []);
 
   if (loading) return <Loading />;
 

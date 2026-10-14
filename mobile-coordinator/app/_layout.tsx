@@ -11,6 +11,7 @@ import { NetworkProvider } from '../src/offline/NetworkContext';
 import { OutboxNotice } from '../src/offline/OutboxNotice';
 import { InstallGate } from '../src/permissions/InstallGate';
 import { NotificationBell } from '../src/notifications/NotificationBell';
+import { listenForNotificationTaps } from '../src/notifications/push';
 import { colors } from '../src/theme';
 
 /**
@@ -27,6 +28,12 @@ function AuthGate({ children }: { children: ReactNode }) {
   const { session, restoring } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  /* A tap has to go somewhere, and the router only exists once this is
+     mounted. Registered once; the listener guards against a second. */
+  useEffect(() => {
+    listenForNotificationTaps();
+  }, []);
 
   useEffect(() => {
     if (restoring) return;
