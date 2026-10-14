@@ -608,6 +608,13 @@ public class AgencyService(
             .Required(dto.City, "City")
             .Pincode(dto.Pincode)
             .When(dto.StateCode <= 0, "Select a state.")
+            /* An empanelment that expired before it began is not an
+               empanelment, and the register reads one as lapsed the moment
+               it is saved - so the agency is empanelled and suspended in
+               the same act, with nothing on the record to say why. The
+               date is optional; it is only the order that is fixed. */
+            .When(dto.EmpanelmentValidTill is { } till && till <= dto.EmpanelledOn,
+                "The empanelment must be valid until after the date it was empanelled on.")
             .ThrowIfInvalid();
 
     private static void Apply(ImplementingAgency entity, AgencyUpsertDto dto, string code)

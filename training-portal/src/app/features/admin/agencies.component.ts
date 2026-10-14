@@ -1,7 +1,13 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
 import {
   AGENCY_TYPES,
   AgencyHistory,
@@ -680,11 +686,29 @@ const COLUMNS: ColumnDef[] = [
             </div>
             <div class="field">
               <label class="field-label" for="agFrom">Empanelled on</label>
-              <input id="agFrom" type="date" class="input" formControlName="empanelledOn" />
+              <input id="agFrom" type="date" class="input" formControlName="empanelledOn"
+                (change)="onEmpanelledOnChange()" />
             </div>
             <div class="field">
               <label class="field-label" for="agTill">Valid till</label>
-              <input id="agTill" type="date" class="input" formControlName="empanelmentValidTill" />
+              <!-- The picker will not open before the day after the
+                   empanelment, so the wrong answer cannot be reached by
+                   clicking. Typed in, the validator catches it. -->
+              <input
+                id="agTill"
+                type="date"
+                class="input"
+                formControlName="empanelmentValidTill"
+                [min]="earliestValidTill()"
+                [class.is-invalid]="invalid('empanelmentValidTill')"
+              />
+              @if (invalid('empanelmentValidTill')) {
+                <span class="field-error">
+                  Must be after the date the agency was empanelled on.
+                </span>
+              } @else {
+                <span class="field-hint">Leave blank for an open-ended empanelment.</span>
+              }
             </div>
             <div class="field">
               <label class="field-label" for="agStatusSel">Status</label>
@@ -950,9 +974,24 @@ export class AgenciesComponent {
     districtCode: [null as number | null],
     pincode: ['', requiredFormat('pincode')],
     empanelledOn: [new Date().toISOString().slice(0, 10)],
-    empanelmentValidTill: [''],
+    empanelmentValidTill: ['', afterEmpanelment],
     status: ['Active'],
   });
+
+  /**
+   * The first day the empanelment can run to.
+   *
+   * The day after it was empanelled: valid till the same day is an
+   * empanelment that lasted no time at all.
+   */
+  protected earliestValidTill(): string {
+    const from = this.form.get('empanelledOn')?.value;
+    if (!from) return '';
+    const day = new Date(from);
+    if (Number.isNaN(day.getTime())) return '';
+    day.setDate(day.getDate() + 1);
+    return day.toISOString().slice(0, 10);
+  }
 
   protected term = searchTerm;
   protected value = (event: Event) => (event.target as HTMLSelectElement).value;
@@ -964,6 +1003,11 @@ export class AgenciesComponent {
 
   protected errorFor(control: string, label: string): string {
     return describeError(this.form.get(control)?.errors ?? null, label);
+  }
+
+  /** The expiry is judged against the start, so it is re-judged when it moves. */
+  protected onEmpanelledOnChange(): void {
+    this.form.get('empanelmentValidTill')?.updateValueAndValidity();
   }
 
   /** Districts follow the LGD state that was picked. */
@@ -1065,4 +1109,22 @@ export class AgenciesComponent {
       error: () => this.savingStatus.set(false),
     });
   }
+}
+
+/**
+ * The empanelment has to outlast the day it started.
+ *
+ * Read off the sibling control rather than taken as an argument, so the
+ * rule travels with the field: whoever moves it keeps the check. An empty
+ * expiry is an open-ended empanelment and passes - it is only the order
+ * of two dates that is fixed, not whether there is a second one.
+ */
+function afterEmpanelment(control: AbstractControl): ValidationErrors | null {
+  const till = control.value as string | null;
+  if (!till) return null;
+
+  const from = control.parent?.get('empanelledOn')?.value as string | null;
+  if (!from) return null;
+
+  return till > from ? null : { afterEmpanelment: true };
 }
