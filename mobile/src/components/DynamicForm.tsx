@@ -19,8 +19,8 @@ import type {
 } from '../api/types';
 import { colors, font, radius, spacing } from '../theme';
 import { MAX_LENGTHS, UPPERCASE_TYPES, dateBoundsError, formatErrorFor } from '../validation/formats';
-import { authHeaders } from '../api/client';
 import { me } from '../api/endpoints';
+import { cacheImage, releaseImage } from '../files/cachedImage';
 import { captureFacts, locationNote } from '../files/captureFacts';
 import { saveAndShare } from '../files/saveAndShare';
 import { Card, Chip, Field } from './ui';
@@ -159,6 +159,69 @@ function defaultFor(field: ProfileField): FormValue {
 }
 
 /** Whole months between two ISO dates, counting a part month as served. */
+/**
+ * A span broken into years, months and days.
+ *
+ * Calendar arithmetic rather than a division: the months between two
+ * dates depend on which months they are, and 1 September to 1 October is
+ * a month whether or not that month had 30 days in it. Days are borrowed
+ * from the month before, the way anybody counting on a calendar does it.
+ */
+export function spanParts(from: string, to: string): {
+  years: number;
+  months: number;
+  days: number;
+} {
+  const none = { years: 0, months: 0, days: 0 };
+  if (!from || !to) return none;
+
+  const start = new Date(from);
+  const end = new Date(to);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return none;
+
+  let years = end.getFullYear() - start.getFullYear();
+  let months = end.getMonth() - start.getMonth();
+
+  /* The last month only counts once the day of it has come round. */
+  if (end.getDate() < start.getDate()) months -= 1;
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  /* The days are what is left after those whole months, counted from the
+     date they land on rather than borrowed arithmetically - borrowing is
+     wrong whenever the month landed on is shorter than the day started
+     from, and 31 January to 1 March is exactly that case. A month added
+     to the 31st rolls into the next one in JavaScript, so it is pulled
+     back to the last day of the month it was meant to be. */
+  const wanted = start.getMonth() + years * 12 + months;
+  const anchor = new Date(start.getFullYear(), wanted, start.getDate());
+  if (anchor.getMonth() !== ((wanted % 12) + 12) % 12) anchor.setDate(0);
+
+  /* Counted in UTC days, so an hour lost to a clock change somewhere is
+     not a day lost here. */
+  const days = Math.round(
+    (Date.UTC(end.getFullYear(), end.getMonth(), end.getDate())
+      - Date.UTC(anchor.getFullYear(), anchor.getMonth(), anchor.getDate()))
+    / 86_400_000,
+  );
+
+  return { years, months, days: Math.max(0, days) };
+}
+
+/** "1 year 2 months 5 days", or "3 days", or "Same day". */
+export function spanInWords(from: string, to: string): string {
+  const { years, months, days } = spanParts(from, to);
+
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} year${years === 1 ? '' : 's'}`);
+  if (months > 0) parts.push(`${months} month${months === 1 ? '' : 's'}`);
+  if (days > 0) parts.push(`${days} day${days === 1 ? '' : 's'}`);
+
+  return parts.length > 0 ? parts.join(' ') : 'Same day';
+}
+
 export function monthsBetween(from: string, to: string): number {
   if (!from || !to) return 0;
   const start = new Date(from);
@@ -851,9 +914,13 @@ function FieldRenderer({
   error?: string;
   onChange: (value: FormValue) => void;
 }) {
+  /* The description comes with the choice. It was dropped here, which
+     is why none of the controls showed one however carefully they were
+     written on the form builder: the pickers had nothing to render. */
   const options = field.options.map((option) => ({
     value: option.value,
     label: option.label,
+    description: option.description,
   }));
 
   switch (field.type) {
@@ -972,7 +1039,7 @@ function FieldRenderer({
           <View style={styles.spanTotal}>
             <Text style={styles.spanTotalCap}>Duration</Text>
             <Text style={styles.spanTotalWords}>
-              {span.from && span.to ? durationWords(monthsBetween(span.from, span.to)) : 'Pick both dates'}
+              {span.from && span.to ? spanInWords(span.from, span.to) : 'Pick both dates'}
             </Text>
           </View>
 
@@ -1217,6 +1284,8 @@ function PhotosField({
   /* Bumped whenever the set changes, so a thumbnail is re-fetched rather
      than served from the cache under a url that has not changed. */
   const [stamp, setStamp] = useState(() => Date.now());
+  /* Where each picture landed on disk, by its position in the set. */
+  const [thumbs, setThumbs] = useState<Record<number, string>>({});
 
   /* What the server actually holds, which is the truth — the answer in the
      form is only a copy, and a form reopened after a rejection has to show
@@ -1242,6 +1311,49 @@ function PhotosField({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subCategoryId, field.key, entry]);
+
+  /**
+   * Fetches each picture and keeps it where the image loader can read it.
+   *
+   * Re-run whenever the set changes, which `stamp` marks: a picture
+   * removed and another taken lands on the same position, and the old
+   * copy on disk would otherwise be the one shown.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    const made: string[] = [];
+
+    (async () => {
+      for (const shot of shots) {
+        try {
+          const file = await me.photoDownload(
+            subCategoryId, field.key, shot.displayOrder, entry);
+          if (cancelled) return;
+
+          const uri = await cacheImage(
+            `photo-${subCategoryId}-${field.key}-${entry}-${shot.displayOrder}.jpg`,
+            file,
+          );
+          if (cancelled) {
+            releaseImage(uri);
+            return;
+          }
+
+          made.push(uri);
+          setThumbs((held) => ({ ...held, [shot.displayOrder]: uri }));
+        } catch {
+          /* One thumbnail that will not come down must not take the
+             others with it; the row still says what was taken and when. */
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      for (const uri of made) releaseImage(uri);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subCategoryId, field.key, entry, stamp, shots.length]);
 
   const take = async () => {
     setFailure(null);
@@ -1338,14 +1450,20 @@ function PhotosField({
             const shot = shots.find((held) => held.displayOrder === order);
             return (
               <View key={`${order}-${stamp}`} style={styles.shotRow}>
-                <Image
-                  source={{
-                    uri: `${me.photoUri(subCategoryId, field.key, order, entry)}&v=${stamp}`,
-                    headers: authHeaders(),
-                  }}
-                  style={styles.photoThumb}
-                  accessibilityLabel={`${field.label}, picture ${order} of ${count}`}
-                />
+                {thumbs[order] ? (
+                  <Image
+                    source={{ uri: thumbs[order] }}
+                    style={styles.photoThumb}
+                    accessibilityLabel={`${field.label}, picture ${order} of ${count}`}
+                  />
+                ) : (
+                  /* While the bytes are on their way. An Image with no
+                     source draws an empty box that looks like a picture
+                     that failed, which is what this used to be. */
+                  <View style={[styles.photoThumb, styles.photoThumbWaiting]}>
+                    <Ionicons name="image-outline" size={18} color={colors.ink400} />
+                  </View>
+                )}
                 <View style={styles.shotFacts}>
                   <Text style={styles.shotTitle}>{`Picture ${order} of ${limit}`}</Text>
                   {shot ? (
@@ -1550,6 +1668,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.ink100,
     resizeMode: 'cover',
   },
+  photoThumbWaiting: { alignItems: 'center', justifyContent: 'center' },
 
   /* One picture, with what it was taken at beside it. */
   shotRow: {

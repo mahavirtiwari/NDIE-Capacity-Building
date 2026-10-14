@@ -226,6 +226,22 @@ export const me = {
     `${API_BASE_URL}/me/profile-photos/${subCategoryId}`
     + `/${encodeURIComponent(fieldKey)}/${displayOrder}?entry=${entry}`,
 
+  /**
+   * One picture's bytes, for the thumbnail beside the field.
+   *
+   * Fetched rather than handed to <Image> as a url with an Authorization
+   * header on it. That is supported on paper and not in practice: the
+   * native image loader caches by url and drops the headers on the way
+   * back, so the first draw worked at best and the usual result was an
+   * empty grey box where the picture should be. Downloaded here, written
+   * to the cache, and shown from the file.
+   */
+  photoDownload: (subCategoryId: number, fieldKey: string, displayOrder: number, entry = 0) =>
+    download(
+      `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}`
+      + `/${displayOrder}?entry=${entry}`,
+      `photo-${displayOrder}.jpg`),
+
   removePhoto: (subCategoryId: number, fieldKey: string, displayOrder: number, entry = 0) =>
     api.delete<PhotoStanding>(
       `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}`
