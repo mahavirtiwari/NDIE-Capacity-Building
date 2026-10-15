@@ -46,6 +46,10 @@ const LINKS: MenuLink[] = [
   { icon: 'grid-outline', label: 'My programs', href: '/workshops' },
   { icon: 'book-outline', label: 'Training material', href: '/materials' },
   { icon: 'notifications-outline', label: 'Notifications', href: '/notifications' },
+  /* Reachable without the banner, so somebody in the office can say
+     'open Unsent work and read me what it says' to a coordinator who
+     is looking at a programme the office cannot see. */
+  { icon: 'cloud-upload-outline', label: 'Unsent work', href: '/unsent' },
   { icon: 'person-outline', label: 'My profile', href: '/profile' },
   { icon: 'key-outline', label: 'Change password', href: '/change-password' },
 ];

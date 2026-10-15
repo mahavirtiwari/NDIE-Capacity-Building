@@ -228,9 +228,30 @@ interface SendResult {
   ok: boolean;
   /** Set when the server answered and will answer the same way again. */
   permanent?: boolean;
+  /**
+   * Whether the server answered at all.
+   *
+   * A request that never arrived and one the server threw a 500 at both
+   * leave the entry waiting, and until this was here they were
+   * indistinguishable: the banner read "still to send" either way, so a
+   * server failing every attempt looked exactly like a phone with no
+   * signal. One of those ends on its own and the other needs somebody
+   * told.
+   */
+  reached?: boolean;
   serverId?: number;
   error?: string;
 }
+
+/**
+ * How many times the server may answer badly before the entry stops
+ * trying and says so.
+ *
+ * Not one: a deploy, a restart or a moment of database trouble should
+ * not strand an afternoon's work that would go through five minutes
+ * later. Not forever either, which is what it did.
+ */
+const REFUSALS_BEFORE_BLOCKED = 3;
 
 async function send(entry: OutboxEntry): Promise<SendResult> {
   const token = readAuthToken();
@@ -270,7 +291,7 @@ async function send(entry: OutboxEntry): Promise<SendResult> {
     | null;
 
   if (response.ok && envelope?.success !== false) {
-    return { ok: true, serverId: envelope?.data?.id };
+    return { ok: true, reached: true, serverId: envelope?.data?.id };
   }
 
   /*
@@ -287,6 +308,7 @@ async function send(entry: OutboxEntry): Promise<SendResult> {
   return {
     ok: false,
     permanent,
+    reached: true,
     error: envelope?.message ?? `Refused with ${response.status}`,
   };
 }
@@ -355,7 +377,21 @@ export async function drain(owner: string): Promise<{ sent: number; blocked: num
         continue;
       }
 
-      remaining.push({ ...ready, attempts: ready.attempts + 1, error: result.error });
+      /* The server answered, and badly. Worth trying again - but not
+         indefinitely and not in silence: after a few, the entry is
+         blocked so the banner turns red and somebody is told, rather
+         than the queue reading "still to send" for days while every
+         attempt fails. A phone with no signal is not counted against
+         the entry; it has nothing to answer for. */
+      const attempts = ready.attempts + 1;
+      const exhausted = result.reached === true && attempts >= REFUSALS_BEFORE_BLOCKED;
+
+      remaining.push({
+        ...ready,
+        attempts,
+        error: result.error,
+        status: exhausted ? 'blocked' : 'waiting',
+      });
       stopped = true;
     }
 
@@ -373,6 +409,36 @@ function applyResolved(entry: OutboxEntry, resolved: Map<number, number>): Outbo
     path: substitute(entry.path, resolved),
     body: entry.body === undefined ? undefined : substitute(entry.body, resolved),
   };
+}
+
+/**
+ * Puts a blocked entry back in the queue.
+ *
+ * Most of what blocks an entry is not the entry's fault - a server that
+ * was down, a column a migration had not added yet - and all of those
+ * are fixed somewhere else and then want the work sent. Without this
+ * the only way out of a block was to throw the work away, which is the
+ * opposite of what the queue is for.
+ */
+export async function retry(id: string): Promise<void> {
+  const entries = await load();
+  await save(
+    entries.map((e) =>
+      e.id === id ? { ...e, status: 'waiting' as OutboxStatus, attempts: 0, error: undefined } : e,
+    ),
+  );
+}
+
+/** Puts every blocked entry back, for when the cause was common to them all. */
+export async function retryAll(owner: string): Promise<void> {
+  const entries = await load();
+  await save(
+    entries.map((e) =>
+      e.owner === owner && e.status === 'blocked'
+        ? { ...e, status: 'waiting' as OutboxStatus, attempts: 0, error: undefined }
+        : e,
+    ),
+  );
 }
 
 /** Lets the coordinator throw away something the server will never accept. */

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { colors, font, spacing } from '../theme';
@@ -17,6 +18,7 @@ import { counts, drain, subscribe } from './outbox';
  * only way to find out is to ask the office, days later.
  */
 export function OutboxNotice() {
+  const router = useRouter();
   const { online, reconnectedAt } = useNetwork();
   const { session } = useAuth();
   const insets = useSafeAreaInsets();
@@ -70,7 +72,7 @@ export function OutboxNotice() {
   if (blocked > 0) {
     tone = styles.blocked;
     icon = 'alert-circle-outline';
-    message = `${blocked} ${blocked === 1 ? 'item was' : 'items were'} refused by the server. Nothing after them will send.`;
+    message = `${blocked} ${blocked === 1 ? 'item was' : 'items were'} refused by the server. Tap to see what, and why.`;
   } else if (!online) {
     message =
       waiting > 0
@@ -84,11 +86,18 @@ export function OutboxNotice() {
       : `${waiting} saved ${waiting === 1 ? 'entry' : 'entries'} still to send.`;
   }
 
+  /* Tappable, always: a count nobody can open is a count nobody can
+     act on, and "3 entries still to send" is only useful if it can be
+     turned into which three. */
   return (
-    <View style={[styles.bar, tone, { paddingTop: insets.top + spacing.sm }]}>
+    <Pressable
+      onPress={() => router.push('/unsent')}
+      style={[styles.bar, tone, { paddingTop: insets.top + spacing.sm }]}
+    >
       <Ionicons name={icon} size={15} color={colors.white} />
       <Text style={styles.text}>{message}</Text>
-    </View>
+      <Ionicons name="chevron-forward" size={14} color={colors.white} />
+    </Pressable>
   );
 }
 
