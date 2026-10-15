@@ -387,15 +387,55 @@ public class MonitoringService(
     /// Disabled sessions and topics are left out: they are not on the syllabus
     /// any more, so nothing new should be recorded against them.
     /// </summary>
+    /// <summary>
+    /// Which curriculum this programme follows.
+    ///
+    /// A curriculum belongs to a programme type and is that type's
+    /// syllabus - its code, its name and its category all come from the
+    /// master rather than being retyped. A programme carries its own
+    /// <c>CurriculumId</c> so that a batch can be pinned to one, but
+    /// nothing ever sets it: there is no curriculum field on the
+    /// programme form, because with one syllabus per type there is
+    /// nothing for anybody to choose. So every programme in the database
+    /// has a null there - which meant the coordinator's session screen
+    /// offered an empty list of topics however much curriculum had been
+    /// written, and would have refused to record a session even if it
+    /// had offered one.
+    ///
+    /// Resolved from the type when the programme does not name one: the
+    /// newest curriculum that had come into effect by the day the batch
+    /// started, or failing that the earliest active one, because a batch
+    /// scheduled before its syllabus was published still ran against
+    /// that syllabus. It is settled by the start date rather than by
+    /// today, so publishing a revision does not change what a batch that
+    /// has already run is recorded against.
+    /// </summary>
+    private async Task<int?> CurriculumForAsync(Programme programme, CancellationToken ct)
+    {
+        if (programme.CurriculumId is not null) return programme.CurriculumId;
+
+        var candidates = await db.Curricula.AsNoTracking()
+            .Where(c => c.ProgramTypeId == programme.ProgramTypeId && c.Status == RecordStatus.Active)
+            .OrderBy(c => c.EffectiveFrom).ThenBy(c => c.Id)
+            .Select(c => new { c.Id, c.EffectiveFrom })
+            .ToListAsync(ct);
+
+        if (candidates.Count == 0) return null;
+
+        var inForce = candidates.LastOrDefault(c => c.EffectiveFrom <= programme.StartDate);
+        return (inForce ?? candidates[0]).Id;
+    }
+
     public async Task<List<SessionTopicDto>> CurriculumAsync(int programmeId, CancellationToken ct)
     {
         var programme = await ForReadAsync(programmeId, ct);
 
-        if (programme.CurriculumId is null) return [];
+        var curriculumId = await CurriculumForAsync(programme, ct);
+        if (curriculumId is null) return [];
 
         var sessions = await db.CurriculumSessions.AsNoTracking()
             .Include(s => s.Topics)
-            .Where(s => s.CurriculumId == programme.CurriculumId && s.Status == RecordStatus.Active)
+            .Where(s => s.CurriculumId == curriculumId && s.Status == RecordStatus.Active)
             .OrderBy(s => s.DisplayOrder).ThenBy(s => s.Id)
             .ToListAsync(ct);
 
@@ -435,7 +475,10 @@ public class MonitoringService(
         if (topic.SessionId != dto.CurriculumSessionId)
             throw new AppException("That sub-topic does not belong to the chosen topic.");
 
-        if (topic.Session?.CurriculumId != programme.CurriculumId)
+        /* The same curriculum the screen was offered, or a coordinator
+           would be refused a topic this very service had just handed
+           them. */
+        if (topic.Session?.CurriculumId != await CurriculumForAsync(programme, ct))
             throw new AppException("That topic is not part of this program's curriculum.");
 
         var session = new MonitoringSession
