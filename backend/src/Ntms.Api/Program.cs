@@ -2,7 +2,10 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json.Serialization;
 using Ntms.Api.Serialization;
+using System.Security.Claims;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -51,6 +54,56 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CurrentUser>();
 builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
 builder.Services.AddScoped<ICurrentUserRoles>(sp => sp.GetRequiredService<CurrentUser>());
+
+/* What one caller may ask for in a minute.
+
+   Not a throttle on how fast the scheme can work - six hundred a minute
+   is ten a second, which no person produces and no screen needs. It is
+   the floor under a handset stuck in a retry loop, a script someone
+   points at the API, or a bug that turns one tap into a thousand calls.
+   Without it, one of those is an outage for everybody else; with it, it
+   is a bad minute for one account.
+
+   Counted per signed-in account where there is one and per address
+   where there is not, so sign-in itself is protected too. Nothing is
+   queued: a caller already over the line is told to wait rather than
+   added to a backlog that makes the pile-up worse. */
+var perMinute = builder.Configuration.GetValue("RateLimit:PerMinute", 600);
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.Headers.RetryAfter = "60";
+        context.HttpContext.Response.ContentType = "application/json";
+        await context.HttpContext.Response.WriteAsync(
+            "{\"success\":false,\"message\":\"Too many requests. Wait a moment and try again.\"}",
+            token);
+    };
+
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
+    {
+        /* The health check is what tells the load balancer the site is
+           up. Limiting it would make a busy minute look like an outage. */
+        if (http.Request.Path.StartsWithSegments("/health"))
+        {
+            return RateLimitPartition.GetNoLimiter("health");
+        }
+
+        var who = http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                  ?? http.Connection.RemoteIpAddress?.ToString()
+                  ?? "unknown";
+
+        return RateLimitPartition.GetFixedWindowLimiter(who, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = perMinute,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+        });
+    });
+});
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -300,6 +353,12 @@ if (hostsPortal)
 
 app.UseCors(CorsPolicy);
 app.UseAuthentication();
+
+/* After authentication, so a signed-in caller is counted as themselves
+   rather than as whatever address they share. A training centre puts
+   forty candidates behind one router, and by address that reads as one
+   very busy person. */
+app.UseRateLimiter();
 /* After authentication, so the principal exists; before authorization, so the
    scope filters have the allocation by the time any handler composes a query. */
 app.UseMiddleware<UserScopeMiddleware>();

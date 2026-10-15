@@ -28,6 +28,24 @@ public static class PhotoStamp
     public readonly record struct Result(byte[] Content, string ContentType, bool Stamped);
 
     /// <summary>
+    /// How many photographs may be drawn on at once.
+    ///
+    /// Each one decodes a phone frame into a bitmap, draws a copy of it,
+    /// and encodes the copy - tens of megabytes of managed and unmanaged
+    /// memory for the length of the call, and GDI+ handles with it. One
+    /// at a time that is nothing. A thousand candidates photographing
+    /// their certificates in the same hour, with nothing holding the
+    /// number down, is the server running out of memory rather than
+    /// running slowly.
+    ///
+    /// Bounded to the processors, which is as many as can actually be
+    /// drawing at once anyway. The rest wait, which costs them a moment
+    /// and costs everybody else nothing.
+    /// </summary>
+    private static readonly SemaphoreSlim Drawing =
+        new(Math.Max(2, Environment.ProcessorCount), Math.Max(2, Environment.ProcessorCount));
+
+    /// <summary>
     /// Draws the capture time and position onto a photograph.
     /// </summary>
     /// <param name="content">The image as it arrived.</param>
@@ -50,6 +68,7 @@ public static class PhotoStamp
             return new Result(content, "image/jpeg", false);
         }
 
+        Drawing.Wait();
         try
         {
             return Draw(content, Lines(capturedOnUtc, latitude, longitude));
@@ -62,6 +81,10 @@ public static class PhotoStamp
             logger?.LogWarning(caught,
                 "A photograph could not be stamped. It has been stored unmarked.");
             return new Result(content, "image/jpeg", false);
+        }
+        finally
+        {
+            Drawing.Release();
         }
     }
 
