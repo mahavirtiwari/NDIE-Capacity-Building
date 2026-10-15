@@ -110,6 +110,45 @@
   border-bottom-color: var(--brand-600);
 }
 
+/* A tab strip as a solid band rather than words with a rule under one.
+
+   A card that is one long sheet of answers needs its tabs to be the
+   first thing the eye lands on: they are how the reader moves between
+   the identity and the qualifications, and a grey word with a hairline
+   under it is not visible from the far side of a page of text. The
+   band carries them, and the open one is cut out of it in the colour
+   of the sheet below, so the tab and its contents read as one thing. */
+.tabs--solid {
+  gap: 0;
+  border-bottom: 0;
+  background: var(--brand-800);
+  /* A hair inside the card's own corner, so the band does not show
+     through the curve. */
+  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
+}
+
+.tabs--solid .tab {
+  color: rgb(255 255 255 / 0.78);
+  font-weight: 600;
+  padding: 0.7rem 1.1rem;
+  border-bottom: 0;
+  transition: color var(--transition), background var(--transition);
+}
+
+/* The leading tab, when open, would square off the band's top corner. */
+.tabs--solid .tab:first-child { border-top-left-radius: inherit; }
+
+.tabs--solid .tab:hover {
+  color: #fff;
+  background: rgb(255 255 255 / 0.1);
+}
+
+.tabs--solid .tab.is-active {
+  color: var(--brand-800);
+  background: var(--surface);
+  font-weight: 700;
+}
+
 /* Alerts ------------------------------------------------------------ */
 
 .alert {
@@ -230,6 +269,20 @@
   align-items: baseline;
   gap: 0.35rem;
 }
+
+/* A rule between one fact and the next.
+
+   A panel is a column of label-and-value pairs in small type, and with
+   nothing but air between them the eye will pair a value with the label
+   under it as readily as the one above - so "Attempt 1" and "Assigned
+   to" run together into a single block that has to be read twice. A
+   hairline says where each fact ends and the next begins. */
+.panel__body > .fact + .fact {
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+}
+
+.panel--accent .panel__body > .fact + .fact { border-top-color: var(--brand-200); }
 
 /* Description list -------------------------------------------------- */
 

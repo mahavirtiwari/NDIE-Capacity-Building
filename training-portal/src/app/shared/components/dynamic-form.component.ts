@@ -88,9 +88,15 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
     <form [formGroup]="form()" (ngSubmit)="submitted.emit(form().getRawValue())" class="stack stack-lg">
       @for (section of enabledSections(); track section.id) {
         <section class="card">
+          <!-- The heading is dropped when the screen above is already
+               naming the section on a tab: a card headed with the words
+               immediately above it is the reader being told twice. -->
+          @if (!only() || section.description) {
           <div class="card__header">
             <div class="stack stack-xs">
-              <span class="card__title">{{ section.title }}</span>
+              @if (!only()) {
+                <span class="card__title">{{ section.title }}</span>
+              }
               @if (section.description) {
                 <span class="card__subtitle">{{ section.description }}</span>
               }
@@ -107,10 +113,14 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
               </span>
             }
           </div>
+          }
 
-          <div class="card__body">
+          <!-- No padding around a sheet: its rows are banded edge to
+               edge, and a card's inset would float them in the middle of
+               nothing. The form keeps its padding. -->
+          <div [class]="reading() ? '' : 'card__body'">
             @if (!section.isRepeatable) {
-              <div class="form-grid">
+              <div [class]="reading() ? 'read-sheet' : 'form-grid'">
                 @for (field of enabledFields(section); track field.key) {
                   <ng-container
                     *ngTemplateOutlet="fieldTpl; context: { field: field, group: form() }"
@@ -118,11 +128,23 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
                 }
               </div>
             } @else {
-              <div class="stack stack-md">
+              <div [class]="reading() ? 'read-entries' : 'stack stack-md'">
                 @for (entry of entriesOf(section); track $index) {
-                  <div class="entry">
-                    <div class="entry__head">
-                      <span class="entry__title">{{ entryNoun(section) }} {{ $index + 1 }}</span>
+                  <div [class]="reading() ? 'read-entry' : 'entry'">
+                    <div [class]="reading() ? 'read-entry__head' : 'entry__head'">
+                      <!-- Numbered first when reading, the way the
+                           scheme's own assessment sheets number them, so
+                           somebody counting down to the third one finds
+                           the number at the start of the line. The form
+                           being filled in keeps its own wording: that is
+                           the applicant's screen and not part of this. -->
+                      <span [class]="reading() ? 'read-entry__title' : 'entry__title'">
+                        @if (reading()) {
+                          {{ $index + 1 }}. {{ entryNoun(section) }}
+                        } @else {
+                          {{ entryNoun(section) }} {{ $index + 1 }}
+                        }
+                      </span>
                       @if (canRemove(section)) {
                         <button
                           type="button"
@@ -134,7 +156,7 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
                         </button>
                       }
                     </div>
-                    <div class="form-grid">
+                    <div [class]="reading() ? 'read-sheet' : 'form-grid'">
                       @for (field of enabledFields(section); track field.key) {
                         <ng-container
                           *ngTemplateOutlet="fieldTpl; context: { field: field, group: entry }"
@@ -315,7 +337,7 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
                       @if (openable()) {
                         <button
                           type="button"
-                          class="btn btn--sm btn--secondary doc__open"
+                          class="btn btn--sm btn--primary doc__open"
                           (click)="openFile.emit({ fieldKey: field.key, entry: entryOf(group) })"
                         >
                           <app-icon name="eye" [size]="14" /> View
@@ -823,20 +845,76 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
       }
       .card__subtitle { color: var(--ink-600); }
 
-      /* An answer, set as text under its label.
+      /* An answer beside its question, the way a record is read.
 
-         Two columns like the form it mirrors, so a profile read here sits
-         where it sat when it was filled in and the eye can go back to the
-         same place. The rule under each one does the separating that the
-         input borders used to, at a fraction of the weight. */
-      .read-field {
+         It used to sit under its label in two columns, mirroring the form
+         it was filled in on - which is the right shape for filling in and
+         the wrong one for reading. Somebody scrutinising a profile is
+         going down a list of questions looking for the answer to one of
+         them, and a label above its value in two columns makes four
+         things to scan per row instead of two. The question is on the
+         left at a fixed width and the answer is beside it, so the eye
+         runs down one column to find the question and across once.
+
+         This is the shape the scheme's own assessment sheets use, which
+         is what the people reading this are used to reading. */
+      .read-sheet { display: grid; }
+
+      /* One entry of a repeating section, headed by its number.
+
+         A numbered band rather than a card with a border: a qualification
+         is one of several of the same shape, and a reader counting down
+         to the third one wants the number, not a frame around it. The
+         head is sticky so the number stays in view while its own rows
+         are being read - a long entry otherwise leaves the reader
+         halfway down a list of answers with nothing saying which
+         qualification they belong to. */
+      .read-entries { display: grid; }
+      .read-entry + .read-entry { border-top: 2px solid var(--border-strong); }
+      .read-entry__head {
+        position: sticky;
+        top: 0;
+        z-index: 1;
         display: flex;
-        flex-direction: column;
-        gap: 0.2rem;
-        padding-bottom: 0.6rem;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.45rem 0.75rem;
+        background: var(--brand-50);
+        border-bottom: 1px solid var(--border);
+      }
+      .read-entry__title {
+        font-size: var(--fs-xs);
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: var(--brand-800);
+      }
+      .read-field {
+        display: grid;
+        grid-template-columns: minmax(10rem, 17rem) 1fr;
+        gap: 0.25rem 1.25rem;
+        /* Centred, not top-aligned: a row whose answer is a document
+           card or a set of chips is two or three lines tall, and a
+           label pinned to its top edge reads as a heading over the row
+           below rather than as the question this answer belongs to. */
+        align-items: center;
+        padding: 0.55rem 0.75rem;
         border-bottom: 1px solid var(--border);
         min-width: 0;
       }
+      /* Banded, because an eye crossing a wide row loses the line it was
+         on. The last rule is dropped: a line under the final row of a
+         card is a line under nothing. */
+      .read-field:nth-child(odd) { background: var(--surface-muted); }
+      .read-field:last-child { border-bottom: 0; }
+
+      /* Narrow, where there is no room for two columns: the label goes
+         back above its answer rather than squeezing both into nothing. */
+      @media (max-width: 40rem) {
+        .read-field { grid-template-columns: 1fr; }
+      }
+
       .read-field__label {
         font-size: var(--fs-xs);
         font-weight: 600;
@@ -1169,9 +1247,33 @@ export class DynamicFormComponent {
   /* --------------------------------------------------------- definition */
 
   /** Disabled sections and fields never render and never validate. */
-  protected readonly enabledSections = computed(() =>
+  /** Every section that is switched on, in the order the form has them. */
+  readonly sections = computed(() =>
     this.definition().sections.filter((s) => s.isEnabled !== false),
   );
+
+  /**
+   * What is on screen: one section, or all of them.
+   *
+   * A profile runs to eight sections and forty fields. Somebody filling
+   * it in works down it once; somebody scrutinising it goes to the two
+   * that decide the answer and wants to come back to them - which,
+   * scrolled, means counting headings to find the place again. The
+   * screen above picks the section and the form shows it.
+   *
+   * Null is all of them, which is what the form builder's preview wants
+   * and what printing one would want.
+   */
+  readonly only = input<number | null>(null);
+
+  protected readonly enabledSections = computed(() => {
+    const all = this.sections();
+    const chosen = this.only();
+    if (chosen === null) return all;
+
+    const one = all.find((section) => section.id === chosen);
+    return one ? [one] : all;
+  });
 
   protected enabledFields(section: { fields: ProfileField[] }): ProfileField[] {
     return section.fields.filter((f) => f.isEnabled !== false);

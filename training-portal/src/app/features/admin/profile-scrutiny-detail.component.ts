@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  computed,
   effect,
   inject,
   input,
@@ -110,42 +111,56 @@ interface OpenAttachment {
       <div class="detail-grid">
         <div class="stack stack-md">
           <section class="card">
-            <div class="tabs" style="padding: 0 1rem">
-              <button type="button" class="tab" [class.is-active]="tab() === 'form'" (click)="tab.set('form')">
-                Profile form
-              </button>
-              <button type="button" class="tab" [class.is-active]="tab() === 'history'" (click)="tab.set('history')">
-                History ({{ record.history.length }})
-              </button>
+            <!-- A tab per section, and the history at the end.
+
+                 A profile runs to eight sections and forty answers.
+                 Scrolling a page that long to find the qualifications,
+                 and then scrolling back to the identity to check a name
+                 against them, is the whole of what reading one used to
+                 be. Named on tabs, the two are a click apart and the
+                 reader never loses their place. -->
+            <div class="tabs tabs--solid">
+              @for (section of sections(); track section.id) {
+                <button
+                  type="button"
+                  class="tab"
+                  [class.is-active]="tab() === section.id"
+                  (click)="tab.set(section.id)"
+                >{{ section.title }}</button>
+              }
+              <button
+                type="button"
+                class="tab"
+                [class.is-active]="tab() === 'history'"
+                (click)="tab.set('history')"
+              >History ({{ record.history.length }})</button>
             </div>
 
-            <div class="card__body">
-              @switch (tab()) {
-                @case ('form') {
-                  @if (definition(); as form) {
-                    <app-dynamic-form
-                      [definition]="form"
-                      [values]="$any(record.responses)"
-                      [photos]="photos()"
-                      [attachments]="record.attachments ?? []"
-                      [readonly]="true"
-                      [openable]="true"
-                      (openFile)="openAttachment(record.id, $event.fieldKey, $event.entry)"
-                    />
-                  } @else {
-                    <p class="text-sm text-muted">
-                      Loading the profile form for this discipline…
-                    </p>
-                  }
-                }
-                @default {
-                  <app-timeline
-                    [events]="historyEvents(record)"
-                    emptyMessage="No activity recorded yet."
-                  />
-                }
-              }
-            </div>
+            @if (tab() === 'history') {
+              <div class="card__body">
+                <app-timeline
+                  [events]="historyEvents(record)"
+                  emptyMessage="No activity recorded yet."
+                />
+              </div>
+            } @else if (definition(); as form) {
+              <app-dynamic-form
+                [definition]="form"
+                [values]="$any(record.responses)"
+                [photos]="photos()"
+                [attachments]="record.attachments ?? []"
+                [readonly]="true"
+                [openable]="true"
+                [only]="$any(tab())"
+                (openFile)="openAttachment(record.id, $event.fieldKey, $event.entry)"
+              />
+            } @else {
+              <div class="card__body">
+                <p class="text-sm text-muted">
+                  Loading the profile form for this discipline…
+                </p>
+              </div>
+            }
           </section>
         </div>
 
@@ -387,7 +402,19 @@ export class ProfileScrutinyDetailComponent {
 
   protected readonly submission = signal<ProfileSubmission | null>(null);
   protected readonly definition = signal<ProfileForm | null>(null);
-  protected readonly tab = signal<'form' | 'history'>('form');
+  /**
+   * Which tab is open: a section's id, or the history.
+   *
+   * Set to the first section as soon as the form arrives, because a
+   * profile opens on its first section the way a paper one opens on its
+   * first page.
+   */
+  protected readonly tab = signal<number | 'history'>('history');
+
+  /** The sections of the form this profile was filled against. */
+  protected readonly sections = computed(
+    () => this.definition()?.sections.filter((one) => one.isEnabled !== false) ?? [],
+  );
   protected readonly saving = signal(false);
   protected readonly rejecting = signal(false);
 
@@ -431,6 +458,13 @@ export class ProfileScrutinyDetailComponent {
           next: (form) => {
             this.definition.set(form);
             if (form) this.loadPhotos(record.id, form);
+
+            /* Open on the first section. Until the form has arrived
+               there is nothing to open on, which is why the tab starts
+               on the history rather than on a section that does not
+               exist yet. */
+            const first = this.sections()[0];
+            if (first) this.tab.set(first.id);
           },
           error: () => this.definition.set(null),
         });
