@@ -1,0 +1,11 @@
+# The account files hold passwords. They are made on the server by
+# accounts.ps1 and deleted by accounts.ps1 -Remove; they have no business
+# in the repository.
+accounts-*.csv
+
+# Each run writes a summary here. Worth keeping on the server to compare
+# one release with the next, not worth carrying in the history.
+results/
+
+# k6, when run.ps1 has fetched it rather than finding it installed.
+k6/
