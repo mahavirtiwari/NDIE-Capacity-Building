@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Ntms.Application.Common;
 using Ntms.Application.Contracts;
 using Ntms.Domain.Common;
@@ -16,7 +17,8 @@ public class LookupService(
     NtmsDbContext db,
     ICurrentUser currentUser,
     DelegationGuard delegation,
-    MasterVisibility visibility)
+    MasterVisibility visibility,
+    IMemoryCache cache)
 {
     /// <summary>
     /// Everything the caller may allocate to somebody beneath them, read
@@ -298,25 +300,46 @@ public class LookupService(
        states may well appoint a manager who lives in a third, so these
        two stay the whole LGD master however narrow the caller is. */
 
+    /* Held in memory, because this is the one list in the system that
+       nothing writes.
+
+       The LGD master arrives with the database and no screen in the
+       portal edits it. Every address field on every form asks for it -
+       the sign-up form, the profile form, a handset opening section two
+       - so at a thousand users it is thousands of identical queries a
+       minute for an answer that has not changed since the release.
+       Thirty minutes is long enough to carry a crowd and short enough
+       that a master reloaded by hand is picked up within one lunch. */
+    private static readonly TimeSpan MasterLife = TimeSpan.FromMinutes(30);
+
     public Task<List<LookupItemDto>> AddressStatesAsync(CancellationToken ct) =>
-        db.States.AsNoTracking()
-            .OrderBy(s => s.Name)
-            .Select(s => new LookupItemDto
-            {
-                Id = s.Code, Name = s.Name, Code = s.Code.ToString(),
-            })
-            .ToListAsync(ct);
+        cache.GetOrCreateAsync("lgd:states", entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = MasterLife;
+            return db.States.AsNoTracking()
+                .OrderBy(s => s.Name)
+                .Select(s => new LookupItemDto
+                {
+                    Id = s.Code, Name = s.Name, Code = s.Code.ToString(),
+                })
+                .ToListAsync(ct);
+        })!;
 
     public Task<List<LookupItemDto>> AddressDistrictsAsync(
         int? stateCode, CancellationToken ct) =>
-        db.Districts.AsNoTracking()
-            .WhereIf(stateCode.HasValue, d => d.StateCode == stateCode)
-            .OrderBy(d => d.Name)
-            .Select(d => new LookupItemDto
-            {
-                Id = d.Code, Name = d.Name, Code = d.Code.ToString(), ParentId = d.StateCode,
-            })
-            .ToListAsync(ct);
+        cache.GetOrCreateAsync($"lgd:districts:{stateCode?.ToString() ?? "all"}", entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = MasterLife;
+            return db.Districts.AsNoTracking()
+                .WhereIf(stateCode.HasValue, d => d.StateCode == stateCode)
+                .OrderBy(d => d.Name)
+                .Select(d => new LookupItemDto
+                {
+                    Id = d.Code, Name = d.Name, Code = d.Code.ToString(),
+                    ParentId = d.StateCode,
+                })
+                .ToListAsync(ct);
+        })!;
 }
 
 /* ---------------------------------------------------------------- dashboard */
@@ -530,20 +553,23 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
         /* Inclusive of the closing day, so "to 31 March" includes the 31st. */
         var toStamp = to.HasValue ? to.Value.ToDateTime(TimeOnly.MaxValue) : (DateTime?)null;
 
+        /* No Includes, and nothing materialised.
+
+           This used to pull every programme in scope into memory - with
+           its curriculum, category, sub-category, type, agency,
+           coordinator, manager, state, sessions, participants and every
+           participant's applicant and application hanging off it - and
+           then count the rows in C#. Every figure on this dashboard is an
+           aggregate, so each one is now a GROUP BY the database answers
+           without sending the rows at all.
+
+           It was the slowest thing in the system by an order of
+           magnitude: four hundred milliseconds a call against two
+           thousand batches on a laptop, and linear in the register, so a
+           year of operation and a room full of people signing in at nine
+           would have been the first thing to fall over. */
         var programmes = db.Programmes.AsNoTracking()
             .WithinScope(currentUser)
-            /* Through to the programme type: the curriculum's code lives there now. */
-            .Include(p => p.Curriculum)!.ThenInclude(c => c!.ProgramType)
-            .Include(p => p.Category)
-            .Include(p => p.SubCategory)
-            .Include(p => p.ProgramType)
-            .Include(p => p.Agency)
-            .Include(p => p.Coordinator)
-            .Include(p => p.OperationManager)
-            .Include(p => p.State)
-            .Include(p => p.Sessions)
-            .Include(p => p.Participants).ThenInclude(x => x.Applicant)
-            .Include(p => p.Participants).ThenInclude(x => x.Application)
             .WhereIf(filter.CategoryId.HasValue, p => p.CategoryId == filter.CategoryId)
             .WhereIf(filter.SubCategoryId.HasValue, p => p.SubCategoryId == filter.SubCategoryId)
             .WhereIf(filter.ProgramTypeId.HasValue, p => p.ProgramTypeId == filter.ProgramTypeId)
@@ -579,34 +605,65 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
             profiles = profiles.Where(s => s.AssignedToUserId == self);
         }
 
-        var profilesReceived = await profiles.CountAsync(ct);
-        var profilesApproved = await profiles
-            .CountAsync(s => s.Status == ProfileSubmissionStatus.Approved, ct);
-
-        var programmeRows = await programmes.ToListAsync(ct);
-        var conducted = programmeRows.Count(p => p.Status == ProgramStatus.Conducted);
-        /* Everyone enrolled on a programme, whatever the outcome — distinct from
-           the certified count, which is only those who passed. */
-        var participated = programmeRows.Sum(p => p.Participants.Count);
-        var certified = programmeRows
-            .Where(p => p.Status == ProgramStatus.Conducted)
-            .Sum(p => p.Participants.Count(x => x.Result == ParticipantResult.Pass));
-
-        /* Counted over the same participant rows the "Candidates participated"
-           headline counts, so the two can never disagree. */
-        var participants = programmeRows
-            .SelectMany(p => p.Participants)
-            .Select(x => x.Applicant)
-            .Where(a => a is not null)
-            .ToList();
-
         /* A dashboard is a summary of what this account is responsible
            for, not a fixed set of five cards. A tier that cannot open the
            scrutiny queue has no business being shown how many profiles
            arrived, and a card reading zero because the reader may not see
-           the data is worse than no card: it says the scheme is idle. */
+           the data is worse than no card: it says the scheme is idle.
+
+           Read before the counts rather than after them, because they now
+           decide which counts are worth asking the database for. */
         var seesProfiles = currentUser.HasPermission(Permissions.ApplicationsView);
         var seesProgrammes = currentUser.HasPermission(Permissions.ProgramsView);
+
+        var profilesReceived = await profiles.CountAsync(ct);
+        var profilesApproved = await profiles
+            .CountAsync(s => s.Status == ProfileSubmissionStatus.Approved, ct);
+
+        var conducted = await programmes
+            .CountAsync(p => p.Status == ProgramStatus.Conducted, ct);
+
+        /* Everyone enrolled on a programme, whatever the outcome — distinct from
+           the certified count, which is only those who passed. */
+        var participated = await programmes.SelectMany(p => p.Participants).CountAsync(ct);
+
+        var certified = await programmes
+            .Where(p => p.Status == ProgramStatus.Conducted)
+            .SelectMany(p => p.Participants)
+            .CountAsync(x => x.Result == ParticipantResult.Pass, ct);
+
+        /* The month chart, as one grouped count rather than a pass over
+           every row per month. Only the months that have something in
+           them come back; the series below fills in the empty ones, which
+           it has to do anyway. */
+        var byMonth = seesProgrammes
+            ? await programmes
+                .Where(p => p.Status == ProgramStatus.Conducted)
+                .GroupBy(p => new { p.StartDate.Year, p.StartDate.Month })
+                .Select(g => new MonthCount(g.Key.Year, g.Key.Month, g.Count()))
+                .ToListAsync(ct)
+            : [];
+
+        /* And the two participant profiles, counted the same way: over
+           the same participant rows the "Candidates participated"
+           headline counts, so the three can never disagree. */
+        var byGender = seesProgrammes
+            ? await programmes
+                .SelectMany(p => p.Participants)
+                .Where(x => x.Applicant != null)
+                .GroupBy(x => x.Applicant!.Gender)
+                .Select(g => new EnumCount<Gender>(g.Key, g.Count()))
+                .ToListAsync(ct)
+            : [];
+
+        var bySocialCategory = seesProgrammes
+            ? await programmes
+                .SelectMany(p => p.Participants)
+                .Where(x => x.Applicant != null)
+                .GroupBy(x => x.Applicant!.SocialCategory)
+                .Select(g => new EnumCount<SocialCategory>(g.Key, g.Count()))
+                .ToListAsync(ct)
+            : [];
 
         /* The headline counts the scheme, so it belongs to the tiers that
            answer for the scheme. An agency runs the batches it raises and a
@@ -638,14 +695,10 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
             Kpis = kpis,
             /* The charts and the map are drawn from programmes, so they
                stand or fall with the same permission. */
-            ProgramsByMonth = seesProgrammes ? MonthSeries(programmeRows, from, to) : [],
-            ParticipantsByGender = seesProgrammes
-                ? Profile(participants, a => a!.Gender,
-                          g => g == Gender.Other ? "Others" : g.ToString())
-                : [],
-            ParticipantsBySocialCategory = seesProgrammes
-                ? Profile(participants, a => a!.SocialCategory, c => c.ToString())
-                : [],
+            ProgramsByMonth = MonthSeries(byMonth, from, to),
+            ParticipantsByGender = Profile(
+                byGender, g => g == Gender.Other ? "Others" : g.ToString()),
+            ParticipantsBySocialCategory = Profile(bySocialCategory, c => c.ToString()),
         };
     }
 
@@ -665,8 +718,14 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
     /// Labels carry the year — "Sep 26" — since the series is no longer one
     /// calendar year and "Jan" alone would be ambiguous across the fold.
     /// </summary>
+    /// <summary>One month's tally, as the database grouped it.</summary>
+    private readonly record struct MonthCount(int Year, int Month, int Count);
+
+    /// <summary>One option's tally, for a column the answer is an enum of.</summary>
+    private readonly record struct EnumCount<T>(T? Value, int Count) where T : struct, Enum;
+
     private static List<SeriesPointDto> MonthSeries(
-        List<Programme> programmes, DateOnly? from, DateOnly? to)
+        IReadOnlyCollection<MonthCount> tallies, DateOnly? from, DateOnly? to)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
@@ -685,9 +744,12 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
             points.Add(new SeriesPointDto
             {
                 Label = month.ToString("MMM yy", CultureInfo.InvariantCulture),
-                Value = programmes.Count(p =>
-                    p.Status == ProgramStatus.Conducted
-                    && p.StartDate.Year == month.Year && p.StartDate.Month == month.Month),
+                /* The months with nothing in them are not in the
+                   tallies and still have to appear on the chart, which is
+                   what this loop is for. */
+                Value = tallies
+                    .FirstOrDefault(t => t.Year == month.Year && t.Month == month.Month)
+                    .Count,
             });
             cursor = cursor.AddMonths(-1);
         }
@@ -706,20 +768,22 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
     /// carrying a permanently empty slice.
     /// </summary>
     private static List<SeriesPointDto> Profile<T>(
-        IReadOnlyCollection<Applicant?> participants,
-        Func<Applicant?, T?> pick,
+        IReadOnlyCollection<EnumCount<T>> tallies,
         Func<T, string> label)
         where T : struct, Enum
     {
+        /* Every option appears, including the ones nobody chose: a bar
+           chart missing a bar reads as a category that does not exist
+           rather than one at zero. */
         var points = Enum.GetValues<T>()
             .Select(option => new SeriesPointDto
             {
                 Label = label(option),
-                Value = participants.Count(a => Equals(pick(a), option)),
+                Value = tallies.FirstOrDefault(t => Equals(t.Value, option)).Count,
             })
             .ToList();
 
-        var unstated = participants.Count(a => pick(a) is null);
+        var unstated = tallies.Where(t => t.Value is null).Sum(t => t.Count);
         if (unstated > 0)
         {
             points.Add(new SeriesPointDto { Label = "Not stated", Value = unstated });

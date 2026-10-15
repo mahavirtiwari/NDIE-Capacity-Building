@@ -45,6 +45,10 @@ public static class DependencyInjection
         services.Configure<PanVerificationOptions>(
             configuration.GetSection(PanVerificationOptions.SectionName));
 
+        /* The LGD master is read by every address field on every form
+           and written by nothing, so it is held rather than fetched. */
+        services.AddMemoryCache();
+
         services.AddSingleton<IPasswordService, PasswordService>();
         services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddScoped<ICodeGenerator, CodeGenerator>();
@@ -66,6 +70,12 @@ public static class DependencyInjection
            asked in a dozen places and a status all of them already read
            beats a condition each would have to remember. */
         services.AddHostedService<LapsedEmpanelmentWorker>();
+
+        /* A profile handed in when no officer covered it has to be given
+           one later. That used to happen at the top of every read of the
+           scrutiny queue, which made reading the queue the slowest thing
+           in the system. */
+        services.AddHostedService<UnplacedProfileWorker>();
 
         /* Through the factory so the handler is pooled and the timeout is the
            one in settings rather than the default hundred seconds. */
