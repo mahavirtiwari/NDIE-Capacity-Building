@@ -561,8 +561,6 @@ public class ProfileSubmissionService(
         int? programTypeId, string? state, DateOnly? from, DateOnly? to,
         CancellationToken ct)
     {
-        await PlaceUnassignedAsync(ct);
-
         var query = Queue(request.Search, status, categoryId, subCategoryId,
                           programTypeId, state, from, to)
             .OrderByDescending(s => s.SubmittedOn);
@@ -579,25 +577,40 @@ public class ProfileSubmissionService(
     /// a profile would wait for good — including every profile submitted
     /// before an officer who covers it was appointed.
     ///
-    /// Run when the queue is read, which is a write during a read and not
-    /// free of smell. The alternative is a profile nobody holds and no way
-    /// to hand it to anyone. Only rows awaiting a decision are touched, and
-    /// only where a pick is actually found.
+    /// This used to run at the top of every read of the queue. It costs a
+    /// query to pick an officer, a query to load the row and a save of its
+    /// own, per waiting profile, and it ran again in full for every
+    /// officer who opened the screen - fifty-nine seconds a page against
+    /// ten thousand profiles, with twenty-five readers doing the same
+    /// twenty thousand round trips each and contending for the rows while
+    /// they did it. It is a sweep now, on its own worker, which is where
+    /// work that is nobody's request belongs.
+    ///
+    /// Bounded per pass, so a backlog is worked through over several
+    /// rather than holding a connection for the length of one. Returns
+    /// how many were placed.
     /// </summary>
-    private async Task PlaceUnassignedAsync(CancellationToken ct)
+    public async Task<int> PlaceUnassignedAsync(CancellationToken ct)
     {
+        const int PerPass = 500;
+
         var waiting = await db.ProfileSubmissions
             .Where(s => s.AssignedToUserId == null
                         && (s.Status == ProfileSubmissionStatus.Submitted
                             || s.Status == ProfileSubmissionStatus.UnderScrutiny))
+            /* Oldest first, so a backlog is dealt out in the order it
+               arrived - and so the bound below takes the oldest rather
+               than whichever the database happened to return. */
+            .OrderBy(s => s.Id)
+            .Take(PerPass)
             .Select(s => new { s.Id, s.SubCategoryId, s.Applicant!.StateCode })
             .ToListAsync(ct);
 
-        if (waiting.Count == 0) return;
+        if (waiting.Count == 0) return 0;
 
-        /* Oldest first, so a backlog is dealt out in the order it arrived
-           rather than in whatever order the rows came back. */
-        foreach (var row in waiting.OrderBy(w => w.Id))
+        var placed = 0;
+
+        foreach (var row in waiting)
         {
             var officer = await PickScrutinyOfficerAsync(row.SubCategoryId, row.StateCode, ct);
             if (officer is null) continue;
@@ -615,7 +628,10 @@ public class ProfileSubmissionService(
                backlog of ten would go to the same desk in a single pass,
                which is the opposite of taking them in turn. */
             await db.SaveChangesAsync(ct);
+            placed++;
         }
+
+        return placed;
     }
 
     /// <summary>
