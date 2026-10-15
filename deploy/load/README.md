@@ -4,7 +4,7 @@ Scripts for putting a crowd on staging and finding out what it costs.
 
 ```powershell
 cd deploy\load
-.\accounts.ps1 -Count 1000          # once: throwaway logins (writes)
+.\accounts.ps1 -Count 1000 -IKnowThisIsNotStaging   # once: logins (writes)
 .\run.ps1 -Profile smoke  -Journey applicant
 .\run.ps1 -Profile load   -Journey applicant
 .\accounts.ps1 -Remove              # when the testing is done
@@ -36,6 +36,15 @@ testing with. The journeys now stop on the first failed sign-in rather
 than going round again, so the same mistake costs one request. A 429 on
 sign-in is the exception: that means too few accounts, and it says so
 and backs off.
+
+**Staging is production here.** One machine, one database: `CbmsDb`
+serves both, so these thousand accounts go into the live data and
+`accounts.ps1` will not write them until you say so with
+`-IKnowThisIsNotStaging`. They are all marked - every code begins
+`LOADTEST`, every address is at `loadtest.invalid` - and `-Remove`
+takes them out again. Run it the moment the testing is finished, and
+take a backup first (`..\windows\10-backup.ps1`) so there is a way back
+that does not depend on the remove working.
 
 **Tell whoever is using staging.** A thousand callers makes the site
 unusable for anybody demonstrating on it. This is not a background task.

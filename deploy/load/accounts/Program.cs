@@ -22,22 +22,32 @@ if (mode is not ("make" or "remove"))
 {
     Console.WriteLine("""
         usage:
-          accounts make   <connection string> <count> <password> <csv path>
-          accounts remove <connection string> <csv path>
+          accounts make   <count> <csv path>
+          accounts remove <csv path>
+
+        The connection string comes from LOADTEST_CONNECTION and the
+        password from LOADTEST_PASSWORD, because a command line can be
+        read by anything on the machine that can list processes.
 
         Called by accounts.ps1, which does the guarding and the prompting.
         """);
     return 2;
 }
 
-var connectionString = args[1];
+var connectionString = Environment.GetEnvironmentVariable("LOADTEST_CONNECTION");
+
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    Console.Error.WriteLine("LOADTEST_CONNECTION is not set. Run accounts.ps1 rather than this.");
+    return 2;
+}
 
 await using var db = new SqlConnection(connectionString);
 await db.OpenAsync();
 
 if (mode == "remove")
 {
-    var csv = args[2];
+    var csv = args[1];
 
     /* The children first: an applicant with rows pointing at it will not
        delete, and a half-removed test account is worse than none. */
@@ -70,9 +80,15 @@ if (mode == "remove")
     return 0;
 }
 
-var count = int.Parse(args[2]);
-var password = args[3];
-var outFile = args[4];
+var count = int.Parse(args[1]);
+var outFile = args[2];
+var password = Environment.GetEnvironmentVariable("LOADTEST_PASSWORD");
+
+if (string.IsNullOrWhiteSpace(password))
+{
+    Console.Error.WriteLine("LOADTEST_PASSWORD is not set. Run accounts.ps1 rather than this.");
+    return 2;
+}
 
 /* One hash for all of them. These are throwaway logins that share a
    password anyway, and a salt per account would be protecting nothing

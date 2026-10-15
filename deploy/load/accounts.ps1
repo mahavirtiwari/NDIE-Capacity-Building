@@ -55,21 +55,43 @@ if (-not $ConnectionString) {
     $settings = Join-Path $PSScriptRoot '..\windows\settings.production.psd1'
     if (Test-Path $settings) {
         $loaded = Import-PowerShellDataFile $settings
-        $ConnectionString = $loaded.Database.ConnectionString
+
+        # settings.production.psd1 holds the instance and the database and
+        # deliberately not the connection string - one place for a password
+        # is enough - so it is read from the file 03-configure.ps1 wrote for
+        # the site, which is where that one place is.
+        $appsettings = Join-Path $loaded.SitePath 'appsettings.Production.json'
+        if (Test-Path $appsettings) {
+            $ConnectionString =
+                (Get-Content $appsettings -Raw | ConvertFrom-Json).ConnectionStrings.Default
+        }
+
+        # Failing that, the same instance over Windows authentication: how
+        # every other script in deploy\windows reaches this database, and it
+        # needs no password at all.
+        if (-not $ConnectionString -and $loaded.SqlInstance -and $loaded.Database) {
+            $ConnectionString =
+                "Server=$($loaded.SqlInstance);Database=$($loaded.Database);" +
+                'Trusted_Connection=True;TrustServerCertificate=True'
+        }
     }
 }
 
 if (-not $ConnectionString) {
-    throw 'No connection string. Pass -ConnectionString, or run this on the server ' +
-          'where deploy\windows\settings.production.psd1 has one.'
+    throw 'No connection string. Run this on the server, where it is read from the ' +
+          "site's appsettings.Production.json, or pass -ConnectionString."
 }
 
 $builder = New-Object System.Data.SqlClient.SqlConnectionStringBuilder $ConnectionString
 $database = $builder.InitialCatalog
 
 if ($database -notmatch 'stag|probe|test' -and -not $IKnowThisIsNotStaging) {
-    throw "Refusing to write test accounts into '$database'. This is for staging. " +
-          "If that really is a test database, pass -IKnowThisIsNotStaging."
+    throw "Refusing to write test accounts into '$database' unasked. Staging and " +
+          "production are one machine and one database here, so the name cannot " +
+          "tell them apart and this is the only thing standing between a load run " +
+          "and a thousand fake applicants in the live data. Pass " +
+          "-IKnowThisIsNotStaging if that is what you mean to do, and run -Remove " +
+          "the moment the testing is finished."
 }
 
 $tool = Join-Path $PSScriptRoot 'accounts'
@@ -78,8 +100,13 @@ $tool = Join-Path $PSScriptRoot 'accounts'
 
 if ($Remove) {
     if ($PSCmdlet.ShouldProcess($database, 'Delete every LOADTEST applicant')) {
-        dotnet run --project $tool -- remove $ConnectionString $OutFile
-        if ($LASTEXITCODE -ne 0) { throw 'The accounts tool failed. Nothing was removed.' }
+        $env:LOADTEST_CONNECTION = $ConnectionString
+        try {
+            dotnet run --project $tool -- remove $OutFile
+            if ($LASTEXITCODE -ne 0) { throw 'The accounts tool failed. Nothing was removed.' }
+        } finally {
+            Remove-Item Env:\LOADTEST_CONNECTION -ErrorAction SilentlyContinue
+        }
     }
     return
 }
@@ -102,8 +129,17 @@ if ($plain.Length -lt 8) { throw 'Give it at least eight characters.' }
 
 if (-not $PSCmdlet.ShouldProcess($database, "Create $Count LOADTEST applicants")) { return }
 
-dotnet run --project $tool -- make $ConnectionString $Count $plain $OutFile
-if ($LASTEXITCODE -ne 0) { throw 'The accounts tool failed.' }
+# Through the environment, not the command line: a command line is
+# readable by anything on the box that can list processes, and both of
+# these are secrets for as long as the accounts exist.
+$env:LOADTEST_CONNECTION = $ConnectionString
+$env:LOADTEST_PASSWORD = $plain
+try {
+    dotnet run --project $tool -- make $Count $OutFile
+    if ($LASTEXITCODE -ne 0) { throw 'The accounts tool failed.' }
+} finally {
+    Remove-Item Env:\LOADTEST_CONNECTION, Env:\LOADTEST_PASSWORD -ErrorAction SilentlyContinue
+}
 
 Write-Host ''
 Write-Host '  Check one signs in before running a thousand of them:' -ForegroundColor Cyan
