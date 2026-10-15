@@ -400,8 +400,18 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
                    against 10 in the card beside it. */
                 Programmes = g.Count(p => p.Status == ProgramStatus.Conducted),
                 /* Everyone enrolled, whatever the batch's status — the same
-                   population as the "Candidates participated" KPI. */
-                Participants = g.SelectMany(p => p.Participants).Count(),
+                   population as the "Candidates participated" KPI.
+
+                   Conducted only now, like everything else on this
+                   panel. Enrolment is an intention; the scheme reports
+                   on what was held, and somebody signed up to a batch
+                   that has not happened has not participated in
+                   anything. Counting them shaded a state on the map and
+                   put a figure in this column while the programmes
+                   column beside it, and the card above it, both read
+                   zero - the screen disagreeing with itself. */
+                Participants = g.Where(p => p.Status == ProgramStatus.Conducted)
+                    .SelectMany(p => p.Participants).Count(),
             })
             .ToListAsync(ct);
 
@@ -500,7 +510,9 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
                 ProgramTypes = g.Where(p => p.Status == ProgramStatus.Conducted)
                     .Select(p => p.ProgramTypeId).Distinct().Count(),
                 Programmes = g.Count(p => p.Status == ProgramStatus.Conducted),
-                Participants = g.SelectMany(p => p.Participants).Count(),
+                /* Conducted, like the two above it and like the states. */
+                Participants = g.Where(p => p.Status == ProgramStatus.Conducted)
+                    .SelectMany(p => p.Participants).Count(),
             })
             .ToListAsync(ct);
 
@@ -623,9 +635,15 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
         var conducted = await programmes
             .CountAsync(p => p.Status == ProgramStatus.Conducted, ct);
 
-        /* Everyone enrolled on a programme, whatever the outcome — distinct from
-           the certified count, which is only those who passed. */
-        var participated = await programmes.SelectMany(p => p.Participants).CountAsync(ct);
+        /* Everyone who was on a programme that actually ran, whatever the
+           outcome — distinct from the certified count, which is only those
+           who passed. Conducted only: enrolment is an intention, and a
+           headline counting people onto batches that have not happened
+           reports the scheme's hopes as its reach. */
+        var participated = await programmes
+            .Where(p => p.Status == ProgramStatus.Conducted)
+            .SelectMany(p => p.Participants)
+            .CountAsync(ct);
 
         var certified = await programmes
             .Where(p => p.Status == ProgramStatus.Conducted)
@@ -649,6 +667,7 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
            headline counts, so the three can never disagree. */
         var byGender = seesProgrammes
             ? await programmes
+                .Where(p => p.Status == ProgramStatus.Conducted)
                 .SelectMany(p => p.Participants)
                 .Where(x => x.Applicant != null)
                 .GroupBy(x => x.Applicant!.Gender)
@@ -658,6 +677,7 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
 
         var bySocialCategory = seesProgrammes
             ? await programmes
+                .Where(p => p.Status == ProgramStatus.Conducted)
                 .SelectMany(p => p.Participants)
                 .Where(x => x.Applicant != null)
                 .GroupBy(x => x.Applicant!.SocialCategory)
