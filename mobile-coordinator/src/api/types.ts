@@ -10,6 +10,14 @@ export interface ApiEnvelope<T> {
   errors?: string[] | null;
 }
 
+/** Who to ring about a programme: the agency that appointed you. */
+export interface AgencyContact {
+  name: string;
+  contactPerson?: string | null;
+  email?: string | null;
+  mobile?: string | null;
+}
+
 /** What the server says after sending a reset code. */
 export interface ForgotPasswordResult {
   message: string;

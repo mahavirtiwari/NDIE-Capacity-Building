@@ -3,6 +3,7 @@ import { ApiError, API_BASE_URL, api, readAuthToken, readUserCode } from './clie
 import { enqueue, keepPhoto, newLocalId } from '../offline/outbox';
 import { appendFacts, deviceFacts, factsQuery, type DeviceFacts } from './captureFacts';
 import type {
+  AgencyContact,
   AuthUser,
   Branding,
   ForgotPasswordResult,
@@ -126,6 +127,11 @@ async function writeOrQueue<T>(spec: {
 }
 
 const NOW = () => new Date().toISOString();
+
+export const agency = {
+  /** The implementing agency that appointed this coordinator. */
+  mine: () => api.get<AgencyContact | null>('coordinator/agency'),
+};
 
 export const workshops = {
   mine: () => api.get<Workshop[]>('coordinator/programmes'),

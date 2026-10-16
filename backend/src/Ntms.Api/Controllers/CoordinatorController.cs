@@ -24,6 +24,11 @@ public class CoordinatorController(MonitoringService service, MarksheetService m
     /* ------------------------------------------------------- programmes */
 
     /// <summary>The workshops assigned to the signed-in coordinator.</summary>
+    /// <summary>The agency that appointed this coordinator, and its contact.</summary>
+    [HttpGet("agency")]
+    public async Task<ActionResult<ApiEnvelope<AgencyContactDto?>>> Agency(CancellationToken ct) =>
+        Envelope(await service.MyAgencyAsync(ct));
+
     [HttpGet("programmes")]
     public async Task<ActionResult<ApiEnvelope<List<CoordinatorProgrammeDto>>>> MyProgrammes(
         CancellationToken ct) =>

@@ -134,6 +134,49 @@ public class MonitoringService(
         return programme;
     }
 
+    /* ----------------------------------------------------------- agency */
+
+    /// <summary>
+    /// The implementing agency this coordinator answers to, and how to
+    /// reach it.
+    ///
+    /// Taken from the account first, and from the programmes they have
+    /// been given if the account does not say - a coordinator created
+    /// before the link was recorded still has an agency, and it is the
+    /// one whose batches they are running. Null when neither knows,
+    /// which the app shows as "ask the office" rather than as a blank
+    /// card.
+    /// </summary>
+    public async Task<AgencyContactDto?> MyAgencyAsync(CancellationToken ct)
+    {
+        var userId = currentUser.UserId
+            ?? throw AppException.Forbidden("Sign in to see your agency.");
+
+        var agencyId = await db.Users.AsNoTracking()
+            .Where(u => u.Id == userId)
+            .Select(u => u.AgencyId)
+            .FirstOrDefaultAsync(ct);
+
+        agencyId ??= await db.Programmes.AsNoTracking()
+            .Where(p => p.CoordinatorId == userId)
+            .OrderByDescending(p => p.StartDate)
+            .Select(p => (int?)p.AgencyId)
+            .FirstOrDefaultAsync(ct);
+
+        if (agencyId is null) return null;
+
+        return await db.Agencies.AsNoTracking()
+            .Where(a => a.Id == agencyId)
+            .Select(a => new AgencyContactDto
+            {
+                Name = a.Name,
+                ContactPerson = a.ContactPerson,
+                Email = a.Email,
+                Mobile = a.Mobile,
+            })
+            .FirstOrDefaultAsync(ct);
+    }
+
     /* ------------------------------------------------------- programmes */
 
     /// <summary>The workshops assigned to the signed-in coordinator.</summary>

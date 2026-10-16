@@ -8,6 +8,22 @@ namespace Ntms.Application.Contracts;
 */
 
 /// <summary>A workshop as it appears in the coordinator's list.</summary>
+/// <summary>
+/// Who to ring about a programme.
+///
+/// The app's support screen told a coordinator that their implementing
+/// agency was the first place to ask and then gave them the scheme's
+/// own address, which is the one place that cannot answer a question
+/// about a venue. This is the agency that appointed them.
+/// </summary>
+public class AgencyContactDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string? ContactPerson { get; set; }
+    public string? Email { get; set; }
+    public string? Mobile { get; set; }
+}
+
 public class CoordinatorProgrammeDto
 {
     /// <summary>

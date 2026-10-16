@@ -1,5 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { agency as agencyApi } from '../src/api/endpoints';
+import type { AgencyContact } from '../src/api/types';
 import { useAuth } from '../src/auth/AuthContext';
 import { useBranding } from '../src/branding/BrandingContext';
 import { Card, Title } from '../src/components/ui';
@@ -17,6 +20,27 @@ import { colors, font, radius, spacing } from '../src/theme';
 export default function Support() {
   const { branding } = useBranding();
   const { session } = useAuth();
+
+  /* Fetched rather than carried in the session: an agency's contact
+     person changes more often than a coordinator signs in. */
+  const [agency, setAgency] = useState<AgencyContact | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const mine = await agencyApi.mine();
+        if (!cancelled) setAgency(mine);
+      } catch {
+        /* The office below is still shown, which is the point of the
+           screen; an agency that cannot be fetched is one row missing,
+           not a failure worth a banner. */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const email = branding.supportEmail?.trim();
   const page = branding.supportUrl?.trim();
@@ -38,7 +62,65 @@ export default function Support() {
         the office below.
       </Text>
 
+      {/* The agency first: it is the answer to almost every question a
+          coordinator has, and it was the one contact this screen told
+          them to use and did not give them. */}
+      {agency ? (
+        <Card style={styles.card}>
+          <Text style={styles.section}>Your implementing agency</Text>
+          <Text style={styles.agencyName}>{agency.name}</Text>
+          {agency.contactPerson ? (
+            <Text style={styles.agencyPerson}>{agency.contactPerson}</Text>
+          ) : null}
+
+          {agency.mobile ? (
+            <Pressable
+              style={styles.row}
+              onPress={() => void Linking.openURL(`tel:${agency.mobile}`)}
+            >
+              <View style={styles.rowIcon}>
+                <Ionicons name="call-outline" size={18} color={colors.brand700} />
+              </View>
+              <View style={styles.rowBody}>
+                <Text style={styles.rowLabel}>Mobile</Text>
+                <Text style={styles.rowValue}>{agency.mobile}</Text>
+              </View>
+              <Ionicons name="open-outline" size={16} color={colors.ink400} />
+            </Pressable>
+          ) : null}
+
+          {agency.email ? (
+            <Pressable
+              style={styles.row}
+              onPress={() =>
+                void Linking.openURL(
+                  `mailto:${agency.email}?subject=${encodeURIComponent(
+                    `Program query - ${session?.userCode ?? ''}`,
+                  )}`,
+                )
+              }
+            >
+              <View style={styles.rowIcon}>
+                <Ionicons name="mail-outline" size={18} color={colors.brand700} />
+              </View>
+              <View style={styles.rowBody}>
+                <Text style={styles.rowLabel}>Email</Text>
+                <Text style={styles.rowValue}>{agency.email}</Text>
+              </View>
+              <Ionicons name="open-outline" size={16} color={colors.ink400} />
+            </Pressable>
+          ) : null}
+
+          {!agency.mobile && !agency.email ? (
+            <Text style={styles.none}>
+              No contact has been recorded for this agency. The office below can reach them.
+            </Text>
+          ) : null}
+        </Card>
+      ) : null}
+
       <Card style={styles.card}>
+        <Text style={styles.section}>The scheme's office</Text>
         {mailto ? (
           <Pressable style={styles.row} onPress={() => void Linking.openURL(mailto)}>
             <View style={styles.rowIcon}>
@@ -74,13 +156,6 @@ export default function Support() {
         ) : null}
       </Card>
 
-      {branding.aboutText ? (
-        <Card style={styles.card}>
-          <Text style={styles.section}>About</Text>
-          <Text style={styles.about}>{branding.aboutText}</Text>
-        </Card>
-      ) : null}
-
       <Text style={styles.footnote}>
         Signed in as {session?.fullName} ({session?.userCode}).
       </Text>
@@ -94,7 +169,8 @@ const styles = StyleSheet.create({
   lead: { fontSize: font.sm, color: colors.ink600, lineHeight: 19 },
   card: { gap: spacing.sm },
   section: { fontSize: font.md, fontWeight: '700', color: colors.ink900 },
-  about: { fontSize: font.sm, color: colors.ink600, lineHeight: 19 },
+  agencyName: { fontSize: font.base, fontWeight: '600', color: colors.ink900 },
+  agencyPerson: { fontSize: font.sm, color: colors.ink600, marginTop: -2 },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 6 },
   rowIcon: {

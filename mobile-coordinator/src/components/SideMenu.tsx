@@ -52,6 +52,9 @@ const LINKS: MenuLink[] = [
      is looking at a programme the office cannot see. */
   { icon: 'cloud-upload-outline', label: 'Unsent work', href: '/unsent' },
   { icon: 'key-outline', label: 'Change password', href: '/change-password' },
+  /* Its own item, because what the scheme is is not a footnote to a
+     support telephone number. The words come from the portal. */
+  { icon: 'information-circle-outline', label: 'About', href: '/about' },
 ];
 
 const SUPPORT_LINK: MenuLink = {

@@ -81,6 +81,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="change-password" options={{ title: 'Change password' }} />
           <Stack.Screen name="support" options={{ title: 'Support' }} />
+          <Stack.Screen name="about" options={{ title: 'About' }} />
           <Stack.Screen name="unsent" options={{ title: 'Unsent work' }} />
           <Stack.Screen name="workshop/[id]" options={{ headerShown: false }} />
               </Stack>
