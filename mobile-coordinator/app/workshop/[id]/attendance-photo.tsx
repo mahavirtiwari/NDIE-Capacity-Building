@@ -65,6 +65,7 @@ export default function AttendancePhoto() {
             hint="One photo per page. Make sure the signatures are readable."
             value={image}
             onPick={setImage}
+            onClear={() => setImage(null)}
           />
           {failure ? <Banner tone="danger">{failure}</Banner> : null}
           <Button label="Upload sheet" onPress={upload} loading={busy} disabled={!image} />

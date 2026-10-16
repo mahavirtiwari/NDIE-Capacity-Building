@@ -67,17 +67,10 @@ export function InstallGate({ children }: { children: ReactNode }) {
             request,
           ),
         },
-        {
-          key: 'media',
-          label: 'Photos and media',
-          why: 'To attach a picture you have already taken, and to keep what you download.',
-          icon: 'images-outline',
-          standing: await standingOf(
-            () => ImagePicker.getMediaLibraryPermissionsAsync(),
-            () => ImagePicker.requestMediaLibraryPermissionsAsync(),
-            request,
-          ),
-        },
+        /* The photo library is not asked for any more. Every picture
+           this app records is taken with the camera, here and now, so
+           the gallery is nothing it needs - and a permission nobody
+           uses is one nobody should be made to grant. */
         {
           key: 'location',
           label: 'Location',

@@ -90,6 +90,8 @@ public class CoordinatorProgrammeDto
     public string Venue { get; set; } = string.Empty;
     public string? City { get; set; }
     public string? State { get; set; }
+    /// <summary>The LGD district, named: the venue screen shows it back.</summary>
+    public string? District { get; set; }
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
     public string Status { get; set; } = string.Empty;

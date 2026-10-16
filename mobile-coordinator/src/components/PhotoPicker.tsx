@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -6,15 +7,24 @@ import { useStoredImage } from '../files/storedImage';
 import { colors, radius, spacing } from '../theme';
 
 /**
- * Takes or chooses one photograph.
+ * Takes one photograph, with this handset's camera.
  *
- * The camera is offered first because these are meant to be taken at the venue,
- * on the day; the library is kept as a fallback for a device whose camera is
- * refused or unavailable, not as the primary route.
+ * The camera and nothing else. There used to be a Choose button beside
+ * it, offered as a fallback for a device whose camera was refused —
+ * but what this app records is evidence that a workshop happened in a
+ * particular hall on a particular day, and a picture from the gallery
+ * is a picture of something, somewhere, at some time. A photograph
+ * that could have come from anywhere proves nothing, and an option
+ * that is there "only as a fallback" is an option that gets used.
  *
- * Images are compressed to roughly 0.6 quality on the way out. The evidence is
- * a room, a banner and a group of people — legible at that quality, and small
- * enough to upload from a district town on a weak signal.
+ * What is taken can always be thrown away and taken again: the preview
+ * carries a delete, because the fix for a bad photograph is another
+ * photograph and nobody should have to submit the first one.
+ *
+ * Images are compressed to roughly 0.6 quality on the way out. The
+ * evidence is a room, a banner and a group of people — legible at that
+ * quality, and small enough to upload from a district town on a weak
+ * signal.
  */
 export function PhotoPicker({
   label,
@@ -22,6 +32,7 @@ export function PhotoPicker({
   value,
   existingPath,
   onPick,
+  onClear,
   disabled,
 }: {
   label: string;
@@ -36,6 +47,15 @@ export function PhotoPicker({
    */
   existingPath?: string | null;
   onPick: (image: CapturedImage) => void;
+  /**
+   * Discards what has just been taken, where the screen can accept that.
+   *
+   * Only ever clears this handset's unsent capture. A photograph the
+   * server already holds is replaced by taking another, not deleted
+   * from here - the record of a workshop is not something a phone
+   * should be able to empty.
+   */
+  onClear?: () => void;
   disabled?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
@@ -44,32 +64,16 @@ export function PhotoPicker({
   const stored = useStoredImage(value ? null : existingPath);
   const preview = value?.uri ?? stored;
 
-  const run = async (source: 'camera' | 'library') => {
+  const capture = async () => {
     setBusy(true);
     try {
-      const permission =
-        source === 'camera'
-          ? await ImagePicker.requestCameraPermissionsAsync()
-          : await ImagePicker.requestMediaLibraryPermissionsAsync();
-
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert(
-          'Permission needed',
-          source === 'camera'
-            ? 'Allow camera access to take the photo.'
-            : 'Allow photo access to choose an image.',
-        );
+        Alert.alert('Camera needed', 'Allow camera access to take the photo.');
         return;
       }
 
-      const result =
-        source === 'camera'
-          ? await ImagePicker.launchCameraAsync({ quality: 0.6, exif: false })
-          : await ImagePicker.launchImageLibraryAsync({
-              quality: 0.6,
-              mediaTypes: ['images'],
-            });
-
+      const result = await ImagePicker.launchCameraAsync({ quality: 0.6, exif: false });
       if (result.canceled || result.assets.length === 0) return;
 
       const asset = result.assets[0];
@@ -85,35 +89,43 @@ export function PhotoPicker({
     }
   };
 
+  const discard = () => {
+    Alert.alert('Delete this photo?', 'You can take another one straight away.', [
+      { text: 'Keep', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: onClear },
+    ]);
+  };
+
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>{label}</Text>
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}
 
       {preview ? (
-        <Image source={{ uri: preview }} style={styles.preview} resizeMode="cover" />
+        <View>
+          <Image source={{ uri: preview }} style={styles.preview} resizeMode="cover" />
+          {/* Only what this phone is still holding can be thrown away. */}
+          {value && onClear && !disabled ? (
+            <Pressable style={styles.delete} onPress={discard} hitSlop={8}>
+              <Ionicons name="trash-outline" size={16} color={colors.white} />
+            </Pressable>
+          ) : null}
+        </View>
       ) : (
         <View style={[styles.preview, styles.empty]}>
+          <Ionicons name="camera-outline" size={22} color={colors.ink400} />
           <Text style={styles.emptyText}>No photo yet</Text>
         </View>
       )}
 
-      <View style={styles.row}>
-        <Pressable
-          style={[styles.action, (disabled || busy) && styles.actionOff]}
-          disabled={disabled || busy}
-          onPress={() => run('camera')}
-        >
-          <Text style={styles.actionText}>{preview ? 'Retake' : 'Take photo'}</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.action, styles.actionGhost, (disabled || busy) && styles.actionOff]}
-          disabled={disabled || busy}
-          onPress={() => run('library')}
-        >
-          <Text style={[styles.actionText, styles.actionGhostText]}>Choose</Text>
-        </Pressable>
-      </View>
+      <Pressable
+        style={[styles.action, (disabled || busy) && styles.actionOff]}
+        disabled={disabled || busy}
+        onPress={() => void capture()}
+      >
+        <Ionicons name="camera" size={16} color={colors.white} />
+        <Text style={styles.actionText}>{preview ? 'Retake photo' : 'Take photo'}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -128,18 +140,30 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.ink100,
   },
-  empty: { alignItems: 'center', justifyContent: 'center' },
+  empty: { alignItems: 'center', justifyContent: 'center', gap: 4 },
   emptyText: { color: colors.ink500, fontSize: 13 },
-  row: { flexDirection: 'row', gap: spacing.sm },
+
+  delete: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgb(0 0 0 / 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   action: {
-    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     paddingVertical: 11,
     borderRadius: radius.md,
     backgroundColor: colors.brand600,
-    alignItems: 'center',
   },
-  actionGhost: { backgroundColor: colors.ink100 },
   actionOff: { opacity: 0.5 },
   actionText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-  actionGhostText: { color: colors.ink700 },
 });

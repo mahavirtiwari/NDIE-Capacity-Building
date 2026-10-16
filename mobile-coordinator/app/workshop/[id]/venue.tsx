@@ -2,7 +2,8 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../../src/api/client';
-import { photos, venue as venueApi, type CapturedImage } from '../../../src/api/endpoints';
+import { coordinatorProfile, photos, venue as venueApi, type CapturedImage } from '../../../src/api/endpoints';
+import type { CoordinatorProfile } from '../../../src/api/types';
 import { Banner, Button, Card, Field, KeyboardAvoider } from '../../../src/components/ui';
 import { PhotoPicker } from '../../../src/components/PhotoPicker';
 import { useGeoFix } from '../../../src/location/useGeoFix';
@@ -33,6 +34,28 @@ export default function RegisterVenue() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  /* Who is registering it, for the header. Read rather than typed:
+     every one of these is already on the account, and a coordinator
+     retyping their own mobile number at a venue is a way of getting it
+     wrong. */
+  const [me, setMe] = useState<CoordinatorProfile | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const mine = await coordinatorProfile.mine();
+        if (!cancelled) setMe(mine);
+      } catch {
+        /* The form below is the job; a missing header is not worth
+           stopping it for. */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   /* Seeded from whatever is already recorded, so re-opening the screen shows
      the venue rather than an empty form inviting it to be typed again. */
@@ -84,6 +107,30 @@ export default function RegisterVenue() {
   return (
     <KeyboardAvoider style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {/* Who is registering this, and where the office says it is.
+            The reference screen opens with exactly this, and for the
+            same reason: a coordinator checks it against the hall they
+            are standing in before recording anything. */}
+        <Card style={styles.card}>
+          <Text style={styles.heading}>Coordinator</Text>
+          <Line label="Name" value={me?.fullName} />
+          <Line label="Mobile number" value={me?.mobile} />
+          <Line label="Email ID" value={me?.email} />
+        </Card>
+
+        <Card style={styles.card}>
+          <Text style={styles.heading}>Venue</Text>
+          <Text style={styles.hint}>
+            As the program was raised. Ask the office if any of it is wrong.
+          </Text>
+          <Line label="Venue" value={detail?.venue} />
+          <Line label="Mode" value={detail?.mode} />
+          <Line label="City" value={detail?.city} />
+          <Line label="District" value={detail?.district} />
+          <Line label="State" value={detail?.state} />
+        </Card>
+
+
         {locked ? <Banner tone="info">Finally submitted — read only.</Banner> : null}
 
         <Card style={styles.card}>
@@ -175,6 +222,7 @@ export default function RegisterVenue() {
             value={exterior}
             existingPath={existing?.exteriorPhoto?.url ?? null}
             onPick={setExterior}
+            onClear={() => setExterior(null)}
             disabled={locked}
           />
         </Card>
@@ -186,6 +234,7 @@ export default function RegisterVenue() {
             value={interior}
             existingPath={existing?.interiorPhoto?.url ?? null}
             onPick={setInterior}
+            onClear={() => setInterior(null)}
             disabled={locked}
           />
         </Card>
@@ -198,7 +247,36 @@ export default function RegisterVenue() {
   );
 }
 
+/** One read-only fact in the header cards. */
+function Line({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <View style={styles.line}>
+      <Text style={styles.lineLabel}>{label}</Text>
+      <Text style={[styles.lineValue, !value && styles.lineEmpty]}>
+        {value?.trim() ? value : 'Not recorded'}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  line: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingVertical: 5,
+  },
+  lineLabel: { fontSize: 13, color: colors.ink500, flexShrink: 0 },
+  lineValue: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.ink900,
+    textAlign: 'right',
+  },
+  lineEmpty: { fontWeight: '400', color: colors.ink400, fontStyle: 'italic' },
+
   flex: { flex: 1, backgroundColor: colors.page },
   content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
   card: { gap: spacing.md },

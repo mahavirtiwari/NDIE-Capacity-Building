@@ -85,6 +85,7 @@ export interface Workshop {
   venue: string;
   city?: string;
   state?: string;
+  district?: string | null;
   startDate: string;
   endDate: string;
   status: string;

@@ -274,9 +274,11 @@ export default function Programs() {
  * What a coordinator needs before they set off: which programme, where
  * it is or how to join it, and when.
  *
- * A sheet rather than a screen, because it is read and dismissed - the
- * work is behind Start, and sending somebody through a details page to
- * reach it would put a step in front of every visit.
+ * A dialog rather than a screen, because it is read and dismissed -
+ * the work is behind Start, and sending somebody through a details
+ * page to reach it would put a step in front of every visit. Centred,
+ * so it reads as the one thing being looked at rather than as a drawer
+ * half covering the list it came from.
  */
 function Details({
   programme,
@@ -292,11 +294,13 @@ function Details({
   const link = programme.meetingLink?.trim();
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
-      <View style={styles.sheet}>
-        <View style={styles.sheetGrip} />
-        <ScrollView contentContainerStyle={styles.sheetBody}>
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.backdrop}>
+        {/* The backdrop closes it; the card swallows the tap so a press
+            inside does not. */}
+        <Pressable style={styles.backdropHit} onPress={onClose} accessibilityLabel="Close" />
+        <View style={styles.sheet}>
+          <ScrollView contentContainerStyle={styles.sheetBody}>
           <Text style={styles.sheetTitle}>{programme.programmeName}</Text>
           <Text style={styles.sheetCode}>{programme.programmeId}</Text>
 
@@ -348,10 +352,11 @@ function Details({
             </>
           ) : null}
 
-          <Pressable style={styles.sheetClose} onPress={onClose}>
-            <Text style={styles.sheetCloseText}>Close</Text>
-          </Pressable>
-        </ScrollView>
+            <Pressable style={styles.sheetClose} onPress={onClose}>
+              <Text style={styles.sheetCloseText}>Close</Text>
+            </Pressable>
+          </ScrollView>
+        </View>
       </View>
     </Modal>
   );
@@ -465,23 +470,26 @@ const styles = StyleSheet.create({
   buttonSolid: { backgroundColor: colors.brand600, borderColor: colors.brand600 },
   buttonSolidText: { fontSize: font.sm, fontWeight: '700', color: colors.white },
 
-  backdrop: { flex: 1, backgroundColor: 'rgb(0 0 0 / 0.35)' },
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgb(0 0 0 / 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  /* Behind the card and filling the screen, so a tap anywhere outside
+     closes it without the card having to know where its edges are. */
+  backdropHit: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   sheet: {
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '85%',
     backgroundColor: colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-    paddingBottom: spacing.lg,
+    borderRadius: 18,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
   },
-  sheetGrip: {
-    alignSelf: 'center',
-    width: 38,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.ink200,
-    marginVertical: spacing.sm,
-  },
-  sheetBody: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
+  sheetBody: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
   sheetTitle: { fontSize: font.lg, fontWeight: '700', color: colors.ink900 },
   sheetCode: { fontSize: font.sm, color: colors.brand700, fontWeight: '600', marginBottom: spacing.sm },
 

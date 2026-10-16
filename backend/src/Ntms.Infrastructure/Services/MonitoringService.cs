@@ -79,6 +79,7 @@ public class MonitoringService(
         var programme = await db.Programmes
             .Include(p => p.ProgramType)
             .Include(p => p.State)
+            .Include(p => p.District)
             .FirstOrDefaultAsync(p => p.Id == programmeId, ct)
             ?? throw AppException.NotFound("Program");
 
@@ -253,6 +254,7 @@ public class MonitoringService(
         var rows = await db.Programmes.AsNoTracking()
             .Include(p => p.ProgramType)
             .Include(p => p.State)
+            .Include(p => p.District)
             .Where(p => p.CoordinatorId == userId && Permitted.Contains(p.Status))
             .OrderByDescending(p => p.StartDate)
             .ToListAsync(ct);
@@ -314,33 +316,17 @@ public class MonitoringService(
         var submission = await db.ProgrammeSubmissions.AsNoTracking()
             .FirstOrDefaultAsync(s => s.ProgrammeId == programmeId, ct);
 
-        var dto = Summarise(programme, submission?.SubmittedOn);
-        dto.VenueRegistered = venue is not null;
-        var detail = new CoordinatorProgrammeDetailDto
-        {
-            Id = dto.Id,
-            ProgrammeId = dto.ProgrammeId,
-            ProgrammeName = dto.ProgrammeName,
-            ProgramTypeName = dto.ProgramTypeName,
-            Venue = dto.Venue,
-            City = dto.City,
-            State = dto.State,
-            StartDate = dto.StartDate,
-            EndDate = dto.EndDate,
-            Status = dto.Status,
-            IsSubmitted = dto.IsSubmitted,
-            SubmittedOn = dto.SubmittedOn,
-            VenueRegistered = dto.VenueRegistered,
-            Trainers = [.. trainers.Select(ToDto)],
-            Sessions = [.. sessions.Select(s => ToDto(s, allPhotos))],
-            Participants = [.. participants.Select(p => ToDto(p, allPhotos))],
-            AttendanceSheets =
-            [
-                .. allPhotos
-                    .Where(x => x.Kind == MonitoringPhotoKind.AttendanceSheet)
-                    .Select(ToDto),
-            ],
-        };
+        var detail = Fill(new CoordinatorProgrammeDetailDto(), programme, submission?.SubmittedOn);
+        detail.VenueRegistered = venue is not null;
+        detail.Trainers = [.. trainers.Select(ToDto)];
+        detail.Sessions = [.. sessions.Select(s => ToDto(s, allPhotos))];
+        detail.Participants = [.. participants.Select(p => ToDto(p, allPhotos))];
+        detail.AttendanceSheets =
+        [
+            .. allPhotos
+                .Where(x => x.Kind == MonitoringPhotoKind.AttendanceSheet)
+                .Select(ToDto),
+        ];
 
         if (venue is not null) detail.Venue2 = ToDto(venue, allPhotos);
         detail.Progress = Progress(venue, trainers, sessions, participants, allPhotos);
@@ -1140,26 +1126,43 @@ public class MonitoringService(
         return progress;
     }
 
-    private static CoordinatorProgrammeDto Summarise(Programme p, DateTime? submittedOn) => new()
+    private static CoordinatorProgrammeDto Summarise(Programme p, DateTime? submittedOn) =>
+        Fill(new CoordinatorProgrammeDto(), p, submittedOn);
+
+    /// <summary>
+    /// Everything the summary says about a programme, written onto
+    /// whichever shape is being built.
+    ///
+    /// The detail used to copy these across field by field, which meant
+    /// every addition to the summary had to be remembered in a second
+    /// place - and the first two that were not, the mode and the
+    /// district, reached the venue screen as "Not recorded" while the
+    /// list beside it showed them correctly. One filler, so there is
+    /// nowhere left to forget.
+    /// </summary>
+    private static T Fill<T>(T dto, Programme p, DateTime? submittedOn)
+        where T : CoordinatorProgrammeDto
     {
-        Id = p.Id,
-        ProgrammeId = p.ProgrammeId,
-        ProgrammeName = p.ProgrammeName,
-        ProgramTypeName = p.ProgramType?.Name,
-        Venue = p.Venue,
-        City = p.City,
-        State = p.State?.Name,
-        StartDate = p.StartDate,
-        EndDate = p.EndDate,
-        Status = p.Status.ToString(),
-        IsSubmitted = submittedOn is not null,
-        SubmittedOn = submittedOn,
-        Mode = p.Mode.ToString(),
-        MeetingPlatform = p.MeetingPlatform,
-        MeetingLink = p.MeetingLink,
-        DailyStartTime = p.StartTime,
-        DailyEndTime = p.EndTime,
-    };
+        dto.Id = p.Id;
+        dto.ProgrammeId = p.ProgrammeId;
+        dto.ProgrammeName = p.ProgrammeName;
+        dto.ProgramTypeName = p.ProgramType?.Name;
+        dto.Venue = p.Venue;
+        dto.City = p.City;
+        dto.State = p.State?.Name;
+        dto.District = p.District?.Name;
+        dto.StartDate = p.StartDate;
+        dto.EndDate = p.EndDate;
+        dto.Status = p.Status.ToString();
+        dto.IsSubmitted = submittedOn is not null;
+        dto.SubmittedOn = submittedOn;
+        dto.Mode = p.Mode.ToString();
+        dto.MeetingPlatform = p.MeetingPlatform;
+        dto.MeetingLink = p.MeetingLink;
+        dto.DailyStartTime = p.StartTime;
+        dto.DailyEndTime = p.EndTime;
+        return dto;
+    }
 
     private static TrainerDto ToDto(ProgrammeTrainer t) => new()
     {

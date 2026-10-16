@@ -104,6 +104,7 @@ export default function ParticipantPhoto() {
             value={image}
             existingPath={person.photo?.url ?? null}
             onPick={setImage}
+            onClear={() => setImage(null)}
           />
           {failure ? <Banner tone="danger">{failure}</Banner> : null}
           <Button label="Upload photo" onPress={upload} loading={busy} disabled={!image} />

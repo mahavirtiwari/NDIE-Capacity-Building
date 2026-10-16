@@ -43,14 +43,16 @@ interface MenuLink {
  * about which one is open.
  */
 const LINKS: MenuLink[] = [
-  /* Programs, Material, Profile and Notifications are along the bottom
-     now. What is left here is what a tab bar has no room for and nobody
-     opens daily - and listing the four again would be two ways to the
-     same screen, one of which looks like somewhere else. */
-  /* Reachable without the banner, so somebody in the office can say
-     'open Unsent work and read me what it says' to a coordinator who
-     is looking at a programme the office cannot see. */
-  { icon: 'cloud-upload-outline', label: 'Unsent work', href: '/unsent' },
+  /* The three that are also along the bottom are listed here as well,
+     on purpose. The tab bar is how somebody moves while working; the
+     menu is how somebody who has just opened the app finds out what is
+     in it, and leaving the main screens out of it made the panel read
+     as a box of leftovers.
+     Unsent work is not here: the banner carries it, and the Sync Data
+     step on a programme is where a coordinator goes looking for it. */
+  { icon: 'grid-outline', label: 'Program', href: '/(tabs)/programs' },
+  { icon: 'book-outline', label: 'Training material', href: '/(tabs)/materials' },
+  { icon: 'person-outline', label: 'My profile', href: '/(tabs)/profile' },
   { icon: 'key-outline', label: 'Change password', href: '/change-password' },
   /* Its own item, because what the scheme is is not a footnote to a
      support telephone number. The words come from the portal. */

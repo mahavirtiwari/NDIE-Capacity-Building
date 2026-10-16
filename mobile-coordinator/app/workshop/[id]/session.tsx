@@ -159,6 +159,7 @@ export default function SessionManagement() {
               hint="The session in progress, with participants visible."
               value={image}
               onPick={setImage}
+              onClear={() => setImage(null)}
             />
             {errors.photo ? <Banner tone="danger">{errors.photo}</Banner> : null}
 
