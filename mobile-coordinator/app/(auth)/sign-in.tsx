@@ -1,23 +1,20 @@
-import { useRouter } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApiError } from '../../src/api/client';
 import { useAuth } from '../../src/auth/AuthContext';
 import { BrandLogo, useBranding } from '../../src/branding/BrandingContext';
-import {
-  Banner,
-  Button,
-  Card,
-  Field,
-  KeyboardAvoider,
-  Subtitle,
-  Title,
-} from '../../src/components/ui';
-import { colors, spacing } from '../../src/theme';
+import { Banner, Button, Field, KeyboardAvoider } from '../../src/components/ui';
+import { colors, font, radius, spacing } from '../../src/theme';
 
 /**
  * Sign-in for the coordinator app, using the same portal credentials as the
  * web portal: the system generated user ID, never an email address.
+ *
+ * Laid out like the applicant app's, mark and all, because they are two
+ * doors into one scheme and a coordinator who has seen the other one
+ * should recognise this.
  */
 export default function SignIn() {
   const router = useRouter();
@@ -50,64 +47,109 @@ export default function SignIn() {
   };
 
   return (
-    <KeyboardAvoider style={styles.flex}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          {/* The organisation's own mark, served by the API and kept on the
-              device, so this screen is branded even with no signal. */}
-          <BrandLogo size={46} />
-          <Text style={styles.org}>{branding.organisationName}</Text>
-          <Title>Program monitoring</Title>
-          <Subtitle style={styles.lead}>
-            Sign in with the coordinator ID issued to you — not your email address.
-          </Subtitle>
-        </View>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <KeyboardAvoider style={styles.flex}>
+        {/* Centred as a whole, mark included, rather than sitting under the
+            status bar with the page empty below it. */}
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.hero}>
+            {/* The organisation's own mark, served by the API and kept on the
+                device, so this screen is branded even with no signal. */}
+            <BrandLogo size={52} />
+            <Text style={styles.brand}>PROGRAM MONITORING</Text>
+            <Text style={styles.org}>{branding.organisationName}</Text>
+          </View>
 
-        <Card style={styles.card}>
-          <Field
-            label="User ID"
-            required
-            value={userId}
-            /* Upper-cased as you type: every issued code is upper case, and a
-               lower-cased one would simply be rejected. */
-            onChangeText={(text) => setUserId(text.toUpperCase())}
-            placeholder="e.g. CO0010"
-            autoCapitalize="characters"
-            autoCorrect={false}
-            error={errors.userId}
-          />
+          <View style={styles.panel}>
+            <Text style={styles.title}>Welcome</Text>
+            <Text style={styles.subtitle}>Sign in to your coordinator account</Text>
 
-          <Field
-            label="Password"
-            required
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Your password"
-            secureTextEntry
-            error={errors.password}
-          />
+            <View style={styles.form}>
+              <Field
+                label="User ID"
+                required
+                value={userId}
+                /* Upper-cased as you type: every issued code is upper case, and a
+                   lower-cased one would simply be rejected. */
+                onChangeText={(text) => setUserId(text.toUpperCase())}
+                placeholder="e.g. CO0010"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                error={errors.userId}
+                hint="The coordinator ID issued to you — not your email address."
+              />
 
-          {failure ? <Banner tone="danger">{failure}</Banner> : null}
+              <Field
+                label="Password"
+                required
+                secure
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Enter your password"
+                autoCapitalize="none"
+                autoCorrect={false}
+                onSubmitEditing={submit}
+                returnKeyType="go"
+                error={errors.password}
+              />
 
-          <Button label="Sign in" onPress={submit} loading={busy} />
-        </Card>
+              <Link href="/(auth)/forgot-password" asChild>
+                <Pressable accessibilityRole="button" style={styles.forgot}>
+                  <Text style={styles.forgotText}>Forgot password?</Text>
+                </Pressable>
+              </Link>
 
-        <Text style={styles.footnote}>
-          Capacity Building Management System · Ministry of MSME
-        </Text>
-      </ScrollView>
-    </KeyboardAvoider>
+              {failure ? <Banner tone="danger">{failure}</Banner> : null}
+
+              <Button label="Sign in" onPress={submit} loading={busy} />
+            </View>
+          </View>
+
+          <Text style={styles.footnote}>
+            Capacity Building Management System · Ministry of MSME
+          </Text>
+        </ScrollView>
+      </KeyboardAvoider>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.blush },
-  content: { padding: spacing.lg, paddingTop: spacing.xxl * 2, gap: spacing.lg, flexGrow: 1 },
-  header: { gap: spacing.xs, alignItems: 'center' },
-  org: { color: colors.ink600, fontSize: 12, marginBottom: spacing.sm, textAlign: 'center' },
-  /* Centred on its own as well as in the column: a line that wraps is laid
-     out inside the text block, and alignItems does not reach in there. */
-  lead: { textAlign: 'center' },
-  card: { gap: spacing.lg },
-  footnote: { marginTop: 'auto', textAlign: 'center', color: colors.ink500, fontSize: 12 },
+  safe: { flex: 1, backgroundColor: colors.blush },
+  flex: { flex: 1 },
+  /* justifyContent on a grown container is what centres the whole column —
+     mark, panel and footnote together — on a tall screen, and lets it
+     scroll normally on a short one or with the keyboard up. */
+  content: { flexGrow: 1, justifyContent: 'center', padding: spacing.lg, gap: spacing.lg },
+
+  hero: { alignItems: 'center', gap: spacing.sm },
+  brand: {
+    fontSize: font.xl,
+    fontWeight: '800',
+    color: colors.ink900,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  org: { fontSize: font.sm, color: colors.ink600, textAlign: 'center' },
+
+  panel: {
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    gap: spacing.xs,
+  },
+  title: { fontSize: font.xl, fontWeight: '700', color: colors.ink900 },
+  subtitle: { fontSize: font.sm, color: colors.ink600 },
+  form: { gap: spacing.lg, marginTop: spacing.lg },
+
+  forgot: { alignSelf: 'flex-end', paddingVertical: spacing.xs },
+  forgotText: { fontSize: font.sm, color: colors.brand700, fontWeight: '600' },
+
+  footnote: { textAlign: 'center', color: colors.ink500, fontSize: font.xs },
 });

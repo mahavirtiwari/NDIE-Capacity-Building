@@ -39,6 +39,20 @@
       ],
       "port": 5210,
       "autoPort": false
+    },
+    {
+      "name": "coordinator-app",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "mobile-coordinator",
+        "run",
+        "web",
+        "--",
+        "--port",
+        "8082"
+      ],
+      "port": 8082
     }
   ]
 }

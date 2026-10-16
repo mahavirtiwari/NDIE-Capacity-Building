@@ -100,24 +100,61 @@ interface FieldProps extends TextInputProps {
   required?: boolean;
   error?: string | null;
   hint?: string | null;
+  /**
+   * A password box with an eye on it.
+   *
+   * Use this rather than secureTextEntry. A coordinator types their
+   * password on a phone, outdoors, often in a hurry, and a row of dots
+   * with no way to check it is how a correct password gets typed wrong
+   * three times and locks the account - which, in a hall with no signal
+   * and no office to ring, ends the afternoon.
+   */
+  secure?: boolean;
 }
 
 export const Field = forwardRef<TextInput, FieldProps>(function Field(
-  { label, required, error, hint, style, ...rest },
+  { label, required, error, hint, secure, style, ...rest },
   ref,
 ) {
+  const [reveal, setReveal] = useState(false);
+
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>
         {label}
         {required ? <Text style={styles.required}> *</Text> : null}
       </Text>
-      <TextInput
-        ref={ref}
-        placeholderTextColor={colors.ink400}
-        style={[styles.input, !!error && styles.inputInvalid, style]}
-        {...rest}
-      />
+
+      <View>
+        <TextInput
+          ref={ref}
+          placeholderTextColor={colors.ink400}
+          secureTextEntry={secure ? !reveal : rest.secureTextEntry}
+          style={[
+            styles.input,
+            !!error && styles.inputInvalid,
+            !!secure && styles.inputWithEye,
+            style,
+          ]}
+          {...rest}
+        />
+        {secure ? (
+          <Pressable
+            onPress={() => setReveal((current) => !current)}
+            hitSlop={8}
+            style={styles.eye}
+            accessibilityRole="button"
+            accessibilityLabel={reveal ? 'Hide password' : 'Show password'}
+          >
+            <Ionicons
+              name={reveal ? 'eye-off-outline' : 'eye-outline'}
+              size={18}
+              color={colors.ink500}
+            />
+          </Pressable>
+        ) : null}
+      </View>
+
       {error ? (
         <Text style={styles.error}>{error}</Text>
       ) : hint ? (
@@ -354,6 +391,8 @@ const styles = StyleSheet.create({
   field: { gap: 6 },
   fieldLabel: { fontSize: font.sm, fontWeight: '600', color: colors.ink700 },
   required: { color: colors.danger500 },
+  inputWithEye: { paddingRight: 42 },
+  eye: { position: 'absolute', right: spacing.md, top: 0, bottom: 0, justifyContent: 'center' },
   input: {
     borderWidth: 1,
     borderColor: colors.borderStrong,

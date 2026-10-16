@@ -10,6 +10,12 @@ export interface ApiEnvelope<T> {
   errors?: string[] | null;
 }
 
+/** What the server says after sending a reset code. */
+export interface ForgotPasswordResult {
+  message: string;
+  validityMinutes: number;
+}
+
 export interface LoginResponse {
   token: string;
   refreshToken: string;

@@ -5,6 +5,7 @@ import { appendFacts, deviceFacts, factsQuery, type DeviceFacts } from './captur
 import type {
   AuthUser,
   Branding,
+  ForgotPasswordResult,
   LoginResponse,
   Marksheet,
   MarksheetRowSave,
@@ -52,6 +53,18 @@ export const auth = {
   /** The server ends every other session on success, so the app signs out. */
   changePassword: (currentPassword: string, newPassword: string) =>
     api.post<boolean>('auth/change-password', { currentPassword, newPassword }),
+
+  /*
+   * The same two calls the portal's own forgot-password screen makes, and
+   * the same code goes to the same address - a coordinator who starts the
+   * reset on the phone can finish it on the web, or the other way round.
+   * Anonymous, necessarily: somebody who cannot sign in is making them.
+   */
+  forgotPassword: (userCode: string) =>
+    api.post<ForgotPasswordResult>('auth/forgot-password', { userCode }, true),
+
+  resetPassword: (userCode: string, code: string, newPassword: string) =>
+    api.post<boolean>('auth/reset-password', { userCode, code, newPassword }, true),
 };
 
 export const materials = {
