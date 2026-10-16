@@ -32,7 +32,7 @@ export default function ForgotPassword() {
   const request = async () => {
     const id = userId.trim();
     if (!id) {
-      setError('Enter your user ID.');
+      setError('Enter your user ID or registered email.');
       return;
     }
 
@@ -100,16 +100,24 @@ export default function ForgotPassword() {
             {sent === null ? (
               <View style={styles.form}>
                 <Field
-                  label="User ID"
+                  label="User ID or email"
                   required
                   value={userId}
-                  onChangeText={(text) => setUserId(text.toUpperCase())}
-                  placeholder="e.g. CO0010"
-                  autoCapitalize="characters"
+                  /* Upper-cased while it looks like an ID, left alone once
+                     there is an @ in it: every issued code is upper case,
+                     and an address shouted back in capitals as it is typed
+                     looks like the box has misunderstood. The server takes
+                     either and files the code under the ID, so the second
+                     step finds it whichever was typed. */
+                  onChangeText={(text) =>
+                    setUserId(text.includes('@') ? text : text.toUpperCase())
+                  }
+                  placeholder="CO0010 or your registered email"
+                  autoCapitalize="none"
                   autoCorrect={false}
                   onSubmitEditing={request}
                   returnKeyType="go"
-                  hint="The coordinator ID issued to you — not your email address."
+                  hint="Whichever you have: the coordinator ID issued to you, or the address on your account."
                 />
 
                 {error ? <Banner tone="danger">{error}</Banner> : null}
