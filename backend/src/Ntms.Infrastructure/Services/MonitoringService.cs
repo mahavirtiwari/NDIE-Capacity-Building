@@ -134,6 +134,71 @@ public class MonitoringService(
         return programme;
     }
 
+    /* ---------------------------------------------------------- profile */
+
+    /// <summary>
+    /// This coordinator's own record, with every code resolved to the
+    /// name the person would recognise.
+    /// </summary>
+    public async Task<CoordinatorProfileDto> MyProfileAsync(CancellationToken ct)
+    {
+        var userId = currentUser.UserId
+            ?? throw AppException.Forbidden("Sign in to see your profile.");
+
+        var me = await db.Users.AsNoTracking()
+            .Include(u => u.Role)
+            .Include(u => u.Agency)
+            .Include(u => u.ReportsToUser)
+            .Include(u => u.State)
+            .Include(u => u.District)
+            .Include(u => u.States).ThenInclude(s => s.State)
+            .Include(u => u.Districts).ThenInclude(d => d.District)
+            .Include(u => u.Categories).ThenInclude(c => c.Category)
+            .Include(u => u.SubCategories).ThenInclude(c => c.SubCategory)
+            .Include(u => u.ProgramTypes).ThenInclude(p => p.ProgramType)
+            .FirstOrDefaultAsync(u => u.Id == userId, ct)
+            ?? throw AppException.NotFound("Account");
+
+        return new CoordinatorProfileDto
+        {
+            UserCode = me.UserCode,
+            FullName = me.FullName,
+            Designation = me.Designation,
+            Email = me.Email,
+            Mobile = me.Mobile,
+            RoleName = me.Role?.Name ?? me.BaseRole.ToString(),
+            OrganisationName = me.OrganisationName,
+            PanLast4 = Last4(me.Pan),
+            AadhaarLast4 = Last4(me.Aadhaar),
+            City = me.City,
+            DistrictName = me.District?.Name,
+            StateName = me.State?.Name,
+            Pincode = me.Pincode,
+            AgencyName = me.Agency?.Name,
+            AgencyCode = me.Agency?.Code,
+            ReportsToName = me.ReportsToUser?.FullName,
+            ReportsToCode = me.ReportsToUser?.UserCode,
+            States = [.. me.States.Select(s => s.State?.Name).Where(n => n is not null).Order()!],
+            Districts =
+                [.. me.Districts.Select(d => d.District?.Name).Where(n => n is not null).Order()!],
+            Categories =
+                [.. me.Categories.Select(c => c.Category?.Name).Where(n => n is not null).Order()!],
+            SubCategories =
+                [.. me.SubCategories.Select(c => c.SubCategory?.Name).Where(n => n is not null).Order()!],
+            ProgramTypes =
+                [.. me.ProgramTypes.Select(p => p.ProgramType?.Name).Where(n => n is not null).Order()!],
+        };
+    }
+
+    /// <summary>The tail of an identifier, enough to recognise it by.</summary>
+    private static string? Last4(string? value)
+    {
+        var trimmed = value?.Trim();
+        return string.IsNullOrEmpty(trimmed) || trimmed.Length < 4
+            ? null
+            : trimmed[^4..];
+    }
+
     /* ----------------------------------------------------------- agency */
 
     /// <summary>

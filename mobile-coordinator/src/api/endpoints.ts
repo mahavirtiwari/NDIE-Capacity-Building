@@ -6,6 +6,7 @@ import type {
   AgencyContact,
   AuthUser,
   Branding,
+  CoordinatorProfile,
   ForgotPasswordResult,
   LoginResponse,
   Marksheet,
@@ -127,6 +128,11 @@ async function writeOrQueue<T>(spec: {
 }
 
 const NOW = () => new Date().toISOString();
+
+export const coordinatorProfile = {
+  /** The whole record, with the codes resolved to names. */
+  mine: () => api.get<CoordinatorProfile>('coordinator/profile'),
+};
 
 export const agency = {
   /** The implementing agency that appointed this coordinator. */

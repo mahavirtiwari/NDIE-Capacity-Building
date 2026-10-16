@@ -1,58 +1,39 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../src/api/client';
-import { auth as authApi } from '../../src/api/endpoints';
-import type { AuthUser } from '../../src/api/types';
+import { coordinatorProfile } from '../../src/api/endpoints';
+import type { CoordinatorProfile } from '../../src/api/types';
 import { useAuth } from '../../src/auth/AuthContext';
-import { Banner, Card, DetailRow, Loading, Title } from '../../src/components/ui';
+import { Banner, Card, Loading } from '../../src/components/ui';
 import { colors, font, radius, spacing } from '../../src/theme';
 
 /**
- * What a permission key means to somebody who did not write it.
+ * The account as the implementing agency set it up.
  *
- * The keys are the vocabulary the API and the portal share; nobody signing
- * in on a phone should have to read "programs.manage" and work out what it
- * lets them do. Anything unrecognised is shown as it is rather than hidden:
- * a key added later is still something this account holds.
- */
-const PERMISSION_WORDS: Record<string, string> = {
-  'programs.view': 'See the programs assigned to you',
-  'programs.manage': 'Record a program: venue, sessions, attendance and marks',
-  'programs.create': 'Raise a new program',
-  'programs.approve': 'Permit or postpone a program',
-  'programs.qc': "Quality check a conducted program's report",
-  'trainers.view': 'See the faculty register',
-  'trainers.manage': 'Put a trainer on the record',
-  'materials.view': 'Open the training material published to you',
-  'coordinators.view': 'See coordinators',
-  'applications.view': 'See applications',
-};
-
-/**
- * Who this account is and what it may do.
+ * It used to show four lines - ID, e-mail, mobile, role - which is not
+ * enough for the person whose record it is to tell whether the office
+ * has it right. Everything the creation form asks for is here, the
+ * territory included, because a coordinator who cannot see which
+ * districts they are allocated to cannot tell anybody they are wrong.
  *
- * Read from the server rather than from the stored session: a role can be
- * reshaped while somebody is signed in, and what the screen should show is
- * what is true today.
+ * Nothing on it can be edited. That is not an omission: the record is
+ * the agency's, and a coordinator correcting their own mobile number on
+ * a phone would put the office's copy and the app's out of step.
  */
 export default function Profile() {
-  const router = useRouter();
   const { session } = useAuth();
 
-  const [me, setMe] = useState<AuthUser | null>(null);
+  const [me, setMe] = useState<CoordinatorProfile | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     setFailure(null);
     try {
-      setMe(await authApi.me());
+      setMe(await coordinatorProfile.mine());
     } catch (caught) {
-      setFailure(
-        caught instanceof ApiError ? caught.message : 'Could not load your profile.',
-      );
+      setFailure(caught instanceof ApiError ? caught.message : 'Could not load your profile.');
     }
   }, []);
 
@@ -61,6 +42,14 @@ export default function Profile() {
   }, [load]);
 
   if (!me && !failure) return <Loading label="Loading your profile…" />;
+
+  const initials = (me?.fullName ?? session?.fullName ?? '?')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
 
   return (
     <ScrollView
@@ -79,77 +68,149 @@ export default function Profile() {
     >
       {failure ? <Banner tone="danger">{failure}</Banner> : null}
 
+      {/* The identity band: who, which account, which role. Everything
+          below is detail about this. */}
       <View style={styles.who}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {me?.avatarInitials || (session?.fullName ?? '?').slice(0, 2).toUpperCase()}
-          </Text>
+          <Text style={styles.avatarText}>{initials}</Text>
         </View>
-        <Title>{me?.fullName ?? session?.fullName}</Title>
-        <Text style={styles.code}>{me?.userCode ?? session?.userCode}</Text>
-        {me ? <Text style={styles.role}>{me.roleName || me.role}</Text> : null}
+        <Text style={styles.name}>{me?.fullName ?? session?.fullName}</Text>
+        {me?.designation ? <Text style={styles.designation}>{me.designation}</Text> : null}
+        <View style={styles.codeRow}>
+          <Text style={styles.code}>{me?.userCode ?? session?.userCode}</Text>
+          {me?.roleName ? <Text style={styles.rolePill}>{me.roleName}</Text> : null}
+        </View>
       </View>
 
       {me ? (
-        <Card style={styles.card}>
-          <Text style={styles.section}>Your details</Text>
-          <DetailRow label="User ID" value={me.userCode} />
-          <DetailRow label="Email" value={me.email || '—'} />
-          <DetailRow label="Mobile" value={me.mobile || '—'} />
-          <DetailRow label="Role" value={me.roleName || me.role} />
-        </Card>
+        <>
+          <Section icon="call-outline" title="Contact">
+            <Line label="Mobile" value={me.mobile} />
+            <Line label="Email" value={me.email} />
+          </Section>
+
+          <Section icon="business-outline" title="Appointed by">
+            <Line
+              label="Implementing agency"
+              value={me.agencyName}
+              note={me.agencyCode ?? undefined}
+            />
+            <Line
+              label="Reports to"
+              value={me.reportsToName}
+              note={me.reportsToCode ?? undefined}
+            />
+            <Line label="Organisation" value={me.organisationName} />
+          </Section>
+
+          {/* The territory, which is the part a coordinator most often
+              needs to check: it decides which programmes reach them. */}
+          <Section icon="map-outline" title="Coverage">
+            <Tags label="States" values={me.states} />
+            <Tags label="Districts" values={me.districts} />
+            <Tags label="Categories" values={me.categories} />
+            <Tags label="Sub-categories" values={me.subCategories} />
+            <Tags label="Program types" values={me.programTypes} />
+          </Section>
+
+          <Section icon="location-outline" title="Where you are posted">
+            <Line label="City" value={me.city} />
+            <Line label="District" value={me.districtName} />
+            <Line label="State" value={me.stateName} />
+            <Line label="PIN code" value={me.pincode} />
+          </Section>
+
+          <Section icon="document-text-outline" title="On record">
+            <Line
+              label="PAN"
+              value={me.panLast4 ? `•••••• ${me.panLast4}` : null}
+              note={me.panLast4 ? 'last four digits' : undefined}
+            />
+            <Line
+              label="Aadhaar"
+              value={me.aadhaarLast4 ? `•••• •••• ${me.aadhaarLast4}` : null}
+              note={me.aadhaarLast4 ? 'last four digits' : undefined}
+            />
+          </Section>
+        </>
       ) : null}
-
-      {me ? (
-        <Card style={styles.card}>
-          <Text style={styles.section}>What this role lets you do</Text>
-          <Text style={styles.lead}>
-            Granted by the Super Admin against your role. Ask your implementing agency if
-            something you need is not here.
-          </Text>
-
-          {me.permissions.length === 0 ? (
-            <Text style={styles.none}>Nothing is granted on this role yet.</Text>
-          ) : (
-            me.permissions.map((key) => (
-              <View key={key} style={styles.grant}>
-                <Ionicons name="checkmark-circle" size={16} color={colors.success700} />
-                <View style={styles.grantText}>
-                  <Text style={styles.grantWords}>{PERMISSION_WORDS[key] ?? key}</Text>
-                  <Text style={styles.grantKey}>{key}</Text>
-                </View>
-              </View>
-            ))
-          )}
-        </Card>
-      ) : null}
-
-      {/* The one thing on this screen that changes something. The rest is
-          the account as the office set it up, and is changed there. */}
-      <Text
-        style={styles.link}
-        onPress={() => router.push('/change-password')}
-        accessibilityRole="button"
-      >
-        Change password
-      </Text>
 
       <Text style={styles.footnote}>
-        Your name, email and mobile are held by the office that issued this account.
-        Ask your implementing agency to correct them.
+        This record is held by the implementing agency that issued your account. Ask them to
+        correct anything that is wrong.
       </Text>
     </ScrollView>
   );
 }
 
+/** A headed group of lines. */
+function Section({
+  icon,
+  title,
+  children,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card style={styles.card}>
+      <View style={styles.sectionHead}>
+        <Ionicons name={icon} size={15} color={colors.brand700} />
+        <Text style={styles.section}>{title}</Text>
+      </View>
+      {children}
+    </Card>
+  );
+}
+
+/**
+ * One fact. Shown even when it is blank, with a dash: a coordinator
+ * checking their record needs to see that the office left the
+ * designation empty, not to be shown a shorter list.
+ */
+function Line({ label, value, note }: { label: string; value?: string | null; note?: string }) {
+  return (
+    <View style={styles.line}>
+      <Text style={styles.lineLabel}>{label}</Text>
+      <View style={styles.lineRight}>
+        <Text style={[styles.lineValue, !value && styles.lineEmpty]}>
+          {value?.trim() ? value : 'Not recorded'}
+        </Text>
+        {note ? <Text style={styles.lineNote}>{note}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
+/** A list of names as chips, because a comma-run of fifteen districts is unreadable. */
+function Tags({ label, values }: { label: string; values: string[] }) {
+  return (
+    <View style={styles.tags}>
+      <Text style={styles.lineLabel}>{label}</Text>
+      {values.length === 0 ? (
+        <Text style={[styles.lineValue, styles.lineEmpty]}>None allocated</Text>
+      ) : (
+        <View style={styles.tagRow}>
+          {values.map((value) => (
+            <Text key={value} style={styles.tag}>
+              {value}
+            </Text>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.page },
-  content: { padding: spacing.lg, gap: spacing.lg },
+  content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
 
-  who: { alignItems: 'center', gap: 4 },
+  who: { alignItems: 'center', gap: 3, paddingVertical: spacing.sm },
   avatar: {
-    width: 64,
-    height: 64,
+    width: 68,
+    height: 68,
     borderRadius: radius.pill,
     backgroundColor: colors.brand700,
     alignItems: 'center',
@@ -157,25 +218,64 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   avatarText: { color: colors.white, fontSize: font.lg, fontWeight: '700', letterSpacing: 1 },
+  name: { fontSize: font.lg, fontWeight: '700', color: colors.ink900, textAlign: 'center' },
+  designation: { fontSize: font.sm, color: colors.ink600, textAlign: 'center' },
+  codeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 4 },
   code: { fontSize: font.sm, color: colors.brand700, fontWeight: '700', letterSpacing: 0.5 },
-  role: { fontSize: font.sm, color: colors.ink600 },
-
-  card: { gap: spacing.sm },
-  section: { fontSize: font.md, fontWeight: '700', color: colors.ink900 },
-  lead: { fontSize: font.sm, color: colors.ink600, lineHeight: 18 },
-  none: { fontSize: font.sm, color: colors.ink500 },
-
-  grant: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingVertical: 5 },
-  grantText: { flex: 1, gap: 1 },
-  grantWords: { fontSize: font.sm, color: colors.ink900, lineHeight: 18 },
-  grantKey: { fontSize: font.xs, color: colors.ink400, letterSpacing: 0.3 },
-
-  link: {
-    fontSize: font.base,
-    fontWeight: '700',
-    color: colors.brand700,
-    textAlign: 'center',
-    paddingVertical: spacing.sm,
+  rolePill: {
+    fontSize: font.xs,
+    fontWeight: '600',
+    color: colors.brand800,
+    backgroundColor: colors.brand50,
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    overflow: 'hidden',
   },
-  footnote: { fontSize: font.xs, color: colors.ink500, textAlign: 'center', lineHeight: 16 },
+
+  card: { gap: spacing.xs },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  section: { fontSize: font.sm, fontWeight: '700', color: colors.ink900, letterSpacing: 0.2 },
+
+  /* Label left, value right, on one line: a record is read by running
+     down the labels and across once, not by reading every pair. */
+  line: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingVertical: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  lineLabel: { fontSize: font.sm, color: colors.ink500, flexShrink: 0 },
+  lineRight: { flex: 1, alignItems: 'flex-end' },
+  lineValue: { fontSize: font.sm, fontWeight: '600', color: colors.ink900, textAlign: 'right' },
+  lineEmpty: { fontWeight: '400', color: colors.ink400, fontStyle: 'italic' },
+  lineNote: { fontSize: font.xs, color: colors.ink400 },
+
+  tags: {
+    gap: 5,
+    paddingVertical: 7,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  tag: {
+    fontSize: font.xs,
+    color: colors.ink800,
+    backgroundColor: colors.brand50,
+    borderRadius: radius.sm,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    overflow: 'hidden',
+  },
+
+  footnote: {
+    fontSize: font.xs,
+    color: colors.ink500,
+    textAlign: 'center',
+    lineHeight: 16,
+    marginTop: spacing.xs,
+  },
 });

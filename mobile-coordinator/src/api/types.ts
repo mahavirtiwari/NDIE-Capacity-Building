@@ -10,6 +10,32 @@ export interface ApiEnvelope<T> {
   errors?: string[] | null;
 }
 
+/** A coordinator's record, as the implementing agency filled it in. */
+export interface CoordinatorProfile {
+  userCode: string;
+  fullName: string;
+  designation?: string | null;
+  email: string;
+  mobile: string;
+  roleName: string;
+  organisationName?: string | null;
+  panLast4?: string | null;
+  aadhaarLast4?: string | null;
+  city?: string | null;
+  districtName?: string | null;
+  stateName?: string | null;
+  pincode?: string | null;
+  agencyName?: string | null;
+  agencyCode?: string | null;
+  reportsToName?: string | null;
+  reportsToCode?: string | null;
+  states: string[];
+  districts: string[];
+  categories: string[];
+  subCategories: string[];
+  programTypes: string[];
+}
+
 /** Who to ring about a programme: the agency that appointed you. */
 export interface AgencyContact {
   name: string;

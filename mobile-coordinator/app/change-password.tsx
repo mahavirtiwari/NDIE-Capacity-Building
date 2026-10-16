@@ -79,7 +79,7 @@ export default function ChangePassword() {
             required
             value={current}
             onChangeText={setCurrent}
-            secureTextEntry
+            secure
             placeholder="Your current password"
             error={errors.current}
           />
@@ -88,7 +88,7 @@ export default function ChangePassword() {
             required
             value={next}
             onChangeText={setNext}
-            secureTextEntry
+            secure
             placeholder="At least 8 characters"
             error={errors.next}
           />
@@ -97,7 +97,7 @@ export default function ChangePassword() {
             required
             value={again}
             onChangeText={setAgain}
-            secureTextEntry
+            secure
             placeholder="Type it once more"
             error={errors.again}
           />

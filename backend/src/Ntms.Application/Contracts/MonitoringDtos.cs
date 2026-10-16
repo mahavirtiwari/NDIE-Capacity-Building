@@ -9,6 +9,52 @@ namespace Ntms.Application.Contracts;
 
 /// <summary>A workshop as it appears in the coordinator's list.</summary>
 /// <summary>
+/// A coordinator's own record, as the implementing agency filled it in.
+///
+/// The app used to show four lines of it - ID, e-mail, mobile, role -
+/// which is not enough for the person whose record it is to tell
+/// whether the office has it right. Everything the creation form asks
+/// for is here, with the codes resolved: a coordinator reads district
+/// names, not LGD numbers.
+///
+/// PAN and Aadhaar are reduced to their last four digits. They are on
+/// the screen so somebody can see which document the office holds, not
+/// so a phone left on a table can be read for identifiers.
+/// </summary>
+public class CoordinatorProfileDto
+{
+    public string UserCode { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string? Designation { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string Mobile { get; set; } = string.Empty;
+    public string RoleName { get; set; } = string.Empty;
+    public string? OrganisationName { get; set; }
+
+    public string? PanLast4 { get; set; }
+    public string? AadhaarLast4 { get; set; }
+
+    /// <summary>Where the person sits, as against where they work.</summary>
+    public string? City { get; set; }
+    public string? DistrictName { get; set; }
+    public string? StateName { get; set; }
+    public string? Pincode { get; set; }
+
+    public string? AgencyName { get; set; }
+    public string? AgencyCode { get; set; }
+    public string? ReportsToName { get; set; }
+    public string? ReportsToCode { get; set; }
+
+    /// <summary>The territory allocated to them, in names.</summary>
+    public List<string> States { get; set; } = [];
+    public List<string> Districts { get; set; } = [];
+
+    public List<string> Categories { get; set; } = [];
+    public List<string> SubCategories { get; set; } = [];
+    public List<string> ProgramTypes { get; set; } = [];
+}
+
+/// <summary>
 /// Who to ring about a programme.
 ///
 /// The app's support screen told a coordinator that their implementing
