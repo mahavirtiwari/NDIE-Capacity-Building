@@ -37,7 +37,7 @@ const SECTIONS: { label: string; icon: keyof typeof Ionicons.glyphMap; holds: st
 ];
 
 export default function Sync() {
-  const { id } = useWorkshop();
+  const { id, detail } = useWorkshop();
   const { session } = useAuth();
   const { online } = useNetwork();
   const owner = session?.userCode ?? null;
@@ -196,10 +196,16 @@ export default function Sync() {
         </>
       )}
 
-      <Text style={styles.footnote}>
-        This phone is holding work for program {id}. Sending it does not change anything the
-        office already has.
-      </Text>
+      {/* Only where there is something to say it about. It used to
+          read "this phone is holding work for program 1" on a screen
+          whose whole message was that it is holding none, and quoted
+          the row number rather than the code on the card. */}
+      {held.length > 0 ? (
+        <Text style={styles.footnote}>
+          Held for {detail?.programmeId ?? 'this program'}. Sending it does not change
+          anything the office already has.
+        </Text>
+      ) : null}
     </ScrollView>
   );
 }

@@ -4,7 +4,7 @@ import { ApiError } from '../../../src/api/client';
 import { photos, type CapturedImage } from '../../../src/api/endpoints';
 import { PhotoPicker } from '../../../src/components/PhotoPicker';
 import { StoredImage } from '../../../src/files/storedImage';
-import { Banner, Button, Card, shortDate } from '../../../src/components/ui';
+import { Banner, Button, Card } from '../../../src/components/ui';
 import { useGeoFix } from '../../../src/location/useGeoFix';
 import { colors, radius, spacing } from '../../../src/theme';
 import { useWorkshop } from '../../../src/workshop/WorkshopContext';
@@ -153,6 +153,13 @@ export default function AttendancePhoto() {
       ) : null}
     </ScrollView>
   );
+}
+
+/** "16 Oct", for a tab that has to stay narrow — as the register's. */
+function shortDate(value: string): string {
+  const at = new Date(value);
+  if (Number.isNaN(at.getTime())) return value;
+  return at.toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
 }
 
 /** Every day the programme runs, first to last, as yyyy-mm-dd. */

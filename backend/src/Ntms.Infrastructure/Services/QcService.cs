@@ -236,9 +236,18 @@ public class QcService(NtmsDbContext db, ICurrentUser currentUser)
 
         if (submission.QcStatus != QcStatus.AwaitingAgency)
         {
-            throw new AppException(
-                $"This report has already been {submission.QcStatus.ToString().ToLowerInvariant()}"
-                + (submission.ForwardedByUserName is { } who ? $" by {who}." : "."));
+            throw new AppException(submission.QcStatus switch
+            {
+                QcStatus.Pending =>
+                    "This report has already been forwarded"
+                    + (submission.ForwardedByUserName is { } who ? $" by {who}." : "."),
+                QcStatus.Approved =>
+                    "This report has already been accepted"
+                    + (submission.QcByUserName is { } who ? $" by {who}." : "."),
+                _ =>
+                    "This report has already been sent back"
+                    + (submission.QcByUserName is { } who ? $" by {who}." : "."),
+            });
         }
 
         return submission;
@@ -266,6 +275,17 @@ public class QcService(NtmsDbContext db, ICurrentUser currentUser)
         var submission = await db.ProgrammeSubmissions
             .FirstOrDefaultAsync(s => s.ProgrammeId == programmeId, ct)
             ?? throw AppException.NotFound("Submitted programme");
+
+        if (submission.QcStatus == QcStatus.AwaitingAgency)
+        {
+            /* Not a decision that has been taken, which is what the
+               sentence below says: it is a report the agency has not
+               handed over yet, and telling a manager it "has already
+               been awaitingagency" explains nothing and reads as a
+               fault in the software. */
+            throw new AppException(
+                "The implementing agency has not forwarded this report yet.");
+        }
 
         if (submission.QcStatus != QcStatus.Pending)
         {
