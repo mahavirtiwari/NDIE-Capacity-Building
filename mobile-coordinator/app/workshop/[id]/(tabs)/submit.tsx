@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { clearProgramme } from '../../../../src/offline/programmeData';
 import { ApiError } from '../../../../src/api/client';
 import { workshops } from '../../../../src/api/endpoints';
@@ -29,6 +30,7 @@ export default function FinalSubmission() {
 
   const [remarks, setRemarks] = useState('');
   const [busy, setBusy] = useState(false);
+  const [declared, setDeclared] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
   if (loading && !detail) return <Loading label="Loading program…" />;
@@ -136,13 +138,35 @@ export default function FinalSubmission() {
           multiline
         />
 
+        {/* Ticked by hand, every time.
+
+            Sealing a programme is the one action on this app nobody can
+            undo - not the coordinator, not the back office - and the
+            button that does it should not be one tap away from a thumb
+            scrolling past. The sentence is what the coordinator is
+            actually asserting, so it says that rather than "are you
+            sure". */}
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: declared }}
+          style={styles.declare}
+          onPress={() => setDeclared(!declared)}
+        >
+          <View style={[styles.box, declared && styles.boxOn]}>
+            {declared ? <Ionicons name="checkmark" size={15} color={colors.white} /> : null}
+          </View>
+          <Text style={styles.declareText}>
+            I confirm that all the information pertaining to this program is now complete.
+          </Text>
+        </Pressable>
+
         {failure ? <Banner tone="danger">{failure}</Banner> : null}
 
         <Button
           label="Submit finally"
           onPress={submit}
           loading={busy}
-          disabled={blockers.length > 0}
+          disabled={blockers.length > 0 || !declared}
           variant="danger"
         />
       </ScrollView>
@@ -151,6 +175,20 @@ export default function FinalSubmission() {
 }
 
 const styles = StyleSheet.create({
+  declare: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  box: {
+    width: 24,
+    height: 24,
+    borderRadius: radius.sm,
+    borderWidth: 1.5,
+    borderColor: colors.ink400,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  boxOn: { backgroundColor: colors.brand600, borderColor: colors.brand600 },
+  declareText: { flex: 1, fontSize: 14, color: colors.ink800, lineHeight: 20 },
+
   content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl * 2 },
   lead: { color: colors.ink600, fontSize: 13 },
   card: { gap: spacing.xs },

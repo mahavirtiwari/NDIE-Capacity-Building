@@ -31,6 +31,7 @@ export default function WorkshopLayout() {
         <Stack.Screen name="feedback" options={{ title: 'Participant feedback' }} />
         <Stack.Screen name="marksheet" options={{ title: 'Trainer marksheet' }} />
         <Stack.Screen name="clear-data" options={{ title: 'Clear saved data' }} />
+        <Stack.Screen name="sync" options={{ title: 'Sync data' }} />
       </Stack>
     </WorkshopProvider>
   );

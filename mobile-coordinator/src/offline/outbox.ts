@@ -324,7 +324,20 @@ let draining = false;
  * is queued is a sequence of events in a hall, and replaying it out of order
  * would record something that did not happen.
  */
-export async function drain(owner: string): Promise<{ sent: number; blocked: number }> {
+export async function drain(
+  owner: string,
+  /**
+   * Send only the entries this picks out.
+   *
+   * The sync screen offers a button per section, because a coordinator
+   * on a thin signal at the end of a day would rather get the register
+   * away than watch one queue of everything stall on a photograph.
+   * Order is still kept inside the selection, and anything pointing at
+   * something not yet created still waits - so syncing "Photos" before
+   * "Participants" sends what it can and leaves the rest.
+   */
+  only?: (entry: OutboxEntry) => boolean,
+): Promise<{ sent: number; blocked: number }> {
   if (draining) return { sent: 0, blocked: 0 };
   draining = true;
 
@@ -338,6 +351,14 @@ export async function drain(owner: string): Promise<{ sent: number; blocked: num
     let stopped = false;
 
     for (const entry of entries) {
+      if (only && !only(entry)) {
+        /* Not this pass. Left exactly as it was, including its place in
+           the queue: the sections are a way of choosing what to send
+           first, not a way of reordering what happened. */
+        remaining.push(resolved.size ? applyResolved(entry, resolved) : entry);
+        continue;
+      }
+
       if (entry.owner !== owner) {
         /* Somebody else's work, waiting for them to sign back in. Skipped
            rather than stopping the run: it has no bearing on this queue. */

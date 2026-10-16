@@ -279,6 +279,18 @@ public class MonitoringPhoto : AuditableEntity
     public int? TrainerId { get; set; }
     public ProgrammeTrainer? Trainer { get; set; }
 
+    /// <summary>
+    /// Which day's register this is, on an attendance sheet.
+    ///
+    /// The sheets used to pile up against the programme with nothing
+    /// saying which day each belonged to, so five days of registers
+    /// were five photographs in a row and the only way to tell them
+    /// apart was to read the handwriting. Null on every other kind of
+    /// photograph, and on the sheets taken before the day was asked
+    /// for.
+    /// </summary>
+    public DateOnly? AttendanceDay { get; set; }
+
     /// <summary>Path under the monitoring storage root, using forward slashes.</summary>
     public string RelativePath { get; set; } = string.Empty;
     public string FileName { get; set; } = string.Empty;

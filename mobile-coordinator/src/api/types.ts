@@ -65,6 +65,8 @@ export type PhotoKind =
   | 'AttendanceSheet';
 
 export interface MonitoringPhoto {
+  /** Which day's register, on an attendance sheet. Null on the rest. */
+  attendanceDay?: string | null;
   id: number;
   kind: PhotoKind;
   fileName: string;

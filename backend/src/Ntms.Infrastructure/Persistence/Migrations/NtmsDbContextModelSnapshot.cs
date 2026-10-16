@@ -2052,6 +2052,9 @@ namespace Ntms.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateOnly?>("AttendanceDay")
+                        .HasColumnType("date");
+
                     b.Property<DateTime>("CapturedOn")
                         .HasColumnType("datetime2");
 

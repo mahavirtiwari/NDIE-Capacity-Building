@@ -1,11 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../../../src/auth/AuthContext';
 import { Banner } from '../../../src/components/ui';
-import { useNetwork } from '../../../src/offline/NetworkContext';
-import { counts, drain, subscribe } from '../../../src/offline/outbox';
+import { counts, subscribe } from '../../../src/offline/outbox';
 import { useWorkshop } from '../../../src/workshop/WorkshopContext';
 import { colors, font, radius, spacing } from '../../../src/theme';
 
@@ -46,9 +45,7 @@ export default function Start() {
   const router = useRouter();
   const { detail, id, refresh } = useWorkshop();
   const { session } = useAuth();
-  const { online } = useNetwork();
 
-  const [syncing, setSyncing] = useState(false);
   const [unsent, setUnsent] = useState({ waiting: 0, blocked: 0 });
   const sealed = detail?.isSubmitted === true;
 
@@ -104,42 +101,6 @@ export default function Start() {
       ? 'doing'
       : 'todo';
 
-  /**
-   * Sends anything this handset is still holding.
-   *
-   * The queue drains on its own when the signal returns, but a
-   * coordinator about to leave a venue wants to know it has gone
-   * rather than trust that it will, and the answer has to be a number.
-   */
-  const sync = async () => {
-    const owner = session?.userCode;
-    if (!owner) return;
-
-    if (!online) {
-      Alert.alert('No signal', 'Nothing can be sent until this phone has a connection.');
-      return;
-    }
-
-    setSyncing(true);
-    try {
-      const before = await counts(owner);
-      if (before.waiting === 0 && before.blocked === 0) {
-        Alert.alert('Nothing to send', 'Everything recorded on this phone has reached the office.');
-        return;
-      }
-
-      const { sent, blocked } = await drain(owner);
-      Alert.alert(
-        'Sync',
-        blocked > 0
-          ? `${sent} sent. ${blocked} ${blocked === 1 ? 'item was' : 'items were'} refused — open Unsent work to see why.`
-          : `${sent} ${sent === 1 ? 'entry' : 'entries'} sent. Nothing is waiting.`,
-      );
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   return (
     <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
       {detail ? (
@@ -191,8 +152,11 @@ export default function Start() {
               : 'Everything recorded here has reached the office.'
         }
         standing={syncStanding}
-        busy={syncing}
-        onPress={() => void sync()}
+        /* The screen rather than the action: what is held is worth
+           looking at before it is sent, and sending it is a button
+           there. Holding nothing, it says so and there is nothing to
+           look at, which is also worth seeing. */
+        onPress={() => router.push(`/workshop/${id}/sync`)}
       />
       <Job
         icon="lock-closed-outline"

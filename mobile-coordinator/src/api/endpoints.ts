@@ -488,8 +488,13 @@ export const photos = {
   participant: (id: number, participantId: number, image: CapturedImage, fix?: Fix | null) =>
     upload(`coordinator/programmes/${id}/participants/${participantId}/photo`, image, fix),
 
-  attendanceSheet: (id: number, image: CapturedImage, fix?: Fix | null) =>
-    upload(`coordinator/programmes/${id}/attendance/photo`, image, fix),
+  /** One per day, filed under the day it is the register for. */
+  attendanceSheet: (id: number, image: CapturedImage, fix?: Fix | null, day?: string) =>
+    upload(
+      `coordinator/programmes/${id}/attendance/photo${day ? `?day=${day}` : ''}`,
+      image,
+      fix,
+    ),
 
   /* There was an `src` here that built an absolute url for showing a
      stored photo back. The route needs a bearer token and an image

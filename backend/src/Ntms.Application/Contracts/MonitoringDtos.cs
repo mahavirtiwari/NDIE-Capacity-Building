@@ -378,6 +378,9 @@ public class MonitoringPhotoDto
     public decimal? Longitude { get; set; }
     public DateTime CapturedOn { get; set; }
 
+    /// <summary>Which day's register, on an attendance sheet. Null on the rest.</summary>
+    public DateOnly? AttendanceDay { get; set; }
+
     /// <summary>
     /// When it reached the server, and off what.
     ///

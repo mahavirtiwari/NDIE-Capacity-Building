@@ -209,6 +209,8 @@ public class CoordinatorController(MonitoringService service, MarksheetService m
     [RequestSizeLimit(16 * 1024 * 1024)]
     public async Task<ActionResult<ApiEnvelope<MonitoringPhotoDto>>> AttendancePhoto(
         int id, IFormFile file,
+        /// <summary>Which day's register. Defaults to today, and may be nothing else.</summary>
+        [FromQuery] DateOnly? day,
         [FromQuery] decimal? latitude,
         [FromQuery] decimal? longitude,
         [FromQuery] DateTime? capturedOn,
@@ -218,7 +220,11 @@ public class CoordinatorController(MonitoringService service, MarksheetService m
         CancellationToken ct) =>
         Envelope(await Upload(
             id, MonitoringPhotoKind.AttendanceSheet, null, file,
-            CaptureFrom(capturedOn, latitude, longitude, platform, model, osVersion), ct));
+            CaptureFrom(capturedOn, latitude, longitude, platform, model, osVersion) with
+            {
+                AttendanceDay = day,
+            },
+            ct));
 
     [HttpPut("participants/{participantId:int}/feedback")]
     public async Task<ActionResult<ApiEnvelope<OnSpotParticipantDto>>> Feedback(

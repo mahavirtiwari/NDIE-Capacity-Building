@@ -46,7 +46,9 @@ public class MonitoringService(
         decimal? Longitude = null,
         string? Platform = null,
         string? Model = null,
-        string? OsVersion = null);
+        string? OsVersion = null,
+        /// <summary>Which day's register, on an attendance sheet.</summary>
+        DateOnly? AttendanceDay = null);
 
     /* ------------------------------------------------------------ access */
 
@@ -805,6 +807,31 @@ public class MonitoringService(
                 + ".");
         }
 
+        /*
+         * A register is taken in the room, on the day.
+         *
+         * Not before: a day marked in advance is a guess about who will
+         * turn up. Not after: a day marked from the office on Friday is
+         * somebody remembering Tuesday. Both produce a document that
+         * says it is evidence of attendance and is not, which is the
+         * one thing this record exists to be.
+         *
+         * Today is India's today. The server runs on UTC and a workshop
+         * in Delhi finishing at half past five in the evening is already
+         * tomorrow by the clock the machine keeps.
+         */
+        var today = DateOnly.FromDateTime(IndianTime.From(DateTime.UtcNow));
+        var wrongDay = marks.Select(m => m.Day).Distinct().Where(d => d != today).ToList();
+        if (wrongDay.Count > 0)
+        {
+            throw new AppException(
+                wrongDay.Any(d => d > today)
+                    ? "Attendance cannot be marked before the day it is for."
+                    : "Attendance for "
+                      + string.Join(", ", wrongDay.Select(d => d.ToString("dd MMM yyyy")))
+                      + " can no longer be marked. A register is taken on the day.");
+        }
+
         var wanted = marks.Select(m => m.ParticipantId).Distinct().ToList();
         var people = await db.OnSpotParticipants
             .Include(x => x.Days)
@@ -813,6 +840,25 @@ public class MonitoringService(
 
         if (people.Count != wanted.Count)
             throw new AppException("Some of those participants are not registered on this workshop.");
+
+        /*
+         * Once, and not again.
+         *
+         * A register that can be reopened is a register that can be
+         * corrected after somebody has asked a question about it. The
+         * coordinator ticks who is absent and saves, and that is the
+         * day's answer; a genuine mistake is the office's to fix,
+         * where it leaves a trail.
+         */
+        var alreadyTaken = people
+            .SelectMany(x => x.Days)
+            .Any(d => d.Day == today);
+
+        if (alreadyTaken)
+        {
+            throw AppException.Conflict(
+                "Attendance for today has already been submitted and cannot be changed.");
+        }
 
         var now = DateTime.UtcNow;
         var who = currentUser.DisplayName;
@@ -945,6 +991,7 @@ public class MonitoringService(
             DevicePlatform = Trimmed(capture.Platform, 40),
             DeviceModel = Trimmed(capture.Model, 120),
             DeviceOsVersion = Trimmed(capture.OsVersion, 40),
+            AttendanceDay = capture.AttendanceDay,
         };
 
         switch (kind)
@@ -1014,8 +1061,40 @@ public class MonitoringService(
             }
 
             case MonitoringPhotoKind.AttendanceSheet:
-                /* Signed sheets run to several pages, so these accumulate. */
+            {
+                /* The same rule as the register it photographs: taken
+                   in the room on the day, and taken once. A sheet
+                   photographed on Friday for Tuesday is somebody
+                   tidying up afterwards, which is the one thing this
+                   document must not be. */
+                var today = DateOnly.FromDateTime(IndianTime.From(DateTime.UtcNow));
+                var day = capture.AttendanceDay ?? today;
+
+                if (day != today)
+                {
+                    throw new AppException(
+                        day > today
+                            ? "A register cannot be photographed before the day it is for."
+                            : $"The sheet for {day:dd MMM yyyy} can no longer be added. "
+                              + "It is photographed on the day.");
+                }
+
+                var alreadyHeld = await db.MonitoringPhotos
+                    .AnyAsync(
+                        x => x.ProgrammeId == programmeId
+                             && x.Kind == MonitoringPhotoKind.AttendanceSheet
+                             && x.AttendanceDay == day,
+                        ct);
+
+                if (alreadyHeld)
+                {
+                    throw AppException.Conflict(
+                        "Today's signed sheet has already been submitted and cannot be changed.");
+                }
+
+                photo.AttendanceDay = day;
                 break;
+            }
 
             default:
                 throw new AppException("Unknown photo type.");
@@ -1409,6 +1488,7 @@ public class MonitoringService(
         Latitude = p.Latitude,
         Longitude = p.Longitude,
         CapturedOn = p.CapturedOn,
+        AttendanceDay = p.AttendanceDay,
         SyncedOn = p.SyncedOn == default ? null : p.SyncedOn,
         DevicePlatform = p.DevicePlatform,
         DeviceModel = p.DeviceModel,

@@ -19,9 +19,16 @@ import { useWorkshop } from '../../../src/workshop/WorkshopContext';
  * is a single pass down a row of chairs, often with no signal at all, and a
  * request per tick would strand it half done.
  *
- * Nobody starts ticked. An untouched list saved by accident would record a full
- * house that was never counted, which is exactly the claim this screen exists
- * to substantiate.
+ * Everybody starts ticked and the coordinator unticks whoever is not there.
+ * On the great majority of days almost everybody is present, so the work is
+ * finding the two empty chairs rather than confirming the thirty full ones -
+ * and a register taken by unticking is a register somebody looked at.
+ *
+ * It can only be taken on the day it is for, and only once. A day marked in
+ * advance is a guess about who will turn up; a day marked afterwards is
+ * somebody remembering. Both produce a document that says it is evidence of
+ * attendance and is not. The server refuses either, and this screen does not
+ * offer them.
  */
 export default function Attendance() {
   const { id, detail, refresh, locked } = useWorkshop();
@@ -37,18 +44,38 @@ export default function Attendance() {
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  /* Today, by the phone's own clock. The programme runs where the
+     coordinator is standing. */
+  const today = new Date().toISOString().slice(0, 10);
+
+  /* A day already in the record is closed: the register was taken and
+     is not reopened here. */
+  const taken = people.some((person) => (person.days ?? []).some((d) => d.day === day));
+  const editable = !locked && !taken && day === today;
+
   /* Seeded from what is already recorded for this day, so a second pass
      corrects the first rather than starting from blank. Re-runs when the day
      changes, which is what makes the tabs show their own register. */
   useEffect(() => {
     const seeded: Record<number, boolean> = {};
+    let recorded = false;
     for (const person of people) {
       const mark = (person.days ?? []).find((d) => d.day === day);
-      if (mark) seeded[person.id] = mark.isPresent;
+      if (mark) {
+        seeded[person.id] = mark.isPresent;
+        recorded = true;
+      }
     }
+
+    /* Nothing recorded for today: start everybody present, which is
+       what the coordinator is about to correct rather than build. */
+    if (!recorded && day === today) {
+      for (const person of people) seeded[person.id] = true;
+    }
+
     setMarks(seeded);
     setSaved(false);
-  }, [detail, day]);
+  }, [detail, day, today]);
 
   if (people.length === 0) {
     return (
@@ -91,6 +118,21 @@ export default function Attendance() {
     <ScrollView contentContainerStyle={styles.content}>
       {locked ? <Banner tone="info">Finally submitted — read only.</Banner> : null}
 
+      {!locked && taken ? (
+        <Banner tone="info">
+          This day's register was taken and cannot be changed. Ask the office if something
+          on it is wrong.
+        </Banner>
+      ) : null}
+
+      {!locked && !taken && day !== today ? (
+        <Banner tone="warning">
+          {day > today
+            ? 'This day has not happened yet. A register is taken on the day.'
+            : 'This day has passed and its register was not taken. It can no longer be marked here.'}
+        </Banner>
+      ) : null}
+
       {/* One tab per day. A one-day programme gets one, which reads as a
           label rather than as a choice and needs no explaining. */}
       {days.length > 1 ? (
@@ -127,13 +169,13 @@ export default function Attendance() {
         <Text style={styles.tallyText}>
           {markedCount} of {people.length} marked · {presentCount} present
         </Text>
-        {!locked ? (
+        {editable ? (
           <View style={styles.bulk}>
             <Pressable onPress={() => setAll(true)} hitSlop={6}>
               <Text style={styles.bulkAction}>All present</Text>
             </Pressable>
-            <Pressable onPress={() => setMarks({})} hitSlop={6}>
-              <Text style={styles.bulkAction}>Clear</Text>
+            <Pressable onPress={() => setAll(false)} hitSlop={6}>
+              <Text style={styles.bulkAction}>All absent</Text>
             </Pressable>
           </View>
         ) : null}
@@ -146,7 +188,7 @@ export default function Attendance() {
             <Pressable
               key={person.id}
               style={styles.row}
-              disabled={locked}
+              disabled={!editable}
               onPress={() => setMarks((prev) => ({ ...prev, [person.id]: !prev[person.id] }))}
             >
               <View style={[styles.box, state === true && styles.boxOn]}>
@@ -167,7 +209,7 @@ export default function Attendance() {
       {failure ? <Banner tone="danger">{failure}</Banner> : null}
       {saved ? <Banner tone="success">Attendance saved.</Banner> : null}
 
-      {!locked ? (
+      {editable ? (
         <Button
           label="Save attendance"
           onPress={save}
