@@ -99,6 +99,15 @@ public class CoordinatorController(MonitoringService service, MarksheetService m
         CancellationToken ct) =>
         Envelope(await service.QualificationsAsync(ct));
 
+    /// <summary>
+    /// Who this session may be recorded against: the agency's faculty,
+    /// not only the people already on this batch.
+    /// </summary>
+    [HttpGet("programmes/{id:int}/trainer-options")]
+    public async Task<ActionResult<ApiEnvelope<List<TrainerOptionDto>>>> TrainerOptions(
+        int id, CancellationToken ct) =>
+        Envelope(await service.TrainerOptionsAsync(id, ct));
+
     [HttpPost("programmes/{id:int}/trainers")]
     public async Task<ActionResult<ApiEnvelope<TrainerDto>>> AddTrainer(
         int id, [FromBody] TrainerUpsertDto dto, CancellationToken ct) =>

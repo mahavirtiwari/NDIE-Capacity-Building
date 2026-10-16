@@ -94,6 +94,7 @@ public static class DtoMappings
             EligibilityRoutes = ProgramTypeEligibility.Describe(e.EligibilityRoutes),
             MinParticipants = e.MinParticipants,
             ParticipantPhotoRequired = e.ParticipantPhotoRequired,
+            OnSpotRegistrationAllowed = e.OnSpotRegistrationAllowed,
             CertificateValidityMonths = e.CertificateValidityMonths,
             IsExamMandatory = e.IsExamMandatory,
             IsFeeApplicable = e.IsFeeApplicable,

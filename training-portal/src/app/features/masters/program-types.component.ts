@@ -292,6 +292,16 @@ interface WayDraft {
                     }
                   </span>
                 </div>
+                <div class="fact">
+                  <span class="fact__term">On-spot registration</span>
+                  <span class="fact__value">
+                    @if (row.onSpotRegistrationAllowed) {
+                      Allowed
+                    } @else {
+                      <span class="text-muted">Not allowed</span>
+                    }
+                  </span>
+                </div>
               </div>
             </div>
           </section>
@@ -733,6 +743,10 @@ interface WayDraft {
                 <label class="check">
                   <input type="checkbox" formControlName="participantPhotoRequired" />
                   <span>Participants' picture required</span>
+                </label>
+                <label class="check">
+                  <input type="checkbox" formControlName="onSpotRegistrationAllowed" />
+                  <span>On-spot registration allowed</span>
                 </label>
               </div>
               <span class="field-hint">
@@ -1246,6 +1260,7 @@ export class ProgramTypesComponent {
     minExperienceYears: [0],
     minParticipants: [0],
     participantPhotoRequired: [false],
+    onSpotRegistrationAllowed: [true],
     certificateValidityMonths: [36],
     certificationPolicy: ['QualificationOnly' as ProgramType['certificationPolicy']],
     isFeeApplicable: [true],
@@ -1366,6 +1381,7 @@ export class ProgramTypesComponent {
       minExperienceYears: row?.minExperienceYears ?? 0,
       minParticipants: row?.minParticipants ?? 0,
       participantPhotoRequired: row?.participantPhotoRequired ?? false,
+      onSpotRegistrationAllowed: row?.onSpotRegistrationAllowed ?? true,
       certificateValidityMonths: row?.certificateValidityMonths ?? 36,
       certificationPolicy: row?.certificationPolicy ?? 'QualificationOnly',
       isFeeApplicable: row?.isFeeApplicable ?? true,

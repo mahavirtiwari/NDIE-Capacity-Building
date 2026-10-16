@@ -488,6 +488,58 @@ public class MonitoringService(
     }
 
     /// <summary>
+    /// The chosen trainer, as a row belonging to this programme.
+    ///
+    /// A coordinator picks from the agency's faculty, which includes
+    /// people registered on other batches. Recording a session against
+    /// one copies them onto this programme rather than pointing at
+    /// another programme's row: the trainers are held per batch on
+    /// purpose, so that correcting one workshop's record cannot rewrite
+    /// another's, and a session has to belong to the batch it was
+    /// taught on.
+    /// </summary>
+    private async Task<ProgrammeTrainer> ForThisProgrammeAsync(
+        Programme programme, int trainerId, CancellationToken ct)
+    {
+        var chosen = await db.ProgrammeTrainers
+            .Include(t => t.Programme)
+            .FirstOrDefaultAsync(t => t.Id == trainerId, ct)
+            ?? throw new AppException("Register the trainer before recording a session.");
+
+        if (chosen.ProgrammeId == programme.Id) return chosen;
+
+        if (chosen.Programme?.AgencyId != programme.AgencyId)
+            throw AppException.Forbidden("That trainer belongs to another agency.");
+
+        /* Already copied here by an earlier session: the same person,
+           found by the number they were registered with. */
+        var mine = await db.ProgrammeTrainers
+            .FirstOrDefaultAsync(t => t.ProgrammeId == programme.Id && t.Mobile == chosen.Mobile, ct);
+        if (mine is not null) return mine;
+
+        var copy = new ProgrammeTrainer
+        {
+            ProgrammeId = programme.Id,
+            RegisteredByUserId = currentUser.UserId,
+            FullName = chosen.FullName,
+            Mobile = chosen.Mobile,
+            Email = chosen.Email,
+            Designation = chosen.Designation,
+            Organisation = chosen.Organisation,
+            Engagement = chosen.Engagement,
+            YearsExperience = chosen.YearsExperience,
+            ExperienceMonths = chosen.ExperienceMonths,
+            Qualification = chosen.Qualification,
+            QualificationDetails = chosen.QualificationDetails,
+            Aadhaar = chosen.Aadhaar,
+        };
+
+        db.ProgrammeTrainers.Add(copy);
+        await db.SaveChangesAsync(ct);
+        return copy;
+    }
+
+    /// <summary>
     /// The qualifications a trainer may be recorded against.
     ///
     /// From the masters, so the faculty register does not accumulate
@@ -562,7 +614,9 @@ public class MonitoringService(
         var sessions = await db.CurriculumSessions.AsNoTracking()
             .Include(s => s.Topics)
             .Where(s => s.CurriculumId == curriculumId && s.Status == RecordStatus.Active)
-            .OrderBy(s => s.DisplayOrder).ThenBy(s => s.Id)
+            /* By day first, because that is the order the app asks in
+               and the order the programme runs in. */
+            .OrderBy(s => s.Day ?? int.MaxValue).ThenBy(s => s.DisplayOrder).ThenBy(s => s.Id)
             .ToListAsync(ct);
 
         return
@@ -571,6 +625,7 @@ public class MonitoringService(
             {
                 SessionId = s.Id,
                 SessionName = s.SessionName,
+                Day = s.Day,
                 SubTopics =
                 [
                     .. s.Topics
@@ -582,14 +637,56 @@ public class MonitoringService(
         ];
     }
 
+    /// <summary>
+    /// The faculty this coordinator may record against: everybody any
+    /// coordinator of the same agency has registered.
+    ///
+    /// De-duplicated by mobile number, which is how the same person
+    /// registered on three batches is one person here. The row already
+    /// on this programme wins where there is one, so recording a
+    /// session against them changes nothing.
+    /// </summary>
+    public async Task<List<TrainerOptionDto>> TrainerOptionsAsync(
+        int programmeId, CancellationToken ct)
+    {
+        var programme = await ForReadAsync(programmeId, ct);
+
+        var rows = await db.ProgrammeTrainers.AsNoTracking()
+            .Where(t => t.Programme!.AgencyId == programme.AgencyId)
+            .OrderBy(t => t.FullName)
+            .Select(t => new
+            {
+                t.Id,
+                t.FullName,
+                t.Mobile,
+                t.Qualification,
+                OnThisProgramme = t.ProgrammeId == programmeId,
+            })
+            .ToListAsync(ct);
+
+        return
+        [
+            .. rows
+                .GroupBy(t => t.Mobile)
+                .Select(g => g.OrderByDescending(t => t.OnThisProgramme).First())
+                .OrderBy(t => t.FullName)
+                .Select(t => new TrainerOptionDto
+                {
+                    Id = t.Id,
+                    FullName = t.FullName,
+                    Mobile = t.Mobile,
+                    Qualification = t.Qualification,
+                    OnThisProgramme = t.OnThisProgramme,
+                }),
+        ];
+    }
+
     public async Task<MonitoringSessionDto> AddSessionAsync(
         int programmeId, MonitoringSessionUpsertDto dto, CancellationToken ct)
     {
         var programme = await ForWriteAsync(programmeId, ct);
 
-        var trainer = await db.ProgrammeTrainers
-            .FirstOrDefaultAsync(t => t.Id == dto.TrainerId && t.ProgrammeId == programmeId, ct)
-            ?? throw new AppException("Register the trainer before recording a session.");
+        var trainer = await ForThisProgrammeAsync(programme, dto.TrainerId, ct);
 
         /* The topic has to belong to this programme's own curriculum, or the
            record would claim content the workshop never had on its syllabus. */
@@ -1178,6 +1275,7 @@ public class MonitoringService(
         dto.ProgrammeName = p.ProgrammeName;
         dto.ProgramTypeName = p.ProgramType?.Name;
         dto.ParticipantPhotoRequired = p.ProgramType?.ParticipantPhotoRequired ?? false;
+        dto.OnSpotRegistrationAllowed = p.ProgramType?.OnSpotRegistrationAllowed ?? true;
         dto.Venue = p.Venue;
         dto.City = p.City;
         dto.State = p.State?.Name;

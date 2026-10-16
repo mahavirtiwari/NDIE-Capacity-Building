@@ -400,6 +400,7 @@ public class ProgramTypeService(
         entity.MinExperienceYears = dto.MinExperienceYears;
         entity.MinParticipants = dto.MinParticipants;
         entity.ParticipantPhotoRequired = dto.ParticipantPhotoRequired;
+        entity.OnSpotRegistrationAllowed = dto.OnSpotRegistrationAllowed;
         entity.CertificateValidityMonths = dto.CertificateValidityMonths;
         entity.IsFeeApplicable = dto.IsFeeApplicable;
         entity.CertificationPolicy = EnumMaps.ParseEnum(

@@ -85,6 +85,8 @@ export interface Workshop {
   /** Whether this type's participants are photographed. Set by the
       Super Admin on the programme type, not decided on the day. */
   participantPhotoRequired?: boolean;
+  /** Whether people may be registered at the door on this batch. */
+  onSpotRegistrationAllowed?: boolean;
   venue: string;
   city?: string;
   state?: string;
@@ -232,7 +234,19 @@ export interface WorkshopDetail extends Workshop {
 export interface SessionTopic {
   sessionId: number;
   sessionName: string;
+  /** Which day of the programme it belongs to, from the curriculum. */
+  day?: number | null;
   subTopics: { topicId: number; topicName: string }[];
+}
+
+/** A trainer this coordinator may record against: the agency's faculty. */
+export interface TrainerOption {
+  id: number;
+  fullName: string;
+  mobile: string;
+  qualification?: string | null;
+  /** False for somebody registered on another batch of the same agency. */
+  onThisProgramme: boolean;
 }
 
 export interface Submission {

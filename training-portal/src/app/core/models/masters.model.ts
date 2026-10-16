@@ -109,6 +109,8 @@ export interface ProgramType extends AuditInfo {
   minParticipants: number;
   /** Whether a coordinator is to photograph every participant on a batch. */
   participantPhotoRequired: boolean;
+  /** Whether a coordinator may register people at the door. */
+  onSpotRegistrationAllowed: boolean;
   certificateValidityMonths: number;
   isExamMandatory: boolean;
   isFeeApplicable: boolean;

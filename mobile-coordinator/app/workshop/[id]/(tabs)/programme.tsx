@@ -4,7 +4,6 @@ import { RefreshControl, ScrollView, StyleSheet, Text } from 'react-native';
 import { Banner, Loading } from '../../../../src/components/ui';
 import { MenuRow } from '../../../../src/components/MenuRow';
 import { colors, spacing } from '../../../../src/theme';
-import { useSiteText } from '../../../../src/content/SiteTextContext';
 import { useWorkshop } from '../../../../src/workshop/WorkshopContext';
 
 /**
@@ -15,17 +14,22 @@ import { useWorkshop } from '../../../../src/workshop/WorkshopContext';
  * a coordinator should meet the requirement here, not in an error message on
  * the screen after.
  *
- * Participants' photographs appear only where the programme type asks for
- * them. Some of these programmes certify an individual and their photograph
- * goes on the certificate; some train a room and nobody needs a face. The
- * Super Admin says which on the type, so a coordinator is never shown a step
- * the scheme has no use for and never has to be told by telephone that this
- * one does need it.
+ * Two of the steps appear only where the programme type asks for them.
+ * Participants' photographs: some of these programmes certify an individual
+ * and their photograph goes on the certificate, and some train a room and
+ * nobody needs a face. On-spot registration: some are open to whoever turns
+ * up and some run only for the candidates who applied. The Super Admin says
+ * which on the type, so a coordinator is never shown a step the scheme has
+ * no use for and never has to be told by telephone that this one needs it.
+ *
+ * Nothing is greyed out. A row that cannot be used yet used to be dimmed and
+ * unpressable, which answers "why can I not tap this?" with silence; the row
+ * says what it is waiting for instead, and the screen behind it says the same
+ * thing in full.
  */
 export default function ProgrammeManagement() {
   const router = useRouter();
   const { id, detail, loading, failure, refresh, locked } = useWorkshop();
-  const words = useSiteText();
   const [refreshing, setRefreshing] = useState(false);
 
   if (loading && !detail) return <Loading label="Loading program…" />;
@@ -66,17 +70,25 @@ export default function ProgrammeManagement() {
         title="Session capture"
         status={p?.sessionCount ? `${p.sessionCount} recorded` : 'No session recorded yet'}
         done={(p?.sessionCount ?? 0) > 0}
-        disabled={!locked && (p?.trainerCount ?? 0) === 0}
         onPress={() => go('session')}
       />
 
-      <MenuRow
-        icon="person-add-outline"
-        title="On-spot registration"
-        status={p?.participantCount ? `${p.participantCount} registered` : 'Nobody registered yet'}
-        done={(p?.participantCount ?? 0) > 0}
-        onPress={() => go('participant')}
-      />
+      {/* Only where the type allows people in at the door, and
+          optional even then: a batch nobody walked into is not an
+          incomplete batch. */}
+      {detail?.onSpotRegistrationAllowed !== false ? (
+        <MenuRow
+          icon="person-add-outline"
+          title="On-spot registration"
+          status={
+            p?.participantCount
+              ? `${p.participantCount} registered`
+              : 'Optional — nobody registered yet'
+          }
+          done={(p?.participantCount ?? 0) > 0}
+          onPress={() => go('participant')}
+        />
+      ) : null}
 
       {detail?.participantPhotoRequired ? (
         <MenuRow
@@ -87,7 +99,6 @@ export default function ProgrammeManagement() {
               ? `One photo per participant · ${p.participantCount} registered`
               : 'Register participants first'
           }
-          disabled={(p?.participantCount ?? 0) === 0}
           onPress={() => go('participant-photo')}
         />
       ) : null}
@@ -101,7 +112,6 @@ export default function ProgrammeManagement() {
             : 'Register participants first'
         }
         done={!!p?.participantCount && p.attendanceMarkedCount === p.participantCount}
-        disabled={(p?.participantCount ?? 0) === 0}
         onPress={() => go('attendance')}
       />
 
@@ -117,27 +127,6 @@ export default function ProgrammeManagement() {
         onPress={() => go('attendance-photo')}
       />
 
-      <MenuRow
-        icon="ribbon-outline"
-        title={words('coordinator.marksheet.title', 'Trainer marksheet')}
-        status={words(
-          'coordinator.marksheet.status',
-          'Written and viva marks for the enrolled candidates',
-        )}
-        onPress={() => go('marksheet')}
-      />
-
-      <MenuRow
-        icon="star-outline"
-        title="Participant feedback"
-        status={
-          p?.participantCount
-            ? `Optional — ${p.feedbackCount}/${p.participantCount} given`
-            : 'Register participants first'
-        }
-        disabled={(p?.participantCount ?? 0) === 0}
-        onPress={() => go('feedback')}
-      />
     </ScrollView>
   );
 }

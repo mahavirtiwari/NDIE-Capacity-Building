@@ -108,6 +108,21 @@ public class ProgramType : AuditableStatusEntity
     /// </summary>
     public bool ParticipantPhotoRequired { get; set; }
 
+    /// <summary>
+    /// Whether a coordinator may register people at the door on a batch
+    /// of this type.
+    ///
+    /// Some of these programmes are open to whoever turns up and some
+    /// run only for the candidates who applied and were approved. The
+    /// step appears in the coordinator's app where the type allows it
+    /// and is optional even then: a batch where nobody walked in is not
+    /// an incomplete batch.
+    ///
+    /// Defaults on, which is what every type has been doing. Untick it
+    /// on the types that are closed.
+    /// </summary>
+    public bool OnSpotRegistrationAllowed { get; set; } = true;
+
     public int CertificateValidityMonths { get; set; } = 36;
     /// <summary>
     /// Kept in step with the evaluation scheme rather than set on its own:

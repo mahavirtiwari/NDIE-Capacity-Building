@@ -17,6 +17,7 @@ import type {
   MonitoringSession,
   Participant,
   SessionTopic,
+  TrainerOption,
   Submission,
   Trainer,
   TrainerUpsert,
@@ -236,6 +237,14 @@ export const trainers = {
 
   /** The qualifications a trainer may be recorded against. */
   qualifications: () => api.get<string[]>('coordinator/qualifications'),
+
+  /**
+   * Who a session may be recorded against: everybody any coordinator of
+   * this agency has registered, not only the people already on this
+   * batch. The same trainer teaches several of them.
+   */
+  options: (id: number) =>
+    api.get<TrainerOption[]>(`coordinator/programmes/${id}/trainer-options`),
 };
 
 /** A trainer row as it will read once the server has it. */

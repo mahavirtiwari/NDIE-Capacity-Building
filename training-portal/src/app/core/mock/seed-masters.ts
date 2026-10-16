@@ -77,6 +77,9 @@ export const PROGRAM_TYPES: ProgramType[] = PT_SEED.map((p) => ({
      field: the step appears in the coordinator's app only where the
      scheme has said it wants faces. */
   participantPhotoRequired: false,
+  /* On, as it has been for every type: a closed programme is the
+     exception and is ticked off deliberately. */
+  onSpotRegistrationAllowed: true,
   certificateValidityMonths: 36,
   isExamMandatory: p.exam,
   isFeeApplicable: p.fee,

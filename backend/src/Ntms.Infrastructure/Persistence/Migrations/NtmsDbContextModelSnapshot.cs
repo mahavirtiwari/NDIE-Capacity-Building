@@ -3422,6 +3422,9 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
 
+                    b.Property<bool>("OnSpotRegistrationAllowed")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("ParticipantPhotoRequired")
                         .HasColumnType("bit");
 

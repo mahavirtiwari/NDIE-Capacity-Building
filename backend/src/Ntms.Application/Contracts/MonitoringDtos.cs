@@ -94,6 +94,9 @@ public class CoordinatorProgrammeDto
     /// </summary>
     public bool ParticipantPhotoRequired { get; set; }
 
+    /// <summary>Whether people may be registered at the door on this batch.</summary>
+    public bool OnSpotRegistrationAllowed { get; set; } = true;
+
     public string Venue { get; set; } = string.Empty;
     public string? City { get; set; }
     public string? State { get; set; }
@@ -230,7 +233,41 @@ public class SessionTopicDto
 {
     public int SessionId { get; set; }
     public string SessionName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Which day of the programme this session belongs to.
+    ///
+    /// The app asks for the day first and narrows by it, because a
+    /// five-day syllabus is forty sessions in one list otherwise and a
+    /// coordinator on day three is looking at ten of them.
+    /// </summary>
+    public int? Day { get; set; }
+
     public List<SessionSubTopicDto> SubTopics { get; set; } = [];
+}
+
+/// <summary>
+/// A trainer the coordinator may record a session against.
+///
+/// The agency's faculty, not this batch's: a trainer registered by one
+/// coordinator on Monday is the same person teaching another batch on
+/// Thursday, and asking the second coordinator to key in the name,
+/// mobile, qualification and two photographs again produces a second
+/// record of one person and a register nobody can count.
+/// </summary>
+public class TrainerOptionDto
+{
+    public int Id { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string Mobile { get; set; } = string.Empty;
+    public string? Qualification { get; set; }
+
+    /// <summary>
+    /// Whether this trainer is already on this programme. The ones that
+    /// are not are copied onto it when a session is recorded against
+    /// them, so the batch's own record stays complete.
+    /// </summary>
+    public bool OnThisProgramme { get; set; }
 }
 
 public class SessionSubTopicDto

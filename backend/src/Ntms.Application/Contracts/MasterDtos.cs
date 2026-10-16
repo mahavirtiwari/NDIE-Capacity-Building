@@ -170,6 +170,8 @@ public class ProgramTypeDto : AuditDto
     public int MinParticipants { get; set; }
     /// <summary>Whether every participant is to be photographed.</summary>
     public bool ParticipantPhotoRequired { get; set; }
+    /// <summary>Whether people may be registered at the door.</summary>
+    public bool OnSpotRegistrationAllowed { get; set; } = true;
     public int CertificateValidityMonths { get; set; }
     public bool IsExamMandatory { get; set; }
     public bool IsFeeApplicable { get; set; }
@@ -283,6 +285,8 @@ public class ProgramTypeUpsertDto
     public int MinParticipants { get; set; }
     /// <summary>Whether every participant is to be photographed.</summary>
     public bool ParticipantPhotoRequired { get; set; }
+    /// <summary>Whether people may be registered at the door.</summary>
+    public bool OnSpotRegistrationAllowed { get; set; } = true;
     public int CertificateValidityMonths { get; set; } = 36;
     public bool IsExamMandatory { get; set; } = true;
     public bool IsFeeApplicable { get; set; } = true;
