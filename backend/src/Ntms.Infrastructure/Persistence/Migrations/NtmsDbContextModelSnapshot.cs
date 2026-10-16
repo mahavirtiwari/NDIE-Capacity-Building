@@ -3422,6 +3422,9 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
 
+                    b.Property<bool>("ParticipantPhotoRequired")
+                        .HasColumnType("bit");
+
                     b.Property<string>("ShortDescription")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");

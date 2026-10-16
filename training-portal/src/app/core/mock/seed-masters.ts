@@ -73,6 +73,10 @@ export const PROGRAM_TYPES: ProgramType[] = PT_SEED.map((p) => ({
      without routes has always meant. */
   eligibilityRoutes: [],
   minParticipants: 0,
+  /* Off in the sample data, as it is for every type that predates the
+     field: the step appears in the coordinator's app only where the
+     scheme has said it wants faces. */
+  participantPhotoRequired: false,
   certificateValidityMonths: 36,
   isExamMandatory: p.exam,
   isFeeApplicable: p.fee,

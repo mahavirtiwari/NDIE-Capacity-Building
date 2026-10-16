@@ -282,6 +282,16 @@ interface WayDraft {
                     }
                   </span>
                 </div>
+                <div class="fact">
+                  <span class="fact__term">Participants' picture</span>
+                  <span class="fact__value">
+                    @if (row.participantPhotoRequired) {
+                      Required
+                    } @else {
+                      <span class="text-muted">Not required</span>
+                    }
+                  </span>
+                </div>
               </div>
             </div>
           </section>
@@ -720,7 +730,17 @@ interface WayDraft {
                   <input type="checkbox" formControlName="isFeeApplicable" />
                   <span>Fee is applicable</span>
                 </label>
+                <label class="check">
+                  <input type="checkbox" formControlName="participantPhotoRequired" />
+                  <span>Participants' picture required</span>
+                </label>
               </div>
+              <span class="field-hint">
+                A type whose participants are photographed shows that step in the
+                coordinator's app and hides it on types where nobody needs a face — so a
+                coordinator is never asked for forty photographs the scheme has no use for,
+                and never has to be told by telephone that this time it does need them.
+              </span>
               <span class="field-hint">
                 Which forms an applicant fills, and whether they are scrutinised, is set on
                 the sub-category — the questions belong to the discipline rather than to one
@@ -1225,6 +1245,7 @@ export class ProgramTypesComponent {
     minQualification: ['NONE'],
     minExperienceYears: [0],
     minParticipants: [0],
+    participantPhotoRequired: [false],
     certificateValidityMonths: [36],
     certificationPolicy: ['QualificationOnly' as ProgramType['certificationPolicy']],
     isFeeApplicable: [true],
@@ -1344,6 +1365,7 @@ export class ProgramTypesComponent {
       minQualification: row?.minQualification ?? 'NONE',
       minExperienceYears: row?.minExperienceYears ?? 0,
       minParticipants: row?.minParticipants ?? 0,
+      participantPhotoRequired: row?.participantPhotoRequired ?? false,
       certificateValidityMonths: row?.certificateValidityMonths ?? 36,
       certificationPolicy: row?.certificationPolicy ?? 'QualificationOnly',
       isFeeApplicable: row?.isFeeApplicable ?? true,

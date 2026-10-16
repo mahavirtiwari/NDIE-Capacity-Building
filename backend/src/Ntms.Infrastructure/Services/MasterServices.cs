@@ -399,6 +399,7 @@ public class ProgramTypeService(
         entity.MinQualification = QualificationLevels.Normalise(dto.MinQualification);
         entity.MinExperienceYears = dto.MinExperienceYears;
         entity.MinParticipants = dto.MinParticipants;
+        entity.ParticipantPhotoRequired = dto.ParticipantPhotoRequired;
         entity.CertificateValidityMonths = dto.CertificateValidityMonths;
         entity.IsFeeApplicable = dto.IsFeeApplicable;
         entity.CertificationPolicy = EnumMaps.ParseEnum(

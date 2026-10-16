@@ -168,6 +168,8 @@ public class ProgramTypeDto : AuditDto
 
     /// <summary>The fewest candidates a batch of this type is run for.</summary>
     public int MinParticipants { get; set; }
+    /// <summary>Whether every participant is to be photographed.</summary>
+    public bool ParticipantPhotoRequired { get; set; }
     public int CertificateValidityMonths { get; set; }
     public bool IsExamMandatory { get; set; }
     public bool IsFeeApplicable { get; set; }
@@ -279,6 +281,8 @@ public class ProgramTypeUpsertDto
 
     /// <summary>The fewest candidates a batch of this type is run for.</summary>
     public int MinParticipants { get; set; }
+    /// <summary>Whether every participant is to be photographed.</summary>
+    public bool ParticipantPhotoRequired { get; set; }
     public int CertificateValidityMonths { get; set; } = 36;
     public bool IsExamMandatory { get; set; } = true;
     public bool IsFeeApplicable { get; set; } = true;

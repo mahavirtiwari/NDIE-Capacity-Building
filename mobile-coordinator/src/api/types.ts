@@ -82,6 +82,9 @@ export interface Workshop {
   programmeId: string;
   programmeName: string;
   programTypeName?: string;
+  /** Whether this type's participants are photographed. Set by the
+      Super Admin on the programme type, not decided on the day. */
+  participantPhotoRequired?: boolean;
   venue: string;
   city?: string;
   state?: string;

@@ -87,6 +87,13 @@ public class CoordinatorProgrammeDto
     public string ProgrammeId { get; set; } = string.Empty;
     public string ProgrammeName { get; set; } = string.Empty;
     public string? ProgramTypeName { get; set; }
+
+    /// <summary>
+    /// Whether this batch's type wants a photograph of each
+    /// participant. The app shows or hides that step accordingly.
+    /// </summary>
+    public bool ParticipantPhotoRequired { get; set; }
+
     public string Venue { get; set; } = string.Empty;
     public string? City { get; set; }
     public string? State { get; set; }

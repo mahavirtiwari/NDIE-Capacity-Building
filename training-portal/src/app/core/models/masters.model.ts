@@ -107,6 +107,8 @@ export interface ProgramType extends AuditInfo {
   eligibilityRoutes: EligibilityRoute[];
   /** The fewest candidates a batch of this type is run for. */
   minParticipants: number;
+  /** Whether a coordinator is to photograph every participant on a batch. */
+  participantPhotoRequired: boolean;
   certificateValidityMonths: number;
   isExamMandatory: boolean;
   isFeeApplicable: boolean;

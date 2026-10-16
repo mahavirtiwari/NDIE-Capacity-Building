@@ -1177,6 +1177,7 @@ public class MonitoringService(
         dto.ProgrammeId = p.ProgrammeId;
         dto.ProgrammeName = p.ProgrammeName;
         dto.ProgramTypeName = p.ProgramType?.Name;
+        dto.ParticipantPhotoRequired = p.ProgramType?.ParticipantPhotoRequired ?? false;
         dto.Venue = p.Venue;
         dto.City = p.City;
         dto.State = p.State?.Name;

@@ -90,6 +90,24 @@ public class ProgramType : AuditableStatusEntity
     /// no floor, which is how every type that predates this reads.
     /// </summary>
     public int MinParticipants { get; set; }
+
+    /// <summary>
+    /// Whether every participant on a batch of this type is to be
+    /// photographed.
+    ///
+    /// A property of the type rather than a decision on the day: some
+    /// of these programmes certify an individual and their photograph
+    /// goes on the certificate, and some train a room and nobody needs
+    /// a face. The coordinator's app shows or hides the step from this,
+    /// so a coordinator is never asked for forty photographs the scheme
+    /// has no use for, and never has to be told by telephone that this
+    /// time it does need them.
+    ///
+    /// Off for every type that predates the field, which is what those
+    /// batches have been doing anyway.
+    /// </summary>
+    public bool ParticipantPhotoRequired { get; set; }
+
     public int CertificateValidityMonths { get; set; } = 36;
     /// <summary>
     /// Kept in step with the evaluation scheme rather than set on its own:

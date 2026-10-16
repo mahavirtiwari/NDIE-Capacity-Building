@@ -8,12 +8,19 @@ import { useSiteText } from '../../../../src/content/SiteTextContext';
 import { useWorkshop } from '../../../../src/workshop/WorkshopContext';
 
 /**
- * Tab 2 of the manual: the six capture screens, in the order the day runs.
+ * The capture screens, in the order the day runs.
  *
  * Session management and on-spot registration need a trainer and the venue
  * respectively, so those rows stay disabled until their prerequisite exists —
  * a coordinator should meet the requirement here, not in an error message on
  * the screen after.
+ *
+ * Participants' photographs appear only where the programme type asks for
+ * them. Some of these programmes certify an individual and their photograph
+ * goes on the certificate; some train a room and nobody needs a face. The
+ * Super Admin says which on the type, so a coordinator is never shown a step
+ * the scheme has no use for and never has to be told by telephone that this
+ * one does need it.
  */
 export default function ProgrammeManagement() {
   const router = useRouter();
@@ -56,7 +63,7 @@ export default function ProgrammeManagement() {
 
       <MenuRow
         icon="easel-outline"
-        title="Session management"
+        title="Session capture"
         status={p?.sessionCount ? `${p.sessionCount} recorded` : 'No session recorded yet'}
         done={(p?.sessionCount ?? 0) > 0}
         disabled={!locked && (p?.trainerCount ?? 0) === 0}
@@ -71,13 +78,19 @@ export default function ProgrammeManagement() {
         onPress={() => go('participant')}
       />
 
-      <MenuRow
-        icon="camera-outline"
-        title="Participant photo"
-        status="Optional — one photo per participant"
-        disabled={(p?.participantCount ?? 0) === 0}
-        onPress={() => go('participant-photo')}
-      />
+      {detail?.participantPhotoRequired ? (
+        <MenuRow
+          icon="camera-outline"
+          title="Participants photo"
+          status={
+            p?.participantCount
+              ? `One photo per participant · ${p.participantCount} registered`
+              : 'Register participants first'
+          }
+          disabled={(p?.participantCount ?? 0) === 0}
+          onPress={() => go('participant-photo')}
+        />
+      ) : null}
 
       <MenuRow
         icon="checkbox-outline"
@@ -94,7 +107,7 @@ export default function ProgrammeManagement() {
 
       <MenuRow
         icon="document-attach-outline"
-        title="Add attendance photo"
+        title="Attendance photo (hard copy)"
         status={
           p?.attendanceSheetCount
             ? `${p.attendanceSheetCount} sheet${p.attendanceSheetCount === 1 ? '' : 's'} uploaded`
