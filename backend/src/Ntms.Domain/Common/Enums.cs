@@ -413,6 +413,10 @@ public enum MonitoringPhotoKind
     Session = 3,
     Participant = 4,
     AttendanceSheet = 5,
+    /// <summary>The trainer themselves, photographed on the day.</summary>
+    TrainerPhoto = 6,
+    /// <summary>Whatever identity document the trainer produced.</summary>
+    TrainerIdProof = 7,
 }
 
 /// <summary>

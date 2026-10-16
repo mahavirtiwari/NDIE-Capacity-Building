@@ -318,7 +318,7 @@ public class MonitoringService(
 
         var detail = Fill(new CoordinatorProgrammeDetailDto(), programme, submission?.SubmittedOn);
         detail.VenueRegistered = venue is not null;
-        detail.Trainers = [.. trainers.Select(ToDto)];
+        detail.Trainers = [.. trainers.Select(t => ToDto(t, allPhotos))];
         detail.Sessions = [.. sessions.Select(s => ToDto(s, allPhotos))];
         detail.Participants = [.. participants.Select(p => ToDto(p, allPhotos))];
         detail.AttendanceSheets =
@@ -459,9 +459,21 @@ public class MonitoringService(
             ? Math.Clamp(years, 0, 70)
             : null;
 
+        /* Months are the remainder, not a second count of the same
+           thing: eleven is the most that can be left over once the
+           years are counted, and anything above it was meant to be a
+           year. */
+        trainer.ExperienceMonths = dto.ExperienceMonths is { } months
+            ? Math.Clamp(months, 0, 11)
+            : null;
+
         trainer.Qualification = string.IsNullOrWhiteSpace(dto.Qualification)
             ? null
             : dto.Qualification.Trim();
+
+        trainer.QualificationDetails = string.IsNullOrWhiteSpace(dto.QualificationDetails)
+            ? null
+            : dto.QualificationDetails.Trim();
 
         /* Only where one was sent. Nothing hands the stored number back
            to a screen, so a blank field means "unchanged" rather than
@@ -886,6 +898,24 @@ public class MonitoringService(
                 break;
             }
 
+            case MonitoringPhotoKind.TrainerPhoto:
+            case MonitoringPhotoKind.TrainerIdProof:
+            {
+                var trainer = await db.ProgrammeTrainers
+                    .FirstOrDefaultAsync(t => t.Id == ownerId && t.ProgrammeId == programmeId, ct)
+                    ?? throw AppException.NotFound("Trainer");
+                photo.TrainerId = trainer.Id;
+
+                /* One of each per trainer: a retake replaces rather than
+                   stacks, so the register shows one face and one
+                   document. */
+                var previous = await db.MonitoringPhotos
+                    .Where(x => x.TrainerId == trainer.Id && x.Kind == kind)
+                    .ToListAsync(ct);
+                db.MonitoringPhotos.RemoveRange(previous);
+                break;
+            }
+
             case MonitoringPhotoKind.AttendanceSheet:
                 /* Signed sheets run to several pages, so these accumulate. */
                 break;
@@ -1151,6 +1181,7 @@ public class MonitoringService(
         dto.City = p.City;
         dto.State = p.State?.Name;
         dto.District = p.District?.Name;
+        dto.Pincode = p.Pincode;
         dto.StartDate = p.StartDate;
         dto.EndDate = p.EndDate;
         dto.Status = p.Status.ToString();
@@ -1174,7 +1205,9 @@ public class MonitoringService(
         Organisation = t.Organisation,
         Engagement = t.Engagement?.ToString(),
         YearsExperience = t.YearsExperience,
+        ExperienceMonths = t.ExperienceMonths,
         Qualification = t.Qualification,
+        QualificationDetails = t.QualificationDetails,
         /* The last four and no more. Aadhaar is deliberately absent from
            what goes back: the app sends it once and never needs it
            again, and a faculty list that returns everybody's is a list
@@ -1200,6 +1233,27 @@ public class MonitoringService(
             .Where(p => p.Kind == MonitoringPhotoKind.VenueInterior)
             .Select(ToDto).FirstOrDefault(),
     };
+
+    /// <summary>
+    /// A trainer with their two photographs attached.
+    ///
+    /// The overload exists because only the detail call has the
+    /// programme's photographs in hand; the register that comes back
+    /// from adding one has no photographs yet by definition.
+    /// </summary>
+    private static TrainerDto ToDto(ProgrammeTrainer t, List<MonitoringPhoto> photos)
+    {
+        var dto = ToDto(t);
+        dto.Photo = photos
+            .Where(p => p.TrainerId == t.Id && p.Kind == MonitoringPhotoKind.TrainerPhoto)
+            .Select(ToDto)
+            .FirstOrDefault();
+        dto.IdProof = photos
+            .Where(p => p.TrainerId == t.Id && p.Kind == MonitoringPhotoKind.TrainerIdProof)
+            .Select(ToDto)
+            .FirstOrDefault();
+        return dto;
+    }
 
     private static MonitoringSessionDto ToDto(MonitoringSession s, List<MonitoringPhoto> photos) => new()
     {

@@ -104,6 +104,41 @@ public class CoordinatorController(MonitoringService service, MarksheetService m
         int id, [FromBody] TrainerUpsertDto dto, CancellationToken ct) =>
         Envelope(await service.AddTrainerAsync(id, dto, ct));
 
+    /// <summary>
+    /// The trainer, photographed, and the document they produced.
+    ///
+    /// Two slots on one route, like the venue's: a retake replaces what
+    /// is there rather than stacking, so the register holds one face
+    /// and one document per trainer.
+    /// </summary>
+    [HttpPost("programmes/{id:int}/trainers/{trainerId:int}/photo")]
+    [RequestSizeLimit(16 * 1024 * 1024)]
+    public async Task<ActionResult<ApiEnvelope<MonitoringPhotoDto>>> TrainerPhoto(
+        int id,
+        int trainerId,
+        [FromQuery] string slot,
+        IFormFile file,
+        [FromQuery] decimal? latitude,
+        [FromQuery] decimal? longitude,
+        [FromQuery] DateTime? capturedOn,
+        [FromQuery] string? platform,
+        [FromQuery] string? model,
+        [FromQuery] string? osVersion,
+        CancellationToken ct)
+    {
+        var kind = slot?.ToLowerInvariant() switch
+        {
+            "photo" => MonitoringPhotoKind.TrainerPhoto,
+            "idproof" => MonitoringPhotoKind.TrainerIdProof,
+            _ => throw new AppException("Slot must be photo or idproof."),
+        };
+
+        await using var stream = file.OpenReadStream();
+        return Envelope(await service.AddPhotoAsync(
+            id, kind, trainerId, stream, file.ContentType, file.Length,
+            CaptureFrom(capturedOn, latitude, longitude, platform, model, osVersion), ct));
+    }
+
     [HttpPut("trainers/{trainerId:int}")]
     public async Task<ActionResult<ApiEnvelope<TrainerDto>>> UpdateTrainer(
         int trainerId, [FromBody] TrainerUpsertDto dto, CancellationToken ct) =>

@@ -73,8 +73,16 @@ public class ProgrammeTrainer : AuditableEntity
     /// <summary>Full time or part time, where the coordinator said.</summary>
     public TrainerEngagement? Engagement { get; set; }
 
-    /// <summary>Years in the field, as declared. Null where not asked.</summary>
+    /// <summary>
+    /// Time in the field, as declared, in years and months.
+    ///
+    /// Two numbers because "three years" and "three years and eight
+    /// months" are different answers to a question a trainer is being
+    /// asked on the day, and rounding one into the other loses the only
+    /// part they thought about.
+    /// </summary>
     public int? YearsExperience { get; set; }
+    public int? ExperienceMonths { get; set; }
 
     /// <summary>
     /// The highest qualification, as its label rather than a key.
@@ -85,6 +93,17 @@ public class ProgrammeTrainer : AuditableEntity
     /// something nobody entered.
     /// </summary>
     public string? Qualification { get; set; }
+
+    /// <summary>
+    /// What the qualification actually is: the subject, the institution,
+    /// the year - whatever the trainer gives.
+    ///
+    /// "Graduation" on its own says almost nothing about somebody about
+    /// to teach a syllabus, and the office checking a faculty list
+    /// afterwards has no way to ask. The chip picks the level; this says
+    /// what it was in.
+    /// </summary>
+    public string? QualificationDetails { get; set; }
 
     /// <summary>
     /// The trainer's Aadhaar, where it was collected.
@@ -257,6 +276,8 @@ public class MonitoringPhoto : AuditableEntity
     public MonitoringSession? Session { get; set; }
     public int? ParticipantId { get; set; }
     public OnSpotParticipant? Participant { get; set; }
+    public int? TrainerId { get; set; }
+    public ProgrammeTrainer? Trainer { get; set; }
 
     /// <summary>Path under the monitoring storage root, using forward slashes.</summary>
     public string RelativePath { get; set; } = string.Empty;

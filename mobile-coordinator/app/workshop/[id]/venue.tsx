@@ -2,9 +2,8 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../../src/api/client';
-import { coordinatorProfile, photos, venue as venueApi, type CapturedImage } from '../../../src/api/endpoints';
-import type { CoordinatorProfile } from '../../../src/api/types';
-import { Banner, Button, Card, Field, KeyboardAvoider } from '../../../src/components/ui';
+import { photos, venue as venueApi, type CapturedImage } from '../../../src/api/endpoints';
+import { Banner, Button, Card } from '../../../src/components/ui';
 import { PhotoPicker } from '../../../src/components/PhotoPicker';
 import { useGeoFix } from '../../../src/location/useGeoFix';
 import { colors, radius, spacing } from '../../../src/theme';
@@ -13,6 +12,12 @@ import { useWorkshop } from '../../../src/workshop/WorkshopContext';
 /**
  * Register the venue: where it is, proved by a GPS fix taken there, plus one
  * exterior and one interior photograph.
+ *
+ * The address is not typed here. It is on the programme, put there by the
+ * office when the batch was raised, and asking a coordinator to key it in
+ * again at the hall produces a second spelling of the same place and no new
+ * information. The screen shows what the office holds and the coordinator
+ * supplies what only somebody standing there can: the fix and the pictures.
  *
  * The photos are uploaded after the venue is saved because the server hangs
  * them off the venue row. The screen therefore saves first and uploads second,
@@ -25,9 +30,6 @@ export default function RegisterVenue() {
 
   const geo = useGeoFix();
 
-  const [name, setName] = useState('');
-  const [address, setAddress] = useState('');
-  const [landmark, setLandmark] = useState('');
   const [exterior, setExterior] = useState<CapturedImage | null>(null);
   const [interior, setInterior] = useState<CapturedImage | null>(null);
 
@@ -35,46 +37,29 @@ export default function RegisterVenue() {
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  /* Who is registering it, for the header. Read rather than typed:
-     every one of these is already on the account, and a coordinator
-     retyping their own mobile number at a venue is a way of getting it
-     wrong. */
-  const [me, setMe] = useState<CoordinatorProfile | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const mine = await coordinatorProfile.mine();
-        if (!cancelled) setMe(mine);
-      } catch {
-        /* The form below is the job; a missing header is not worth
-           stopping it for. */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  /* Seeded from whatever is already recorded, so re-opening the screen shows
-     the venue rather than an empty form inviting it to be typed again. */
-  useEffect(() => {
-    if (!existing) return;
-    setName(existing.name);
-    setAddress(existing.address);
-    setLandmark(existing.landmark ?? '');
-  }, [existing]);
-
   const fix = geo.fix;
   const savedLat = existing?.latitude ?? null;
   const hasFix = fix !== null || savedLat !== null;
 
+  /* Already on the server counts: a coordinator reopening the screen to
+     correct the geo-tag should not have to photograph the hall again. */
+  const hasExterior = exterior !== null || !!existing?.exteriorPhoto;
+  const hasInterior = interior !== null || !!existing?.interiorPhoto;
+
   const save = async () => {
+    /* What the office raised, which is what the venue row records. The
+       name and the address are the same string because the programme
+       holds one: inventing a distinction here would put two different
+       answers in front of whoever reads the report. */
+    const raised = (detail?.venue ?? '').trim();
+
     const found: Record<string, string> = {};
-    if (!name.trim()) found.name = 'Venue name is required.';
-    if (!address.trim()) found.address = 'Address is required.';
+    if (!raised) {
+      found.venue = 'No venue has been recorded against this program. Ask the office.';
+    }
     if (!hasFix) found.geo = 'Capture the location at the venue before saving.';
+    if (!hasExterior) found.exterior = 'The exterior photograph is required.';
+    if (!hasInterior) found.interior = 'The interior photograph is required.';
     setErrors(found);
     if (Object.keys(found).length > 0) return;
 
@@ -82,9 +67,8 @@ export default function RegisterVenue() {
     setFailure(null);
     try {
       await venueApi.save(id, {
-        name: name.trim(),
-        address: address.trim(),
-        landmark: landmark.trim() || undefined,
+        name: raised,
+        address: raised,
         /* Only sent when a new reading was taken; omitting it leaves the
            stored geo-tag untouched. */
         latitude: fix?.latitude ?? null,
@@ -105,62 +89,21 @@ export default function RegisterVenue() {
   };
 
   return (
-    <KeyboardAvoider style={styles.flex}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {/* Who is registering this, and where the office says it is.
-            The reference screen opens with exactly this, and for the
-            same reason: a coordinator checks it against the hall they
-            are standing in before recording anything. */}
+    <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
         <Card style={styles.card}>
-          <Text style={styles.heading}>Coordinator</Text>
-          <Line label="Name" value={me?.fullName} />
-          <Line label="Mobile number" value={me?.mobile} />
-          <Line label="Email ID" value={me?.email} />
-        </Card>
-
-        <Card style={styles.card}>
-          <Text style={styles.heading}>Venue</Text>
+          <Text style={styles.heading}>Venue details</Text>
           <Text style={styles.hint}>
             As the program was raised. Ask the office if any of it is wrong.
           </Text>
-          <Line label="Venue" value={detail?.venue} />
-          <Line label="Mode" value={detail?.mode} />
-          <Line label="City" value={detail?.city} />
-          <Line label="District" value={detail?.district} />
+          <Line label="Address" value={detail?.venue} />
           <Line label="State" value={detail?.state} />
+          <Line label="District" value={detail?.district} />
+          <Line label="Pincode" value={detail?.pincode} />
         </Card>
 
 
         {locked ? <Banner tone="info">Finally submitted — read only.</Banner> : null}
-
-        <Card style={styles.card}>
-          <Field
-            label="Venue name"
-            required
-            value={name}
-            onChangeText={setName}
-            placeholder="e.g. District Industries Centre"
-            editable={!locked}
-            error={errors.name}
-          />
-          <Field
-            label="Address"
-            required
-            value={address}
-            onChangeText={setAddress}
-            placeholder="Street, area, city"
-            multiline
-            editable={!locked}
-            error={errors.address}
-          />
-          <Field
-            label="Landmark"
-            value={landmark}
-            onChangeText={setLandmark}
-            placeholder="Optional"
-            editable={!locked}
-          />
-        </Card>
+        {errors.venue ? <Banner tone="danger">{errors.venue}</Banner> : null}
 
         <Card style={styles.card}>
           <Text style={styles.heading}>Geo-tag</Text>
@@ -215,35 +158,46 @@ export default function RegisterVenue() {
           />
         </Card>
 
+        {/* Said once, above both, rather than twice underneath them:
+            the requirement is the same for the two and it is the
+            programme banner that makes a photograph evidence of this
+            workshop rather than of a room. */}
+        <Banner tone={hasExterior && hasInterior ? 'info' : 'warning'}>
+          Both photographs are required, and the program banner must be visible in each.
+        </Banner>
+
         <Card style={styles.card}>
           <PhotoPicker
             label="Exterior photo"
-            hint="The building front, with any signage visible."
+            required
+            hint="The building front, with the program banner and any signage visible."
             value={exterior}
             existingPath={existing?.exteriorPhoto?.url ?? null}
             onPick={setExterior}
             onClear={() => setExterior(null)}
             disabled={locked}
           />
+          {errors.exterior ? <Banner tone="danger">{errors.exterior}</Banner> : null}
         </Card>
 
         <Card style={styles.card}>
           <PhotoPicker
             label="Interior photo"
-            hint="The hall as set up for the program."
+            required
+            hint="The hall as set up, with the program banner in shot."
             value={interior}
             existingPath={existing?.interiorPhoto?.url ?? null}
             onPick={setInterior}
             onClear={() => setInterior(null)}
             disabled={locked}
           />
+          {errors.interior ? <Banner tone="danger">{errors.interior}</Banner> : null}
         </Card>
 
         {failure ? <Banner tone="danger">{failure}</Banner> : null}
 
         {!locked ? <Button label="Save venue" onPress={save} loading={busy} /> : null}
-      </ScrollView>
-    </KeyboardAvoider>
+    </ScrollView>
   );
 }
 

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../../src/api/client';
-import { trainers as trainersApi } from '../../../src/api/endpoints';
+import { photos, trainers as trainersApi, type CapturedImage } from '../../../src/api/endpoints';
 import { Banner, Button, Card, Field, KeyboardAvoider } from '../../../src/components/ui';
+import { PhotoPicker } from '../../../src/components/PhotoPicker';
+import { useGeoFix } from '../../../src/location/useGeoFix';
 import { isAadhaar, isEmail, isMobile } from '../../../src/validation/formats';
 import { colors, radius, spacing } from '../../../src/theme';
 import { useWorkshop } from '../../../src/workshop/WorkshopContext';
@@ -12,20 +14,29 @@ import { useWorkshop } from '../../../src/workshop/WorkshopContext';
  *
  * More than one is normal — a session each — so the screen lists those already
  * registered above the form rather than replacing itself after a save.
+ *
+ * What is asked for is what the scheme pays and certifies against: who they
+ * are, how to reach them, what they studied and how long they have been doing
+ * it, their Aadhaar, and two photographs — the trainer, and whatever identity
+ * document they produced. Designation, engagement and organisation were asked
+ * for and are not any more: none of the three decided anything, and three
+ * fields nobody reads are three chances to mistype something at a venue.
  */
 export default function RegisterTrainer() {
   const { id, detail, refresh, locked } = useWorkshop();
   const registered = detail?.trainers ?? [];
+  const geo = useGeoFix();
 
   const [fullName, setFullName] = useState('');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
-  const [designation, setDesignation] = useState('');
-  const [organisation, setOrganisation] = useState('');
-  const [engagement, setEngagement] = useState<'FullTime' | 'PartTime' | ''>('');
-  const [experience, setExperience] = useState('');
   const [qualification, setQualification] = useState('');
+  const [qualificationDetails, setQualificationDetails] = useState('');
+  const [years, setYears] = useState('');
+  const [months, setMonths] = useState('');
   const [aadhaar, setAadhaar] = useState('');
+  const [photo, setPhoto] = useState<CapturedImage | null>(null);
+  const [idProof, setIdProof] = useState<CapturedImage | null>(null);
 
   /* The ladder from the masters, so the register does not collect
      "Post Graduate", "PG" and "Post-graduate" as three answers to one
@@ -59,9 +70,23 @@ export default function RegisterTrainer() {
     else if (!isMobile(mobile)) found.mobile = 'Enter a 10 digit number starting with 6-9.';
     if (email.trim() && !isEmail(email)) found.email = 'Enter a valid email address.';
     if (aadhaar.trim() && !isAadhaar(aadhaar)) found.aadhaar = 'Enter the 12 digit number.';
-    if (experience.trim() && !/^\d{1,2}$/.test(experience.trim())) {
-      found.experience = 'Enter the number of years.';
+
+    if (years.trim() && !/^\d{1,2}$/.test(years.trim())) found.experience = 'Years, as a number.';
+    if (months.trim() && !/^\d{1,2}$/.test(months.trim())) {
+      found.experience = 'Months, as a number.';
+    } else if (months.trim() && Number(months.trim()) > 11) {
+      /* Twelve months is a year, and the field above it is for years. */
+      found.experience = 'Months must be 11 or fewer.';
     }
+
+    /* Asked for only where a level was picked: a details box under
+       nothing is a question about nothing. */
+    if (qualification.trim() && !qualificationDetails.trim()) {
+      found.qualificationDetails = 'Say what the qualification is in.';
+    }
+
+    if (!photo) found.photo = "The trainer's photograph is required.";
+    if (!idProof) found.idProof = 'A photograph of the ID proof is required.';
 
     setErrors(found);
     if (Object.keys(found).length > 0) return;
@@ -69,27 +94,33 @@ export default function RegisterTrainer() {
     setBusy(true);
     setFailure(null);
     try {
-      await trainersApi.add(id, {
+      /* The trainer first, because the photographs hang off the row the
+         server creates. */
+      const saved = await trainersApi.add(id, {
         fullName: fullName.trim(),
         mobile: mobile.trim(),
         email: email.trim() || undefined,
-        designation: designation.trim() || undefined,
-        organisation: organisation.trim() || undefined,
-        engagement: engagement || undefined,
-        yearsExperience: experience.trim() ? Number(experience.trim()) : undefined,
         qualification: qualification.trim() || undefined,
+        qualificationDetails: qualificationDetails.trim() || undefined,
+        yearsExperience: years.trim() ? Number(years.trim()) : undefined,
+        experienceMonths: months.trim() ? Number(months.trim()) : undefined,
         aadhaar: aadhaar.trim() || undefined,
       });
+
+      if (photo) await photos.trainer(id, saved.id, 'photo', photo, geo.fix);
+      if (idProof) await photos.trainer(id, saved.id, 'idproof', idProof, geo.fix);
+
       await refresh();
       setFullName('');
       setMobile('');
       setEmail('');
-      setDesignation('');
-      setOrganisation('');
-      setEngagement('');
-      setExperience('');
       setQualification('');
+      setQualificationDetails('');
+      setYears('');
+      setMonths('');
       setAadhaar('');
+      setPhoto(null);
+      setIdProof(null);
     } catch (caught) {
       setFailure(caught instanceof ApiError ? caught.message : 'Could not add the trainer.');
     } finally {
@@ -110,20 +141,16 @@ export default function RegisterTrainer() {
                 <Text style={styles.trainerName}>{trainer.fullName}</Text>
                 <Text style={styles.trainerMeta}>
                   {[
-                    trainer.designation,
-                    trainer.organisation,
                     trainer.qualification,
-                    trainer.engagement === 'FullTime'
-                      ? 'Full time'
-                      : trainer.engagement === 'PartTime'
-                        ? 'Part time'
-                        : null,
-                    trainer.yearsExperience != null ? `${trainer.yearsExperience} yrs` : null,
+                    experienceWords(trainer.yearsExperience, trainer.experienceMonths),
                     trainer.mobile,
                   ]
                     .filter(Boolean)
                     .join(' · ')}
                 </Text>
+                {trainer.qualificationDetails ? (
+                  <Text style={styles.trainerMeta}>{trainer.qualificationDetails}</Text>
+                ) : null}
               </View>
             ))}
           </Card>
@@ -162,45 +189,6 @@ export default function RegisterTrainer() {
               autoCorrect={false}
               error={errors.email}
             />
-            <Field
-              label="Designation"
-              value={designation}
-              onChangeText={setDesignation}
-              placeholder="e.g. Master Trainer"
-            />
-            {/* Two buttons rather than a dropdown: there are exactly two
-                answers and a picker for two answers is a tap wasted. */}
-            <View style={styles.group}>
-              <Text style={styles.groupLabel}>Engagement</Text>
-              <View style={styles.choices}>
-                {([
-                  ['FullTime', 'Full time'],
-                  ['PartTime', 'Part time'],
-                ] as const).map(([value, label]) => (
-                  <Pressable
-                    key={value}
-                    style={[styles.choice, engagement === value && styles.choiceOn]}
-                    onPress={() => setEngagement(engagement === value ? '' : value)}
-                  >
-                    <Text
-                      style={[styles.choiceText, engagement === value && styles.choiceTextOn]}
-                    >
-                      {label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-
-            <Field
-              label="Years of experience"
-              value={experience}
-              onChangeText={setExperience}
-              placeholder="e.g. 12"
-              keyboardType="number-pad"
-              maxLength={2}
-              error={errors.experience}
-            />
 
             {/* The ladder from the masters where it loaded, typing where
                 it did not: a coordinator in a basement should not be
@@ -236,6 +224,47 @@ export default function RegisterTrainer() {
               />
             )}
 
+            {/* Asked as soon as a level is picked. "Graduation" says
+                almost nothing about somebody about to teach a syllabus;
+                the subject, the institution and the year do. */}
+            {qualification.trim() ? (
+              <Field
+                label={`${qualification} — details`}
+                required
+                value={qualificationDetails}
+                onChangeText={setQualificationDetails}
+                placeholder="Subject, institution and year"
+                error={errors.qualificationDetails}
+              />
+            ) : null}
+
+            <View style={styles.group}>
+              <Text style={styles.groupLabel}>Experience</Text>
+              <View style={styles.span}>
+                <View style={styles.spanHalf}>
+                  <Field
+                    label="Years"
+                    value={years}
+                    onChangeText={setYears}
+                    placeholder="e.g. 12"
+                    keyboardType="number-pad"
+                    maxLength={2}
+                  />
+                </View>
+                <View style={styles.spanHalf}>
+                  <Field
+                    label="Months"
+                    value={months}
+                    onChangeText={setMonths}
+                    placeholder="0 – 11"
+                    keyboardType="number-pad"
+                    maxLength={2}
+                  />
+                </View>
+              </View>
+              {errors.experience ? <Banner tone="danger">{errors.experience}</Banner> : null}
+            </View>
+
             <Field
               label="Aadhaar"
               value={aadhaar}
@@ -246,12 +275,25 @@ export default function RegisterTrainer() {
               error={errors.aadhaar}
             />
 
-            <Field
-              label="Organisation"
-              value={organisation}
-              onChangeText={setOrganisation}
-              placeholder="e.g. QCI"
+            <PhotoPicker
+              label="Trainer photo"
+              required
+              hint="The trainer, taken here."
+              value={photo}
+              onPick={setPhoto}
+              onClear={() => setPhoto(null)}
             />
+            {errors.photo ? <Banner tone="danger">{errors.photo}</Banner> : null}
+
+            <PhotoPicker
+              label="ID proof"
+              required
+              hint="Whatever identity document they produced, readable in the shot."
+              value={idProof}
+              onPick={setIdProof}
+              onClear={() => setIdProof(null)}
+            />
+            {errors.idProof ? <Banner tone="danger">{errors.idProof}</Banner> : null}
 
             {failure ? <Banner tone="danger">{failure}</Banner> : null}
 
@@ -263,35 +305,46 @@ export default function RegisterTrainer() {
   );
 }
 
+/** "12 yrs 6 mo", or whichever half was given. */
+function experienceWords(years?: number | null, months?: number | null): string | null {
+  const parts: string[] = [];
+  if (years) parts.push(`${years} yr${years === 1 ? '' : 's'}`);
+  if (months) parts.push(`${months} mo`);
+  return parts.length > 0 ? parts.join(' ') : null;
+}
+
 const styles = StyleSheet.create({
-  /* A labelled row of choices, for the questions with a short fixed set
-     of answers. Wraps rather than scrolls: a qualification ladder is
-     read all at once, unlike the day tabs on the register. */
-  group: { gap: 6 },
-  groupLabel: { fontSize: 13, fontWeight: '600', color: colors.ink700 },
+  flex: { flex: 1, backgroundColor: colors.page },
+  content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl * 2 },
+  card: { gap: spacing.lg },
+  heading: { fontSize: 15, fontWeight: '700', color: colors.ink900 },
+
+  trainer: {
+    gap: 2,
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  trainerName: { fontSize: 14, fontWeight: '600', color: colors.ink900 },
+  trainerMeta: { fontSize: 12, color: colors.ink500 },
+
+  group: { gap: spacing.sm },
+  groupLabel: { fontSize: 14, fontWeight: '600', color: colors.ink800 },
   choices: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   choice: {
-    paddingVertical: 7,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.white,
   },
   choiceOn: { backgroundColor: colors.brand600, borderColor: colors.brand600 },
-  choiceText: { fontSize: 13, color: colors.ink700 },
-  choiceTextOn: { color: '#fff', fontWeight: '600' },
+  choiceText: { fontSize: 13, fontWeight: '600', color: colors.ink700 },
+  choiceTextOn: { color: colors.white },
 
-  flex: { flex: 1, backgroundColor: colors.page },
-  content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
-  card: { gap: spacing.md },
-  heading: { fontSize: 15, fontWeight: '700', color: colors.ink900 },
-  trainer: {
-    backgroundColor: colors.ink50,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: 2,
-  },
-  trainerName: { fontSize: 14, fontWeight: '600', color: colors.ink900 },
-  trainerMeta: { fontSize: 12, color: colors.ink500 },
+  /* Years and months side by side: they are one answer, and stacking
+     them reads as two separate questions. */
+  span: { flexDirection: 'row', gap: spacing.md },
+  spanHalf: { flex: 1 },
 });

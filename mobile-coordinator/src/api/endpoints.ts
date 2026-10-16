@@ -463,6 +463,16 @@ export const photos = {
   venue: (id: number, slot: 'exterior' | 'interior', image: CapturedImage, fix?: Fix | null) =>
     upload(`coordinator/programmes/${id}/venue/photo?slot=${slot}`, image, fix),
 
+  /** The trainer's own face, and the document they produced. */
+  trainer: (
+    id: number,
+    trainerId: number,
+    slot: 'photo' | 'idproof',
+    image: CapturedImage,
+    fix?: Fix | null,
+  ) =>
+    upload(`coordinator/programmes/${id}/trainers/${trainerId}/photo?slot=${slot}`, image, fix),
+
   session: (id: number, sessionId: number, image: CapturedImage, fix?: Fix | null) =>
     upload(`coordinator/programmes/${id}/sessions/${sessionId}/photo`, image, fix),
 

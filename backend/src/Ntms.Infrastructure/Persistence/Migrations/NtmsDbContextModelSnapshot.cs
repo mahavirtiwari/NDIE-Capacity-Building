@@ -2122,6 +2122,9 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("SyncedOn")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("TrainerId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("VenueId")
                         .HasColumnType("int");
 
@@ -2130,6 +2133,8 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.HasIndex("ParticipantId");
 
                     b.HasIndex("SessionId");
+
+                    b.HasIndex("TrainerId");
 
                     b.HasIndex("VenueId");
 
@@ -3899,6 +3904,9 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Property<string>("Engagement")
                         .HasColumnType("varchar(40)");
 
+                    b.Property<int?>("ExperienceMonths")
+                        .HasColumnType("int");
+
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasMaxLength(160)
@@ -3925,6 +3933,9 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Property<string>("Qualification")
                         .HasMaxLength(120)
                         .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("QualificationDetails")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int?>("RegisteredByUserId")
                         .HasColumnType("int");
@@ -5473,6 +5484,10 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .HasForeignKey("SessionId")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.HasOne("Ntms.Domain.Entities.ProgrammeTrainer", "Trainer")
+                        .WithMany()
+                        .HasForeignKey("TrainerId");
+
                     b.HasOne("Ntms.Domain.Entities.ProgrammeVenue", "Venue")
                         .WithMany("Photos")
                         .HasForeignKey("VenueId")
@@ -5483,6 +5498,8 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Navigation("Programme");
 
                     b.Navigation("Session");
+
+                    b.Navigation("Trainer");
 
                     b.Navigation("Venue");
                 });

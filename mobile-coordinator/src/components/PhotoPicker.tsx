@@ -29,6 +29,7 @@ import { colors, radius, spacing } from '../theme';
 export function PhotoPicker({
   label,
   hint,
+  required,
   value,
   existingPath,
   onPick,
@@ -37,6 +38,8 @@ export function PhotoPicker({
 }: {
   label: string;
   hint?: string;
+  /** Marked like a required field, because that is what it is. */
+  required?: boolean;
   value?: CapturedImage | null;
   /**
    * A photo already stored on the server, shown until a new one is taken.
@@ -98,7 +101,10 @@ export function PhotoPicker({
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.label}>
+        {label}
+        {required ? <Text style={styles.required}> *</Text> : null}
+      </Text>
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}
 
       {preview ? (
@@ -133,6 +139,7 @@ export function PhotoPicker({
 const styles = StyleSheet.create({
   wrap: { gap: spacing.sm },
   label: { fontSize: 14, fontWeight: '600', color: colors.ink800 },
+  required: { color: colors.danger700 },
   hint: { fontSize: 12, color: colors.ink500 },
   preview: {
     width: '100%',

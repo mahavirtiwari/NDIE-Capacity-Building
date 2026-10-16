@@ -92,6 +92,7 @@ public class CoordinatorProgrammeDto
     public string? State { get; set; }
     /// <summary>The LGD district, named: the venue screen shows it back.</summary>
     public string? District { get; set; }
+    public string? Pincode { get; set; }
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
     public string Status { get; set; } = string.Empty;
@@ -180,10 +181,16 @@ public class TrainerUpsertDto
 
     /// <summary>"FullTime" or "PartTime".</summary>
     public string? Engagement { get; set; }
+
+    /// <summary>Time in the field, as two numbers rather than one.</summary>
     public int? YearsExperience { get; set; }
+    public int? ExperienceMonths { get; set; }
 
     /// <summary>The label from the qualifications master, not its key.</summary>
     public string? Qualification { get; set; }
+
+    /// <summary>What it was in: subject, institution, year, as given.</summary>
+    public string? QualificationDetails { get; set; }
 
     /// <summary>Twelve digits. Sent whole, never sent back whole.</summary>
     public string? Aadhaar { get; set; }
@@ -201,6 +208,12 @@ public class TrainerDto : TrainerUpsertDto
     /// everybody's Aadhaar to every caller is a register that leaks it.
     /// </summary>
     public string? AadhaarLast4 { get; set; }
+
+    /// <summary>The trainer photographed on the day, if one was taken.</summary>
+    public MonitoringPhotoDto? Photo { get; set; }
+
+    /// <summary>Their identity document, photographed.</summary>
+    public MonitoringPhotoDto? IdProof { get; set; }
 }
 
 /* ---------------------------------------------------------------- session */

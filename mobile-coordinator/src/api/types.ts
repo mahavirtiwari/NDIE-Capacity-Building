@@ -86,6 +86,7 @@ export interface Workshop {
   city?: string;
   state?: string;
   district?: string | null;
+  pincode?: string | null;
   startDate: string;
   endDate: string;
   status: string;
@@ -135,6 +136,10 @@ export interface Venue {
 }
 
 export interface Trainer {
+  /** The trainer photographed on the day, where one was taken. */
+  photo?: MonitoringPhoto | null;
+  /** Their identity document, photographed. */
+  idProof?: MonitoringPhoto | null;
   id: number;
   fullName: string;
   mobile: string;
@@ -143,7 +148,9 @@ export interface Trainer {
   organisation?: string | null;
   engagement?: 'FullTime' | 'PartTime' | null;
   yearsExperience?: number | null;
+  experienceMonths?: number | null;
   qualification?: string | null;
+  qualificationDetails?: string | null;
   /** The last four digits. The whole number is never sent back. */
   aadhaarLast4?: string | null;
 }
@@ -157,7 +164,9 @@ export interface TrainerUpsert {
   organisation?: string;
   engagement?: 'FullTime' | 'PartTime';
   yearsExperience?: number;
+  experienceMonths?: number;
   qualification?: string;
+  qualificationDetails?: string;
   /** Sent whole, once. Nothing reads it back. */
   aadhaar?: string;
 }
