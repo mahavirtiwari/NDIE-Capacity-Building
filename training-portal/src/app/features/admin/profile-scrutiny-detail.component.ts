@@ -108,35 +108,148 @@ interface OpenAttachment {
         }
       </app-page-header>
 
-      <div class="detail-grid">
-        <div class="stack stack-md">
-          <section class="card">
-            <!-- A tab per section, and the history at the end.
+      <section class="card sheet">
+        <!-- A section at a time, named down the side.
 
-                 A profile runs to eight sections and forty answers.
-                 Scrolling a page that long to find the qualifications,
-                 and then scrolling back to the identity to check a name
-                 against them, is the whole of what reading one used to
-                 be. Named on tabs, the two are a click apart and the
-                 reader never loses their place. -->
-            <div class="tabs tabs--solid">
-              @for (section of sections(); track section.id) {
-                <button
-                  type="button"
-                  class="tab"
-                  [class.is-active]="tab() === section.id"
-                  (click)="tab.set(section.id)"
-                >{{ section.title }}</button>
-              }
-              <button
-                type="button"
-                class="tab"
-                [class.is-active]="tab() === 'history'"
-                (click)="tab.set('history')"
-              >History ({{ record.history.length }})</button>
-            </div>
+             A profile runs to eight sections and forty answers. Reading
+             one by scrolling - down to the qualifications, back up to
+             the identity to check a name against them - was the whole
+             of the job. The names were a row of tabs across the top
+             until there were eight of them and the row wrapped, or
+             scrolled sideways, which is no way to show a list. Down the
+             left they are a list, they fit, and each one is a click
+             away without the reader losing their place. -->
+        <nav class="sheet__nav" aria-label="Profile sections">
+          <button
+            type="button"
+            class="sheet__tab"
+            [class.is-active]="tab() === 'overview'"
+            (click)="tab.set('overview')"
+          >
+            <app-icon name="flag" [size]="14" /> Overview
+          </button>
+          @for (section of sections(); track section.id) {
+            <button
+              type="button"
+              class="sheet__tab"
+              [class.is-active]="tab() === section.id"
+              (click)="tab.set(section.id)"
+            >{{ section.title }}</button>
+          }
+          <button
+            type="button"
+            class="sheet__tab"
+            [class.is-active]="tab() === 'history'"
+            (click)="tab.set('history')"
+          >History ({{ record.history.length }})</button>
+        </nav>
 
-            @if (tab() === 'history') {
+        <div class="sheet__body">
+            @if (tab() === 'overview') {
+              <!-- Where the profile stands, who it is, and what was
+                   decided. This was a column down the right of every
+                   section, which meant it was beside the answers it has
+                   nothing to do with and the answers had a third of the
+                   page less to be read in. -->
+              <div class="overview">
+                <section class="panel panel--accent">
+                  <h2 class="panel__head">
+                    <app-icon name="flag" [size]="14" /> Status
+                    <app-status-badge class="panel__aside" [value]="record.status" />
+                  </h2>
+                  <div class="panel__body">
+                    <div class="fact">
+                      <span class="fact__term">Submitted on</span>
+                      <span class="fact__value">
+                        {{ record.submittedOn ? (record.submittedOn | date: 'dd MMM yyyy') : '—' }}
+                      </span>
+                    </div>
+                    <div class="fact">
+                      <span class="fact__term">Attempt</span>
+                      <span class="fact__value tabular">{{ record.attemptNo }}</span>
+                    </div>
+                    <div class="fact">
+                      <span class="fact__term">Assigned to</span>
+                      <span class="fact__value">{{ record.assignedToName || 'Unassigned' }}</span>
+                      <!-- The account and what it is, rather than a
+                           sentence about how the desk was picked: two
+                           managers can share a name, and what the reader
+                           needs is which one. -->
+                      @if (record.assignedToCode) {
+                        <span class="text-xs text-muted">
+                          <code>{{ record.assignedToCode }}</code>
+                          @if (record.assignedToRole) { · {{ record.assignedToRole }} }
+                        </span>
+                      }
+                    </div>
+                  </div>
+                </section>
+
+                <section class="panel">
+                  <h2 class="panel__head">
+                    <app-icon name="user-check" [size]="14" /> Applicant
+                  </h2>
+                  <div class="panel__body">
+                    <div class="fact">
+                      <span class="fact__term">Applicant ID</span>
+                      <span class="fact__value"><code>{{ record.applicantCode }}</code></span>
+                    </div>
+                    <div class="fact">
+                      <span class="fact__term">Category</span>
+                      <span class="fact__value">{{ record.categoryName }}</span>
+                    </div>
+                    <div class="fact">
+                      <span class="fact__term">Sub-category</span>
+                      <span class="fact__value">{{ record.subCategoryName }}</span>
+                    </div>
+                  </div>
+                </section>
+
+                <!-- What was decided, once it has been. Everybody sees
+                     this, the manager who decided included: it is the
+                     record of the outcome rather than the means of
+                     reaching one, and the reason an applicant was turned
+                     down is the part the rest of the office actually
+                     needs to read. Nothing stands here while a profile is
+                     still open, because there is nothing yet to report. -->
+                @if (record.decidedOn) {
+                  <section class="panel overview__wide">
+                    <h2 class="panel__head">
+                      <app-icon name="clipboard" [size]="14" /> Decision
+                      <app-status-badge class="panel__aside" [value]="record.status" />
+                    </h2>
+                    <div class="panel__body">
+                      <div class="fact">
+                        <span class="fact__term">Decided</span>
+                        <span class="fact__value">
+                          {{ record.decidedOn | date: 'dd MMM yyyy, h:mm a' }}
+                        </span>
+                      </div>
+                      @if (record.decidedByUserName) {
+                        <div class="fact">
+                          <span class="fact__term">By</span>
+                          <span class="fact__value">{{ record.decidedByUserName }}</span>
+                        </div>
+                      }
+                      @if (record.rejectionReasonLabel) {
+                        <div class="fact">
+                          <span class="fact__term">Reason</span>
+                          <span class="fact__value text-danger">
+                            {{ record.rejectionReasonLabel }}
+                          </span>
+                        </div>
+                      }
+                      @if (record.remarks) {
+                        <div class="fact">
+                          <span class="fact__term">Remarks</span>
+                          <span class="fact__value">{{ record.remarks }}</span>
+                        </div>
+                      }
+                    </div>
+                  </section>
+                }
+              </div>
+            } @else if (tab() === 'history') {
               <div class="card__body">
                 <app-timeline
                   [events]="historyEvents(record)"
@@ -161,104 +274,9 @@ interface OpenAttachment {
                 </p>
               </div>
             }
-          </section>
         </div>
+      </section>
 
-        <aside class="stack stack-md">
-          <!-- Tinted and first: where the profile stands is what the side
-               column is opened for. -->
-          <section class="panel panel--accent">
-            <h2 class="panel__head">
-              <app-icon name="flag" [size]="14" /> Status
-              <app-status-badge class="panel__aside" [value]="record.status" />
-            </h2>
-            <div class="panel__body">
-              <div class="fact">
-                <span class="fact__term">Submitted on</span>
-                <span class="fact__value">
-                  {{ record.submittedOn ? (record.submittedOn | date: 'dd MMM yyyy') : '—' }}
-                </span>
-              </div>
-              <div class="fact">
-                <span class="fact__term">Attempt</span>
-                <span class="fact__value tabular">{{ record.attemptNo }}</span>
-              </div>
-              <div class="fact">
-                <span class="fact__term">Assigned to</span>
-                <span class="fact__value">{{ record.assignedToName || 'Unassigned' }}</span>
-                <!-- The account and what it is, rather than a sentence
-                     about how the desk was picked: two managers can share
-                     a name, and what the reader needs is which one. -->
-                @if (record.assignedToCode) {
-                  <span class="text-xs text-muted">
-                    <code>{{ record.assignedToCode }}</code>
-                    @if (record.assignedToRole) { · {{ record.assignedToRole }} }
-                  </span>
-                }
-              </div>
-            </div>
-          </section>
-
-          <section class="panel">
-            <h2 class="panel__head"><app-icon name="user-check" [size]="14" /> Applicant</h2>
-            <div class="panel__body">
-              <div class="fact">
-                <span class="fact__term">Applicant ID</span>
-                <span class="fact__value"><code>{{ record.applicantCode }}</code></span>
-              </div>
-              <div class="fact">
-                <span class="fact__term">Category</span>
-                <span class="fact__value">{{ record.categoryName }}</span>
-              </div>
-              <div class="fact">
-                <span class="fact__term">Sub-category</span>
-                <span class="fact__value">{{ record.subCategoryName }}</span>
-              </div>
-            </div>
-          </section>
-
-          <!-- What was decided, once it has been. Everybody sees this, the
-               manager who decided included: it is the record of the outcome
-               rather than the means of reaching one, and the reason an
-               applicant was turned down is the part the rest of the office
-               actually needs to read. Nothing stands here while a profile is
-               still open, because there is nothing yet to report. -->
-          @if (record.decidedOn) {
-            <section class="panel">
-              <h2 class="panel__head">
-                <app-icon name="clipboard" [size]="14" /> Decision
-                <app-status-badge class="panel__aside" [value]="record.status" />
-              </h2>
-              <div class="panel__body">
-                <div class="fact">
-                  <span class="fact__term">Decided</span>
-                  <span class="fact__value">
-                    {{ record.decidedOn | date: 'dd MMM yyyy, h:mm a' }}
-                  </span>
-                </div>
-                @if (record.decidedByUserName) {
-                  <div class="fact">
-                    <span class="fact__term">By</span>
-                    <span class="fact__value">{{ record.decidedByUserName }}</span>
-                  </div>
-                }
-                @if (record.rejectionReasonLabel) {
-                  <div class="fact">
-                    <span class="fact__term">Reason</span>
-                    <span class="fact__value text-danger">{{ record.rejectionReasonLabel }}</span>
-                  </div>
-                }
-                @if (record.remarks) {
-                  <div class="fact">
-                    <span class="fact__term">Remarks</span>
-                    <span class="fact__value">{{ record.remarks }}</span>
-                  </div>
-                }
-              </div>
-            </section>
-          }
-        </aside>
-      </div>
     <!-- What the applicant attached, shown rather than downloaded.
          An officer deciding a profile is looking at a marksheet, and
          making them find it in a downloads folder and come back is the
@@ -356,28 +374,87 @@ interface OpenAttachment {
         background: var(--surface);
       }
 
-      .detail-grid {
+      /* The sheet: names down the left, one section to the right. */
+      .sheet {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 340px;
-        gap: 1rem;
-        align-items: start;
+        grid-template-columns: 232px minmax(0, 1fr);
+        align-items: stretch;
+        overflow: hidden;
       }
-      /* The side stays where it is while the form scrolls past it.
-
-         A profile runs to several screens, and the two things a reader
-         keeps glancing at — where it stands, and what was decided — were
-         at the top of a column that had already gone. Only where there is
-         the height to do it; on a short window a stuck panel is a panel
+      .sheet__nav {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 0.6rem;
+        background: var(--surface-muted);
+        border-right: 1px solid var(--border);
+      }
+      /* The list stays put while a long section scrolls past it, which
+         is the point of having it down the side. Only where there is
+         the height for it: on a short window a stuck list is a list
          with its own scrollbar, which is worse than one that moves. */
-      @media (min-width: 1101px) and (min-height: 720px) {
-        .detail-grid > aside {
+      @media (min-height: 720px) {
+        .sheet__nav {
           position: sticky;
-          top: 1rem;
+          top: 0;
+          align-self: start;
+          max-height: 100vh;
+          overflow: auto;
         }
       }
-      @media (max-width: 1100px) {
-        .detail-grid { grid-template-columns: minmax(0, 1fr); }
+      .sheet__tab {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        width: 100%;
+        padding: 0.5rem 0.7rem;
+        border: 0;
+        border-radius: var(--radius);
+        background: transparent;
+        font: inherit;
+        font-size: var(--fs-sm);
+        font-weight: 500;
+        color: var(--ink-700);
+        text-align: left;
+        cursor: pointer;
+        /* A long section name wraps rather than being cut off: the
+           names are the navigation and half a name navigates nowhere. */
+        white-space: normal;
+        line-height: 1.35;
       }
+      .sheet__tab:hover { background: var(--ink-100); color: var(--ink-900); }
+      .sheet__tab.is-active {
+        background: var(--brand-700);
+        color: #fff;
+        font-weight: 600;
+      }
+      .sheet__body { min-width: 0; }
+
+      /* On a narrow window the rail goes back to being a row across the
+         top, because 232px of a phone is most of the phone. */
+      @media (max-width: 860px) {
+        .sheet { grid-template-columns: minmax(0, 1fr); }
+        .sheet__nav {
+          flex-direction: row;
+          flex-wrap: wrap;
+          border-right: 0;
+          border-bottom: 1px solid var(--border);
+          position: static;
+          max-height: none;
+        }
+        .sheet__tab { width: auto; }
+      }
+
+      /* Overview: the panels that used to be the side column, now the
+         first section, two across where there is room. */
+      .overview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 0.9rem;
+        align-items: start;
+        padding: 0.9rem 1.15rem 1.1rem;
+      }
+      .overview__wide { grid-column: 1 / -1; }
       /* A panel heading is a flex row, so anything after the title goes
          to the far end of it rather than trailing the words. */
       .panel__aside { margin-left: auto; }
@@ -409,7 +486,13 @@ export class ProfileScrutinyDetailComponent {
    * profile opens on its first section the way a paper one opens on its
    * first page.
    */
-  protected readonly tab = signal<number | 'history'>('history');
+  /**
+   * The section on screen. Overview to begin with: where a profile
+   * stands and whose desk it is on are what somebody opening one wants
+   * first, and it is the one section that is there before the form
+   * definition has arrived.
+   */
+  protected readonly tab = signal<number | 'history' | 'overview'>('overview');
 
   /** The sections of the form this profile was filled against. */
   protected readonly sections = computed(
@@ -459,12 +542,10 @@ export class ProfileScrutinyDetailComponent {
             this.definition.set(form);
             if (form) this.loadPhotos(record.id, form);
 
-            /* Open on the first section. Until the form has arrived
-               there is nothing to open on, which is why the tab starts
-               on the history rather than on a section that does not
-               exist yet. */
-            const first = this.sections()[0];
-            if (first) this.tab.set(first.id);
+            /* The page opens on Overview and stays there. It used to
+               jump to the first section as soon as the form arrived,
+               which moved the page under somebody who had already
+               started reading. */
           },
           error: () => this.definition.set(null),
         });
