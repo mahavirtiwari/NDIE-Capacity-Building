@@ -13,9 +13,9 @@ export default function WorkshopLayout() {
     <WorkshopProvider id={Number(id)}>
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: colors.blush },
-          headerTintColor: colors.brand700,
-          headerTitleStyle: { fontWeight: '600' },
+          headerStyle: { backgroundColor: colors.brand700 },
+          headerTintColor: colors.white,
+          headerTitleStyle: { fontWeight: '700', color: colors.white },
           contentStyle: { backgroundColor: colors.page },
         }}
       >
@@ -29,6 +29,7 @@ export default function WorkshopLayout() {
         <Stack.Screen name="attendance-photo" options={{ title: 'Attendance photo' }} />
         <Stack.Screen name="feedback" options={{ title: 'Participant feedback' }} />
         <Stack.Screen name="marksheet" options={{ title: 'Trainer marksheet' }} />
+        <Stack.Screen name="clear-data" options={{ title: 'Clear saved data' }} />
       </Stack>
     </WorkshopProvider>
   );

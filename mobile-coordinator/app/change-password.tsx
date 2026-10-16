@@ -111,7 +111,7 @@ export default function ChangePassword() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.page },
-  content: { padding: spacing.lg, gap: spacing.lg },
+  content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl * 2 },
   lead: { fontSize: font.sm, color: colors.ink600, lineHeight: 19 },
   card: { gap: spacing.lg },
 });

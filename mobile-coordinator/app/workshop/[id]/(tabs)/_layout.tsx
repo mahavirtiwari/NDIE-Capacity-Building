@@ -1,6 +1,30 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
-import { colors } from '../../../../src/theme';
+import { Tabs, useRouter } from 'expo-router';
+import { Pressable } from 'react-native';
+import { colors, spacing } from '../../../../src/theme';
+
+/**
+ * The way back to the list of programmes.
+ *
+ * A tab layout draws its own header and does not inherit the stack's
+ * back arrow, so these four screens were the only ones in the app with
+ * no way out of them except the handset's own back key - which on a
+ * phone with gesture navigation is not a button anybody can see.
+ */
+function BackToPrograms() {
+  const router = useRouter();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Back to programs"
+      hitSlop={10}
+      style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.xs }}
+      onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/programs'))}
+    >
+      <Ionicons name="arrow-back" size={22} color={colors.white} />
+    </Pressable>
+  );
+}
 
 /**
  * The four tabs the monitoring manual defines: Registration, Programme
@@ -10,9 +34,10 @@ export default function WorkshopTabs() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: colors.blush },
-        headerTintColor: colors.brand700,
-        headerTitleStyle: { fontWeight: '600' },
+        headerStyle: { backgroundColor: colors.brand700 },
+        headerTintColor: colors.white,
+        headerTitleStyle: { fontWeight: '700', color: colors.white },
+        headerLeft: () => <BackToPrograms />,
         tabBarActiveTintColor: colors.brand700,
         tabBarInactiveTintColor: colors.ink500,
         tabBarStyle: { backgroundColor: colors.blush, borderTopColor: colors.brand100 },

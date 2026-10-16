@@ -89,7 +89,7 @@ export default function MarksheetScreen() {
 
   return (
     <>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {failure ? <Banner tone="danger">{failure}</Banner> : null}
         {sheet.readOnlyReason ? <Banner tone="info">{sheet.readOnlyReason}</Banner> : null}
 
@@ -252,7 +252,7 @@ function CandidateSheet({
 
   return (
     <KeyboardAvoider>
-      <ScrollView contentContainerStyle={styles.sheet}>
+      <ScrollView contentContainerStyle={styles.sheet} keyboardShouldPersistTaps="handled">
         <View style={styles.sheetHead}>
           <View style={styles.rowText}>
             <Text style={styles.sheetName}>{row.name}</Text>

@@ -46,16 +46,31 @@ export function listenForNotificationTaps(): void {
        all is not one this should follow. */
     const inside = link.startsWith('/') && !link.startsWith('//');
 
-    router.push(inside ? (link as never) : '/notifications');
+    router.push(inside ? (link as never) : '/(tabs)/notifications');
   };
 
   /* The tap that started the app, before this was listening. Android
-     delivers it this way rather than through the subscription. */
-  void Notifications.getLastNotificationResponseAsync().then((response) => {
-    if (response) go(response);
-  });
+     delivers it this way rather than through the subscription.
 
-  listening = Notifications.addNotificationResponseReceivedListener(go);
+     Guarded because not every platform has the native module behind it:
+     on web it throws on the way in, and an app that will not start
+     because it cannot ask whether it was opened by a notification is
+     failing at something it does not need in order to run. */
+  try {
+    void Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (response) go(response);
+      })
+      .catch(() => {});
+  } catch {
+    /* No notification runtime here. Nothing was tapped to get in. */
+  }
+
+  try {
+    listening = Notifications.addNotificationResponseReceivedListener(go);
+  } catch {
+    /* As above: taps will not arrive, and everything else still works. */
+  }
 }
 
 let lastToken: string | null = null;

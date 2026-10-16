@@ -72,6 +72,24 @@ export async function writeValue<T>(key: string, value: T): Promise<void> {
 }
 
 /**
+ * Forgets the cached pages whose key the caller recognises.
+ *
+ * Keys are request paths, so "everything this programme cached" is a
+ * prefix test - which is what submitting a programme and clearing one
+ * both need, and neither of them wants the rest of the cache gone.
+ */
+export async function forgetCachedWhere(matches: (key: string) => boolean): Promise<number> {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const mine = keys.filter((k) => k.startsWith(CACHE) && matches(k.slice(CACHE.length)));
+    if (mine.length) await AsyncStorage.multiRemove(mine);
+    return mine.length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Wipes the cache. Called on sign-out: what is cached is one person's data,
  * and the phone may be handed to somebody else.
  *

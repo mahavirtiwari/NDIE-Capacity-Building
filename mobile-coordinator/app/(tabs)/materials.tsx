@@ -10,11 +10,11 @@ import {
   Text,
   View,
 } from 'react-native';
-import { ApiError } from '../src/api/client';
-import { materials as materialsApi } from '../src/api/endpoints';
-import type { TrainingMaterial } from '../src/api/types';
-import { Banner, EmptyState, Loading, shortDate } from '../src/components/ui';
-import { colors, font, radius, spacing } from '../src/theme';
+import { ApiError } from '../../src/api/client';
+import { materials as materialsApi } from '../../src/api/endpoints';
+import type { TrainingMaterial } from '../../src/api/types';
+import { Banner, EmptyState, Loading, shortDate } from '../../src/components/ui';
+import { colors, font, radius, spacing } from '../../src/theme';
 
 const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   Document: 'document-text-outline',

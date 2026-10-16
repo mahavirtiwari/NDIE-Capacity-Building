@@ -1,11 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApiError } from '../../src/api/client';
 import { auth } from '../../src/api/endpoints';
-import { BrandLogo } from '../../src/branding/BrandingContext';
-import { Banner, Button, Field, KeyboardAvoider } from '../../src/components/ui';
+import { Banner, Button, Card, Field, KeyboardAvoider, Subtitle, Title } from '../../src/components/ui';
 import { colors, font, radius, spacing } from '../../src/theme';
 
 /**
@@ -79,144 +78,169 @@ export default function ForgotPassword() {
     }
   };
 
+  /* The header's back arrow is the way out, as on the applicant app's
+     own reset screen - which is why there is no link at the bottom of
+     this one saying the same thing in words. */
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <KeyboardAvoider style={styles.flex}>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.hero}>
-            <BrandLogo size={46} />
+    <KeyboardAvoider style={styles.flex}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Title>{sent ? 'Enter the code' : 'Reset password'}</Title>
+          <Subtitle>
+            {sent ?? 'Recover access to your coordinator account'}
+          </Subtitle>
+        </View>
+
+        {sent === null ? (
+          <Card style={styles.card}>
+            <Field
+              label="User ID or email"
+              required
+              value={userId}
+              /* Upper-cased while it looks like an ID, left alone once
+                 there is an @ in it: every issued code is upper case,
+                 and an address shouted back in capitals as it is typed
+                 looks like the box has misunderstood. The server takes
+                 either and files the code under the ID, so the second
+                 step finds it whichever was typed. */
+              onChangeText={(text) =>
+                setUserId(text.includes('@') ? text : text.toUpperCase())
+              }
+              placeholder="CO0010 or your registered email"
+              autoCapitalize="none"
+              autoCorrect={false}
+              onSubmitEditing={request}
+              returnKeyType="go"
+              hint="Either one is accepted."
+            />
+
+            {error ? <Banner tone="danger">{error}</Banner> : null}
+
+            <Button label="Continue" onPress={request} loading={busy} />
+          </Card>
+        ) : (
+          <Card style={styles.card}>
+            <Field
+              label="Reset code"
+              required
+              value={code}
+              onChangeText={setCode}
+              placeholder="000000"
+              keyboardType="number-pad"
+              maxLength={6}
+              autoComplete="one-time-code"
+            />
+
+            <Field
+              label="New password"
+              required
+              secure
+              value={password}
+              onChangeText={setPassword}
+              placeholder="At least 8 characters"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <Field
+              label="Confirm new password"
+              required
+              secure
+              value={confirm}
+              onChangeText={setConfirm}
+              placeholder="Type it again"
+              autoCapitalize="none"
+              autoCorrect={false}
+              onSubmitEditing={reset}
+              returnKeyType="go"
+            />
+
+            {error ? <Banner tone="danger">{error}</Banner> : null}
+
+            <Button label="Set new password" onPress={reset} loading={busy} />
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setSent(null);
+                setError(null);
+                setCode('');
+              }}
+              style={styles.again}
+            >
+              <Text style={styles.againText}>
+                Use a different user ID, or send a new code
+              </Text>
+            </Pressable>
+          </Card>
+        )}
+
+        {sent === null ? (
+          <View style={styles.explainer}>
+            <Row
+              icon="card-outline"
+              title="You enter a user ID"
+              body="The code goes to the email held on that account."
+            />
+            <Row
+              icon="mail-outline"
+              title="You enter an email"
+              body="The code goes to that address, as long as it belongs to one account."
+            />
           </View>
+        ) : null}
+      </ScrollView>
+    </KeyboardAvoider>
+  );
+}
 
-          <View style={styles.panel}>
-            <Text style={styles.title}>{sent ? 'Enter the code' : 'Forgot password'}</Text>
-            <Text style={styles.subtitle}>
-              {sent ?? 'We will email a reset code to the address on your account.'}
-            </Text>
-
-            {sent === null ? (
-              <View style={styles.form}>
-                <Field
-                  label="User ID or email"
-                  required
-                  value={userId}
-                  /* Upper-cased while it looks like an ID, left alone once
-                     there is an @ in it: every issued code is upper case,
-                     and an address shouted back in capitals as it is typed
-                     looks like the box has misunderstood. The server takes
-                     either and files the code under the ID, so the second
-                     step finds it whichever was typed. */
-                  onChangeText={(text) =>
-                    setUserId(text.includes('@') ? text : text.toUpperCase())
-                  }
-                  placeholder="CO0010 or your registered email"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  onSubmitEditing={request}
-                  returnKeyType="go"
-                  hint="Whichever you have: the coordinator ID issued to you, or the address on your account."
-                />
-
-                {error ? <Banner tone="danger">{error}</Banner> : null}
-
-                <Button label="Send reset code" onPress={request} loading={busy} />
-              </View>
-            ) : (
-              <View style={styles.form}>
-                <Field
-                  label="Reset code"
-                  required
-                  value={code}
-                  onChangeText={setCode}
-                  placeholder="000000"
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  autoComplete="one-time-code"
-                />
-
-                <Field
-                  label="New password"
-                  required
-                  secure
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="At least 8 characters"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-
-                <Field
-                  label="Confirm new password"
-                  required
-                  secure
-                  value={confirm}
-                  onChangeText={setConfirm}
-                  placeholder="Type it again"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  onSubmitEditing={reset}
-                  returnKeyType="go"
-                />
-
-                {error ? <Banner tone="danger">{error}</Banner> : null}
-
-                <Button label="Set new password" onPress={reset} loading={busy} />
-
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => {
-                    setSent(null);
-                    setError(null);
-                    setCode('');
-                  }}
-                  style={styles.again}
-                >
-                  <Text style={styles.againText}>
-                    Use a different user ID, or send a new code
-                  </Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.replace('/(auth)/sign-in')}
-            style={styles.back}
-          >
-            <Text style={styles.backText}>Back to sign in</Text>
-          </Pressable>
-        </ScrollView>
-      </KeyboardAvoider>
-    </SafeAreaView>
+function Row({
+  icon,
+  title,
+  body,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  body: string;
+}) {
+  return (
+    <View style={styles.row}>
+      <View style={styles.rowIcon}>
+        <Ionicons name={icon} size={16} color={colors.brand700} />
+      </View>
+      <View style={styles.rowText}>
+        <Text style={styles.rowTitle}>{title}</Text>
+        <Text style={styles.rowBody}>{body}</Text>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.blush },
   flex: { flex: 1 },
-  content: { flexGrow: 1, justifyContent: 'center', padding: spacing.lg, gap: spacing.lg },
+  content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl * 2 },
 
-  hero: { alignItems: 'center' },
-
-  panel: {
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    gap: spacing.xs,
-  },
-  title: { fontSize: font.xl, fontWeight: '700', color: colors.ink900 },
-  subtitle: { fontSize: font.sm, color: colors.ink600, lineHeight: 19 },
-  form: { gap: spacing.lg, marginTop: spacing.lg },
+  header: { gap: spacing.xs },
+  card: { gap: spacing.lg },
 
   again: { alignSelf: 'center', paddingVertical: spacing.xs },
   againText: { fontSize: font.sm, color: colors.brand700, fontWeight: '600' },
 
-  back: { alignSelf: 'center', paddingVertical: spacing.sm },
-  backText: { fontSize: font.sm, color: colors.ink600, fontWeight: '600' },
+  explainer: { gap: spacing.md },
+  row: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
+  rowIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: radius.pill,
+    backgroundColor: colors.brand50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowText: { flex: 1, gap: 2 },
+  rowTitle: { fontSize: font.sm, fontWeight: '700', color: colors.ink800 },
+  rowBody: { fontSize: font.sm, color: colors.ink600, lineHeight: 19 },
 });

@@ -19,7 +19,7 @@ export default function Entry() {
     );
   }
 
-  return <Redirect href={session ? '/workshops' : '/(auth)/sign-in'} />;
+  return <Redirect href={session ? '/(tabs)/programs' : '/(auth)/sign-in'} />;
 }
 
 const styles = StyleSheet.create({

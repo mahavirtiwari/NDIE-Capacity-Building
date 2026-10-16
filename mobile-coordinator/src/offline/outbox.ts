@@ -450,6 +450,24 @@ export async function discard(id: string): Promise<void> {
 }
 
 /**
+ * Throws away the queued work the caller recognises, and its photographs.
+ *
+ * Used when a programme is sealed, and when a coordinator clears one
+ * down by hand. Returns how many went, because the only honest thing to
+ * tell somebody who has just discarded their own work is how much of it
+ * there was.
+ */
+export async function discardWhere(matches: (entry: OutboxEntry) => boolean): Promise<number> {
+  const entries = await load();
+  const going = entries.filter(matches);
+  if (going.length === 0) return 0;
+
+  going.forEach((e) => discardPhoto(e.photo));
+  await save(entries.filter((e) => !matches(e)));
+  return going.length;
+}
+
+/**
  * Throws the whole queue away. Not called on sign-out - see `owner` - and only
  * ever from somewhere the coordinator has been told what they are discarding.
  */

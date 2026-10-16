@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApiError } from '../../src/api/client';
 import { useAuth } from '../../src/auth/AuthContext';
-import { BrandLogo, useBranding } from '../../src/branding/BrandingContext';
+import { BrandLogo } from '../../src/branding/BrandingContext';
 import { Banner, Button, Field, KeyboardAvoider } from '../../src/components/ui';
 import { colors, font, radius, spacing } from '../../src/theme';
 
@@ -19,7 +19,6 @@ import { colors, font, radius, spacing } from '../../src/theme';
 export default function SignIn() {
   const router = useRouter();
   const { signIn } = useAuth();
-  const { branding } = useBranding();
 
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
@@ -38,7 +37,7 @@ export default function SignIn() {
     setFailure(null);
     try {
       await signIn(userId, password);
-      router.replace('/workshops');
+      router.replace('/(tabs)/programs');
     } catch (caught) {
       setFailure(caught instanceof ApiError ? caught.message : 'Could not sign in.');
     } finally {
@@ -61,7 +60,6 @@ export default function SignIn() {
                 device, so this screen is branded even with no signal. */}
             <BrandLogo size={52} />
             <Text style={styles.brand}>PROGRAM MONITORING</Text>
-            <Text style={styles.org}>{branding.organisationName}</Text>
           </View>
 
           <View style={styles.panel}>
@@ -109,9 +107,7 @@ export default function SignIn() {
             </View>
           </View>
 
-          <Text style={styles.footnote}>
-            Capacity Building Management System · Ministry of MSME
-          </Text>
+          <Text style={styles.footnote}>Capacity Building Management System</Text>
         </ScrollView>
       </KeyboardAvoider>
     </SafeAreaView>
@@ -134,16 +130,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textAlign: 'center',
   },
-  org: { fontSize: font.sm, color: colors.ink600, textAlign: 'center' },
 
-  panel: {
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    gap: spacing.xs,
-  },
+  /* No card. The applicant app's sign-in lays the form straight onto
+     the page, and a white panel floating on the blush made the same
+     screen look like a dialog that had opened over something. */
+  panel: { paddingHorizontal: spacing.xs, gap: spacing.xs },
   title: { fontSize: font.xl, fontWeight: '700', color: colors.ink900 },
   subtitle: { fontSize: font.sm, color: colors.ink600 },
   form: { gap: spacing.lg, marginTop: spacing.lg },

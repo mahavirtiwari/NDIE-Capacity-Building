@@ -2,12 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { ApiError } from '../src/api/client';
-import { auth as authApi } from '../src/api/endpoints';
-import type { AuthUser } from '../src/api/types';
-import { useAuth } from '../src/auth/AuthContext';
-import { Banner, Card, DetailRow, Loading, Title } from '../src/components/ui';
-import { colors, font, radius, spacing } from '../src/theme';
+import { ApiError } from '../../src/api/client';
+import { auth as authApi } from '../../src/api/endpoints';
+import type { AuthUser } from '../../src/api/types';
+import { useAuth } from '../../src/auth/AuthContext';
+import { Banner, Card, DetailRow, Loading, Title } from '../../src/components/ui';
+import { colors, font, radius, spacing } from '../../src/theme';
 
 /**
  * What a permission key means to somebody who did not write it.

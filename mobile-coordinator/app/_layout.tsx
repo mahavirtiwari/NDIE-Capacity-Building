@@ -5,7 +5,7 @@ import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../src/auth/AuthContext';
 import { BrandingProvider } from '../src/branding/BrandingContext';
-import { MenuButton, MenuProvider } from '../src/components/SideMenu';
+import { MenuProvider } from '../src/components/SideMenu';
 import { SiteTextProvider } from '../src/content/SiteTextContext';
 import { NetworkProvider } from '../src/offline/NetworkContext';
 import { OutboxNotice } from '../src/offline/OutboxNotice';
@@ -65,26 +65,23 @@ export default function RootLayout() {
               <OutboxNotice />
               <Stack
           screenOptions={{
-            headerStyle: { backgroundColor: colors.blush },
-            headerTintColor: colors.brand700,
-            headerTitleStyle: { fontWeight: '600' },
+            /* Dark, like the applicant app's: a pale header on a pale
+               page gave the screen no top edge at all outdoors. */
+            headerStyle: { backgroundColor: colors.brand700 },
+            headerTintColor: colors.white,
+            headerTitleStyle: { fontWeight: '700', color: colors.white },
             headerRight: () => <NotificationBell />,
             contentStyle: { backgroundColor: colors.page },
           }}
         >
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          {/* The home screen is the only one that opens the menu rather
-              than going back: everywhere else was reached from here. */}
-          <Stack.Screen
-            name="workshops"
-            options={{ title: 'My programs', headerLeft: () => <MenuButton /> }}
-          />
-          <Stack.Screen name="materials" options={{ title: 'Training material' }} />
-          <Stack.Screen name="profile" options={{ title: 'My profile' }} />
+          {/* The four tabs bring their own header and their own menu
+              button, so the stack must not draw a second one above. */}
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="change-password" options={{ title: 'Change password' }} />
           <Stack.Screen name="support" options={{ title: 'Support' }} />
-          <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
+          <Stack.Screen name="unsent" options={{ title: 'Unsent work' }} />
           <Stack.Screen name="workshop/[id]" options={{ headerShown: false }} />
               </Stack>
             </View>

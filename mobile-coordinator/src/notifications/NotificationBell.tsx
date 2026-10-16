@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { notices } from '../api/endpoints';
+import { current, refresh, subscribe } from './inbox';
 import { colors, font, spacing } from '../theme';
 
 /**
@@ -14,23 +14,16 @@ import { colors, font, spacing } from '../theme';
  */
 export function NotificationBell() {
   const router = useRouter();
-  const [unread, setUnread] = useState(0);
+  const [unread, setUnread] = useState(() => current().unread);
 
+  useEffect(() => subscribe((next) => setUnread(next.unread)), []);
+
+  /* Asks the shared inbox rather than the server. On the notifications
+     screen this is the same refresh the list is already doing, and it
+     joins that one instead of racing it. */
   useFocusEffect(
     useCallback(() => {
-      let cancelled = false;
-      (async () => {
-        try {
-          const standing = await notices.list(50);
-          if (!cancelled) setUnread(standing.unread);
-        } catch {
-          /* Offline. The bell still opens the list, which has its own
-             cached answer. */
-        }
-      })();
-      return () => {
-        cancelled = true;
-      };
+      void refresh();
     }, []),
   );
 
@@ -40,9 +33,10 @@ export function NotificationBell() {
       accessibilityLabel={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
       hitSlop={10}
       style={styles.button}
-      onPress={() => router.push('/notifications')}
+      onPress={() => router.push('/(tabs)/notifications')}
     >
-      <Ionicons name="notifications-outline" size={22} color={colors.brand700} />
+      {/* White, like the hamburger beside it: the header is dark. */}
+      <Ionicons name="notifications-outline" size={22} color={colors.white} />
       {unread > 0 ? (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{unread > 9 ? '9+' : unread}</Text>
@@ -62,9 +56,11 @@ const styles = StyleSheet.create({
     height: 16,
     paddingHorizontal: 3,
     borderRadius: 8,
-    backgroundColor: colors.brand700,
+    /* A count has to be legible against the header it sits on, and the
+       header is the brand colour now. */
+    backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { fontSize: font.xs, fontWeight: '700', color: colors.white },
+  badgeText: { fontSize: font.xs, fontWeight: '700', color: colors.brand700 },
 });

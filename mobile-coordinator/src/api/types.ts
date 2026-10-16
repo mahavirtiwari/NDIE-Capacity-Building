@@ -56,6 +56,9 @@ export interface Workshop {
   status: string;
   isSubmitted: boolean;
   submittedOn?: string | null;
+  /** Whether the coordinator has registered the venue: the line between
+      a programme that is scheduled and one that is under way. */
+  venueRegistered: boolean;
 }
 
 export interface Progress {

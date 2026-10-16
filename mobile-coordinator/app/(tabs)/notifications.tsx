@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
-import { notices } from '../src/api/endpoints';
-import type { MyNotification } from '../src/api/types';
-import { EmptyState, Loading, shortDate } from '../src/components/ui';
-import { colors, font, radius, spacing } from '../src/theme';
+import type { MyNotification } from '../../src/api/types';
+import { Banner, EmptyState, Loading, shortDate } from '../../src/components/ui';
+import { current, markRead, refresh, subscribe } from '../../src/notifications/inbox';
+import { colors, font, radius, spacing } from '../../src/theme';
 
 /**
  * Everything the scheme has said to this coordinator.
@@ -17,45 +17,29 @@ import { colors, font, radius, spacing } from '../src/theme';
  */
 export default function NotificationsScreen() {
   const router = useRouter();
-  const [items, setItems] = useState<MyNotification[] | null>(null);
+  const [inbox, setInbox] = useState(current);
   const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      const standing = await notices.list(50);
-      setItems(standing.items);
-    } catch {
-      setItems([]);
-    }
-  }, []);
+  useEffect(() => subscribe(setInbox), []);
 
   useFocusEffect(
     useCallback(() => {
-      void load();
-    }, [load]),
+      void refresh();
+    }, []),
   );
 
   const open = async (notice: MyNotification) => {
-    if (!notice.isRead) {
-      setItems((current) =>
-        (current ?? []).map((n) => (n.id === notice.id ? { ...n, isRead: true } : n)),
-      );
-      try {
-        await notices.markRead(notice.id);
-      } catch {
-        /* It is read either way; the next load will settle it. */
-      }
-    }
+    await markRead(notice.id);
     if (notice.linkPath) router.push(notice.linkPath as never);
   };
 
-  if (items === null) return <Loading label="Loading notifications…" />;
+  if (!inbox.loaded) return <Loading label="Loading notifications…" />;
 
   return (
     <>
       <Stack.Screen options={{ title: 'Notifications' }} />
       <FlatList
-        data={items}
+        data={inbox.items}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
         refreshControl={
@@ -63,15 +47,24 @@ export default function NotificationsScreen() {
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
-              void load().finally(() => setRefreshing(false));
+              void refresh().finally(() => setRefreshing(false));
             }}
           />
         }
+        /* The failure goes above the list rather than in place of it:
+           what was fetched earlier is still worth reading, and an empty
+           screen that says "nothing yet" when the truth is "could not
+           ask" is the bug this replaced. */
+        ListHeaderComponent={
+          inbox.error ? <Banner tone="danger">{inbox.error}</Banner> : null
+        }
         ListEmptyComponent={
-          <EmptyState
-            title="Nothing yet"
-            message="When a batch is permitted or put off, or there is something you need to know, it will appear here."
-          />
+          inbox.error ? null : (
+            <EmptyState
+              title="Nothing yet"
+              message="When a batch is permitted or put off, or there is something you need to know, it will appear here."
+            />
+          )
         }
         renderItem={({ item }) => (
           <Pressable

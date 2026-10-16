@@ -1,3 +1,4 @@
+import { forgetInbox } from '../notifications/inbox';
 import { registerForPush, retirePush } from '../notifications/push';
 import * as SecureStore from 'expo-secure-store';
 import {
@@ -51,6 +52,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     /* Before the session goes: this handset stops being this coordinator's. */
     await retirePush();
+    /* The notices are one person's, like the cache. */
+    forgetInbox();
     setSession(null);
     await SecureStore.deleteItemAsync(KEY).catch(() => {});
   }, []);

@@ -36,7 +36,7 @@ export default function Exit() {
           Everything you have recorded is already saved on the server. Leaving does not
           discard anything.
         </Text>
-        <Button label="Back to my programs" onPress={() => router.replace('/workshops')} />
+        <Button label="Back to my programs" onPress={() => router.replace('/(tabs)/programs')} />
         <Button label="Sign out" onPress={confirmSignOut} variant="ghost" />
       </Card>
     </ScrollView>

@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { clearProgramme } from '../../../../src/offline/programmeData';
 import { ApiError } from '../../../../src/api/client';
 import { workshops } from '../../../../src/api/endpoints';
 import {
@@ -50,8 +51,16 @@ export default function FinalSubmission() {
             try {
               await workshops.submit(id, remarks.trim() || undefined);
               await refresh();
+
+              /* Sealed means sealed: nothing on this handset can change
+                 it and nothing of it will ever be sent again, so a hall
+                 full of participants' names and photographs stops being
+                 carried around on a phone. The office's copy is the
+                 record from here. */
+              await clearProgramme(id);
+
               Alert.alert('Submitted', 'This program is now sealed.', [
-                { text: 'OK', onPress: () => router.replace('/workshops') },
+                { text: 'OK', onPress: () => router.replace('/(tabs)/programs') },
               ]);
             } catch (caught) {
               setFailure(caught instanceof ApiError ? caught.message : 'Could not submit.');
@@ -66,7 +75,7 @@ export default function FinalSubmission() {
 
   if (locked) {
     return (
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Banner tone="success">
           Finally submitted{detail?.submittedOn ? ` on ${new Date(detail.submittedOn).toLocaleString('en-IN')}` : ''}.
         </Banner>
@@ -83,7 +92,7 @@ export default function FinalSubmission() {
 
   return (
     <KeyboardAvoider>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.lead}>
           Check the record before sealing it. Nothing can be edited afterwards.
         </Text>
@@ -142,7 +151,7 @@ export default function FinalSubmission() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: spacing.lg, gap: spacing.lg },
+  content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl * 2 },
   lead: { color: colors.ink600, fontSize: 13 },
   card: { gap: spacing.xs },
   blockers: {

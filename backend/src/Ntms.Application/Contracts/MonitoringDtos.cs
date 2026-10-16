@@ -10,6 +10,17 @@ namespace Ntms.Application.Contracts;
 /// <summary>A workshop as it appears in the coordinator's list.</summary>
 public class CoordinatorProgrammeDto
 {
+    /// <summary>
+    /// Whether the coordinator has registered the venue.
+    ///
+    /// On the summary because the app's own list is grouped by it: a
+    /// programme whose dates have started but whose venue has not been
+    /// recorded has not begun as far as the person holding the phone is
+    /// concerned, and finding that out used to mean fetching every
+    /// programme's full monitoring record one at a time.
+    /// </summary>
+    public bool VenueRegistered { get; set; }
+
     public int Id { get; set; }
     public string ProgrammeId { get; set; } = string.Empty;
     public string ProgrammeName { get; set; } = string.Empty;

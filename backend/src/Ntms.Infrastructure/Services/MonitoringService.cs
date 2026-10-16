@@ -155,7 +155,25 @@ public class MonitoringService(
             .Where(s => rows.Select(p => p.Id).Contains(s.ProgrammeId))
             .ToDictionaryAsync(s => s.ProgrammeId, s => (DateTime?)s.SubmittedOn, ct);
 
-        return [.. rows.Select(p => Summarise(p, submitted.GetValueOrDefault(p.Id)))];
+        /* One query for the lot rather than one per row: the app groups
+           its list by this and would otherwise ask for every programme's
+           whole monitoring record to find out. */
+        var ids = rows.Select(p => p.Id).ToList();
+        var withVenue = await db.ProgrammeVenues.AsNoTracking()
+            .Where(v => ids.Contains(v.ProgrammeId))
+            .Select(v => v.ProgrammeId)
+            .ToListAsync(ct);
+        var registered = withVenue.ToHashSet();
+
+        return
+        [
+            .. rows.Select(p =>
+            {
+                var dto = Summarise(p, submitted.GetValueOrDefault(p.Id));
+                dto.VenueRegistered = registered.Contains(p.Id);
+                return dto;
+            }),
+        ];
     }
 
     public async Task<CoordinatorProgrammeDetailDto> GetAsync(int programmeId, CancellationToken ct)
@@ -189,6 +207,7 @@ public class MonitoringService(
             .FirstOrDefaultAsync(s => s.ProgrammeId == programmeId, ct);
 
         var dto = Summarise(programme, submission?.SubmittedOn);
+        dto.VenueRegistered = venue is not null;
         var detail = new CoordinatorProgrammeDetailDto
         {
             Id = dto.Id,
@@ -203,6 +222,7 @@ public class MonitoringService(
             Status = dto.Status,
             IsSubmitted = dto.IsSubmitted,
             SubmittedOn = dto.SubmittedOn,
+            VenueRegistered = dto.VenueRegistered,
             Trainers = [.. trainers.Select(ToDto)],
             Sessions = [.. sessions.Select(s => ToDto(s, allPhotos))],
             Participants = [.. participants.Select(p => ToDto(p, allPhotos))],

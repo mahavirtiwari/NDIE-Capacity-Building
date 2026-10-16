@@ -43,14 +43,14 @@ interface MenuLink {
  * about which one is open.
  */
 const LINKS: MenuLink[] = [
-  { icon: 'grid-outline', label: 'My programs', href: '/workshops' },
-  { icon: 'book-outline', label: 'Training material', href: '/materials' },
-  { icon: 'notifications-outline', label: 'Notifications', href: '/notifications' },
+  /* Programs, Material, Profile and Notifications are along the bottom
+     now. What is left here is what a tab bar has no room for and nobody
+     opens daily - and listing the four again would be two ways to the
+     same screen, one of which looks like somewhere else. */
   /* Reachable without the banner, so somebody in the office can say
      'open Unsent work and read me what it says' to a coordinator who
      is looking at a programme the office cannot see. */
   { icon: 'cloud-upload-outline', label: 'Unsent work', href: '/unsent' },
-  { icon: 'person-outline', label: 'My profile', href: '/profile' },
   { icon: 'key-outline', label: 'Change password', href: '/change-password' },
 ];
 
@@ -156,16 +156,12 @@ function SideMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
 
       <Animated.View style={[styles.panel, { transform: [{ translateX: slide }] }]}>
         <SafeAreaView edges={['top', 'bottom']} style={styles.panelInner}>
+          {/* The mark alone on white, as the applicant app has it. Who
+              is signed in belongs on the home screen, which says it
+              already; saying it twice made the panel open on a second
+              header rather than on where you can go. */}
           <View style={styles.head}>
-            <BrandLogo size={44} />
-            {session ? (
-              <View style={styles.who}>
-                <Text style={styles.whoName} numberOfLines={1}>
-                  {session.fullName}
-                </Text>
-                <Text style={styles.whoCode}>{session.userCode}</Text>
-              </View>
-            ) : null}
+            <BrandLogo size={46} />
           </View>
 
           <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
@@ -224,6 +220,14 @@ function SideMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
 }
 
 /** The hamburger that opens it, for a screen header. */
+/**
+ * The hamburger, for a dark header.
+ *
+ * It was drawn in the brand colour, which was right on the blush bar it
+ * used to sit on and invisible on the crimson one it sits on now - a
+ * maroon icon on a maroon field. The menu was still there and still
+ * opened; there was simply nothing to see.
+ */
 export function MenuButton() {
   const menu = useMenu();
 
@@ -235,7 +239,7 @@ export function MenuButton() {
       accessibilityLabel="Open menu"
       style={styles.hamburger}
     >
-      <Ionicons name="menu" size={23} color={colors.brand700} />
+      <Ionicons name="menu" size={23} color={colors.white} />
     </Pressable>
   );
 }
@@ -262,9 +266,8 @@ const styles = StyleSheet.create({
   panelInner: { flex: 1 },
 
   head: {
-    backgroundColor: colors.blush,
+    backgroundColor: colors.white,
     alignItems: 'center',
-    gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
     borderBottomWidth: 1,
