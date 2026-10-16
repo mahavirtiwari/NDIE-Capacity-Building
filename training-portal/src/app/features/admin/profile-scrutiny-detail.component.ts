@@ -17,6 +17,7 @@ import {
   LoadedPhoto,
   ProfileField,
   ProfileForm,
+  ProfileSection,
   ProfileSubmission,
   RejectionReason,
 } from '../../core/models';
@@ -146,104 +147,109 @@ interface OpenAttachment {
 
         <div class="sheet__body">
             @if (tab() === 'overview') {
-              <!-- Where the profile stands, who it is, and what was
-                   decided. This was a column down the right of every
-                   section, which meant it was beside the answers it has
-                   nothing to do with and the answers had a third of the
-                   page less to be read in. -->
-              <div class="overview">
-                <section class="panel panel--accent">
-                  <h2 class="panel__head">
-                    <app-icon name="flag" [size]="14" /> Status
-                    <app-status-badge class="panel__aside" [value]="record.status" />
-                  </h2>
-                  <div class="panel__body">
-                    <div class="fact">
-                      <span class="fact__term">Submitted on</span>
-                      <span class="fact__value">
-                        {{ record.submittedOn ? (record.submittedOn | date: 'dd MMM yyyy') : '—' }}
-                      </span>
+              <!-- Who this is, where it stands, and what the profile
+                   holds. These facts were a column down the right of
+                   every section: beside answers they have nothing to do
+                   with, and taking a third of the width from the ones
+                   being read. As a section of their own they can be
+                   what somebody opening a profile actually wants first -
+                   the face, the identity, and a way into the rest. -->
+              <div class="summary">
+                <header class="who">
+                  @if (portrait(); as shot) {
+                    <img class="who__face" [src]="shot" alt="" />
+                  } @else {
+                    <div class="who__face who__face--none" aria-hidden="true">
+                      <app-icon name="user-check" [size]="26" />
                     </div>
-                    <div class="fact">
-                      <span class="fact__term">Attempt</span>
-                      <span class="fact__value tabular">{{ record.attemptNo }}</span>
-                    </div>
-                    <div class="fact">
-                      <span class="fact__term">Assigned to</span>
-                      <span class="fact__value">{{ record.assignedToName || 'Unassigned' }}</span>
+                  }
+                  <div class="who__id">
+                    <h2 class="who__name">{{ record.applicantName }}</h2>
+                    <p class="who__meta">
+                      <code>{{ record.applicantCode }}</code>
+                      <span>{{ record.categoryName }}</span>
+                      <span>{{ record.subCategoryName }}</span>
+                      <span>Attempt {{ record.attemptNo }}</span>
+                    </p>
+                  </div>
+                  <app-status-badge class="who__state" [value]="record.status" />
+                </header>
+
+                <dl class="facts">
+                  <div class="facts__one">
+                    <dt>Submitted on</dt>
+                    <dd>
+                      {{ record.submittedOn ? (record.submittedOn | date: 'dd MMM yyyy') : '—' }}
+                    </dd>
+                  </div>
+                  <div class="facts__one">
+                    <dt>Assigned to</dt>
+                    <dd>
+                      {{ record.assignedToName || 'Unassigned' }}
                       <!-- The account and what it is, rather than a
                            sentence about how the desk was picked: two
-                           managers can share a name, and what the reader
-                           needs is which one. -->
+                           managers can share a name, and what the
+                           reader needs is which one. -->
                       @if (record.assignedToCode) {
                         <span class="text-xs text-muted">
                           <code>{{ record.assignedToCode }}</code>
                           @if (record.assignedToRole) { · {{ record.assignedToRole }} }
                         </span>
                       }
-                    </div>
+                    </dd>
                   </div>
-                </section>
-
-                <section class="panel">
-                  <h2 class="panel__head">
-                    <app-icon name="user-check" [size]="14" /> Applicant
-                  </h2>
-                  <div class="panel__body">
-                    <div class="fact">
-                      <span class="fact__term">Applicant ID</span>
-                      <span class="fact__value"><code>{{ record.applicantCode }}</code></span>
-                    </div>
-                    <div class="fact">
-                      <span class="fact__term">Category</span>
-                      <span class="fact__value">{{ record.categoryName }}</span>
-                    </div>
-                    <div class="fact">
-                      <span class="fact__term">Sub-category</span>
-                      <span class="fact__value">{{ record.subCategoryName }}</span>
-                    </div>
-                  </div>
-                </section>
-
-                <!-- What was decided, once it has been. Everybody sees
-                     this, the manager who decided included: it is the
-                     record of the outcome rather than the means of
-                     reaching one, and the reason an applicant was turned
-                     down is the part the rest of the office actually
-                     needs to read. Nothing stands here while a profile is
-                     still open, because there is nothing yet to report. -->
-                @if (record.decidedOn) {
-                  <section class="panel overview__wide">
-                    <h2 class="panel__head">
-                      <app-icon name="clipboard" [size]="14" /> Decision
-                      <app-status-badge class="panel__aside" [value]="record.status" />
-                    </h2>
-                    <div class="panel__body">
-                      <div class="fact">
-                        <span class="fact__term">Decided</span>
-                        <span class="fact__value">
-                          {{ record.decidedOn | date: 'dd MMM yyyy, h:mm a' }}
-                        </span>
-                      </div>
-                      @if (record.decidedByUserName) {
-                        <div class="fact">
-                          <span class="fact__term">By</span>
-                          <span class="fact__value">{{ record.decidedByUserName }}</span>
-                        </div>
-                      }
-                      @if (record.rejectionReasonLabel) {
-                        <div class="fact">
-                          <span class="fact__term">Reason</span>
-                          <span class="fact__value text-danger">
-                            {{ record.rejectionReasonLabel }}
+                  <!-- What was decided, once it has been. Everybody sees
+                       this, the manager who decided included: it is the
+                       record of the outcome rather than the means of
+                       reaching one, and why an applicant was turned down
+                       is the part the rest of the office needs. Nothing
+                       stands here while a profile is still open. -->
+                  @if (record.decidedOn) {
+                    <div class="facts__one">
+                      <dt>Decided</dt>
+                      <dd>
+                        {{ record.decidedOn | date: 'dd MMM yyyy, h:mm a' }}
+                        @if (record.decidedByUserName) {
+                          <span class="text-xs text-muted">
+                            by {{ record.decidedByUserName }}
                           </span>
-                        </div>
-                      }
-                      @if (record.remarks) {
-                        <div class="fact">
-                          <span class="fact__term">Remarks</span>
-                          <span class="fact__value">{{ record.remarks }}</span>
-                        </div>
+                        }
+                      </dd>
+                    </div>
+                    @if (record.rejectionReasonLabel) {
+                      <div class="facts__one">
+                        <dt>Reason</dt>
+                        <dd class="text-danger">{{ record.rejectionReasonLabel }}</dd>
+                      </div>
+                    }
+                    @if (record.remarks) {
+                      <div class="facts__one facts__one--wide">
+                        <dt>Remarks</dt>
+                        <dd>{{ record.remarks }}</dd>
+                      </div>
+                    }
+                  }
+                </dl>
+
+                <!-- And the way in. A reader who has just been handed a
+                     profile wants to know what is in it before they start
+                     clicking through, and how much of each section was
+                     actually answered is the thing the list down the side
+                     cannot say. -->
+                @if (sections().length > 0) {
+                  <section class="contents">
+                    <h3 class="contents__head">What this profile holds</h3>
+                    <div class="contents__grid">
+                      @for (section of sections(); track section.id) {
+                        <button
+                          type="button"
+                          class="contents__one"
+                          (click)="tab.set(section.id)"
+                        >
+                          <span class="contents__title">{{ section.title }}</span>
+                          <span class="contents__count">{{ filledIn(section) }}</span>
+                          <app-icon name="chevron-right" [size]="14" />
+                        </button>
                       }
                     </div>
                   </section>
@@ -445,16 +451,123 @@ interface OpenAttachment {
         .sheet__tab { width: auto; }
       }
 
-      /* Overview: the panels that used to be the side column, now the
-         first section, two across where there is room. */
-      .overview {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 0.9rem;
-        align-items: start;
-        padding: 0.9rem 1.15rem 1.1rem;
+      /* Overview --------------------------------------------------- */
+
+      .summary { padding: 1.1rem 1.25rem 1.25rem; }
+
+      /* Who this is. The face, the name, and the handful of codes that
+         identify them, on one line across the top. */
+      .who {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border);
       }
-      .overview__wide { grid-column: 1 / -1; }
+      .who__face {
+        width: 76px;
+        height: 76px;
+        flex: none;
+        object-fit: cover;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--surface-muted);
+      }
+      .who__face--none {
+        display: grid;
+        place-items: center;
+        color: var(--ink-400, var(--ink-500));
+      }
+      .who__id { min-width: 0; }
+      .who__name {
+        margin: 0;
+        font-size: var(--fs-xl);
+        font-weight: 600;
+        color: var(--ink-900);
+        line-height: 1.2;
+      }
+      .who__meta {
+        margin: 0.3rem 0 0;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.3rem 0.5rem;
+        font-size: var(--fs-sm);
+        color: var(--ink-600);
+      }
+      /* Separated by a dot rather than by a comma, because one of these
+         is a code and the rest are names. */
+      .who__meta > span + span::before { content: '·'; margin-right: 0.5rem; }
+      .who__state { margin-left: auto; align-self: flex-start; }
+
+      /* The facts, across rather than down: there are four or five of
+         them and a column of four short answers is mostly whitespace. */
+      .facts {
+        margin: 0;
+        padding: 1rem 0 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 0.9rem 1.5rem;
+      }
+      .facts__one { min-width: 0; display: grid; gap: 0.15rem; }
+      .facts__one--wide { grid-column: 1 / -1; }
+      .facts dt {
+        font-size: var(--fs-xs);
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        color: var(--ink-500);
+      }
+      .facts dd {
+        margin: 0;
+        display: grid;
+        gap: 0.1rem;
+        justify-items: start;
+        font-size: var(--fs-sm);
+        color: var(--ink-800);
+        overflow-wrap: anywhere;
+      }
+
+      /* And the way in. */
+      .contents { margin-top: 1.4rem; }
+      .contents__head {
+        margin: 0 0 0.6rem;
+        font-size: var(--fs-xs);
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--brand-700);
+      }
+      .contents__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 0.5rem;
+      }
+      .contents__one {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.6rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        font: inherit;
+        font-size: var(--fs-sm);
+        color: var(--ink-800);
+        text-align: left;
+        cursor: pointer;
+      }
+      .contents__one:hover {
+        border-color: var(--brand-300, var(--brand-100));
+        background: var(--brand-50);
+      }
+      .contents__title { flex: 1; min-width: 0; font-weight: 600; }
+      .contents__count {
+        font-size: var(--fs-xs);
+        color: var(--ink-500);
+        white-space: nowrap;
+      }
+      .contents__one app-icon { color: var(--ink-400, var(--ink-500)); }
       /* A panel heading is a flex row, so anything after the title goes
          to the far end of it rather than trailing the words. */
       .panel__aside { margin-left: auto; }
@@ -498,6 +611,59 @@ export class ProfileScrutinyDetailComponent {
   protected readonly sections = computed(
     () => this.definition()?.sections.filter((one) => one.isEnabled !== false) ?? [],
   );
+
+  /**
+   * The applicant's own photograph, where the form asked for one.
+   *
+   * The first picture of the first camera field, which on every profile
+   * form in use is the passport photograph. An officer deciding a
+   * profile checks the face against the name and the ID, and having to
+   * open a section to see it is one click in the way of the first thing
+   * they do.
+   *
+   * Null where the form has no camera field, or the picture has not
+   * come down yet; the summary draws a placeholder rather than a gap.
+   */
+  protected readonly portrait = computed(() => {
+    const camera = this.sections()
+      .flatMap((section) => section.fields ?? [])
+      .find((field) => field.type === 'photos' && field.isEnabled !== false);
+
+    if (!camera) return null;
+
+    const held = this.photos()[DynamicFormComponent.photoKey(camera.key, 0)] ?? [];
+    return held[0]?.url ?? null;
+  });
+
+  /**
+   * How much of a section was answered, in the words a reader wants.
+   *
+   * A repeating section is counted in entries - three qualifications is
+   * what somebody wants to know, not twelve of fifteen boxes. A plain
+   * one is counted in answers, so a section left half-filled says so
+   * before it is opened.
+   */
+  protected filledIn(section: ProfileSection): string {
+    const answers = (this.submission()?.responses ?? {}) as Record<string, unknown>;
+
+    if (section.isRepeatable) {
+      const held = answers[section.key?.trim() || `section${section.id}`];
+      const many = Array.isArray(held) ? held.length : 0;
+      return many === 1 ? '1 entry' : `${many} entries`;
+    }
+
+    const fields = (section.fields ?? []).filter(
+      (one: ProfileField) => one.isEnabled !== false);
+
+    const given = fields.filter((one: ProfileField) => {
+      const value = answers[one.key];
+      if (value === null || value === undefined) return false;
+      if (Array.isArray(value)) return value.length > 0;
+      return String(value).trim() !== '';
+    }).length;
+
+    return `${given} of ${fields.length}`;
+  }
   protected readonly saving = signal(false);
   protected readonly rejecting = signal(false);
 

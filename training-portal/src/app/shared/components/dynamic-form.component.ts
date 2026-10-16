@@ -36,6 +36,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { LookupService } from '../../core/services/masters.service';
 import { FORMAT_MESSAGES, FORMAT_PATTERNS } from '../../core/validation/formats';
 import { IconComponent } from './icon.component';
+import { ModalComponent } from './modal.component';
 
 /* A span is a value like any other: the control holds an object, which is
    what a duration field stores against its answer. */
@@ -83,7 +84,7 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
 @Component({
   selector: 'app-dynamic-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, ReactiveFormsModule, IconComponent, NgTemplateOutlet],
+  imports: [DatePipe, ReactiveFormsModule, IconComponent, ModalComponent, NgTemplateOutlet],
   template: `
     <form [formGroup]="form()" (ngSubmit)="submitted.emit(form().getRawValue())" class="stack stack-lg">
       @for (section of enabledSections(); track section.id) {
@@ -219,45 +220,27 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
 
             @switch (field.type) {
               @case ('photos') {
+                <!-- A button, not the pictures themselves.
+
+                     A row of thumbnails with a caption under each made
+                     one answer four lines tall, and a sheet read down
+                     the left-hand column loses its rhythm the moment
+                     one row is the height of five. The picture is one
+                     click away and comes up large, which is the size it
+                     is actually looked at. -->
                 @if (shots(field.key, group); as pictures) {
-                  <div class="shots">
-                    @for (shot of pictures; track shot.displayOrder) {
-                      <figure class="shot">
-                        <a [href]="shot.url" target="_blank" rel="noopener">
-                          <img
-                            [src]="shot.url"
-                            [alt]="field.label + ', picture ' + shot.displayOrder"
-                            loading="lazy"
-                          />
-                        </a>
-                        <figcaption>
-                          <span class="shot__n">{{ shot.displayOrder }}</span>
-                          <span>{{ shot.capturedOn | date: 'dd MMM yyyy, h:mm a' }}</span>
-                          @if (shot.latitude != null && shot.longitude != null) {
-                            <a
-                              class="shot__where"
-                              [href]="
-                                'https://www.openstreetmap.org/?mlat=' + shot.latitude +
-                                '&mlon=' + shot.longitude + '#map=17/' +
-                                shot.latitude + '/' + shot.longitude
-                              "
-                              target="_blank"
-                              rel="noopener"
-                            >
-                              {{ place(shot) }}
-                            </a>
-                          } @else {
-                            <span class="text-muted">Location not recorded</span>
-                          }
-                          @if (shot.deviceModel) {
-                            <span class="text-muted">{{ shot.deviceModel }}</span>
-                          }
-                          <span class="text-muted">
-                            Synced {{ shot.syncedOn | date: 'dd MMM yyyy, h:mm a' }}
-                          </span>
-                        </figcaption>
-                      </figure>
-                    }
+                  <div class="read-field__value">
+                    <button
+                      type="button"
+                      class="btn btn--secondary btn--sm"
+                      (click)="viewing.set({ label: field.label, shots: pictures })"
+                    >
+                      <app-icon name="eye" [size]="14" />
+                      View{{ pictures.length > 1 ? ' ' + pictures.length + ' pictures' : '' }}
+                    </button>
+                    <span class="text-xs text-muted">
+                      Taken {{ pictures[0].capturedOn | date: 'dd MMM yyyy, h:mm a' }}
+                    </span>
                   </div>
                 } @else {
                   <div class="read-field__value is-empty">{{ taken(group, field.key) }}</div>
@@ -687,6 +670,52 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
         }
       }
     </ng-template>
+
+    <!-- The picture, the size somebody actually looks at it, with what
+         the handset knew when the shutter went. -->
+    @if (viewing(); as held) {
+      <app-modal [title]="held.label" size="lg" (closed)="viewing.set(null)">
+        <div class="lightbox">
+          @for (shot of held.shots; track shot.displayOrder) {
+            <figure class="lightbox__one">
+              <img [src]="shot.url" [alt]="held.label + ', picture ' + shot.displayOrder" />
+              <figcaption>
+                @if (held.shots.length > 1) {
+                  <span class="shot__n">{{ shot.displayOrder }}</span>
+                }
+                <span>Taken {{ shot.capturedOn | date: 'dd MMM yyyy, h:mm a' }}</span>
+                @if (shot.latitude != null && shot.longitude != null) {
+                  <a
+                    class="shot__where"
+                    [href]="
+                      'https://www.openstreetmap.org/?mlat=' + shot.latitude +
+                      '&mlon=' + shot.longitude + '#map=17/' +
+                      shot.latitude + '/' + shot.longitude
+                    "
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    {{ place(shot) }}
+                  </a>
+                } @else {
+                  <span class="text-muted">Location not recorded</span>
+                }
+                @if (shot.deviceModel) {
+                  <span class="text-muted">{{ shot.deviceModel }}</span>
+                }
+                <span class="text-muted">
+                  Synced {{ shot.syncedOn | date: 'dd MMM yyyy, h:mm a' }}
+                </span>
+              </figcaption>
+            </figure>
+          }
+        </div>
+
+        <div footer>
+          <button type="button" class="btn btn--primary" (click)="viewing.set(null)">Close</button>
+        </div>
+      </app-modal>
+    }
   `,
   styles: [
     `
@@ -913,9 +942,24 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
          back above its answer rather than squeezing both into nothing. */
       @media (max-width: 40rem) {
         .read-field { grid-template-columns: 1fr; }
+        /* Stacked, the rule would sit under the question like an
+           underline rather than between two columns. */
+        .read-field__label { border-right: 0; padding-right: 0; }
       }
 
+      /* A rule between the question and the answer.
+
+         Without one the two columns were two runs of text with a gap,
+         and on a wide row the eye crossing the gap could not be sure
+         which answer belonged to which question. The label cell is
+         stretched to the full height of its row so the line is a column
+         divider rather than a dash beside one line of a tall answer. */
       .read-field__label {
+        align-self: stretch;
+        display: flex;
+        align-items: center;
+        padding-right: 1rem;
+        border-right: 1px solid var(--border);
         font-size: var(--fs-xs);
         font-weight: 600;
         letter-spacing: 0.02em;
@@ -923,6 +967,10 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
         color: var(--ink-500);
       }
       .read-field__value {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.3rem 0.6rem;
         font-size: var(--fs-sm);
         color: var(--ink-800);
         /* A long unbroken answer — a URL, a run of digits — must wrap
@@ -937,6 +985,26 @@ const UPPERCASE_TYPES: FieldType[] = ['pan', 'tan', 'gstin', 'ifsc'];
         font-style: italic;
       }
       .read-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+
+      /* The viewer behind the View button. */
+      .lightbox { display: grid; gap: 1.25rem; }
+      .lightbox__one { margin: 0; display: grid; gap: 0.5rem; justify-items: center; }
+      .lightbox__one img {
+        max-width: 100%;
+        max-height: 62vh;
+        object-fit: contain;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--surface-muted);
+      }
+      .lightbox__one figcaption {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.3rem 0.75rem;
+        font-size: var(--fs-xs);
+        color: var(--ink-600);
+      }
       /* A line that says there is a document, when it came, and offers
          to show it - rather than a filename nobody can act on. */
       .doc {
@@ -1073,6 +1141,9 @@ export class DynamicFormComponent {
    * applicant's experience, controls and all.
    */
   protected readonly reading = computed(() => this.readonly() && !this.preview());
+
+  /** The picture set being looked at, if any. */
+  protected readonly viewing = signal<{ label: string; shots: LoadedPhoto[] } | null>(null);
 
   /**
    * One field's answer, in the words the form used.
