@@ -366,7 +366,20 @@ public class ProgrammeSubmission : AuditableEntity
     /// it is what forwards the report, so there is no separate act of
     /// sending and nothing can be conducted but unsent.
     /// </summary>
-    public QcStatus QcStatus { get; set; } = QcStatus.Pending;
+    public QcStatus QcStatus { get; set; } = QcStatus.AwaitingAgency;
+
+    /// <summary>
+    /// Who at the implementing agency passed this to the manager, and
+    /// when.
+    ///
+    /// Kept separately from the quality check itself: forwarding is not
+    /// a decision about the report, and recording it as one would put
+    /// the agency's name against a judgement the manager made.
+    /// </summary>
+    public int? ForwardedByUserId { get; set; }
+    public string? ForwardedByUserName { get; set; }
+    public DateTime? ForwardedOn { get; set; }
+    public string? ForwardRemarks { get; set; }
 
     public int? QcByUserId { get; set; }
     public PortalUser? QcBy { get; set; }

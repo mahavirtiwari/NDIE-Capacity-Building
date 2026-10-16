@@ -484,6 +484,8 @@ public class QcProgrammeDto
 /// <summary>How many sit in each QC queue, for the tab counts.</summary>
 public class QcCountsDto
 {
+    /// <summary>Handed in by a coordinator, waiting on the agency.</summary>
+    public int AwaitingAgency { get; set; }
     public int Pending { get; set; }
     public int Approved { get; set; }
     public int Rejected { get; set; }

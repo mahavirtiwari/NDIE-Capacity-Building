@@ -80,6 +80,8 @@ public class QcService(NtmsDbContext db, ICurrentUser currentUser)
 
         return new QcCountsDto
         {
+            AwaitingAgency =
+                await query.CountAsync(s => s.QcStatus == QcStatus.AwaitingAgency, ct),
             Pending = await query.CountAsync(s => s.QcStatus == QcStatus.Pending, ct),
             Approved = await query.CountAsync(s => s.QcStatus == QcStatus.Approved, ct),
             Rejected = await query.CountAsync(s => s.QcStatus == QcStatus.Rejected, ct),
@@ -108,6 +110,13 @@ public class QcService(NtmsDbContext db, ICurrentUser currentUser)
         submission.QcByUserName = currentUser.DisplayName;
         submission.QcOn = DateTime.UtcNow;
         submission.QcRemarks = Trimmed(remarks);
+
+        /* The batch is conducted at this point and not before. It was
+           left on whatever status it was raised with, so a programme
+           that had run, been written up and been passed still read as
+           scheduled on every screen that shows the register. */
+        var programme = await db.Programmes.FirstOrDefaultAsync(p => p.Id == programmeId, ct);
+        if (programme is not null) programme.Status = ProgramStatus.Conducted;
 
         await db.SaveChangesAsync(ct);
         return await GetAsync(programmeId, ct);
@@ -138,8 +147,101 @@ public class QcService(NtmsDbContext db, ICurrentUser currentUser)
         var programme = await db.Programmes.FirstOrDefaultAsync(p => p.Id == programmeId, ct);
         if (programme is not null) programme.Status = ProgramStatus.QCRejected;
 
+        /* The seal comes off with the rejection.
+
+           Sending a report back and leaving the record locked is a
+           request nobody can act on: the coordinator is the only person
+           who can correct what is wrong with it and the app refuses
+           every write while a submission stands. Rejected submissions
+           no longer count as sealed, so the batch reopens, is corrected
+           and is submitted again - which is the whole point of sending
+           it back. */
+
         await db.SaveChangesAsync(ct);
         return await GetAsync(programmeId, ct);
+    }
+
+    /// <summary>
+    /// The agency passes its coordinator's report to the manager.
+    ///
+    /// The agency is answerable for what its coordinator handed in, so
+    /// nothing reaches the scheme's manager until somebody there has
+    /// read it. Forwarding says only that: it is not an approval, and
+    /// the manager still decides.
+    /// </summary>
+    public async Task<QcProgrammeDto> ForwardAsync(
+        int programmeId, string? remarks, CancellationToken ct)
+    {
+        var submission = await ForwardableAsync(programmeId, ct);
+
+        submission.QcStatus = QcStatus.Pending;
+        submission.ForwardedByUserId = currentUser.UserId;
+        submission.ForwardedByUserName = currentUser.DisplayName;
+        submission.ForwardedOn = DateTime.UtcNow;
+        submission.ForwardRemarks = Trimmed(remarks);
+
+        await db.SaveChangesAsync(ct);
+        return await GetAsync(programmeId, ct);
+    }
+
+    /// <summary>
+    /// The agency sends its coordinator's report back without
+    /// forwarding it.
+    ///
+    /// The same ending as a rejection by the manager, and for the same
+    /// reason: the record reopens so the coordinator can correct it.
+    /// Catching a bad report here rather than after the manager has
+    /// read it is the point of the agency being in the middle.
+    /// </summary>
+    public async Task<QcProgrammeDto> SendBackAsync(
+        int programmeId, string? remarks, CancellationToken ct)
+    {
+        var reason = Trimmed(remarks)
+                     ?? throw new AppException("Say why the report is being sent back.");
+
+        var submission = await ForwardableAsync(programmeId, ct);
+
+        submission.QcStatus = QcStatus.Rejected;
+        submission.QcByUserId = currentUser.UserId;
+        submission.QcByUserName = currentUser.DisplayName;
+        submission.QcOn = DateTime.UtcNow;
+        submission.QcRemarks = reason;
+
+        var programme = await db.Programmes.FirstOrDefaultAsync(p => p.Id == programmeId, ct);
+        if (programme is not null) programme.Status = ProgramStatus.QCRejected;
+
+        await db.SaveChangesAsync(ct);
+        return await GetAsync(programmeId, ct);
+    }
+
+    /// <summary>
+    /// The submission this agency may forward, or a refusal.
+    ///
+    /// Scope rather than a quality-control permission: this is the
+    /// agency reading its own coordinator's work, which is not the
+    /// manager's check and does not need the manager's key.
+    /// </summary>
+    private async Task<ProgrammeSubmission> ForwardableAsync(int programmeId, CancellationToken ct)
+    {
+        var inScope = await db.Programmes.AsNoTracking()
+            .WithinScope(currentUser)
+            .AnyAsync(p => p.Id == programmeId, ct);
+
+        if (!inScope)
+            throw AppException.Forbidden("This program is outside your allocation.");
+
+        var submission = await db.ProgrammeSubmissions
+            .FirstOrDefaultAsync(s => s.ProgrammeId == programmeId, ct)
+            ?? throw AppException.NotFound("Submitted programme");
+
+        if (submission.QcStatus != QcStatus.AwaitingAgency)
+        {
+            throw new AppException(
+                $"This report has already been {submission.QcStatus.ToString().ToLowerInvariant()}"
+                + (submission.ForwardedByUserName is { } who ? $" by {who}." : "."));
+        }
+
+        return submission;
     }
 
     /// <summary>

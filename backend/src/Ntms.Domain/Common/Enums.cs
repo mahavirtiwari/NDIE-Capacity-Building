@@ -353,10 +353,14 @@ public enum TrainerEngagement
 /// Where a conducted programme's report stands with quality control.
 ///
 /// The coordinator closes the programme from the app, which seals the
-/// record and forwards it to the Operation Manager; it waits here until
-/// the manager has read it. Only the manager moves it, and only once —
-/// approval is what opens the report to the rest of the office, so it is
-/// not a decision to be taken twice.
+/// record and hands it to the agency that raised the batch. The agency
+/// reads it and forwards it to the Operation Manager, who accepts it —
+/// at which point the programme is conducted and the report is
+/// readable — or sends it back.
+///
+/// The agency sits in the middle on purpose: it is answerable for what
+/// its coordinator handed in, and a report that goes straight from a
+/// phone to the scheme's manager is one nobody at the agency has read.
 /// </summary>
 public enum QcStatus
 {
@@ -368,6 +372,16 @@ public enum QcStatus
 
     /// <summary>Sent back with a reason. The batch is marked QC rejected.</summary>
     Rejected = 3,
+
+    /// <summary>
+    /// Sealed by the coordinator and waiting on the implementing
+    /// agency to forward it, or send it back.
+    ///
+    /// Stored as its name like every other enum here, so adding it
+    /// changes nothing already written: the submissions that exist are
+    /// Pending, Approved or Rejected and stay that way.
+    /// </summary>
+    AwaitingAgency = 4,
 }
 
 public enum ParticipantResult

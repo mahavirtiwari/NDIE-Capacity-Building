@@ -74,6 +74,12 @@ public class MonitoringService(
         ProgramStatus.PermissionAccepted,
         ProgramStatus.CalendarCreated,
         ProgramStatus.Conducted,
+        /* A report that was sent back is a programme somebody has to
+           work on again. Leaving it out of here meant the coordinator
+           was told the batch was "waiting for permission from the
+           operation manager" - which it was not - and the correction
+           the manager had just asked for could not be made by anybody. */
+        ProgramStatus.QCRejected,
     ];
 
     private async Task<Programme> ForReadAsync(int programmeId, CancellationToken ct)
@@ -125,8 +131,16 @@ public class MonitoringService(
                 + "Nothing can be recorded against it yet.");
         }
 
+        /* A rejected submission is not a seal.
+ 
+           Sending a report back and leaving the record locked is a
+           request nobody can act on: the coordinator is the only person
+           who can correct what is wrong with it, and every write here
+           was refused while any submission stood. A report sent back by
+           the agency or by the manager reopens the batch, which is the
+           whole point of sending it back. */
         var sealedOn = await db.ProgrammeSubmissions.AsNoTracking()
-            .Where(s => s.ProgrammeId == programmeId)
+            .Where(s => s.ProgrammeId == programmeId && s.QcStatus != QcStatus.Rejected)
             .Select(s => (DateTime?)s.SubmittedOn)
             .FirstOrDefaultAsync(ct);
 
@@ -1186,34 +1200,55 @@ public class MonitoringService(
             throw new AppException(
                 "This workshop is not ready to submit: " + string.Join(" ", progress.Blockers));
 
-        var submission = new ProgrammeSubmission
-        {
-            ProgrammeId = programmeId,
-            SubmittedByUserId = currentUser.UserId!.Value,
-            SubmittedOn = DateTime.UtcNow,
-            TrainerCount = trainers.Count,
-            SessionCount = sessions.Count,
-            ParticipantCount = participants.Count,
-            PresentCount = participants.Count(p => p.IsPresent == true),
-            PhotoCount = allPhotos.Count,
-            Remarks = dto.Remarks?.Trim(),
-            /* Closing the programme is what forwards it. There is no
-               second act of sending, so nothing can sit conducted and
-               unsent while everybody assumes somebody else posted it. */
-            QcStatus = QcStatus.Pending,
-        };
+        /* One row per programme, reused when a report comes back.
+ 
+           A rejected submission reopens the record so the coordinator
+           can correct it, and what they then hand in is the same
+           submission put right rather than a second one - the table
+           holds one per programme and the index says so. Resubmitting
+           clears the decision with it, because the report the manager
+           turned down is not the report being handed in now. */
+        var submission = await db.ProgrammeSubmissions
+            .FirstOrDefaultAsync(x => x.ProgrammeId == programmeId, ct);
 
-        db.ProgrammeSubmissions.Add(submission);
+        var resubmitted = submission is not null;
+        submission ??= new ProgrammeSubmission { ProgrammeId = programmeId };
 
-        /* The batch is conducted because the coordinator who ran it says
-           so and has handed in the evidence. It used to be moved by hand
-           from the portal afterwards, which meant the register disagreed
-           with the record for as long as nobody got round to it. */
+        submission.SubmittedByUserId = currentUser.UserId!.Value;
+        submission.SubmittedOn = DateTime.UtcNow;
+        submission.TrainerCount = trainers.Count;
+        submission.SessionCount = sessions.Count;
+        submission.ParticipantCount = participants.Count;
+        submission.PresentCount = participants.Count(p => p.IsPresent == true);
+        submission.PhotoCount = allPhotos.Count;
+        submission.Remarks = dto.Remarks?.Trim();
+
+        /* To the agency first. The manager sees it when the agency
+           forwards it. */
+        submission.QcStatus = QcStatus.AwaitingAgency;
+        submission.QcByUserId = null;
+        submission.QcByUserName = null;
+        submission.QcOn = null;
+        submission.QcRemarks = null;
+        submission.ForwardedByUserId = null;
+        submission.ForwardedByUserName = null;
+        submission.ForwardedOn = null;
+        submission.ForwardRemarks = null;
+
+        if (!resubmitted) db.ProgrammeSubmissions.Add(submission);
+
+        /* Registration closes, because the day has been and gone. The
+           batch is not marked conducted here: that is the manager's to
+           say once the report has been forwarded and accepted, and a
+           programme that reads as conducted while its report is still
+           being argued over says the wrong thing on every screen. A
+           batch sent back is no longer conducted either. */
         var programme = await db.Programmes.FirstOrDefaultAsync(p => p.Id == programmeId, ct);
-        if (programme is not null && programme.Status != ProgramStatus.Conducted)
+        if (programme is not null)
         {
-            programme.Status = ProgramStatus.Conducted;
             programme.RegistrationsOpen = false;
+            if (programme.Status == ProgramStatus.QCRejected)
+                programme.Status = ProgramStatus.CalendarCreated;
         }
 
         try

@@ -55,6 +55,30 @@ public class QcController(QcService service) : ApiControllerBase
         int programmeId, CancellationToken ct) =>
         Envelope(await service.GetAsync(programmeId, ct));
 
+    /// <summary>
+    /// The agency passes its coordinator's report to the manager.
+    ///
+    /// Not a quality-control key: this is the agency reading its own
+    /// coordinator's work, which is a different act from the manager's
+    /// check and is allowed by scope.
+    /// </summary>
+    [HttpPost("programmes/{programmeId:int}/forward")]
+    [HasPermission(Permissions.ProgramsView)]
+    public async Task<ActionResult<ApiEnvelope<QcProgrammeDto>>> Forward(
+        int programmeId, [FromBody] QcDecisionDto dto, CancellationToken ct) =>
+        Envelope(
+            await service.ForwardAsync(programmeId, dto.Remarks, ct),
+            "Forwarded for quality check.");
+
+    /// <summary>The agency sends it back to the coordinator instead.</summary>
+    [HttpPost("programmes/{programmeId:int}/send-back")]
+    [HasPermission(Permissions.ProgramsView)]
+    public async Task<ActionResult<ApiEnvelope<QcProgrammeDto>>> SendBack(
+        int programmeId, [FromBody] QcDecisionDto dto, CancellationToken ct) =>
+        Envelope(
+            await service.SendBackAsync(programmeId, dto.Remarks, ct),
+            "Sent back to the coordinator.");
+
     [HttpPost("programmes/{programmeId:int}/approve")]
     [HasPermission(Permissions.ProgramsQc)]
     public async Task<ActionResult<ApiEnvelope<QcProgrammeDto>>> Approve(
@@ -105,5 +129,6 @@ public class QcController(QcService service) : ApiControllerBase
     private static QcStatus Parse(string status) =>
         Enum.TryParse<QcStatus>(status, ignoreCase: true, out var parsed)
             ? parsed
-            : throw new AppException("Status must be Pending, Approved or Rejected.");
+            : throw new AppException(
+                "Status must be AwaitingAgency, Pending, Approved or Rejected.");
 }

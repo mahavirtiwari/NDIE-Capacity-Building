@@ -3818,6 +3818,18 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedOn")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("ForwardRemarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ForwardedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ForwardedByUserName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ForwardedOn")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("ModifiedBy")
                         .HasColumnType("nvarchar(max)");
 
