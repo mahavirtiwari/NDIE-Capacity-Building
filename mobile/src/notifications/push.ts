@@ -53,10 +53,21 @@ export function listenForNotificationTaps(): void {
   /* The tap that started the app, before this was listening. Android
      delivers it this way rather than through the subscription, so a
      notification opened from a cold start would otherwise land on the
-     dashboard with no sign of what it was about. */
-  void Notifications.getLastNotificationResponseAsync().then((response) => {
-    if (response) go(response);
-  });
+     dashboard with no sign of what it was about.
+
+     Guarded because not every platform has the native module behind it:
+     on web it throws on the way in, and an app that will not start
+     because it cannot ask whether it was opened by a notification is
+     failing at something it does not need in order to run. */
+  try {
+    void Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (response) go(response);
+      })
+      .catch(() => {});
+  } catch {
+    /* No notification runtime here. Nothing was tapped to get in. */
+  }
 
   listening = Notifications.addNotificationResponseReceivedListener(go);
 }
