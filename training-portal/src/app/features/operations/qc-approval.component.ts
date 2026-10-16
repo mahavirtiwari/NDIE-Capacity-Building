@@ -264,7 +264,26 @@ const COLUMNS: ColumnDef[] = [
             </button>
           </div>
 
-          @if (row.qcStatus !== 'Pending') {
+          @if (row.forwardedOn) {
+            <div class="card">
+              <div class="card__header">
+                <span class="card__title">Forwarded by the agency</span>
+              </div>
+              <div class="card__body">
+                <div class="dl">
+                  <div>
+                    <span class="dl__term">On</span>
+                    <span>{{ row.forwardedOn | date: 'dd MMM yyyy, h:mm a' }}</span>
+                  </div>
+                  <div>
+                    <span class="dl__term">By</span><span>{{ row.forwardedBy ?? '—' }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+
+          @if (row.qcStatus !== 'Pending' && row.qcStatus !== 'AwaitingAgency') {
             <div class="card">
               <div class="card__header">
                 <span class="card__title">Quality check</span>
@@ -289,7 +308,7 @@ const COLUMNS: ColumnDef[] = [
 
           <!-- The decision is asked for only of the manager who holds it,
                and only while there is one to take. -->
-          @if (canDecide(row)) {
+          @if (canDecide(row) || canForward(row)) {
             <div class="field">
               <label class="field-label" for="qcRemarks">Remarks</label>
               <textarea
@@ -305,6 +324,29 @@ const COLUMNS: ColumnDef[] = [
 
         <div footer>
           <button type="button" class="btn btn--secondary" (click)="reading.set(null)">Close</button>
+
+          <!-- The agency's two, while it is still theirs. -->
+          @if (canForward(row)) {
+            <button
+              type="button"
+              class="btn btn--danger"
+              [disabled]="busy()"
+              (click)="decide(row, 'send-back')"
+            >
+              <app-icon name="x" [size]="15" /> Reject
+            </button>
+            <button
+              type="button"
+              class="btn btn--primary"
+              [disabled]="busy()"
+              (click)="decide(row, 'forward')"
+            >
+              <app-icon name="send" [size]="15" />
+              {{ busy() ? 'Working…' : 'Forward to QC' }}
+            </button>
+          }
+
+          <!-- And the manager's, once it has been forwarded. -->
           @if (canDecide(row)) {
             <button
               type="button"
@@ -350,10 +392,15 @@ export class QcApprovalComponent {
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly columns = COLUMNS;
-  protected readonly queues: QcStatus[] = ['Pending', 'Approved', 'Rejected'];
+  protected readonly queues: QcStatus[] =
+    ['AwaitingAgency', 'Pending', 'Approved', 'Rejected'];
   protected readonly label = (queue: QcStatus) => QC_STATUS_LABELS[queue];
 
-  protected readonly tab = signal<QcStatus>('Pending');
+  /* The agency opens on its own queue and the manager on theirs, so
+     neither has to know the other's step exists to find their work. */
+  protected readonly tab = signal<QcStatus>(
+    this.auth.hasPermission('programs.qc') ? 'Pending' : 'AwaitingAgency',
+  );
   protected readonly reading = signal<QcProgramme | null>(null);
   protected readonly busy = signal(false);
 
@@ -378,9 +425,10 @@ export class QcApprovalComponent {
   protected count(queue: QcStatus): number {
     const held = this.counts();
     if (!held) return 0;
-    return queue === 'Pending' ? held.pending
-      : queue === 'Approved' ? held.approved
-        : held.rejected;
+    return queue === 'AwaitingAgency' ? held.awaitingAgency
+      : queue === 'Pending' ? held.pending
+        : queue === 'Approved' ? held.approved
+          : held.rejected;
   }
 
   protected readonly list = new ListState<QcProgramme>(
@@ -397,14 +445,38 @@ export class QcApprovalComponent {
     })),
   );
 
-  /** The empty state says which queue is empty, not that nothing exists. */
-  protected readonly emptyTitle = computed(() =>
-    this.tab() === 'Pending' ? 'Nothing waiting' : `No ${this.tab().toLowerCase()} programmes`);
+  /**
+   * The empty state says which queue is empty, not that nothing exists.
+   *
+   * Written out rather than built from the queue's name: lower-casing
+   * the enum produced "No awaitingagency programmes", which is a line of
+   * code showing through onto a government screen.
+   */
+  protected readonly emptyTitle = computed(() => {
+    switch (this.tab()) {
+      case 'AwaitingAgency':
+        return 'Nothing with the agency';
+      case 'Pending':
+        return 'Nothing waiting';
+      case 'Approved':
+        return 'No approved programmes';
+      default:
+        return 'No rejected programmes';
+    }
+  });
 
-  protected readonly emptyMessage = computed(() =>
-    this.tab() === 'Pending'
-      ? 'Every conducted programme has been checked.'
-      : 'Nothing has been ' + this.tab().toLowerCase() + ' under the current filters.');
+  protected readonly emptyMessage = computed(() => {
+    switch (this.tab()) {
+      case 'AwaitingAgency':
+        return 'No report is waiting for the agency to forward it.';
+      case 'Pending':
+        return 'Every conducted programme has been checked.';
+      case 'Approved':
+        return 'No report has passed the quality check under the current filters.';
+      default:
+        return 'No report has been sent back under the current filters.';
+    }
+  });
 
   constructor() {
     /* The filters belong to the queue, not to a tab, so switching tabs
@@ -443,8 +515,21 @@ export class QcApprovalComponent {
    * holds the same rule and the allocation besides; this only keeps the
    * screen from offering what would be refused.
    */
+  /** The manager's decision: only on a report the agency has forwarded. */
   protected canDecide(row: QcProgramme): boolean {
     return row.qcStatus === 'Pending' && this.auth.hasPermission('programs.qc');
+  }
+
+  /**
+   * The agency's step: only while the report is still with them.
+   *
+   * Not gated on the quality-control key. This is the agency reading
+   * its own coordinator's work before passing it on, which is a
+   * different act from the manager's check - and the people who do it
+   * do not hold that key, which is the whole reason the step exists.
+   */
+  protected canForward(row: QcProgramme): boolean {
+    return row.qcStatus === 'AwaitingAgency';
   }
 
   /**
@@ -483,28 +568,43 @@ export class QcApprovalComponent {
     this.held.length = 0;
   }
 
-  protected decide(row: QcProgramme, kind: 'approve' | 'reject'): void {
+  protected decide(
+    row: QcProgramme,
+    kind: 'approve' | 'reject' | 'forward' | 'send-back',
+  ): void {
     const note = (this.remarks.value ?? '').trim();
 
-    if (kind === 'reject' && !note) {
+    /* A refusal has to say what to put right. Forwarding and approving
+       are the two that need no words. */
+    if ((kind === 'reject' || kind === 'send-back') && !note) {
       this.toast.error(
         'Say why',
-        'A report sent back has to tell the agency what to put right.');
+        kind === 'reject'
+          ? 'A report sent back has to tell the agency what to put right.'
+          : 'A report sent back has to tell the coordinator what to put right.');
       return;
     }
 
     this.busy.set(true);
-    const call = kind === 'approve'
-      ? this.service.approve(row.programmeId, { remarks: note })
-      : this.service.reject(row.programmeId, { remarks: note });
+    const call =
+      kind === 'approve' ? this.service.approve(row.programmeId, { remarks: note })
+        : kind === 'reject' ? this.service.reject(row.programmeId, { remarks: note })
+          : kind === 'forward' ? this.service.forward(row.programmeId, { remarks: note })
+            : this.service.sendBack(row.programmeId, { remarks: note });
+
+    const told: Record<typeof kind, string> = {
+      approve: 'Quality check passed',
+      reject: 'Report sent back',
+      forward: 'Forwarded for quality check',
+      'send-back': 'Sent back to the coordinator',
+    };
 
     call.subscribe({
       next: () => {
         this.busy.set(false);
         this.reading.set(null);
-        this.toast.success(
-          kind === 'approve' ? 'Quality check passed' : 'Report sent back',
-          row.programmeCode);
+        this.remarks.setValue('');
+        this.toast.success(told[kind], row.programmeCode);
         this.list.reload();
         this.loadCounts();
       },

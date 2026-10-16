@@ -89,3 +89,25 @@ public class FeedbackReceiptConfiguration : IEntityTypeConfiguration<FeedbackRec
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+public class FeedbackInviteConfiguration : IEntityTypeConfiguration<FeedbackInvite>
+{
+    public void Configure(EntityTypeBuilder<FeedbackInvite> b)
+    {
+        b.ToTable("FeedbackInvites");
+
+        b.Property(x => x.TokenHash).HasMaxLength(64).IsRequired();
+
+        /* The link is looked up by its hash on every open, and two
+           participants sharing one would be two people answering as
+           whichever row came back first. */
+        b.HasIndex(x => x.TokenHash).IsUnique();
+
+        /* One live invitation each. Re-inviting replaces the row, so an
+           older link stops working when a newer one is sent. */
+        b.HasIndex(x => x.ParticipantId).IsUnique();
+
+        b.HasOne(x => x.Participant).WithMany().HasForeignKey(x => x.ParticipantId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}

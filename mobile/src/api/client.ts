@@ -169,6 +169,21 @@ export interface DownloadedFile {
   contentType: string;
 }
 
+/**
+ * Where a file route lives and what it has to be asked with.
+ *
+ * Handed out so a download can be done by something other than fetch -
+ * on a handset the bytes go straight to a file, and the downloader needs
+ * the address and the bearer header rather than a Response.
+ */
+export function fileRequest(path: string): { url: string; headers: Record<string, string> } {
+  const headers: Record<string, string> = {};
+  const token = readToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  return { url: `${API_BASE_URL}/${path.replace(/^\//, '')}`, headers };
+}
+
 export async function download(path: string, fallbackName = 'download'): Promise<DownloadedFile> {
   const url = `${API_BASE_URL}/${path.replace(/^\//, '')}`;
   const headers: Record<string, string> = {};

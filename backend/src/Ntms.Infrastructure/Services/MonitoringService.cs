@@ -151,6 +151,15 @@ public class MonitoringService(
         return programme;
     }
 
+    /// <summary>
+    /// Whether a report has been handed in and not sent back, which is
+    /// what closes the record to writes. The same test
+    /// <see cref="ForWriteAsync"/> makes, asked without the refusal.
+    /// </summary>
+    private Task<bool> IsSealedAsync(int programmeId, CancellationToken ct) =>
+        db.ProgrammeSubmissions.AsNoTracking()
+            .AnyAsync(s => s.ProgrammeId == programmeId && s.QcStatus != QcStatus.Rejected, ct);
+
     /* ---------------------------------------------------------- profile */
 
     /// <summary>
@@ -305,6 +314,7 @@ public class MonitoringService(
     public async Task<CoordinatorProgrammeDetailDto> GetAsync(int programmeId, CancellationToken ct)
     {
         var programme = await ForReadAsync(programmeId, ct);
+        await FillRegisterAsync(programme, ct);
 
         var venue = await db.ProgrammeVenues.AsNoTracking()
             .FirstOrDefaultAsync(v => v.ProgrammeId == programmeId, ct);
@@ -321,6 +331,7 @@ public class MonitoringService(
             .ToListAsync(ct);
         var participants = await db.OnSpotParticipants.AsNoTracking()
             .Include(x => x.Days)
+            .Include(x => x.Applicant)
             .Where(x => x.ProgrammeId == programmeId)
             .OrderBy(x => x.Id)
             .ToListAsync(ct);
@@ -738,6 +749,203 @@ public class MonitoringService(
 
     /* ------------------------------------------------------ participants */
 
+    /// <summary>
+    /// Puts everybody enrolled on the batch onto the coordinator's register.
+    ///
+    /// The register used to hold only the people who walked in on the day,
+    /// which meant a batch of forty who had applied online and been given
+    /// places showed the coordinator an empty list: no attendance to take,
+    /// no photographs to capture, and a report that said nobody came. The
+    /// register is the batch.
+    ///
+    /// So a row is written here for each enrolment that has not got one,
+    /// copying the name, number and category off the account rather than
+    /// asking anybody to retype them. It is the same row registration at
+    /// the door creates, and everything downstream — attendance,
+    /// photographs, the report — already hangs off it.
+    ///
+    /// Done on reading the programme because that is what the app does
+    /// first and does often, and it is idempotent: a second pass finds
+    /// nothing to add. Nothing is ever removed. Somebody struck off the
+    /// enrolment list after the register was taken still attended, and a
+    /// day's attendance that quietly loses a row is worse than a row
+    /// nobody needed.
+    /// </summary>
+    private async Task FillRegisterAsync(Programme programme, CancellationToken ct)
+    {
+        /* Nothing is written into a sealed record. A report handed in and
+           waiting on the office does not change under the office. */
+        if (await IsSealedAsync(programme.Id, ct)) return;
+
+        var enrolled = await db.ProgrammeParticipants.AsNoTracking()
+            .Where(p => p.ProgrammeId == programme.Id)
+            .Select(p => new
+            {
+                p.ApplicantId,
+                p.Applicant!.FullName,
+                p.Applicant!.Mobile,
+                p.Applicant!.Email,
+                p.Applicant!.Gender,
+                p.Applicant!.SocialCategory,
+            })
+            .ToListAsync(ct);
+
+        if (enrolled.Count == 0) return;
+
+        var register = await db.OnSpotParticipants.AsNoTracking()
+            .Where(x => x.ProgrammeId == programme.Id)
+            .Select(x => new { x.ApplicantId, x.Mobile })
+            .ToListAsync(ct);
+
+        var held = register.Where(x => x.ApplicantId.HasValue)
+            .Select(x => x.ApplicantId!.Value).ToHashSet();
+        var numbers = register.Select(x => x.Mobile).ToHashSet();
+
+        var added = false;
+
+        foreach (var person in enrolled)
+        {
+            if (held.Contains(person.ApplicantId)) continue;
+
+            /* The register holds one row per mobile number, and a row
+               typed in by hand at the door may already carry this one.
+               Left alone rather than written twice: the person is on the
+               register either way, which is what matters here. */
+            if (string.IsNullOrWhiteSpace(person.Mobile) || !numbers.Add(person.Mobile)) continue;
+
+            db.OnSpotParticipants.Add(new OnSpotParticipant
+            {
+                ProgrammeId = programme.Id,
+                ApplicantId = person.ApplicantId,
+                FullName = person.FullName,
+                Mobile = person.Mobile,
+                Email = person.Email,
+                EnterpriseName = string.Empty,
+                UdyamNumber = "NA",
+                Gender = person.Gender,
+                SocialCategory = person.SocialCategory,
+            });
+
+            held.Add(person.ApplicantId);
+            added = true;
+        }
+
+        if (added) await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Enrols somebody who has already applied, at the door, on the day
+    /// the programme starts.
+    ///
+    /// The coordinator gives the applicant ID and the e-mail on it, and
+    /// both have to agree: the ID alone would let a queue of people be
+    /// added by guessing codes, and the e-mail alone is not an identity
+    /// here - it is editable profile data and two accounts can carry
+    /// the same one.
+    ///
+    /// Only on the first day. Registration at the door is for the
+    /// person standing in it, and a batch that started on Monday
+    /// accepting walk-ins on Thursday is a batch whose register says
+    /// somebody attended four days they did not.
+    ///
+    /// Two rows result, and both are wanted. The programme enrolment is
+    /// the scheme's record that this person is on this batch - the same
+    /// row an applicant who registered online would have. The register
+    /// row is the coordinator's, and is what attendance, photographs
+    /// and the report are hung off.
+    /// </summary>
+    public async Task<OnSpotParticipantDto> RegisterApplicantAsync(
+        int programmeId, OnSpotApplicantDto dto, CancellationToken ct)
+    {
+        var programme = await ForWriteAsync(programmeId, ct);
+
+        var today = DateOnly.FromDateTime(IndianTime.From(DateTime.UtcNow));
+        if (today != programme.StartDate)
+        {
+            throw new AppException(
+                today < programme.StartDate
+                    ? $"This program starts on {programme.StartDate:dd MMM yyyy}. "
+                      + "Registration at the door opens on the first day."
+                    : "Registration at the door closed after the first day, "
+                      + $"{programme.StartDate:dd MMM yyyy}.");
+        }
+
+        var code = (dto.ApplicantCode ?? string.Empty).Trim().ToUpperInvariant();
+        var email = (dto.Email ?? string.Empty).Trim();
+
+        Guard.Check()
+            .Required(code, "Applicant ID")
+            .Email(email, required: true)
+            .ThrowIfInvalid();
+
+        var applicant = await db.Applicants
+            .FirstOrDefaultAsync(a => a.ApplicantCode == code, ct);
+
+        /* One refusal for both halves. Saying which of the two was
+           wrong would turn this into a way of finding out whether an
+           applicant ID exists. */
+        if (applicant is null || !string.Equals(applicant.Email, email, StringComparison.OrdinalIgnoreCase))
+            throw new AppException("No applicant matches that ID and e-mail address.");
+
+        var already = await db.OnSpotParticipants
+            .Include(x => x.Days)
+            .FirstOrDefaultAsync(x => x.ProgrammeId == programmeId && x.ApplicantId == applicant.Id, ct);
+
+        if (already is not null)
+            throw AppException.Conflict($"{applicant.FullName} is already on this register.");
+
+        /* The register holds one row per mobile number per programme, and
+           the rows typed in by hand before this screen existed may already
+           hold this one. Caught here so it reads as a refusal rather than
+           arriving as a database error. */
+        var sameNumber = await db.OnSpotParticipants.AnyAsync(
+            x => x.ProgrammeId == programmeId && x.Mobile == applicant.Mobile, ct);
+
+        if (sameNumber)
+        {
+            throw AppException.Conflict(
+                "Somebody is already registered on this program with the mobile number "
+                + "on this application. Ask the office to check the register.");
+        }
+
+        /* The scheme's own record that this person is on this batch,
+           where there is not one already - somebody who registered
+           online and then turned up is enrolled twice otherwise. */
+        var enrolled = await db.ProgrammeParticipants
+            .AnyAsync(x => x.ProgrammeId == programmeId && x.ApplicantId == applicant.Id, ct);
+
+        if (!enrolled)
+        {
+            db.ProgrammeParticipants.Add(new ProgrammeParticipant
+            {
+                ProgrammeId = programmeId,
+                ApplicantId = applicant.Id,
+                EnrolledOn = today,
+            });
+        }
+
+        var person = new OnSpotParticipant
+        {
+            ProgrammeId = programmeId,
+            ApplicantId = applicant.Id,
+            FullName = applicant.FullName,
+            Mobile = applicant.Mobile,
+            Email = applicant.Email,
+            /* Not asked for at the door any more. The scheme holds what
+               it holds about this person, and a coordinator guessing at
+               an enterprise name in a corridor is worse than a blank. */
+            EnterpriseName = string.Empty,
+            UdyamNumber = "NA",
+            Gender = applicant.Gender,
+            SocialCategory = applicant.SocialCategory,
+        };
+
+        db.OnSpotParticipants.Add(person);
+        await db.SaveChangesAsync(ct);
+
+        return ToDto(person, []);
+    }
+
     public async Task<OnSpotParticipantDto> AddParticipantAsync(
         int programmeId, OnSpotParticipantUpsertDto dto, CancellationToken ct)
     {
@@ -856,19 +1064,28 @@ public class MonitoringService(
             throw new AppException("Some of those participants are not registered on this workshop.");
 
         /*
-         * Once, and not again.
+         * Once each, and not again.
          *
-         * A register that can be reopened is a register that can be
-         * corrected after somebody has asked a question about it. The
-         * coordinator ticks who is absent and saves, and that is the
-         * day's answer; a genuine mistake is the office's to fix,
+         * A mark that can be reopened is a mark that can be corrected
+         * after somebody has asked a question about it. The coordinator
+         * ticks who is absent and saves, and that is that person's
+         * answer for the day; a genuine mistake is the office's to fix,
          * where it leaves a trail.
+         *
+         * Per person rather than per day, because the register grows:
+         * somebody enrolled at eleven, or who walked in at the door
+         * after the ten o'clock register was taken, is on the list the
+         * app sends next time. Refusing the whole call because most of
+         * that list is already marked would leave the newcomer unmarked
+         * for ever - and the batch unable to be submitted, because it
+         * cannot be closed with anybody unmarked.
          */
-        var alreadyTaken = people
-            .SelectMany(x => x.Days)
-            .Any(d => d.Day == today);
+        var taken = people
+            .Where(x => x.Days.Any(d => d.Day == today))
+            .Select(x => x.Id)
+            .ToHashSet();
 
-        if (alreadyTaken)
+        if (taken.Count == people.Count)
         {
             throw AppException.Conflict(
                 "Attendance for today has already been submitted and cannot be changed.");
@@ -877,29 +1094,23 @@ public class MonitoringService(
         var now = DateTime.UtcNow;
         var who = currentUser.DisplayName;
 
-        foreach (var mark in marks)
+        /* Only the people who have not been marked today. Everybody else
+           was dealt with above, and their mark stands. */
+        var written = marks.Where(m => !taken.Contains(m.ParticipantId)).ToList();
+
+        foreach (var mark in written)
         {
             var person = people.First(x => x.Id == mark.ParticipantId);
-            var existing = person.Days.FirstOrDefault(d => d.Day == mark.Day);
 
-            if (existing is null)
+            person.Days.Add(new OnSpotAttendance
             {
-                person.Days.Add(new OnSpotAttendance
-                {
-                    ParticipantId = person.Id,
-                    ProgrammeId = programmeId,
-                    Day = mark.Day,
-                    IsPresent = mark.IsPresent,
-                    MarkedOn = now,
-                    MarkedBy = who,
-                });
-            }
-            else
-            {
-                existing.IsPresent = mark.IsPresent;
-                existing.MarkedOn = now;
-                existing.MarkedBy = who;
-            }
+                ParticipantId = person.Id,
+                ProgrammeId = programmeId,
+                Day = mark.Day,
+                IsPresent = mark.IsPresent,
+                MarkedOn = now,
+                MarkedBy = who,
+            });
         }
 
         /* The roll-up the rest of the system reads. Present on any day
@@ -913,7 +1124,7 @@ public class MonitoringService(
         }
 
         await db.SaveChangesAsync(ct);
-        return marks.Count;
+        return written.Count;
     }
 
     /// <summary>
@@ -1485,6 +1696,7 @@ public class MonitoringService(
     private static OnSpotParticipantDto ToDto(OnSpotParticipant x, List<MonitoringPhoto> photos) => new()
     {
         Id = x.Id,
+        ApplicantCode = x.Applicant?.ApplicantCode,
         FullName = x.FullName,
         Mobile = x.Mobile,
         Email = x.Email,

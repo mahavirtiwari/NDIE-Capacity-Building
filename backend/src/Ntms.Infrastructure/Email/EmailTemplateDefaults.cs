@@ -13,6 +13,7 @@ namespace Ntms.Infrastructure.Email;
 public static class EmailTemplateDefaults
 {
     public const string Otp = "otp";
+    public const string FeedbackRequest = "feedback-request";
     public const string ApplicantWelcome = "applicant-welcome";
     public const string ApplicantCredentials = "applicant-credentials";
     public const string PortalCredentials = "portal-credentials";
@@ -379,6 +380,33 @@ public static class EmailTemplateDefaults
             PlainTextBody =
                 "Your applicant account {{applicantCode}} has been {{outcome}}. "
                 + "Reason: {{reason}}. {{remarks}}",
+        },
+        new()
+        {
+            Key = FeedbackRequest,
+            Name = "Feedback requested",
+            Description =
+                "Asks a participant what they thought of a batch, once its report has "
+                + "passed quality control. Carries a one-time link; the answers are "
+                + "recorded anonymously.",
+            Placeholders = "name,programme,programmeCode,programType,endedOn,feedbackUrl",
+            Subject = "How was {{programme}}? Your feedback",
+            HtmlBody = """
+                <p>Dear {{name}},</p>
+                <p>Thank you for attending <strong>{{programme}}</strong>
+                   ({{programmeCode}}), which finished on {{endedOn}}.</p>
+                <p>Please tell us what you thought of it. It takes a couple of
+                   minutes, and your answers are recorded anonymously — they are
+                   not shown against your name to anybody.</p>
+                <p><a href="{{feedbackUrl}}">Give your feedback</a></p>
+                <p>Or open this address: {{feedbackUrl}}</p>
+                <p>The link works once, and for the next 60 days.</p>
+                """,
+            PlainTextBody =
+                "Thank you for attending {{programme}} ({{programmeCode}}), which finished "
+                + "on {{endedOn}}. Please tell us what you thought of it at {{feedbackUrl}} "
+                + "- your answers are recorded anonymously. The link works once, and for "
+                + "the next 60 days.",
         },
         new()
         {

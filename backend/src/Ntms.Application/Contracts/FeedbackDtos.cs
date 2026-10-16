@@ -84,6 +84,27 @@ public class FeedbackSubmitDto
     public Dictionary<string, object?> Answers { get; set; } = [];
 }
 
+/// <summary>
+/// What the page behind a link in an e-mail shows: the batch it is asking
+/// about, and the form to answer.
+///
+/// Nobody is named. The person opening the link knows who they are, and
+/// printing their name on an anonymous form only makes them doubt that it
+/// is anonymous.
+/// </summary>
+public class FeedbackLinkDto
+{
+    public string ProgrammeName { get; set; } = string.Empty;
+    public string ProgrammeCode { get; set; } = string.Empty;
+    public string ProgramTypeName { get; set; } = string.Empty;
+    public DateOnly EndedOn { get; set; }
+
+    /// <summary>True if this link has already been used to answer.</summary>
+    public bool Given { get; set; }
+
+    public FeedbackFormDto? Form { get; set; }
+}
+
 /* -------------------------------------------------------- the reporting */
 
 /// <summary>

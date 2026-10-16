@@ -12,7 +12,14 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
   return next(req).pipe(
     catchError((error: unknown) => {
       const isLogin = req.url.includes('auth/login');
-      if (error instanceof HttpErrorResponse && !isLogin) {
+
+      /* The feedback page behind a link in an e-mail speaks for itself.
+         A spent or expired link is the ordinary outcome there, and the
+         page says so in a paragraph; a red toast over the top of that
+         paragraph only makes somebody think they did something wrong. */
+      const isPublicFeedback = req.url.includes('public/feedback/');
+
+      if (error instanceof HttpErrorResponse && !isLogin && !isPublicFeedback) {
         if (error.status === 401) {
           toast.error('Session expired', 'Please sign in again.');
           auth.logout();

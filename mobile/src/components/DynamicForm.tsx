@@ -20,7 +20,7 @@ import type {
 import { colors, font, radius, spacing } from '../theme';
 import { MAX_LENGTHS, UPPERCASE_TYPES, dateBoundsError, formatErrorFor } from '../validation/formats';
 import { lookups, me } from '../api/endpoints';
-import { cacheImage, releaseImage } from '../files/cachedImage';
+import { cacheRemoteImage, releaseImage } from '../files/cachedImage';
 import { captureFacts, locationNote } from '../files/captureFacts';
 import { saveAndShare } from '../files/saveAndShare';
 import { Card, Chip, Field } from './ui';
@@ -147,6 +147,11 @@ export function storageKey(
   fieldKey: string,
 ): string {
   return index === null ? fieldKey : `${sectionKeyOf(section)}${SEP}${index}${SEP}${fieldKey}`;
+}
+
+/** A field key as something a filesystem will take. */
+function slug(value: string): string {
+  return value.replace(/[^A-Za-z0-9]+/g, '-');
 }
 
 function defaultFor(field: ProfileField): FormValue {
@@ -1470,13 +1475,9 @@ function PhotosField({
     (async () => {
       for (const shot of shots) {
         try {
-          const file = await me.photoDownload(
-            subCategoryId, field.key, shot.displayOrder, entry);
-          if (cancelled) return;
-
-          const uri = await cacheImage(
-            `photo-${subCategoryId}-${field.key}-${entry}-${shot.displayOrder}.jpg`,
-            file,
+          const uri = await cacheRemoteImage(
+            `photo-${subCategoryId}-${slug(field.key)}-${entry}-${shot.displayOrder}.jpg`,
+            me.photoPath(subCategoryId, field.key, shot.displayOrder, entry),
           );
           if (cancelled) {
             releaseImage(uri);

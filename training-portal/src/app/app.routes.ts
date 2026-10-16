@@ -19,6 +19,17 @@ export const routes: Routes = [
       import('./features/public/programme-link.component').then((m) => m.ProgrammeLinkComponent),
   },
   {
+    /* The feedback link from a participant's e-mail. No guard, on purpose:
+       somebody who finished a course weeks ago has no session open, and
+       asking them to sign in to answer an anonymous form would make them
+       doubt that it is anonymous. The token in the address is the whole
+       credential. */
+    path: 'feedback/:token',
+    title: 'Your feedback · CBMS',
+    loadComponent: () =>
+      import('./features/public/feedback.component').then((m) => m.PublicFeedbackComponent),
+  },
+  {
     path: 'login',
     canActivate: [guestGuard],
     title: 'Sign in · CBMS',

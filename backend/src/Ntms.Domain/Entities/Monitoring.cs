@@ -157,6 +157,22 @@ public class OnSpotParticipant : AuditableEntity
     public int ProgrammeId { get; set; }
     public Programme? Programme { get; set; }
 
+    /// <summary>
+    /// The applicant this row stands for.
+    ///
+    /// Registration at the door is no longer somebody's details typed
+    /// into a phone: the coordinator gives the applicant ID and the
+    /// e-mail on it, and the person is enrolled on the programme. Their
+    /// name, number and enterprise are copied from the account rather
+    /// than retyped, so the register and the scheme's own record of the
+    /// same person cannot disagree.
+    ///
+    /// Null on the rows written before that, which were typed in full
+    /// and belong to nobody with an account.
+    /// </summary>
+    public int? ApplicantId { get; set; }
+    public Applicant? Applicant { get; set; }
+
     public string FullName { get; set; } = string.Empty;
     public string Mobile { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;

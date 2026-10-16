@@ -214,6 +214,10 @@ public class ProgrammeService(
 
         Validate(dto, DateOnly.FromDateTime(DateTime.UtcNow.Date));
 
+        await EnsureNothingClashesAsync(
+            null, agency.Id, programType.Id, coordinator.Id, dto.StateCode,
+            dto.StartDate, dto.EndDate, ct);
+
         /* The floor belongs to the program type and the ceiling to the
            agency, so a batch cannot be raised for fewer than the type is
            worth running for. */
@@ -319,6 +323,10 @@ public class ProgrammeService(
 
             await EnsureMayRunThereAsync(agency, dto.StateCode, ct);
         }
+
+        await EnsureNothingClashesAsync(
+            entity.Id, entity.AgencyId, entity.ProgramTypeId, dto.CoordinatorId, dto.StateCode,
+            dto.StartDate, dto.EndDate, ct);
 
         var mode = EnumMaps.ParseEnum(dto.Mode, entity.Mode);
 
@@ -447,6 +455,12 @@ public class ProgrammeService(
            what they can forward and read on the day. */
         if (target == ProgramStatus.PermissionAccepted)
         {
+            /* The plan the batch will actually run, taken from the
+               curriculum its type is set up with. Before the agency
+               stopped typing its own sessions this was the one thing
+               that filled the Sessions tab. */
+            await WriteTheTimetableAsync(entity, ct);
+
             await TellCoordinatorAsync(entity, ct);
         }
 
@@ -864,12 +878,34 @@ public class ProgrammeService(
         return await GetAsync(id, ct);
     }
 
+    /// <summary>
+    /// Adds one session to a batch's timetable.
+    ///
+    /// No longer offered anywhere in the portal - the timetable is
+    /// written from the curriculum when the batch is permitted - but
+    /// kept for the office to correct a plan, and guarded accordingly.
+    ///
+    /// Only on a batch that may actually run. A refused batch went on
+    /// accepting sessions, so an agency whose program the manager had
+    /// turned down could keep building a timetable for it; the register
+    /// said "Permission rejected" and the sessions tab went on growing.
+    /// </summary>
     public async Task<ProgrammeDto> AddSessionAsync(
         int id, ProgrammeSessionDto dto, CancellationToken ct)
     {
         var entity = await db.Programmes.Include(p => p.Sessions)
+                         .Where(p => db.Programmes.WithinScope(currentUser)
+                             .Any(visible => visible.Id == p.Id))
                          .FirstOrDefaultAsync(p => p.Id == id, ct)
                      ?? throw AppException.NotFound("Program");
+
+        if (entity.Status is not (ProgramStatus.PermissionAccepted
+            or ProgramStatus.CalendarCreated))
+        {
+            throw new AppException(
+                "This program has not been permitted, so it has no timetable to add to. "
+                + "Sessions belong to a program the manager has allowed to run.");
+        }
 
         if (string.IsNullOrWhiteSpace(dto.Title))
             throw new AppException("A session needs a title.");
@@ -1115,6 +1151,156 @@ public class ProgrammeService(
     /// is left off where the date is not being moved: a batch already under
     /// way still has to be editable for its venue or its coordinator.
     /// </summary>
+    /// <summary>
+    /// Refuses a batch that runs on days another one already has.
+    ///
+    /// Two of them, for two different reasons.
+    ///
+    /// The coordinator is one person. They register the venue, take the
+    /// register in the room and photograph the signed sheet, all on the
+    /// day and from the place - so a coordinator booked onto two batches
+    /// over the same days is a record that cannot honestly be kept for
+    /// both, whoever the agency is and wherever the batches are held.
+    ///
+    /// The agency running the same program type twice over the same days
+    /// is the other: the register showed KS Ltd. holding 5-day Assessor
+    /// Training on the 15th-16th and again on the 16th-20th, which is one
+    /// course entered twice far more often than it is two.
+    ///
+    /// A cancelled or refused batch is not in the way of anything, so it
+    /// does not count. Nor does the batch being edited, against itself.
+    /// </summary>
+    private async Task EnsureNothingClashesAsync(
+        int? excludingId, int agencyId, int programTypeId, int coordinatorId, int stateCode,
+        DateOnly startDate, DateOnly endDate, CancellationToken ct)
+    {
+        /* Two ranges overlap unless one ends before the other starts. */
+        var live = db.Programmes.AsNoTracking()
+            .Where(p => p.Status != ProgramStatus.PermissionRejected
+                        && p.Status != ProgramStatus.Postponed
+                        && p.StartDate <= endDate && startDate <= p.EndDate)
+            .Where(p => excludingId == null || p.Id != excludingId);
+
+        var sameCoordinator = await live
+            .Where(p => p.CoordinatorId == coordinatorId)
+            .Select(p => new { p.ProgrammeId, p.StartDate, p.EndDate })
+            .FirstOrDefaultAsync(ct);
+
+        if (sameCoordinator is not null)
+        {
+            throw AppException.Conflict(
+                $"That coordinator is already running {sameCoordinator.ProgrammeId} from "
+                + $"{sameCoordinator.StartDate:dd MMM yyyy} to "
+                + $"{sameCoordinator.EndDate:dd MMM yyyy}. "
+                + "Choose other dates, or another coordinator.");
+        }
+
+        /* In the same state, because a large agency running the same
+           course in Delhi and in Mumbai over one week is two courses,
+           and refusing that would stop real work. In one state on the
+           same days it is one course entered twice. */
+        var sameCourse = await live
+            .Where(p => p.AgencyId == agencyId
+                        && p.ProgramTypeId == programTypeId
+                        && p.StateCode == stateCode)
+            .Select(p => new { p.ProgrammeId, p.StartDate, p.EndDate })
+            .FirstOrDefaultAsync(ct);
+
+        if (sameCourse is not null)
+        {
+            throw AppException.Conflict(
+                $"This program is already running as {sameCourse.ProgrammeId} from "
+                + $"{sameCourse.StartDate:dd MMM yyyy} to {sameCourse.EndDate:dd MMM yyyy}. "
+                + "A program cannot be raised twice for the same days.");
+        }
+    }
+
+    /// <summary>
+    /// Writes the batch's timetable from its program type's curriculum.
+    ///
+    /// Done when the manager permits the batch, because that is when it
+    /// becomes a thing that will actually be delivered, and because the
+    /// agency no longer types its own sessions: the plan is set up once
+    /// in Super Admin against the program type and every batch of that
+    /// type runs it.
+    ///
+    /// Day 1 of the curriculum lands on the batch's start date and so on
+    /// down. A session whose curriculum says nothing about hours takes
+    /// the batch's own working day. Nothing is written if the batch
+    /// already has sessions - this is a first fill, not a resync, and
+    /// resyncing would throw away attendance already taken against them.
+    ///
+    /// Never throws into the caller: permission that has been granted is
+    /// granted, and a program type whose curriculum has not been written
+    /// yet must not stop the manager permitting a batch.
+    /// </summary>
+    private async Task WriteTheTimetableAsync(Programme programme, CancellationToken ct)
+    {
+        try
+        {
+            if (await db.ProgrammeSessions.AnyAsync(x => x.ProgrammeId == programme.Id, ct))
+                return;
+
+            /* The curriculum named on the batch, failing that the one in
+               force for its type on the day it starts. */
+            var curriculumId = programme.CurriculumId;
+
+            if (curriculumId is null)
+            {
+                var candidates = await db.Curricula.AsNoTracking()
+                    .Where(c => c.ProgramTypeId == programme.ProgramTypeId
+                                && c.Status == RecordStatus.Active)
+                    .OrderBy(c => c.EffectiveFrom).ThenBy(c => c.Id)
+                    .Select(c => new { c.Id, c.EffectiveFrom })
+                    .ToListAsync(ct);
+
+                if (candidates.Count == 0) return;
+
+                curriculumId =
+                    (candidates.LastOrDefault(c => c.EffectiveFrom <= programme.StartDate)
+                     ?? candidates[0]).Id;
+            }
+
+            var plan = await db.CurriculumSessions.AsNoTracking()
+                .Where(x => x.CurriculumId == curriculumId && x.Status == RecordStatus.Active)
+                .OrderBy(x => x.Day ?? int.MaxValue).ThenBy(x => x.DisplayOrder).ThenBy(x => x.Id)
+                .ToListAsync(ct);
+
+            if (plan.Count == 0) return;
+
+            var lastDay = programme.EndDate.DayNumber - programme.StartDate.DayNumber + 1;
+
+            foreach (var session in plan)
+            {
+                /* Day 1 unless the curriculum says otherwise, and never
+                   past the last day of the batch: a five-day curriculum
+                   delivered as a two-day batch is a mismatch for somebody
+                   to sort out, not a reason to date a session after the
+                   programme has ended. */
+                var day = Math.Clamp(session.Day ?? 1, 1, Math.Max(lastDay, 1));
+
+                db.ProgrammeSessions.Add(new ProgrammeSession
+                {
+                    ProgrammeId = programme.Id,
+                    SessionCode = session.SessionCode,
+                    Title = session.SessionName,
+                    SessionDate = programme.StartDate.AddDays(day - 1),
+                    StartTime = session.StartTime ?? programme.StartTime,
+                    EndTime = session.EndTime ?? programme.EndTime,
+                });
+            }
+
+            await db.SaveChangesAsync(ct);
+        }
+        catch (Exception caught)
+        {
+            logger.LogWarning(
+                caught,
+                "The timetable for {Programme} could not be written from its curriculum.",
+                programme.ProgrammeId);
+        }
+    }
+
     private static void Validate(ProgrammeUpsertDto dto, DateOnly? notBefore)
     {
         if (notBefore is { } floor && dto.StartDate < floor)

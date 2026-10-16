@@ -1,10 +1,13 @@
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Ntms.Application.Common;
 using Ntms.Application.Contracts;
 using Ntms.Domain.Common;
 using Ntms.Domain.Entities;
+using Ntms.Infrastructure.Email;
 using Ntms.Infrastructure.Mapping;
 using Ntms.Infrastructure.Persistence;
 
@@ -20,7 +23,10 @@ namespace Ntms.Infrastructure.Services;
 /// answers. Reporting reads the first and can only count; the app reads
 /// the second to know whether to still ask.
 /// </summary>
-public class FeedbackService(NtmsDbContext db)
+public class FeedbackService(
+    NtmsDbContext db,
+    INotificationService mail,
+    IConfiguration config)
 {
     private IQueryable<FeedbackForm> Base => db.FeedbackForms
         .Include(f => f.ProgramType)
@@ -336,7 +342,21 @@ public class FeedbackService(NtmsDbContext db)
         CancellationToken ct)
     {
         var participation = await Participation(applicantId, participantId, ct);
+        await RecordAsync(participantId, participation, answers, ct);
+    }
 
+    /// <summary>
+    /// The write itself, shared by the app and the link in the e-mail.
+    ///
+    /// Whichever door the answers came through, the same two rows are
+    /// written in the same save: the answers, carrying the batch and
+    /// nothing about a person, and the receipt, carrying the person and
+    /// nothing about the answers.
+    /// </summary>
+    private async Task RecordAsync(
+        int participantId, (int ProgrammeId, int ProgramTypeId) participation,
+        Dictionary<string, object?> answers, CancellationToken ct)
+    {
         if (await db.FeedbackReceipts.AnyAsync(r => r.ParticipantId == participantId, ct))
             throw new AppException("You have already given feedback for this program.");
 
@@ -387,6 +407,219 @@ public class FeedbackService(NtmsDbContext db)
         });
 
         await db.SaveChangesAsync(ct);
+    }
+
+    /* ------------------------------------------------------- invitations */
+
+    /// <summary>
+    /// Asks everybody who sat a batch for their feedback, by e-mail.
+    ///
+    /// Sent when the report passes quality control, which is the moment
+    /// the batch is conducted and the course is, for the participant,
+    /// over. Waiting for them to open the app again would mean never
+    /// hearing from most of them.
+    ///
+    /// Nothing is sent where the programme type has no form switched on:
+    /// a link to an empty page is worse than no link. Nothing is sent
+    /// twice either — somebody who has already answered, or who already
+    /// holds a live link, is left alone.
+    ///
+    /// Returns how many went out.
+    /// </summary>
+    public async Task<int> InviteAsync(int programmeId, CancellationToken ct)
+    {
+        var programme = await db.Programmes.AsNoTracking()
+            .Include(p => p.ProgramType)
+            .FirstOrDefaultAsync(p => p.Id == programmeId, ct);
+
+        if (programme is null) return 0;
+
+        var form = await db.FeedbackForms.AsNoTracking().FirstOrDefaultAsync(
+            f => f.ProgramTypeId == programme.ProgramTypeId
+                 && f.Status == RecordStatus.Active, ct);
+
+        if (form is null) return 0;
+
+        var root = PublicBaseUrl();
+        if (string.IsNullOrWhiteSpace(root)) return 0;
+
+        /* Everybody on the batch who has an address to write to.
+
+           The register the coordinator keeps at the door is a different
+           table, and the receipt that stops a second answer hangs off
+           this one — so somebody who was only ever written into that
+           register has nothing to hang a receipt on and cannot be asked.
+           Registering at the door now enrols the applicant here too,
+           which is how a walk-in comes to be asked at all. */
+        var people = await db.ProgrammeParticipants.AsNoTracking()
+            .Where(p => p.ProgrammeId == programmeId)
+            .Select(p => new
+            {
+                p.Id,
+                Name = p.Applicant!.FullName,
+                p.Applicant!.Email,
+            })
+            .ToListAsync(ct);
+
+        if (people.Count == 0) return 0;
+
+        var ids = people.Select(p => p.Id).ToList();
+
+        var answered = await db.FeedbackReceipts.AsNoTracking()
+            .Where(r => ids.Contains(r.ParticipantId))
+            .Select(r => r.ParticipantId)
+            .ToListAsync(ct);
+
+        var holding = await db.FeedbackInvites.AsNoTracking()
+            .Where(i => ids.Contains(i.ParticipantId) && i.ExpiresOn > DateTime.UtcNow)
+            .Select(i => i.ParticipantId)
+            .ToListAsync(ct);
+
+        var sending = new List<(string Email, string Name, string Token)>();
+
+        foreach (var person in people)
+        {
+            if (string.IsNullOrWhiteSpace(person.Email)) continue;
+            if (answered.Contains(person.Id) || holding.Contains(person.Id)) continue;
+
+            /* An expired row is replaced rather than added to, because
+               one invitation per person is what the table allows — and
+               the old link should stop working when a new one is sent. */
+            var stale = await db.FeedbackInvites
+                .FirstOrDefaultAsync(i => i.ParticipantId == person.Id, ct);
+
+            if (stale is not null) db.FeedbackInvites.Remove(stale);
+
+            var token = NewToken();
+
+            db.FeedbackInvites.Add(new FeedbackInvite
+            {
+                ParticipantId = person.Id,
+                TokenHash = Hash(token),
+                SentOn = DateTime.UtcNow,
+                ExpiresOn = DateTime.UtcNow.AddDays(60),
+            });
+
+            sending.Add((person.Email, person.Name, token));
+        }
+
+        if (sending.Count == 0) return 0;
+
+        /* Saved before anything is sent. A link sitting in somebody's
+           inbox that the database has never heard of is the one failure
+           here that cannot be put right afterwards. */
+        await db.SaveChangesAsync(ct);
+
+        foreach (var (email, name, token) in sending)
+        {
+            await mail.SendFeedbackRequestAsync(
+                programme, email, name, Link(root, token), ct);
+        }
+
+        return sending.Count;
+    }
+
+    /// <summary>What the page behind one of those links shows.</summary>
+    public async Task<FeedbackLinkDto> ByTokenAsync(string token, CancellationToken ct)
+    {
+        var (invite, context) = await ResolveAsync(token, ct);
+
+        var given = await db.FeedbackReceipts
+            .AnyAsync(r => r.ParticipantId == invite.ParticipantId, ct);
+
+        var form = await Base.AsNoTracking().FirstOrDefaultAsync(
+            f => f.ProgramTypeId == context.ProgramTypeId
+                 && f.Status == RecordStatus.Active, ct);
+
+        return new FeedbackLinkDto
+        {
+            ProgrammeName = context.ProgrammeName,
+            ProgrammeCode = context.ProgrammeCode,
+            ProgramTypeName = context.ProgramTypeName,
+            EndedOn = context.EndDate,
+            Given = given,
+            Form = given || form is null ? null : Map(form),
+        };
+    }
+
+    /// <summary>The answers, given through the link rather than the app.</summary>
+    public async Task SubmitByTokenAsync(
+        string token, Dictionary<string, object?> answers, CancellationToken ct)
+    {
+        var (invite, context) = await ResolveAsync(token, ct);
+        await RecordAsync(
+            invite.ParticipantId, (context.ProgrammeId, context.ProgramTypeId), answers, ct);
+    }
+
+    /// <summary>
+    /// The participant a link stands for.
+    ///
+    /// One refusal for every way of being wrong — unknown, expired, or
+    /// pointing at a place on a batch that no longer exists. The page is
+    /// open to anybody who has the address, and telling them which of
+    /// those it was would turn it into a way of testing guesses.
+    /// </summary>
+    private async Task<(FeedbackInvite Invite, ProgrammeFacts Context)> ResolveAsync(
+        string token, CancellationToken ct)
+    {
+        var hash = Hash((token ?? string.Empty).Trim());
+
+        var invite = await db.FeedbackInvites.AsNoTracking()
+            .FirstOrDefaultAsync(i => i.TokenHash == hash, ct);
+
+        if (invite is null || invite.ExpiresOn <= DateTime.UtcNow)
+            throw new AppException("That feedback link is not valid or has expired.", 410);
+
+        var context = await db.ProgrammeParticipants.AsNoTracking()
+            .Where(p => p.Id == invite.ParticipantId)
+            .Select(p => new ProgrammeFacts(
+                p.ProgrammeId,
+                p.Programme!.ProgramTypeId,
+                p.Programme!.ProgrammeName,
+                p.Programme!.ProgrammeId,
+                p.Programme!.ProgramType!.Name,
+                p.Programme!.EndDate))
+            .FirstOrDefaultAsync(ct)
+            ?? throw new AppException("That feedback link is not valid or has expired.", 410);
+
+        return (invite, context);
+    }
+
+    private record ProgrammeFacts(
+        int ProgrammeId,
+        int ProgramTypeId,
+        string ProgrammeName,
+        string ProgrammeCode,
+        string ProgramTypeName,
+        DateOnly EndDate);
+
+    private static string Link(string root, string token) =>
+        $"{root.TrimEnd('/')}/feedback/{token}";
+
+    /// <summary>
+    /// A token nobody can guess: 32 bytes of randomness, URL-safe, and
+    /// written down nowhere but the e-mail it goes in.
+    /// </summary>
+    private static string NewToken() =>
+        Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+            .Replace("+", "-").Replace("/", "_").TrimEnd('=');
+
+    private static string Hash(string token) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+
+    /// <summary>
+    /// Where the portal answers, for building the link. Site:PublicUrl,
+    /// failing that the origin the deployment already allows — as the
+    /// certificate e-mail does it. With neither, nothing is sent: a link
+    /// to the wrong host is worse than no e-mail at all.
+    /// </summary>
+    private string PublicBaseUrl()
+    {
+        var configured = config["Site:PublicUrl"];
+        if (!string.IsNullOrWhiteSpace(configured)) return configured;
+
+        return config.GetSection("Cors:AllowedOrigins").Get<string[]>()?.FirstOrDefault()
+            ?? string.Empty;
     }
 
     /* ------------------------------------------------------------ helpers */

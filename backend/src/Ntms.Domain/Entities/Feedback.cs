@@ -138,3 +138,38 @@ public class FeedbackReceipt : AuditableEntity
 
     public DateTime SubmittedOn { get; set; } = DateTime.UtcNow;
 }
+
+/// <summary>
+/// The invitation sent to one participant when their batch is passed.
+///
+/// A link in an e-mail, because that is where the ask reaches somebody who
+/// has finished the course and has no reason to open the app again. The
+/// link carries a token that stands for this participant and nothing else:
+/// it answers one form, once, and expires.
+///
+/// Only the hash of the token is kept. The token itself exists in the
+/// e-mail and nowhere else, so a reading of this table — a backup, a
+/// support query, a careless export — cannot be used to answer on
+/// somebody's behalf.
+///
+/// What is said still goes to <see cref="FeedbackResponse"/>, which
+/// carries no person, and that it was said to <see cref="FeedbackReceipt"/>.
+/// This row joins neither of those to the answers; it only opens the door.
+/// </summary>
+public class FeedbackInvite : AuditableEntity
+{
+    public int ParticipantId { get; set; }
+    public ProgrammeParticipant? Participant { get; set; }
+
+    /// <summary>SHA-256 of the token, hex. Never the token.</summary>
+    public string TokenHash { get; set; } = string.Empty;
+
+    public DateTime SentOn { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// After this the link stops working. Feedback is about a course
+    /// somebody has just sat; a link that works for ever is a credential
+    /// sitting in an inbox long after it means anything.
+    /// </summary>
+    public DateTime ExpiresOn { get; set; } = DateTime.UtcNow.AddDays(60);
+}

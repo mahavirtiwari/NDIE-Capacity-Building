@@ -32,12 +32,14 @@ export const PROGRAM_STATUSES: ProgramStatus[] = [
  * The states in the words the office uses for them.
  *
  * "New program" said what the row was rather than what had happened to
- * it, which is the question the register is read to answer: a batch at
- * this point has been proposed by the agency running it and is waiting
- * on the manager above.
+ * it, which is the question the register is read to answer. Nor is
+ * "Program created by IA", which says who did something rather than
+ * what anybody is now waiting for: a batch at this point has been
+ * raised by the agency running it and is waiting on the manager above
+ * to permit it, and that is what both of them want to read.
  */
 export const PROGRAM_STATUS_LABELS: Record<ProgramStatus, string> = {
-  New: 'Program created by IA',
+  New: 'Pending for approval',
   PermissionAccepted: 'Permission accepted',
   CalendarCreated: 'Calendar created',
   Conducted: 'Conducted',
@@ -296,11 +298,13 @@ export interface PublicProgramme {
 /* --------------------------------------------------------- quality control */
 
 /** Where a conducted programme's report stands with the Operation Manager. */
-export type QcStatus = 'Pending' | 'Approved' | 'Rejected';
+export type QcStatus = 'AwaitingAgency' | 'Pending' | 'Approved' | 'Rejected';
 
-export const QC_STATUSES: QcStatus[] = ['Pending', 'Approved', 'Rejected'];
+export const QC_STATUSES: QcStatus[] =
+  ['AwaitingAgency', 'Pending', 'Approved', 'Rejected'];
 
 export const QC_STATUS_LABELS: Record<QcStatus, string> = {
+  AwaitingAgency: 'With the agency',
   Pending: 'Pending programmes',
   Approved: 'Approved programmes',
   Rejected: 'Rejected programmes',
@@ -337,12 +341,17 @@ export interface QcProgramme {
   remarks?: string | null;
 
   qcStatus: QcStatus;
+  /** Who at the agency passed it to the manager, and when. */
+  forwardedBy?: string | null;
+  forwardedOn?: string | null;
   qcOn?: string | null;
   qcBy?: string | null;
   qcRemarks?: string | null;
 }
 
 export interface QcCounts {
+  /** Handed in by a coordinator, waiting on the agency to forward it. */
+  awaitingAgency: number;
   pending: number;
   approved: number;
   rejected: number;

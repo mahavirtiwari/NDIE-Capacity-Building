@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { LookupItem, PagedResult, PublicProgramme } from '../models';
+import { FeedbackLink, LookupItem, PagedResult, PublicProgramme } from '../models';
 import { ApiService } from './api.service';
 
 /** What narrows the public listing. Mirrors PublicProgrammeFilterDto. */
@@ -49,6 +49,21 @@ export class PublicCatalogueService {
   /** The names the listing's filters are built from. */
   filters(): Observable<PublicFilterOptions> {
     return this.api.get<PublicFilterOptions>('public/programmes/filters');
+  }
+
+  /**
+   * The feedback form behind the link in a participant's e-mail.
+   *
+   * No token of ours: the one in the address is the whole credential, and
+   * the person reading it has no account open.
+   */
+  feedbackByToken(token: string): Observable<FeedbackLink> {
+    return this.api.get<FeedbackLink>(`public/feedback/${encodeURIComponent(token)}`);
+  }
+
+  /** The answers, back the same way. */
+  submitFeedback(token: string, answers: Record<string, unknown>): Observable<boolean> {
+    return this.api.post<boolean>(`public/feedback/${encodeURIComponent(token)}`, { answers });
   }
 
   /** Just the batches taking registrations, soonest first. */

@@ -118,6 +118,14 @@ public interface INotificationService
     /// <summary>A one-time code for an applicant recovering their password.</summary>
     Task SendApplicantResetCodeAsync(
         Applicant applicant, string code, int validityMinutes, CancellationToken ct = default);
+
+    /// <summary>
+    /// Asks a participant for their feedback on a batch that is over, with
+    /// the one-time link that opens the form.
+    /// </summary>
+    Task SendFeedbackRequestAsync(
+        Programme programme, string email, string name, string feedbackUrl,
+        CancellationToken ct = default);
 }
 
 public class NotificationService(
@@ -340,6 +348,19 @@ public class NotificationService(
             ["issuedOn"] = certificate.IssuedOn.ToString("dd MMM yyyy"),
             ["validTill"] = certificate.ValidTill?.ToString("dd MMM yyyy") ?? "No expiry",
             ["verifyUrl"] = verifyUrl,
+        }, ct);
+
+    public Task SendFeedbackRequestAsync(
+        Programme programme, string email, string name, string feedbackUrl,
+        CancellationToken ct = default) =>
+        SendAsync(EmailTemplateDefaults.FeedbackRequest, email, new()
+        {
+            ["name"] = name,
+            ["programme"] = programme.ProgrammeName,
+            ["programmeCode"] = programme.ProgrammeId,
+            ["programType"] = programme.ProgramType?.Name ?? string.Empty,
+            ["endedOn"] = programme.EndDate.ToString("dd MMM yyyy"),
+            ["feedbackUrl"] = feedbackUrl,
         }, ct);
 
     public Task SendScrutinyOutcomeAsync(

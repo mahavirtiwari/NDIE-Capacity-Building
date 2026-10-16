@@ -1,7 +1,7 @@
 import { File, Paths } from 'expo-file-system';
 import { useEffect, useState } from 'react';
 import { Image, Platform, View, type ImageStyle, type StyleProp } from 'react-native';
-import { downloadBytes } from '../api/client';
+import { fileRequest } from '../api/client';
 
 /**
  * Shows a photograph the server keeps behind the sign-in.
@@ -15,23 +15,33 @@ import { downloadBytes } from '../api/client';
  *
  * Giving the loader the token is not the answer either: it caches by url
  * and drops custom headers on the way back, so that works once and then
- * stops. The bytes are fetched like any other call instead, written to
- * the cache, and the picture is shown from the file.
+ * stops. The bytes are put in the cache with the header on the request,
+ * and the picture is shown from the file.
+ *
+ * On a handset the download writes straight to that file. It used to go
+ * through fetch().arrayBuffer(), which React Native cannot do - there is
+ * no readAsArrayBuffer behind its FileReader - so the call rejected and
+ * every stored photograph on a real phone drew the empty state. In the
+ * web build, where it is looked at, arrayBuffer works and the pictures
+ * appeared, which is how it survived.
  */
 async function toLocalUri(path: string): Promise<string> {
-  const file = await downloadBytes(path);
+  const { url, headers } = fileRequest(path);
 
   if (Platform.OS === 'web') {
-    return URL.createObjectURL(new Blob([file.bytes], { type: file.contentType }));
+    const answer = await fetch(url, { headers });
+    if (!answer.ok) throw new Error(`That picture could not be fetched (${answer.status}).`);
+
+    const type = answer.headers.get('Content-Type') ?? 'image/jpeg';
+    return URL.createObjectURL(new Blob([await answer.arrayBuffer()], { type }));
   }
 
   /* Named after the path it came from, so the same photograph fetched
      twice lands on the same file rather than filling the cache. */
   const name = `stored-${path.replace(/[^A-Za-z0-9]+/g, '-')}.jpg`;
   const target = new File(Paths.cache, name);
-  if (target.exists) target.delete();
-  target.create();
-  target.write(new Uint8Array(file.bytes));
+
+  await File.downloadFileAsync(url, target, { headers, idempotent: true });
 
   return target.uri;
 }

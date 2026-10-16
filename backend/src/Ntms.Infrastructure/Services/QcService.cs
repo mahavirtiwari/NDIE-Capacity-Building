@@ -22,7 +22,8 @@ namespace Ntms.Infrastructure.Services;
 /// the key decides, which is the whole point of a quality check being
 /// somebody other than the people who ran the thing.
 /// </summary>
-public class QcService(NtmsDbContext db, ICurrentUser currentUser)
+public class QcService(
+    NtmsDbContext db, ICurrentUser currentUser, FeedbackService feedback)
 {
     /// <summary>
     /// The submissions this account may read at all.
@@ -119,6 +120,17 @@ public class QcService(NtmsDbContext db, ICurrentUser currentUser)
         if (programme is not null) programme.Status = ProgramStatus.Conducted;
 
         await db.SaveChangesAsync(ct);
+
+        /* And everybody who sat it is asked what they thought.
+
+           Here rather than at final submission, because this is the
+           moment the batch counts as conducted: asking people about a
+           report that might still be sent back for correction would
+           mean asking them about a course the scheme has not yet
+           accepted happened. Nothing is sent if the programme type has
+           no feedback form switched on. */
+        await feedback.InviteAsync(programmeId, ct);
+
         return await GetAsync(programmeId, ct);
     }
 
@@ -402,6 +414,8 @@ public class QcService(NtmsDbContext db, ICurrentUser currentUser)
 
         SubmittedOn = s.SubmittedOn,
         SubmittedBy = s.SubmittedBy?.FullName,
+        ForwardedBy = s.ForwardedByUserName,
+        ForwardedOn = s.ForwardedOn,
         TrainerCount = s.TrainerCount,
         SessionCount = s.SessionCount,
         ParticipantCount = s.ParticipantCount,

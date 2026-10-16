@@ -232,10 +232,6 @@ export class ProgramService extends CrudService<Program> {
     );
   }
 
-  addSession(programId: Id, session: Record<string, unknown>): Observable<Program> {
-    return this.api.post<Program>(`${this.resource}/${programId}/sessions`, session);
-  }
-
   markAttendance(programId: Id, sessionId: Id, marks: AttendanceMark[]): Observable<Program> {
     return this.api.post<Program>(
       `${this.resource}/${programId}/sessions/${sessionId}/attendance`,
@@ -369,6 +365,21 @@ export class QcService {
 
   get(programmeId: Id): Observable<QcProgramme> {
     return this.api.get<QcProgramme>(`qc/programmes/${programmeId}`);
+  }
+
+  /**
+   * The agency hands its coordinator's report to the manager.
+   *
+   * Not an approval: the agency is saying it has read what its own
+   * coordinator wrote, and the manager still decides.
+   */
+  forward(programmeId: Id, decision: QcDecision): Observable<QcProgramme> {
+    return this.api.post<QcProgramme>(`qc/programmes/${programmeId}/forward`, decision);
+  }
+
+  /** The agency sends it back to the coordinator instead. */
+  sendBack(programmeId: Id, decision: QcDecision): Observable<QcProgramme> {
+    return this.api.post<QcProgramme>(`qc/programmes/${programmeId}/send-back`, decision);
   }
 
   approve(programmeId: Id, decision: QcDecision): Observable<QcProgramme> {

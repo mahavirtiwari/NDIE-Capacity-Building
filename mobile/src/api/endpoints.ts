@@ -238,9 +238,13 @@ export const me = {
    */
   photoDownload: (subCategoryId: number, fieldKey: string, displayOrder: number, entry = 0) =>
     download(
-      `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}`
-      + `/${displayOrder}?entry=${entry}`,
+      me.photoPath(subCategoryId, fieldKey, displayOrder, entry),
       `photo-${displayOrder}.jpg`),
+
+  /** Where one of those pictures lives, for a downloader that is not fetch. */
+  photoPath: (subCategoryId: number, fieldKey: string, displayOrder: number, entry = 0) =>
+    `me/profile-photos/${subCategoryId}/${encodeURIComponent(fieldKey)}`
+    + `/${displayOrder}?entry=${entry}`,
 
   removePhoto: (subCategoryId: number, fieldKey: string, displayOrder: number, entry = 0) =>
     api.delete<PhotoStanding>(

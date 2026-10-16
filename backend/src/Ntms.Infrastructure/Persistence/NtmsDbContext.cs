@@ -31,6 +31,7 @@ public class NtmsDbContext(DbContextOptions<NtmsDbContext> options, ICurrentUser
     public DbSet<FeedbackQuestionOption> FeedbackQuestionOptions => Set<FeedbackQuestionOption>();
     public DbSet<FeedbackResponse> FeedbackResponses => Set<FeedbackResponse>();
     public DbSet<FeedbackReceipt> FeedbackReceipts => Set<FeedbackReceipt>();
+    public DbSet<FeedbackInvite> FeedbackInvites => Set<FeedbackInvite>();
     public DbSet<OptionSet> OptionSets => Set<OptionSet>();
     public DbSet<OptionSetItem> OptionSetItems => Set<OptionSetItem>();
     public DbSet<RejectionReason> RejectionReasons => Set<RejectionReason>();

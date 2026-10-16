@@ -1,6 +1,5 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
   AttendanceMark,
@@ -44,7 +43,6 @@ type Tab =
   selector: 'app-program-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    ReactiveFormsModule,
     RouterLink,
     DatePipe,
     PageHeaderComponent,
@@ -70,14 +68,15 @@ type Tab =
           { label: batch.programmeId }
         ]"
       >
+        <!-- No "Add session" here any more. The session plan belongs to
+             the program type's curriculum, set up once in Super Admin, and
+             is written onto the batch when the manager permits it. An
+             agency typing sessions in by hand produced a second, private
+             plan that nothing else in the system had heard of - and could
+             go on producing it after the batch had been refused. -->
         <a class="btn btn--secondary" routerLink="/operations/programs">
           <app-icon name="chevron-left" [size]="15" /> Back
         </a>
-        @if (canManage()) {
-          <button type="button" class="btn btn--primary" (click)="openSession()">
-            <app-icon name="plus" [size]="15" /> Add session
-          </button>
-        }
       </app-page-header>
 
       <!-- A refusal and a postponement are the two states nobody can act
@@ -130,13 +129,50 @@ type Tab =
               <span class="chip chip--muted">{{ batch.programTypeName }}</span>
             }
           </div>
-          <span class="text-xs text-muted">
-            {{ dayCount(batch) }} day{{ dayCount(batch) === 1 ? '' : 's' }} ·
-            {{ batch.sessions.length }} session{{ batch.sessions.length === 1 ? '' : 's' }}
-          </span>
+          <div class="row row-sm record__right">
+            <span class="text-xs text-muted">
+              {{ dayCount(batch) }} day{{ dayCount(batch) === 1 ? '' : 's' }} ·
+              {{ batch.sessions.length }} session{{ batch.sessions.length === 1 ? '' : 's' }}
+            </span>
+            <button
+              type="button"
+              class="btn btn--ghost btn--sm record__fold"
+              [attr.aria-expanded]="detailsOpen()"
+              aria-controls="batch-record"
+              (click)="detailsOpen.set(!detailsOpen())"
+            >
+              <app-icon [name]="detailsOpen() ? 'chevron-up' : 'chevron-down'" [size]="14" />
+              {{ detailsOpen() ? 'Hide details' : 'Show details' }}
+            </button>
+          </div>
         </div>
 
-        <div class="record">
+        <!-- Folded, the four things somebody came to the page for stay on
+             it. A section that collapses to nothing makes the reader open
+             it again to check they are on the right batch. -->
+        @if (!detailsOpen()) {
+          <div class="record__gist">
+            <span>
+              <app-icon name="calendar" [size]="13" />
+              {{ batch.startDate | date: 'dd MMM yyyy' }} &ndash;
+              {{ batch.endDate | date: 'dd MMM yyyy' }}
+            </span>
+            <span class="tabular">
+              <app-icon name="clock" [size]="13" />
+              {{ batch.startTime }} &ndash; {{ batch.endTime }}
+            </span>
+            <span>
+              <app-icon name="map-pin" [size]="13" />
+              {{ batch.mode === 'Virtual' ? 'Online' : batch.venue }}
+            </span>
+            <span>
+              <app-icon name="user-check" [size]="13" />
+              {{ batch.participantCount }} of {{ batch.maxParticipants }} enrolled
+            </span>
+          </div>
+        }
+
+        <div class="record" id="batch-record" [hidden]="!detailsOpen()">
           <!-- Tinted, and first, because places left is the number the desk
                is actually ringing about. -->
           <section class="group group--accent">
@@ -716,39 +752,6 @@ type Tab =
       <div class="card" style="height: 240px"></div>
     }
 
-    @if (sessionFormOpen()) {
-      <app-modal title="Add session" size="sm" (closed)="sessionFormOpen.set(false)">
-        <form [formGroup]="sessionForm" id="batch-session-form" (ngSubmit)="saveSession()" class="stack stack-md">
-          <div class="field">
-            <label class="field-label" for="bsTitle">Session title <span class="req">*</span></label>
-            <input id="bsTitle" class="input" formControlName="title" />
-          </div>
-          <div class="field">
-            <label class="field-label" for="bsDate">Date</label>
-            <input id="bsDate" type="date" class="input" formControlName="sessionDate" />
-          </div>
-          <div class="form-grid">
-            <div class="field">
-              <label class="field-label" for="bsStart">Start</label>
-              <input id="bsStart" type="time" class="input" formControlName="startTime" />
-            </div>
-            <div class="field">
-              <label class="field-label" for="bsEnd">End</label>
-              <input id="bsEnd" type="time" class="input" formControlName="endTime" />
-            </div>
-          </div>
-          <div class="field">
-            <label class="field-label" for="bsFaculty">Faculty</label>
-            <input id="bsFaculty" class="input" formControlName="facultyName" />
-          </div>
-        </form>
-        <div footer>
-          <button type="button" class="btn btn--secondary" (click)="sessionFormOpen.set(false)">Cancel</button>
-          <button type="submit" form="batch-session-form" class="btn btn--primary">Add session</button>
-        </div>
-      </app-modal>
-    }
-
     @if (attendanceFor(); as session) {
       <app-modal
         title="Mark attendance"
@@ -794,26 +797,43 @@ type Tab =
          three lines of enrolment stood as tall as the longest column
          beside it. The grouping is worth keeping; the chrome around it
          was not. align-items: start is most of the saving. */
-      /* One section to a row.
+      /* Two sections to a line on a desk, one on a laptop, each in a
+         frame of its own.
 
-         Five sections across a line gave each of them 175px, which is
-         narrower than an address, a platform link or a coordinator's
-         e-mail - so every one of them wrapped, and the strip read as a
-         wall. A section now has the width of the sheet and its own facts
-         share the line instead, which is the level at which columns help:
-         short values beside each other, long ones with room to be read. */
+         Five across gave each of them 175px, narrower than an address or
+         a coordinator's e-mail, so every one wrapped and the strip read
+         as a wall. One to a row fixed the wrapping and made the sheet so
+         tall that the tabs underneath - which is what the page is for -
+         were below the fold on every screen. 320px is the width at which
+         none of these values wrap, so the grid takes two where there is
+         room for two and drops to one where there is not.
+
+         Framed rather than ruled: a horizontal rule between stacked rows
+         says nothing once the rows sit side by side. */
       .record {
         display: grid;
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
         align-items: start;
-        gap: 0.9rem;
-        padding: 0.9rem 1.15rem 1rem;
+        gap: 0.7rem;
+        padding: 0.9rem 1.15rem 1.1rem;
       }
-      /* A rule between sections, now that they are stacked: without the
-         columns there was nothing to say where one ended. */
-      .record .group + .group {
-        border-top: 1px solid var(--border);
-        padding-top: 0.9rem;
+      /* The hidden attribute is a display: none the browser applies at
+         the lowest priority, and display: grid above beats it - so the
+         folded sheet stayed on screen with the summary line above it. */
+      .record[hidden] { display: none; }
+      .group {
+        padding: 0.7rem 0.9rem 0.8rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+      /* Enrolment takes the line: it carries a meter, which has nothing
+         to say in half a column, and it is the number the desk rings
+         about. */
+      .group--accent {
+        grid-column: 1 / -1;
+        border-color: var(--brand-100);
+        background: var(--brand-50);
       }
 
       .group__head {
@@ -869,6 +889,26 @@ type Tab =
         background: var(--surface-muted);
         border-radius: var(--radius-lg) var(--radius-lg) 0 0;
       }
+      .record__right { align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+      .record__fold { white-space: nowrap; }
+
+      /* The folded line. Reads left to right like a caption, and wraps
+         item by item rather than breaking in the middle of a date. */
+      .record__gist {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem 1.4rem;
+        padding: 0.7rem 1.15rem 0.8rem;
+        font-size: var(--fs-sm);
+        color: var(--ink-700);
+      }
+      .record__gist span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        white-space: nowrap;
+      }
+      .record__gist app-icon { color: var(--ink-500); }
       .seats {
         font-size: var(--fs-lg);
         font-weight: 600;
@@ -917,7 +957,6 @@ export class ProgramDetailComponent {
   private readonly toast = inject(ToastService);
   private readonly auth = inject(AuthService);
   protected readonly copy = inject(SiteTextService);
-  private readonly fb = inject(FormBuilder);
 
   readonly id = input.required<string>();
 
@@ -1179,20 +1218,13 @@ export class ProgramDetailComponent {
     const batch = this.programme();
     if (batch) this.service.getById(batch.id).subscribe((updated) => this.programme.set(updated));
   }
-  protected readonly sessionFormOpen = signal(false);
+  /** Whether the batch's particulars are showing. Open on arrival. */
+  protected readonly detailsOpen = signal(true);
   protected readonly attendanceFor = signal<ProgramSession | null>(null);
   protected readonly marks = signal<AttendanceMark[]>([]);
 
   protected readonly canManage = computed(() => this.auth.hasPermission('programs.manage'));
   protected readonly presentCount = computed(() => this.marks().filter((m) => m.present).length);
-
-  protected readonly sessionForm = this.fb.group({
-    title: ['', Validators.required],
-    sessionDate: [''],
-    startTime: ['10:00'],
-    endTime: ['17:00'],
-    facultyName: [''],
-  });
 
   constructor() {
     effect(() => {
@@ -1226,31 +1258,6 @@ export class ProgramDetailComponent {
            a page that is otherwise fine. */
         error: () => this.field.set(null),
       });
-    });
-  }
-
-  protected openSession(): void {
-    const batch = this.programme();
-    this.sessionForm.reset({
-      title: '',
-      sessionDate: batch?.startDate ?? '',
-      startTime: '10:00',
-      endTime: '17:00',
-      facultyName: '',
-    });
-    this.sessionFormOpen.set(true);
-  }
-
-  protected saveSession(): void {
-    const batch = this.programme();
-    if (!batch || this.sessionForm.invalid) {
-      this.sessionForm.markAllAsTouched();
-      return;
-    }
-    this.service.addSession(batch.id, this.sessionForm.getRawValue()).subscribe((updated) => {
-      this.programme.set(updated);
-      this.sessionFormOpen.set(false);
-      this.toast.success('Session added', this.sessionForm.value.title ?? '');
     });
   }
 

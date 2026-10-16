@@ -177,6 +177,17 @@ public class CoordinatorController(MonitoringService service, MarksheetService m
 
     /* ----------------------------------------------------- participants */
 
+    /// <summary>
+    /// Registering somebody at the door: the applicant ID and the
+    /// e-mail on it, on the day the programme starts.
+    /// </summary>
+    [HttpPost("programmes/{id:int}/participants/enrol")]
+    public async Task<ActionResult<ApiEnvelope<OnSpotParticipantDto>>> EnrolApplicant(
+        int id, [FromBody] OnSpotApplicantDto dto, CancellationToken ct) =>
+        Envelope(
+            await service.RegisterApplicantAsync(id, dto, ct),
+            "Registered for this program.");
+
     /// <summary>On-spot registration. Every field is required; Udyam may be "NA".</summary>
     [HttpPost("programmes/{id:int}/participants")]
     public async Task<ActionResult<ApiEnvelope<OnSpotParticipantDto>>> AddParticipant(

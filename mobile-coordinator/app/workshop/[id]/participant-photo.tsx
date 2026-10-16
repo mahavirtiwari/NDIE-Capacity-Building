@@ -86,7 +86,9 @@ export default function ParticipantPhoto() {
             )}
             <View style={styles.rowText}>
               <Text style={styles.rowName}>{item.fullName}</Text>
-              <Text style={styles.rowMeta}>{item.enterpriseName}</Text>
+              <Text style={styles.rowMeta}>
+                {item.applicantCode ?? item.enterpriseName ?? '—'}
+              </Text>
             </View>
             <Text style={[styles.tag, item.photo && styles.tagDone]}>
               {item.photo ? 'Photo taken' : 'No photo'}
@@ -98,6 +100,9 @@ export default function ParticipantPhoto() {
       {person && !locked ? (
         <Card style={styles.card}>
           <Text style={styles.heading}>{person.fullName}</Text>
+          {person.applicantCode ? (
+            <Text style={styles.rowMeta}>{person.applicantCode}</Text>
+          ) : null}
           <PhotoPicker
             label="Participant photo"
             hint="Optional. A clear head and shoulders shot."

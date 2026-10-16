@@ -200,6 +200,12 @@ export interface AttendanceDay {
 
 export interface Participant {
   id: number;
+  /**
+   * The applicant ID this row stands for, where the person was enrolled
+   * at the door from their account. Shown beside the name, because it is
+   * what the office and the person both quote.
+   */
+  applicantCode?: string | null;
   fullName: string;
   mobile: string;
   email: string;

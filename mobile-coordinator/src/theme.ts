@@ -124,7 +124,8 @@ const STATUS_TONES: Record<string, Tone> = {
 const STATUS_LABELS: Record<string, string> = {
   UnderScrutiny: 'Under scrutiny',
   NotApplicable: 'Not applicable',
-  New: 'New program',
+  /* What is waiting to happen to it, not what it is. */
+  New: 'Pending for approval',
   PermissionAccepted: 'Permission accepted',
   CalendarCreated: 'Calendar created',
   PermissionRejected: 'Permission rejected',

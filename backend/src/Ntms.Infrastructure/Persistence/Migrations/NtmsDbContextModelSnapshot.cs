@@ -1719,6 +1719,51 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.ToTable("FeedbackForms", (string)null);
                 });
 
+            modelBuilder.Entity("Ntms.Domain.Entities.FeedbackInvite", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ParticipantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SentOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParticipantId")
+                        .IsUnique();
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("FeedbackInvites", (string)null);
+                });
+
             modelBuilder.Entity("Ntms.Domain.Entities.FeedbackQuestion", b =>
                 {
                     b.Property<int>("Id")
@@ -2361,6 +2406,9 @@ namespace Ntms.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("ApplicantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("AttendanceMarkedOn")
                         .HasColumnType("datetime2");
 
@@ -2435,11 +2483,17 @@ namespace Ntms.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ApplicantId");
+
                     b.HasIndex("DistrictCode");
 
                     b.HasIndex("ProgrammeId");
 
                     b.HasIndex("StateCode");
+
+                    b.HasIndex("ProgrammeId", "ApplicantId")
+                        .IsUnique()
+                        .HasFilter("[ApplicantId] IS NOT NULL");
 
                     b.HasIndex("ProgrammeId", "Mobile")
                         .IsUnique();
@@ -5392,6 +5446,17 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Navigation("ProgramType");
                 });
 
+            modelBuilder.Entity("Ntms.Domain.Entities.FeedbackInvite", b =>
+                {
+                    b.HasOne("Ntms.Domain.Entities.ProgrammeParticipant", "Participant")
+                        .WithMany()
+                        .HasForeignKey("ParticipantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Participant");
+                });
+
             modelBuilder.Entity("Ntms.Domain.Entities.FeedbackQuestion", b =>
                 {
                     b.HasOne("Ntms.Domain.Entities.FeedbackForm", "Form")
@@ -5616,6 +5681,11 @@ namespace Ntms.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Ntms.Domain.Entities.OnSpotParticipant", b =>
                 {
+                    b.HasOne("Ntms.Domain.Entities.Applicant", "Applicant")
+                        .WithMany()
+                        .HasForeignKey("ApplicantId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Ntms.Domain.Entities.LgdDistrict", "District")
                         .WithMany()
                         .HasForeignKey("DistrictCode")
@@ -5631,6 +5701,8 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("StateCode")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Applicant");
 
                     b.Navigation("District");
 

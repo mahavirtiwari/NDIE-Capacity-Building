@@ -62,3 +62,21 @@ export interface FeedbackQuestionSummary {
   tally: { value: string; label: string; count: number }[];
   comments: string[];
 }
+
+/**
+ * What the page behind a link in a feedback e-mail shows.
+ *
+ * Nobody is named on it. The person who opened the link knows who they
+ * are, and printing their name on an anonymous form only makes them doubt
+ * that it is anonymous.
+ */
+export interface FeedbackLink {
+  programmeName: string;
+  programmeCode: string;
+  programTypeName: string;
+  endedOn: string;
+  /** True if this link has already been used to answer. */
+  given: boolean;
+  /** Absent once answered, and when the program type has no form. */
+  form?: FeedbackForm | null;
+}

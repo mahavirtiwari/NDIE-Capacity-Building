@@ -1,29 +1,39 @@
 import { File, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
-import type { DownloadedFile } from '../api/client';
+import { fileRequest } from '../api/client';
 
 /**
- * Puts a downloaded picture somewhere the image loader can read it.
+ * A photograph the server keeps behind the sign-in, as something the
+ * image loader can read.
  *
- * The loader will not carry a bearer token - it caches by url and drops
- * custom headers on the way back, which is why an authenticated
- * thumbnail came out as an empty box. So the bytes are fetched like any
- * other call and written to the cache, and the picture is shown from the
- * file. The web build has no file system and takes a blob url instead,
- * which is the same idea by the means that platform has.
+ * The loader cannot fetch these itself: the route needs a bearer token,
+ * and handing the loader custom headers works once and then stops,
+ * because it caches by url and drops them.
  *
- * The name is the caller's and is reused, so a picture replaced on the
- * server replaces its copy here rather than piling up beside it.
+ * On a handset the bytes are downloaded straight to a file in the cache
+ * with the header on the request. They used to come back through
+ * fetch().arrayBuffer() - which React Native cannot do, there being no
+ * readAsArrayBuffer behind its FileReader - so the call rejected on a
+ * real phone and every stored picture fell back to its empty state. The
+ * web build, where this was looked at, does support it, which is how
+ * that survived.
+ *
+ * `name` is what the file is called in the cache: the same picture asked
+ * for twice lands on the same file rather than filling the disk.
  */
-export async function cacheImage(name: string, file: DownloadedFile): Promise<string> {
+export async function cacheRemoteImage(name: string, path: string): Promise<string> {
+  const { url, headers } = fileRequest(path);
+
   if (Platform.OS === 'web') {
-    return URL.createObjectURL(new Blob([file.bytes], { type: file.contentType }));
+    const answer = await fetch(url, { headers });
+    if (!answer.ok) throw new Error(`That picture could not be fetched (${answer.status}).`);
+
+    const type = answer.headers.get('Content-Type') ?? 'image/jpeg';
+    return URL.createObjectURL(new Blob([await answer.arrayBuffer()], { type }));
   }
 
   const target = new File(Paths.cache, name);
-  if (target.exists) target.delete();
-  target.create();
-  target.write(new Uint8Array(file.bytes));
+  await File.downloadFileAsync(url, target, { headers, idempotent: true });
 
   return target.uri;
 }

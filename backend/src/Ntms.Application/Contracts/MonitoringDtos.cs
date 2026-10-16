@@ -319,6 +319,13 @@ public class OnSpotParticipantDto : OnSpotParticipantUpsertDto
 {
     public int Id { get; set; }
 
+    /// <summary>
+    /// The applicant this row stands for, where it was registered from
+    /// an account rather than typed in. The screens show it beside the
+    /// name, because it is what the office and the person both quote.
+    /// </summary>
+    public string? ApplicantCode { get; set; }
+
     /// <summary>Present on any day. The roll-up, not the register.</summary>
     public bool? IsPresent { get; set; }
     public DateTime? AttendanceMarkedOn { get; set; }
@@ -467,6 +474,10 @@ public class QcProgrammeDto
     /* What was handed in. */
     public DateTime SubmittedOn { get; set; }
     public string? SubmittedBy { get; set; }
+
+    /// <summary>Who at the agency passed it to the manager, and when.</summary>
+    public string? ForwardedBy { get; set; }
+    public DateTime? ForwardedOn { get; set; }
     public int TrainerCount { get; set; }
     public int SessionCount { get; set; }
     public int ParticipantCount { get; set; }
@@ -489,6 +500,21 @@ public class QcCountsDto
     public int Pending { get; set; }
     public int Approved { get; set; }
     public int Rejected { get; set; }
+}
+
+/// <summary>
+/// Registering somebody at the door: who they are, not what they are
+/// like.
+///
+/// Two fields, both of which the person can read off their own phone.
+/// Everything else about them is already on the account the ID names,
+/// and asking a coordinator to key it in again at a venue produces a
+/// second version of a person the scheme already knows.
+/// </summary>
+public class OnSpotApplicantDto
+{
+    public string ApplicantCode { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
 }
 
 /// <summary>The manager's decision on a report.</summary>

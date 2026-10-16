@@ -286,6 +286,35 @@ export const sessions = {
 };
 
 export const participants = {
+  /**
+   * Enrolling somebody who has already applied, at the door.
+   *
+   * Two fields, because everything else about them is on the account the
+   * ID names. The server matches the pair and copies the rest across, so
+   * nothing typed in a corridor can disagree with what the scheme holds.
+   */
+  enrol: (id: number, body: { applicantCode: string; email: string }) => {
+    const localId = newLocalId();
+    return writeOrQueue<Participant>({
+      label: 'On-spot registration',
+      method: 'POST',
+      path: `coordinator/programmes/${id}/participants/enrol`,
+      body,
+      localId,
+      /* Held offline, the name is not known yet - it lives on the
+         account the server will look up. The ID stands in for it. */
+      provisional: {
+        id: localId,
+        applicantCode: body.applicantCode,
+        fullName: body.applicantCode,
+        mobile: '',
+        email: body.email,
+        enterpriseName: '',
+        udyamNumber: 'NA',
+      },
+    });
+  },
+
   add: (
     id: number,
     body: {

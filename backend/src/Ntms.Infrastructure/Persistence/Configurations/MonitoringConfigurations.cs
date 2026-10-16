@@ -98,8 +98,18 @@ public class OnSpotParticipantConfiguration : IEntityTypeConfiguration<OnSpotPar
            joining the queue twice would otherwise be counted twice. */
         b.HasIndex(x => new { x.ProgrammeId, x.Mobile }).IsUnique();
 
+        /* And one per applicant, for the rows enrolled from an account.
+           Filtered, because the rows typed in before this point have no
+           applicant and SQL Server would read their nulls as duplicates
+           of one another. */
+        b.HasIndex(x => new { x.ProgrammeId, x.ApplicantId })
+            .IsUnique()
+            .HasFilter("[ApplicantId] IS NOT NULL");
+
         b.HasOne(x => x.Programme).WithMany().HasForeignKey(x => x.ProgrammeId)
             .OnDelete(DeleteBehavior.Cascade);
+        b.HasOne(x => x.Applicant).WithMany().HasForeignKey(x => x.ApplicantId)
+            .OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.State).WithMany().HasForeignKey(x => x.StateCode)
             .OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.District).WithMany().HasForeignKey(x => x.DistrictCode)

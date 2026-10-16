@@ -92,14 +92,18 @@
 
   /* Type */
   --font-sans: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --fs-xs: 0.6875rem;
-  --fs-sm: 0.78125rem;
-  --fs-base: 0.875rem;
-  --fs-md: 0.9375rem;
-  --fs-lg: 1.0625rem;
-  --fs-xl: 1.25rem;
-  --fs-2xl: 1.5rem;
-  --fs-3xl: 1.875rem;
+  /* A point larger than they were, each of them, keeping the steps
+     between them exactly as they were: 11/12.5/14/15/17/20/24/30 became
+     12/13.5/15/16/18/21/25/31. The screens are read across a desk and
+     the smallest of these was being squinted at. */
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.84375rem;
+  --fs-base: 0.9375rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.3125rem;
+  --fs-2xl: 1.5625rem;
+  --fs-3xl: 1.9375rem;
 
   /* Spacing / shape */
   --radius-sm: 4px;

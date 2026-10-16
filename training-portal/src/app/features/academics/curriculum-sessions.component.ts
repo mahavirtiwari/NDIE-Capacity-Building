@@ -30,14 +30,6 @@ function clock(value: string | null | undefined): string {
   return value.slice(0, 5);
 }
 
-interface FlatRow {
-  serial: number;
-  session: CurriculumSession;
-  topic: CurriculumTopic | null;
-  isFirstTopic: boolean;
-  rowSpan: number;
-}
-
 @Component({
   selector: 'app-curriculum-sessions',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -113,81 +105,99 @@ interface FlatRow {
           </div>
         </div>
 
-        <div class="table-wrap">
-          <table class="table table--compact">
-            <thead>
-              <tr>
-                <th style="width: 70px">S.No</th>
-                <th style="width: 190px">Session code</th>
-                <th>Session name</th>
-                <th style="width: 150px">Timing</th>
-                <th style="width: 210px">Topic code</th>
-                <th>Topic name</th>
-                <th style="width: 110px">Status</th>
-                <th class="col-actions" style="width: 96px">Topic</th>
-                <th class="col-actions" style="width: 130px">Session</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (row of flatRows(); track row.session.id + '-' + (row.topic?.id ?? 0)) {
-                <tr [class.row--off]="isOff(row.session, row.topic)">
-                  @if (row.isFirstTopic) {
-                    <td [attr.rowspan]="row.rowSpan" class="cell-muted tabular">{{ row.serial }}</td>
-                    <td [attr.rowspan]="row.rowSpan" class="cell-primary">{{ row.session.sessionCode }}</td>
-                    <td [attr.rowspan]="row.rowSpan">{{ row.session.sessionName }}</td>
-                    <td [attr.rowspan]="row.rowSpan" class="cell-muted tabular">
-                      {{ timing(row.session) }}
-                    </td>
-                  }
-                  <td class="cell-muted">{{ row.topic?.topicCode || '—' }}</td>
-                  <td>{{ row.topic?.topicName || 'No topic added' }}</td>
-                  <td>
-                    @if (row.topic) {
-                      <app-status-badge [value]="row.topic.status ?? 'Active'" />
+        <!-- A session and its topics are two different things, and the
+             nine-column table said otherwise: the session's own cells
+             were merged down the rows of its topics, the Add-topic
+             button sat at the far right of a line belonging to the
+             first topic, and the two sets of codes and names read as
+             one row of six. Each session is its own block now, with its
+             topics listed beneath it and the button that adds one at
+             the foot of that list. -->
+        <div class="plan">
+          @for (session of visible(); track session.id) {
+            <article class="sess" [class.sess--off]="isOff(session, null)">
+              <header class="sess__head">
+                <span class="sess__serial tabular">{{ $index + 1 }}</span>
+                <div class="sess__id">
+                  <span class="sess__code tabular">{{ session.sessionCode }}</span>
+                  <span class="sess__name">{{ session.sessionName }}</span>
+                </div>
+                <div class="sess__meta">
+                  <span class="chip chip--muted tabular">
+                    <app-icon name="clock" [size]="12" /> {{ timing(session) }}
+                  </span>
+                  <span class="chip chip--muted">
+                    {{ session.topics.length }}
+                    topic{{ session.topics.length === 1 ? '' : 's' }}
+                  </span>
+                  <app-status-badge [value]="session.status ?? 'Active'" />
+                  <div class="btn-row btn-row--end">
+                    <button
+                      type="button"
+                      class="btn btn--icon"
+                      title="Edit session"
+                      (click)="openSession(session)"
+                    >
+                      <app-icon name="edit" [size]="15" />
+                    </button>
+                    <ng-container *appCan="'curriculum.manage'">
+                      <app-status-toggle
+                        [status]="session.status ?? 'Active'"
+                        (toggled)="setSessionStatus(session, $event)"
+                      />
+                    </ng-container>
+                  </div>
+                </div>
+              </header>
+
+              <div class="topics">
+                @for (topic of session.topics; track topic.id) {
+                  <div class="topic" [class.topic--off]="isOff(session, topic)">
+                    <span class="topic__code tabular">{{ topic.topicCode || '—' }}</span>
+                    <span class="topic__name">{{ topic.topicName }}</span>
+                    @if (topic.durationMinutes) {
+                      <span class="topic__mins text-xs text-muted tabular">
+                        {{ topic.durationMinutes }} min
+                      </span>
                     }
-                  </td>
-                  <td class="col-actions">
-                    @if (row.topic; as topic) {
-                      <div class="btn-row btn-row--end">
-                        <button
-                          type="button"
-                          class="btn btn--icon"
-                          title="Edit topic"
-                          (click)="openTopic(row.session, topic)"
-                        >
-                          <app-icon name="edit" [size]="15" />
-                        </button>
-                        <ng-container *appCan="'curriculum.manage'">
-                          <app-status-toggle
+                    <app-status-badge [value]="topic.status ?? 'Active'" />
+                    <div class="btn-row btn-row--end">
+                      <button
+                        type="button"
+                        class="btn btn--icon"
+                        title="Edit topic"
+                        (click)="openTopic(session, topic)"
+                      >
+                        <app-icon name="edit" [size]="15" />
+                      </button>
+                      <ng-container *appCan="'curriculum.manage'">
+                        <app-status-toggle
                           [status]="topic.status ?? 'Active'"
-                          (toggled)="setTopicStatus(row.session, topic, $event)"
+                          (toggled)="setTopicStatus(session, topic, $event)"
                         />
-                        </ng-container>
-                      </div>
-                    }
-                  </td>
-                  @if (row.isFirstTopic) {
-                    <td [attr.rowspan]="row.rowSpan" class="col-actions">
-                      <div class="btn-row btn-row--end">
-                        <button type="button" class="btn btn--icon" title="Add topic" (click)="openTopic(row.session)">
-                          <app-icon name="plus" [size]="15" />
-                        </button>
-                        <button type="button" class="btn btn--icon" title="Edit session" (click)="openSession(row.session)">
-                          <app-icon name="edit" [size]="15" />
-                        </button>
-                        <ng-container *appCan="'curriculum.manage'">
-                          <app-status-toggle
-                          [status]="row.session.status ?? 'Active'"
-                          (toggled)="setSessionStatus(row.session, $event)"
-                        />
-                        </ng-container>
-                      </div>
-                    </td>
-                  }
-                </tr>
-              }
-            </tbody>
-          </table>
+                      </ng-container>
+                    </div>
+                  </div>
+                } @empty {
+                  <p class="topic topic--none">No topic added to this session yet.</p>
+                }
+
+                <!-- Under the session it adds to, which is the whole
+                     point of it being here rather than in a column. -->
+                <button
+                  type="button"
+                  class="btn btn--ghost btn--sm topics__add"
+                  (click)="openTopic(session)"
+                >
+                  <app-icon name="plus" [size]="14" /> Add topic to this session
+                </button>
+              </div>
+            </article>
+          } @empty {
+            <p class="text-sm text-muted plan__none">
+              {{ search() ? 'No session matches that name.' : 'No session added yet.' }}
+            </p>
+          }
         </div>
       </section>
     } @else {
@@ -273,6 +283,118 @@ interface FlatRow {
       </app-modal>
     }
   `,
+  styles: [
+    `
+      /* The plan, session by session.
+
+         Nothing here is a table any more. A session's own particulars -
+         its code, its name, its hours, whether it is switched on - are
+         the header of a block, and its topics are the list inside it.
+         The two sets of codes and names can no longer be read as one
+         row, which is what they were when they shared nine columns. */
+      .plan {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        padding: 0.9rem 1.15rem 1.15rem;
+      }
+      .plan__none { margin: 0; padding: 1.5rem 0; text-align: center; }
+
+      .sess {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        overflow: hidden;
+      }
+      /* Switched off: still listed, visibly not in use. */
+      .sess--off { opacity: 0.62; }
+
+      .sess__head {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        padding: 0.65rem 0.85rem;
+        background: var(--surface-muted);
+        border-bottom: 1px solid var(--border);
+      }
+      .sess__serial {
+        display: grid;
+        place-items: center;
+        width: 1.75rem;
+        height: 1.75rem;
+        flex: none;
+        border-radius: 50%;
+        background: var(--brand-100);
+        color: var(--brand-800);
+        font-size: var(--fs-xs);
+        font-weight: 700;
+      }
+      .sess__id {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+        min-width: 180px;
+        flex: 1 1 240px;
+      }
+      .sess__code {
+        font-size: var(--fs-xs);
+        font-weight: 600;
+        color: var(--brand-700);
+        letter-spacing: 0.02em;
+      }
+      .sess__name { font-size: var(--fs-sm); font-weight: 600; color: var(--ink-900); }
+      .sess__meta {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+        margin-left: auto;
+      }
+
+      /* The topics, indented under their session so the hierarchy is the
+         first thing the eye gets rather than something to work out from
+         the codes. */
+      .topics {
+        display: flex;
+        flex-direction: column;
+        padding: 0.35rem 0.85rem 0.6rem 2.9rem;
+      }
+      .topic {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        flex-wrap: wrap;
+        padding: 0.45rem 0;
+        font-size: var(--fs-sm);
+        color: var(--ink-800);
+        border-bottom: 1px solid var(--ink-100);
+      }
+      .topic:last-of-type { border-bottom: 0; }
+      .topic--off { opacity: 0.62; }
+      .topic__code {
+        min-width: 150px;
+        font-size: var(--fs-xs);
+        color: var(--ink-500);
+      }
+      .topic__name { flex: 1 1 220px; }
+      .topic--none {
+        margin: 0;
+        padding: 0.5rem 0;
+        color: var(--ink-500);
+        font-style: italic;
+        border-bottom: 0;
+      }
+      .topic .btn-row { margin-left: auto; }
+
+      .topics__add { align-self: flex-start; margin-top: 0.4rem; }
+
+      @media (max-width: 640px) {
+        .topics { padding-left: 1rem; }
+        .topic__code { min-width: 0; }
+      }
+    `,
+  ],
 })
 export class CurriculumSessionsComponent {
   private readonly service = inject(CurriculumService);
@@ -321,29 +443,26 @@ export class CurriculumSessionsComponent {
     (this.curriculum()?.sessions ?? []).reduce((n, s) => n + s.topics.length, 0),
   );
 
-  /** One row per topic, with the session cells merged via rowspan. */
-  protected readonly flatRows = computed<FlatRow[]>(() => {
+  /**
+   * The sessions the search leaves, each carrying its own topics.
+   *
+   * A topic's name counts as a match too: somebody looking for where a
+   * subject is taught searches for the subject, and the session it sits
+   * under is the answer.
+   */
+  protected readonly visible = computed<CurriculumSession[]>(() => {
     const programme = this.curriculum();
     if (!programme) return [];
-    const term = this.search().toLowerCase();
-    const rows: FlatRow[] = [];
-    let serial = 0;
 
-    for (const session of programme.sessions) {
-      if (term && !session.sessionName.toLowerCase().includes(term)) continue;
-      serial += 1;
-      const topics = session.topics.length ? session.topics : [null];
-      topics.forEach((topic, i) => {
-        rows.push({
-          serial,
-          session,
-          topic,
-          isFirstTopic: i === 0,
-          rowSpan: topics.length,
-        });
-      });
-    }
-    return rows;
+    const term = this.search().toLowerCase();
+    if (!term) return programme.sessions;
+
+    return programme.sessions.filter(
+      (session) =>
+        session.sessionName.toLowerCase().includes(term)
+        || session.sessionCode.toLowerCase().includes(term)
+        || session.topics.some((topic) => topic.topicName.toLowerCase().includes(term)),
+    );
   });
 
   constructor() {
