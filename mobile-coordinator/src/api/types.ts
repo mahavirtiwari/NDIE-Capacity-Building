@@ -93,6 +93,14 @@ export interface Workshop {
   /** Whether the coordinator has registered the venue: the line between
       a programme that is scheduled and one that is under way. */
   venueRegistered: boolean;
+  /** Physical, Virtual or Hybrid: decides whether an address or a link
+      is the thing a coordinator needs. */
+  mode: string;
+  meetingPlatform?: string | null;
+  meetingLink?: string | null;
+  /** The teaching day, from the curriculum's own timetable. */
+  dailyStartTime?: string | null;
+  dailyEndTime?: string | null;
 }
 
 export interface Progress {

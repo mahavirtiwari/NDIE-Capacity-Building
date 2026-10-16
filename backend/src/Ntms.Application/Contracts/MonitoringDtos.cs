@@ -97,6 +97,20 @@ public class CoordinatorProgrammeDto
     /// <summary>True once finally submitted; the app then shows it read only.</summary>
     public bool IsSubmitted { get; set; }
     public DateTime? SubmittedOn { get; set; }
+
+    /// <summary>Physical, Virtual or Hybrid. Decides what an address means.</summary>
+    public string Mode { get; set; } = string.Empty;
+    public string? MeetingPlatform { get; set; }
+    public string? MeetingLink { get; set; }
+
+    /// <summary>
+    /// The hours the batch runs each day, as the programme was raised.
+    ///
+    /// Its own, not the syllabus's: the sessions keep separate times,
+    /// and what a coordinator needs is when to be at the hall.
+    /// </summary>
+    public TimeOnly? DailyStartTime { get; set; }
+    public TimeOnly? DailyEndTime { get; set; }
 }
 
 /// <summary>

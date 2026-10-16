@@ -1,7 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import {
+  FlatList,
+  Linking,
+  Modal,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { ApiError } from '../../src/api/client';
 import { workshops } from '../../src/api/endpoints';
 import type { Workshop } from '../../src/api/types';
@@ -77,6 +87,8 @@ export default function Programs() {
   const [failure, setFailure] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [open, setOpen] = useState<Standing>('Scheduled');
+  /* The programme whose details are being read, if any. */
+  const [showing, setShowing] = useState<Workshop | null>(null);
 
   const load = useCallback(async () => {
     setFailure(null);
@@ -192,23 +204,22 @@ export default function Programs() {
           const standing = standingOf(item);
           const sealed = standing === 'Completed';
 
-          const card = (
-            <>
+          return (
+            <View style={sealed ? styles.rowSealed : styles.row}>
               <View style={styles.rowHead}>
                 <Text style={styles.rowTitle}>{item.programmeName}</Text>
-                {sealed ? (
-                  <Ionicons name="lock-closed" size={14} color={colors.ink500} />
-                ) : (
-                  <Ionicons name="chevron-forward" size={16} color={colors.ink400} />
-                )}
+                {sealed ? <Ionicons name="lock-closed" size={14} color={colors.ink500} /> : null}
               </View>
 
               <Text style={styles.rowCode}>{item.programmeId}</Text>
               <Text style={styles.rowMeta}>
                 {shortDate(item.startDate)} – {shortDate(item.endDate)}
+                {item.dailyStartTime ? ` · ${clock(item.dailyStartTime)}` : ''}
               </Text>
               <Text style={styles.rowMeta} numberOfLines={1}>
-                {[item.venue, item.city, item.state].filter(Boolean).join(' · ')}
+                {item.mode === 'Virtual'
+                  ? `Online${item.meetingPlatform ? ` · ${item.meetingPlatform}` : ''}`
+                  : [item.venue, item.city, item.state].filter(Boolean).join(' · ')}
               </Text>
 
               {/* A sealed programme is a line in a register, not a way in.
@@ -219,20 +230,24 @@ export default function Programs() {
                 <Text style={styles.sealed}>
                   Submitted{item.submittedOn ? ` on ${shortDate(item.submittedOn)}` : ''}
                 </Text>
-              ) : null}
-            </>
-          );
-
-          if (sealed) return <View style={styles.rowSealed}>{card}</View>;
-
-          return (
-            <View style={styles.rowWrap}>
-              <Pressable
-                style={styles.row}
-                onPress={() => router.push(`/workshop/${item.id}/registration`)}
-              >
-                {card}
-              </Pressable>
+              ) : (
+                <View style={styles.actions}>
+                  <Pressable
+                    style={[styles.button, styles.buttonGhost]}
+                    onPress={() => setShowing(item)}
+                  >
+                    <Ionicons name="information-circle-outline" size={15} color={colors.brand700} />
+                    <Text style={styles.buttonGhostText}>View details</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.button, styles.buttonSolid]}
+                    onPress={() => router.push(`/workshop/${item.id}/start`)}
+                  >
+                    <Text style={styles.buttonSolidText}>Start</Text>
+                    <Ionicons name="arrow-forward" size={15} color={colors.white} />
+                  </Pressable>
+                </View>
+              )}
 
               {/* Only where there is something to clear. A scheduled
                   programme has nothing on the phone yet. */}
@@ -249,8 +264,114 @@ export default function Programs() {
           );
         }}
       />
+
+      <Details programme={showing} onClose={() => setShowing(null)} />
     </View>
   );
+}
+
+/**
+ * What a coordinator needs before they set off: which programme, where
+ * it is or how to join it, and when.
+ *
+ * A sheet rather than a screen, because it is read and dismissed - the
+ * work is behind Start, and sending somebody through a details page to
+ * reach it would put a step in front of every visit.
+ */
+function Details({
+  programme,
+  onClose,
+}: {
+  programme: Workshop | null;
+  onClose: () => void;
+}) {
+  if (!programme) return null;
+
+  const virtual = programme.mode === 'Virtual';
+  const hybrid = programme.mode === 'Hybrid';
+  const link = programme.meetingLink?.trim();
+
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+      <View style={styles.sheet}>
+        <View style={styles.sheetGrip} />
+        <ScrollView contentContainerStyle={styles.sheetBody}>
+          <Text style={styles.sheetTitle}>{programme.programmeName}</Text>
+          <Text style={styles.sheetCode}>{programme.programmeId}</Text>
+
+          <Fact label="Program ID" value={programme.programmeId} />
+          <Fact label="Mode" value={programme.mode} />
+          {programme.programTypeName ? (
+            <Fact label="Program type" value={programme.programTypeName} />
+          ) : null}
+
+          <Fact
+            label="Dates"
+            value={`${shortDate(programme.startDate)} – ${shortDate(programme.endDate)}`}
+          />
+          <Fact
+            label="Time"
+            value={
+              programme.dailyStartTime
+                ? `${clock(programme.dailyStartTime)}${
+                    programme.dailyEndTime ? ` – ${clock(programme.dailyEndTime)}` : ''
+                  } each day`
+                : null
+            }
+          />
+
+          {/* A hybrid batch has both and needs both. */}
+          {!virtual || hybrid ? (
+            <>
+              <Fact label="Venue" value={programme.venue} />
+              <Fact
+                label="City"
+                value={[programme.city, programme.state].filter(Boolean).join(', ')}
+              />
+            </>
+          ) : null}
+
+          {virtual || hybrid ? (
+            <>
+              <Fact label="Platform" value={programme.meetingPlatform} />
+              <View style={styles.fact}>
+                <Text style={styles.factLabel}>Joining link</Text>
+                {link ? (
+                  <Pressable onPress={() => void Linking.openURL(link)}>
+                    <Text style={styles.factLink}>{link}</Text>
+                  </Pressable>
+                ) : (
+                  <Text style={styles.factEmpty}>Not published yet</Text>
+                )}
+              </View>
+            </>
+          ) : null}
+
+          <Pressable style={styles.sheetClose} onPress={onClose}>
+            <Text style={styles.sheetCloseText}>Close</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+function Fact({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <View style={styles.fact}>
+      <Text style={styles.factLabel}>{label}</Text>
+      <Text style={[styles.factValue, !value && styles.factEmpty]}>
+        {value?.trim() ? value : 'Not recorded'}
+      </Text>
+    </View>
+  );
+}
+
+/** "09:30" out of whatever the server sent, which carries seconds. */
+function clock(value: string): string {
+  const parts = value.split(':');
+  return parts.length >= 2 ? `${parts[0]}:${parts[1]}` : value;
 }
 
 const styles = StyleSheet.create({
@@ -324,4 +445,57 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   clearText: { fontSize: font.xs, color: colors.ink600, fontWeight: '600' },
+
+  /* Two buttons rather than a card that is one big tap: a coordinator
+     checking where tomorrow's batch is should not have to open the
+     working screens to find out. */
+  actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  button: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    borderWidth: 1,
+  },
+  buttonGhost: { backgroundColor: colors.white, borderColor: colors.brand100 },
+  buttonGhostText: { fontSize: font.sm, fontWeight: '600', color: colors.brand700 },
+  buttonSolid: { backgroundColor: colors.brand600, borderColor: colors.brand600 },
+  buttonSolidText: { fontSize: font.sm, fontWeight: '700', color: colors.white },
+
+  backdrop: { flex: 1, backgroundColor: 'rgb(0 0 0 / 0.35)' },
+  sheet: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+    paddingBottom: spacing.lg,
+  },
+  sheetGrip: {
+    alignSelf: 'center',
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.ink200,
+    marginVertical: spacing.sm,
+  },
+  sheetBody: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
+  sheetTitle: { fontSize: font.lg, fontWeight: '700', color: colors.ink900 },
+  sheetCode: { fontSize: font.sm, color: colors.brand700, fontWeight: '600', marginBottom: spacing.sm },
+
+  fact: {
+    gap: 2,
+    paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  factLabel: { fontSize: font.xs, color: colors.ink500 },
+  factValue: { fontSize: font.base, color: colors.ink900, fontWeight: '600' },
+  factEmpty: { fontWeight: '400', color: colors.ink400, fontStyle: 'italic' },
+  factLink: { fontSize: font.sm, color: colors.brand700, fontWeight: '600' },
+
+  sheetClose: { alignSelf: 'center', paddingVertical: spacing.md, marginTop: spacing.xs },
+  sheetCloseText: { fontSize: font.sm, fontWeight: '700', color: colors.ink600 },
 });

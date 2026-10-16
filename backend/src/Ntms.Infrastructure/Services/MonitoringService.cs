@@ -1154,6 +1154,11 @@ public class MonitoringService(
         Status = p.Status.ToString(),
         IsSubmitted = submittedOn is not null,
         SubmittedOn = submittedOn,
+        Mode = p.Mode.ToString(),
+        MeetingPlatform = p.MeetingPlatform,
+        MeetingLink = p.MeetingLink,
+        DailyStartTime = p.StartTime,
+        DailyEndTime = p.EndTime,
     };
 
     private static TrainerDto ToDto(ProgrammeTrainer t) => new()

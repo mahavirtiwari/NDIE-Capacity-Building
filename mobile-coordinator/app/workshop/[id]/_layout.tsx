@@ -20,6 +20,7 @@ export default function WorkshopLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="start" options={{ title: 'Program' }} />
         <Stack.Screen name="venue" options={{ title: 'Register venue' }} />
         <Stack.Screen name="trainer" options={{ title: 'Register trainer' }} />
         <Stack.Screen name="session" options={{ title: 'Session management' }} />
