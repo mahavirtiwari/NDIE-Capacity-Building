@@ -382,7 +382,7 @@ public class ProfileSubmissionService(
            the account - where the scope reads it. Only when the account has
            none: an address the applicant has since corrected themselves is
            theirs and is not overwritten by an older form. */
-        StampWhereTheyAreFrom(applicant, form, responses);
+        await StampWhereTheyAreFromAsync(applicant, form, responses, ct);
 
         /* Onto somebody's desk, not into a shared pile. Only where there is
            a decision to take: a form nobody reads needs no officer. */
@@ -591,8 +591,9 @@ public class ProfileSubmissionService(
     /// cannot be turned into a code that means the same thing as the rest
     /// of the record.
     /// </summary>
-    private static void StampWhereTheyAreFrom(
-        Applicant applicant, ProfileForm form, Dictionary<string, object?> responses)
+    private async Task StampWhereTheyAreFromAsync(
+        Applicant applicant, ProfileForm form, Dictionary<string, object?> responses,
+        CancellationToken ct)
     {
         if (applicant.StateCode is not null) return;
 
@@ -601,11 +602,100 @@ public class ProfileSubmissionService(
             .SelectMany(s => s.Fields)
             .ToList();
 
-        var state = CodeAnswered(fields, FieldType.State, responses);
+        var state = CodeAnswered(fields, FieldType.State, responses)
+                    ?? await NamedStateAsync(fields, responses, ct);
+
         if (state is null) return;
 
         applicant.StateCode = state;
-        applicant.DistrictCode = CodeAnswered(fields, FieldType.District, responses);
+        applicant.DistrictCode =
+            CodeAnswered(fields, FieldType.District, responses)
+            ?? await NamedDistrictAsync(fields, responses, state.Value, ct);
+    }
+
+    /// <summary>
+    /// The state a form asked for as plain text, matched to the LGD master
+    /// by name.
+    ///
+    /// The State field type exists precisely so this is not necessary: it
+    /// stores the code, and a code means the same thing as every other
+    /// state on the record. But forms were being designed before it
+    /// existed, and a published form asking for the state in a text box is
+    /// not something an applicant can be asked to wait out - the account
+    /// stays stateless, and with it the register, the filters and the
+    /// officer who should have been given the profile.
+    ///
+    /// So a text answer is accepted when it is exactly the name of a state,
+    /// ignoring case and surrounding space. Exactly, and nothing cleverer:
+    /// "Delhi" is Delhi, and anything the master does not recognise is left
+    /// alone rather than guessed at. A wrong state is worse than none,
+    /// because none is visibly missing and wrong is not.
+    /// </summary>
+    private async Task<int?> NamedStateAsync(
+        IEnumerable<ProfileField> fields, Dictionary<string, object?> responses,
+        CancellationToken ct)
+    {
+        var written = TextAnswered(fields, FieldType.State, "state", responses);
+        if (written is null) return null;
+
+        return await db.States.AsNoTracking()
+            .Where(s => s.Name == written)
+            .Select(s => (int?)s.Code)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    /// <summary>
+    /// The district, matched the same way and only within the state just
+    /// settled - district names repeat across the country, so one read
+    /// nationally would be a coin toss between them.
+    /// </summary>
+    private async Task<int?> NamedDistrictAsync(
+        IEnumerable<ProfileField> fields, Dictionary<string, object?> responses,
+        int stateCode, CancellationToken ct)
+    {
+        var written = TextAnswered(fields, FieldType.District, "district", responses);
+        if (written is null) return null;
+
+        return await db.Districts.AsNoTracking()
+            .Where(d => d.StateCode == stateCode && d.Name == written)
+            .Select(d => (int?)d.Code)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    /// <summary>
+    /// What was written in the field this form calls "state" or "district".
+    ///
+    /// Found by what the field is called, because a text box carries
+    /// nothing else to go on. Only an exact name - a form asking "State of
+    /// incorporation" is asking a different question and is left to itself.
+    /// Returned upper-cased, which is how the LGD master spells everything.
+    /// </summary>
+    private static string? TextAnswered(
+        IEnumerable<ProfileField> fields, FieldType typed, string called,
+        Dictionary<string, object?> responses)
+    {
+        static string Plain(string value) =>
+            new string([.. value.Where(char.IsLetter)]).ToLowerInvariant();
+
+        foreach (var field in fields)
+        {
+            /* A field of the right type is the right field whatever it is
+               called - it only reaches here because its answer was not a
+               code, which happens where a form was filled in before the
+               type was changed under it. Otherwise the name is all there
+               is to go on. */
+            var named = field.Type is FieldType.Text or FieldType.Select
+                        && (Plain(field.Key) == called || Plain(field.Label) == called);
+
+            if (field.Type != typed && !named) continue;
+
+            if (!responses.TryGetValue(field.Key, out var answer) || answer is null) continue;
+
+            var written = answer.ToString()?.Trim();
+            if (!string.IsNullOrEmpty(written)) return written.ToUpperInvariant();
+        }
+
+        return null;
     }
 
     /// <summary>
