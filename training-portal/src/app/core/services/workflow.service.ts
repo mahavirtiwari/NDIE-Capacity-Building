@@ -4,7 +4,6 @@ import { Observable } from 'rxjs';
 import {
   Application,
   ApplicationCounts,
-  AttendanceMark,
   Id,
   PagedResult,
   ProfileDecision,
@@ -229,13 +228,6 @@ export class ProgramService extends CrudService<Program> {
     return this.api.post<Program>(
       `${this.resource}/${programId}/reopen-registrations`,
       { maxParticipants },
-    );
-  }
-
-  markAttendance(programId: Id, sessionId: Id, marks: AttendanceMark[]): Observable<Program> {
-    return this.api.post<Program>(
-      `${this.resource}/${programId}/sessions/${sessionId}/attendance`,
-      { marks },
     );
   }
 

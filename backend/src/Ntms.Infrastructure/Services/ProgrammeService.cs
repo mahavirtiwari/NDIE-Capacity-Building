@@ -215,8 +215,7 @@ public class ProgrammeService(
         Validate(dto, DateOnly.FromDateTime(DateTime.UtcNow.Date));
 
         await EnsureNothingClashesAsync(
-            null, agency.Id, programType.Id, coordinator.Id, dto.StateCode,
-            dto.StartDate, dto.EndDate, ct);
+            null, coordinator.Id, dto.StartDate, dto.EndDate, ct);
 
         /* The floor belongs to the program type and the ceiling to the
            agency, so a batch cannot be raised for fewer than the type is
@@ -325,8 +324,7 @@ public class ProgrammeService(
         }
 
         await EnsureNothingClashesAsync(
-            entity.Id, entity.AgencyId, entity.ProgramTypeId, dto.CoordinatorId, dto.StateCode,
-            dto.StartDate, dto.EndDate, ct);
+            entity.Id, dto.CoordinatorId, dto.StartDate, dto.EndDate, ct);
 
         var mode = EnumMaps.ParseEnum(dto.Mode, entity.Mode);
 
@@ -926,45 +924,6 @@ public class ProgrammeService(
         return await GetAsync(id, ct);
     }
 
-    /// <summary>
-    /// Records who attended a session and recomputes every participant's
-    /// attendance percentage from the sessions held so far.
-    /// </summary>
-    public async Task<ProgrammeDto> MarkAttendanceAsync(
-        int id, int sessionId, MarkAttendanceDto dto, CancellationToken ct)
-    {
-        var entity = await db.Programmes
-            .Include(p => p.Sessions).ThenInclude(s => s.Attendance)
-            .Include(p => p.Participants)
-            .FirstOrDefaultAsync(p => p.Id == id, ct)
-            ?? throw AppException.NotFound("Program");
-
-        var session = entity.Sessions.FirstOrDefault(s => s.Id == sessionId)
-                      ?? throw AppException.NotFound("Session");
-
-        if (session.IsAttendanceLocked)
-            throw new AppException("Attendance for this session has already been locked.");
-
-        var validIds = entity.Participants.Select(p => p.Id).ToHashSet();
-        db.AttendanceRecords.RemoveRange(session.Attendance);
-        session.Attendance.Clear();
-
-        foreach (var mark in dto.Marks.Where(m => validIds.Contains(m.ParticipantId)))
-        {
-            session.Attendance.Add(new AttendanceRecord
-            {
-                ParticipantId = mark.ParticipantId,
-                Present = mark.Present,
-            });
-        }
-
-        session.PresentCount = dto.Marks.Count(m => m.Present && validIds.Contains(m.ParticipantId));
-        session.IsAttendanceLocked = true;
-
-        await db.SaveChangesAsync(ct);
-        await RecomputeAttendanceAsync(id, ct);
-        return await GetAsync(id, ct);
-    }
 
     /// <summary>Enrols approved applicants into the batch.</summary>
     public async Task<ProgrammeDto> EnrolAsync(int id, EnrolDto dto, CancellationToken ct)
@@ -1154,9 +1113,8 @@ public class ProgrammeService(
     /// way still has to be editable for its venue or its coordinator.
     /// </summary>
     /// <summary>
-    /// Refuses a batch that runs on days another one already has.
-    ///
-    /// Two of them, for two different reasons.
+    /// Refuses a batch whose coordinator is already running another one
+    /// over the same days.
     ///
     /// The coordinator is one person. They register the venue, take the
     /// register in the room and photograph the signed sheet, all on the
@@ -1164,16 +1122,21 @@ public class ProgrammeService(
     /// over the same days is a record that cannot honestly be kept for
     /// both, whoever the agency is and wherever the batches are held.
     ///
-    /// The agency running the same program type twice over the same days
-    /// is the other: the register showed KS Ltd. holding 5-day Assessor
-    /// Training on the 15th-16th and again on the 16th-20th, which is one
-    /// course entered twice far more often than it is two.
+    /// That is the whole of it. There was a second check here, refusing an
+    /// agency a second batch of the same program type in the same state on
+    /// overlapping days, on the reading that it was one course entered
+    /// twice. It is not: an agency runs the same course for two groups at
+    /// once as a matter of course, and the thing that makes those two
+    /// batches rather than one is that each has its own coordinator - which
+    /// the rule above already insists on. Refusing them stopped real work,
+    /// and a duplicate raised by mistake is visible in the register and
+    /// refused at permission by somebody who can tell the difference.
     ///
     /// A cancelled or refused batch is not in the way of anything, so it
     /// does not count. Nor does the batch being edited, against itself.
     /// </summary>
     private async Task EnsureNothingClashesAsync(
-        int? excludingId, int agencyId, int programTypeId, int coordinatorId, int stateCode,
+        int? excludingId, int coordinatorId,
         DateOnly startDate, DateOnly endDate, CancellationToken ct)
     {
         /* Two ranges overlap unless one ends before the other starts. */
@@ -1197,24 +1160,6 @@ public class ProgrammeService(
                 + "Choose other dates, or another coordinator.");
         }
 
-        /* In the same state, because a large agency running the same
-           course in Delhi and in Mumbai over one week is two courses,
-           and refusing that would stop real work. In one state on the
-           same days it is one course entered twice. */
-        var sameCourse = await live
-            .Where(p => p.AgencyId == agencyId
-                        && p.ProgramTypeId == programTypeId
-                        && p.StateCode == stateCode)
-            .Select(p => new { p.ProgrammeId, p.StartDate, p.EndDate })
-            .FirstOrDefaultAsync(ct);
-
-        if (sameCourse is not null)
-        {
-            throw AppException.Conflict(
-                $"This program is already running as {sameCourse.ProgrammeId} from "
-                + $"{sameCourse.StartDate:dd MMM yyyy} to {sameCourse.EndDate:dd MMM yyyy}. "
-                + "A program cannot be raised twice for the same days.");
-        }
     }
 
     /// <summary>

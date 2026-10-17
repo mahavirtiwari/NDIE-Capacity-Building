@@ -53,15 +53,11 @@ const COLUMNS: ColumnDef[] = [
       icon="user-check"
       [breadcrumbs]="[{ label: 'Reports' }, { label: copy.text('page.trainers.title') }]"
     >
-      <!-- Not for a coordinator, who holds trainers.manage because
-           they are the ones who take this down - from the app, at the
-           venue, with the person in front of them. The web form is the
-           administrator's, for the one that was missed. -->
-      @if (canWrite()) {
-      <button type="button" class="btn btn--primary" (click)="openForm()">
-        <app-icon name="plus" [size]="15" /> Add trainer
-      </button>
-      }
+      <!-- No adding from here, by anybody. A trainer is registered at
+           the venue by the coordinator who is standing in front of them,
+           from the app, which records where and when. A web form offering
+           the same thing from an office is a trainer nobody saw. What the
+           web keeps is the correcting of one already taken down. -->
     </app-page-header>
 
     <section class="card">
@@ -155,7 +151,7 @@ const COLUMNS: ColumnDef[] = [
         [sortBy]="list.sortBy()"
         [sortDir]="list.sortDir()"
         emptyTitle="No trainers recorded"
-        emptyMessage="A trainer appears here once a coordinator registers them, or when you add one."
+        emptyMessage="A trainer appears here once a coordinator registers them from the app, at the venue."
         emptyIcon="user-check"
         (pageChange)="list.goToPage($event)"
         (pageSizeChange)="list.setPageSize($event)"
@@ -226,33 +222,20 @@ const COLUMNS: ColumnDef[] = [
 
     @if (formOpen()) {
       <app-modal
-        [title]="editing() ? 'Edit trainer' : 'Add trainer'"
+        title="Edit trainer"
         subtitle="Recorded against one program — the batch they delivered."
         (closed)="closeForm()"
       >
         <form [formGroup]="form" class="form-grid" id="trainer-form" (ngSubmit)="save()">
-          @if (!editing()) {
-            <div class="field field--span-2">
-              <label class="field-label" for="tfProgramme">Program <span class="req">*</span></label>
-              <select id="tfProgramme" class="select" formControlName="programmeId">
-                <option [ngValue]="null">Select the program they delivered</option>
-                @for (option of programmes(); track option.id) {
-                  <option [ngValue]="option.id">{{ option.name }}</option>
-                }
-              </select>
-              @if (invalid('programmeId')) {
-                <span class="field-error">Choose the program this trainer took.</span>
-              }
-            </div>
-          } @else {
+          @if (editing(); as held) {
             <div class="field field--span-2">
               <span class="field-label">Program</span>
               <p class="text-sm">
                 {{ editing()!.programmeCode }} · {{ editing()!.programmeName }}
               </p>
               <span class="field-hint">
-                A trainer belongs to the programme they took, so this cannot be moved. Add them
-                to the other programme instead.
+                A trainer belongs to the program they took, so this cannot be moved. The
+                coordinator registers them against the other one from the app.
               </span>
             </div>
           }
@@ -386,7 +369,7 @@ const COLUMNS: ColumnDef[] = [
           <button type="button" class="btn btn--secondary" (click)="closeForm()">Cancel</button>
           <button type="submit" form="trainer-form" class="btn btn--primary" [disabled]="saving()">
             @if (saving()) { <span class="spinner"></span> }
-            {{ editing() ? 'Save changes' : 'Add trainer' }}
+            Save changes
           </button>
         </div>
       </app-modal>
@@ -425,7 +408,6 @@ export class TrainersComponent {
   protected readonly states = toSignal(this.lookups.states(), { initialValue: [] });
   protected readonly agencies = toSignal(this.lookups.agencies(), { initialValue: [] });
   protected readonly programTypes = signal<{ id: Id; name: string }[]>([]);
-  protected readonly programmes = signal<{ id: Id; name: string }[]>([]);
 
   protected readonly formOpen = signal(false);
   protected readonly saving = signal(false);
@@ -535,31 +517,23 @@ export class TrainersComponent {
     return describeError(this.form.get(control)?.errors ?? null, label);
   }
 
-  protected openForm(row?: Faculty): void {
-    this.editing.set(row ?? null);
-
-    /* Only needed when adding: an existing trainer's programme is fixed, so
-       the list is not fetched for an edit. */
-    if (!row) this.loadProgrammes();
+  protected openForm(row: Faculty): void {
+    this.editing.set(row);
 
     this.form.reset({
-      programmeId: row?.programmeId ?? null,
-      fullName: row?.fullName ?? '',
-      mobile: row?.mobile ?? '',
-      email: row?.email ?? '',
-      designation: row?.designation ?? '',
-      organisation: row?.organisation ?? '',
-      yearsExperience: row?.yearsExperience ?? null,
-      qualification: row?.qualification ?? null,
+      programmeId: row.programmeId,
+      fullName: row.fullName,
+      mobile: row.mobile,
+      email: row.email ?? '',
+      designation: row.designation ?? '',
+      organisation: row.organisation ?? '',
+      yearsExperience: row.yearsExperience ?? null,
+      qualification: row.qualification ?? null,
       /* Always blank. The stored number is never sent to a screen, so
          there is nothing to put here; blank on save means keep it. */
       aadhaar: '',
     });
     this.formOpen.set(true);
-  }
-
-  private loadProgrammes(): void {
-    this.service.programmeOptions().subscribe((items) => this.programmes.set(items));
   }
 
   protected closeForm(): void {
@@ -621,11 +595,15 @@ export class TrainersComponent {
   ]);
 
   protected save(): void {
+    /* Only ever an edit now: a trainer is registered at the venue from the
+       app, so the only thing this screen writes is a correction to one
+       already taken down. */
     const editing = this.editing();
+    if (!editing) return;
 
-    /* The programme is not on the form when editing, so its validator must
+    /* The programme is fixed on an existing record, so its validator must
        not decide whether the rest may be saved. */
-    if (editing) this.form.controls.programmeId.clearValidators();
+    this.form.controls.programmeId.clearValidators();
     this.form.controls.programmeId.updateValueAndValidity({ emitEvent: false });
 
     if (this.form.invalid) {
@@ -658,17 +636,13 @@ export class TrainersComponent {
     };
 
     this.saving.set(true);
-    const request = editing
-      ? this.service.update(editing.id, body)
-      : this.service.add(raw.programmeId!, body);
 
-    request.subscribe({
+    this.service.update(editing.id, body).subscribe({
       next: () => {
         this.saving.set(false);
-        this.toast.success(editing ? 'Trainer updated' : 'Trainer added', body.fullName);
+        this.toast.success('Trainer updated', body.fullName);
         this.closeForm();
         this.list.reload();
-        this.form.controls.programmeId.setValidators(Validators.required);
       },
       error: () => this.saving.set(false),
     });

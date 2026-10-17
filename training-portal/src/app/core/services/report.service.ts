@@ -40,10 +40,6 @@ export class FacultyService {
     return this.api.get<PagedResult<Faculty>>('trainers', request);
   }
 
-  add(programmeId: Id, body: FacultyUpsert): Observable<Faculty> {
-    return this.api.post<Faculty>(`trainers/programmes/${programmeId}`, body);
-  }
-
   update(trainerId: Id, body: FacultyUpsert): Observable<Faculty> {
     return this.api.put<Faculty>(`trainers/${trainerId}`, body);
   }

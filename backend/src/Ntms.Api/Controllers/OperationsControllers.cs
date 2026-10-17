@@ -434,11 +434,18 @@ public class ProgramsController(ProgrammeService service, MonitoringService moni
         int id, [FromBody] ProgrammeSessionDto dto, CancellationToken ct) =>
         Envelope(await service.AddSessionAsync(id, dto, ct), "Session added.");
 
-    [HttpPost("{id:int}/sessions/{sessionId:int}/attendance")]
-    [HasPermission(Permissions.ProgramsManage)]
-    public async Task<ActionResult<ApiEnvelope<ProgrammeDto>>> MarkAttendance(
-        int id, int sessionId, [FromBody] MarkAttendanceDto dto, CancellationToken ct) =>
-        Envelope(await service.MarkAttendanceAsync(id, sessionId, dto, ct), "Attendance saved.");
+    /* No attendance from here. The register is taken in the room, on the
+       day, by the coordinator standing in it - from the app, which records
+       where and when it was taken and photographs the signed sheet. This
+       route wrote the same record from anywhere, for anybody holding
+       programs.manage, with none of that: an agency could mark a hall full
+       of people present from an office in another state, and the sheet
+       would read exactly like one that had been taken honestly.
+
+       Removed rather than guarded. A guard is a decision somebody can
+       reverse by editing a line; no route at all is the rule. The app's
+       own door is PUT api/coordinator/programmes/{id}/attendance, which
+       is a different method on a different service and is untouched. */
 
     [HttpPost("{id:int}/enrol")]
     [HasPermission(Permissions.ProgramsManage)]

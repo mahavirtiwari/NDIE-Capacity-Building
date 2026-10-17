@@ -150,11 +150,22 @@ public static class RoleHierarchy
                is the body accountable for what they record on the ground.
                An Operation Manager empanels the agency and reads its
                coordinators; it does not put them there. */
+            /* The question paper is the exam. Anybody who can read it
+               before the day can hand it to the people sitting it, and the
+               three tiers below the scheme are exactly the people standing
+               next to them: the agency running the batch, the manager that
+               permitted it, and the coordinator in the room. None of them
+               has a reason to see the paper - the marksheet is where their
+               work is - so none of them may, whatever a role record says.
+               Held against the tier rather than left out of a seed, because
+               a key left out of a seed can be ticked back on. */
             [BaseRole.OperationManager] =
             [
                 Permissions.CoordinatorsManage,
                 Permissions.TrainersManage,
                 Permissions.MaterialsManage,
+                Permissions.ExamsView,
+                Permissions.ExamsManage,
             ],
 
             /* A trainer is put on the record by the coordinator who was in
@@ -176,6 +187,8 @@ public static class RoleHierarchy
                    runs it; the manager that empanelled it decides whether it
                    may go ahead, which is the whole of what permission means. */
                 Permissions.ProgramsApprove,
+                Permissions.ExamsView,
+                Permissions.ExamsManage,
             ],
 
             /* Training material is the scheme's own, published once by the
@@ -186,6 +199,8 @@ public static class RoleHierarchy
                 Permissions.MaterialsManage,
                 Permissions.ApplicationsScrutinise,
                 Permissions.ProgramsApprove,
+                Permissions.ExamsView,
+                Permissions.ExamsManage,
             ],
         };
 

@@ -2,12 +2,10 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import {
-  AttendanceMark,
   Certificate,
   PROGRAM_STATUS_LABELS,
   Program,
   ProgramType,
-  ProgramSession,
   ProgrammeCertificateSummary,
   ProgrammeMonitoring,
 } from '../../core/models';
@@ -35,7 +33,6 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
 type Tab =
   | 'overview'
   | 'venue'
-  | 'sessions'
   | 'monitoring'
   | 'attendance'
   | 'trainers'
@@ -153,18 +150,21 @@ type Tab =
           <button type="button" class="tab" [class.is-active]="tab() === 'venue'" (click)="tab.set('venue')">
             Venue
           </button>
-          <button type="button" class="tab" [class.is-active]="tab() === 'sessions'" (click)="tab.set('sessions')">
-            Sessions ({{ batch.sessions.length }})
-          </button>
+          <!-- One tab, because it was always one subject. The timetable
+               and what the coordinator recorded against it were two tabs
+               side by side, so reading what happened in a session meant
+               holding its time in your head and moving to the next tab to
+               find the photographs of it. The count is the sessions,
+               which is what the tab lists first. -->
           <button
             type="button"
             class="tab"
             [class.is-active]="tab() === 'monitoring'"
             (click)="openField('monitoring')"
           >
-            <app-icon name="camera" [size]="14" /> Monitoring{{
-              field() ? ' (' + field()!.sessions.length + ')' : ''
-            }}
+            <app-icon name="camera" [size]="14" /> Session Monitoring ({{
+              batch.sessions.length
+            }})
           </button>
           <button
             type="button"
@@ -450,6 +450,94 @@ type Tab =
         }
 
         @if (tab() === 'monitoring') {
+          <!-- Said out loud, because nothing else says it.
+
+               The timetable is written from the program type's curriculum
+               when the batch is permitted, and a curriculum that does not
+               fit the batch is fitted to it anyway: a Day 2 session on a
+               one-day batch is dated to day 1 rather than to a day after
+               the batch has ended. That is the right call on its own - a
+               session dated outside its own batch is worse - but it was
+               made silently, and what comes out can be a plan nobody could
+               run. Three sessions landed on one date here, two of them on
+               top of each other, in the morning, for a batch that runs in
+               the evening.
+
+               Checked here rather than at the moment it is written: this
+               reads the timetable as it now stands, so it keeps telling
+               the truth after somebody edits a session, and it tells it to
+               the coordinator who has to run the day as well as to the
+               manager who permitted it. -->
+          @if (timetableTrouble(batch); as trouble) {
+            <div class="alert alert--warning mb-md">
+              <app-icon name="alert" [size]="16" />
+              <span>
+                <strong>This timetable does not fit the batch.</strong>
+                @for (line of trouble; track line) {
+                  <br />{{ line }}
+                }
+                <br />
+                <span class="text-xs text-muted">
+                  The sessions come from the program type's curriculum. Either the
+                  curriculum or the batch's dates and hours need to agree before the day
+                  can be run as planned.
+                </span>
+              </span>
+            </div>
+          }
+
+          <div class="table-wrap">
+            <table class="table table--compact table--wide">
+              <thead>
+                <tr>
+                  <!-- The title is the column anybody scans, so it takes
+                       what is left. A code is a fixed eight characters and
+                       was being given twice the room of the thing it
+                       identifies, which pushed every title onto three
+                       lines. -->
+                  <th style="width: 120px">Code</th>
+                  <th>Session</th>
+                  <th style="width: 115px">Date</th>
+                  <th style="width: 125px">Time</th>
+                  <th style="width: 160px">Faculty</th>
+                  <th style="width: 100px" class="text-center">Present</th>
+                  <th class="col-actions"></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (session of batch.sessions; track session.id) {
+                  <tr>
+                    <td class="cell-muted tabular">{{ session.sessionCode || '—' }}</td>
+                    <td class="cell-primary">{{ session.title }}</td>
+                    <td>{{ session.sessionDate | date: 'dd MMM yyyy' }}</td>
+                    <td class="cell-muted">{{ session.startTime }} – {{ session.endTime }}</td>
+                    <td class="cell-muted">{{ session.facultyName || '—' }}</td>
+                    <td class="text-center tabular">
+                      {{ session.presentCount }} / {{ batch.participants.length }}
+                    </td>
+                    <!-- The register is taken in the room, on the day, from
+                         the app - by the coordinator who is standing there.
+                         The web offered a button that wrote the same record
+                         from anywhere, by anybody holding programs.manage,
+                         with no sight of who was present. What the web shows
+                         is what was taken. -->
+                    <td class="col-actions">
+                      @if (session.isAttendanceLocked) {
+                        <span class="chip">Taken</span>
+                      } @else {
+                        <span class="chip chip--muted">Not yet taken</span>
+                      }
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="7" class="cell-muted text-center">No sessions captured yet.</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <!-- Then what the coordinator recorded against those sessions. -->
           <app-programme-monitoring [programmeId]="batch.id" [record]="field()" />
         } @else if (tab() === 'attendance') {
           <app-programme-attendance [record]="field()" />
@@ -575,91 +663,7 @@ type Tab =
           }
         }
 
-        @if (tab() === 'sessions') {
-          <!-- Said out loud, because nothing else says it.
-
-               The timetable is written from the program type's curriculum
-               when the batch is permitted, and a curriculum that does not
-               fit the batch is fitted to it anyway: a Day 2 session on a
-               one-day batch is dated to day 1 rather than to a day after
-               the batch has ended. That is the right call on its own - a
-               session dated outside its own batch is worse - but it was
-               made silently, and what comes out can be a plan nobody could
-               run. Three sessions landed on one date here, two of them on
-               top of each other, in the morning, for a batch that runs in
-               the evening.
-
-               Checked here rather than at the moment it is written: this
-               reads the timetable as it now stands, so it keeps telling
-               the truth after somebody edits a session, and it tells it to
-               the coordinator who has to run the day as well as to the
-               manager who permitted it. -->
-          @if (timetableTrouble(batch); as trouble) {
-            <div class="alert alert--warning mb-md">
-              <app-icon name="alert" [size]="16" />
-              <span>
-                <strong>This timetable does not fit the batch.</strong>
-                @for (line of trouble; track line) {
-                  <br />{{ line }}
-                }
-                <br />
-                <span class="text-xs text-muted">
-                  The sessions come from the program type's curriculum. Either the
-                  curriculum or the batch's dates and hours need to agree before the day
-                  can be run as planned.
-                </span>
-              </span>
-            </div>
-          }
-
-          <div class="table-wrap">
-            <table class="table table--compact table--wide">
-              <thead>
-                <tr>
-                  <!-- The title is the column anybody scans, so it takes
-                       what is left. A code is a fixed eight characters and
-                       was being given twice the room of the thing it
-                       identifies, which pushed every title onto three
-                       lines. -->
-                  <th style="width: 120px">Code</th>
-                  <th>Session</th>
-                  <th style="width: 115px">Date</th>
-                  <th style="width: 125px">Time</th>
-                  <th style="width: 160px">Faculty</th>
-                  <th style="width: 100px" class="text-center">Present</th>
-                  <th class="col-actions"></th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (session of batch.sessions; track session.id) {
-                  <tr>
-                    <td class="cell-muted tabular">{{ session.sessionCode || '—' }}</td>
-                    <td class="cell-primary">{{ session.title }}</td>
-                    <td>{{ session.sessionDate | date: 'dd MMM yyyy' }}</td>
-                    <td class="cell-muted">{{ session.startTime }} – {{ session.endTime }}</td>
-                    <td class="cell-muted">{{ session.facultyName || '—' }}</td>
-                    <td class="text-center tabular">
-                      {{ session.presentCount }} / {{ batch.participants.length }}
-                    </td>
-                    <td class="col-actions">
-                      @if (canManage() && !session.isAttendanceLocked) {
-                        <button type="button" class="btn btn--sm btn--secondary" (click)="openAttendance(session)">
-                          Mark attendance
-                        </button>
-                      } @else {
-                        <span class="chip">Locked</span>
-                      }
-                    </td>
-                  </tr>
-                } @empty {
-                  <tr>
-                    <td colspan="7" class="cell-muted text-center">No sessions captured yet.</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        } @else if (tab() === 'participants') {
+        @if (tab() === 'participants') {
           <div class="table-wrap">
             <table class="table table--compact table--wide">
               <thead>
@@ -767,35 +771,6 @@ type Tab =
       <div class="card" style="height: 240px"></div>
     }
 
-    @if (attendanceFor(); as session) {
-      <app-modal
-        title="Mark attendance"
-        [subtitle]="session.title"
-        size="md"
-        (closed)="attendanceFor.set(null)"
-      >
-        <div class="stack stack-sm">
-          <div class="row row-between">
-            <span class="text-sm text-muted">{{ presentCount() }} of {{ marks().length }} present</span>
-            <div class="btn-row">
-              <button type="button" class="btn btn--sm btn--secondary" (click)="setAll(true)">All present</button>
-              <button type="button" class="btn btn--sm btn--secondary" (click)="setAll(false)">All absent</button>
-            </div>
-          </div>
-          @for (mark of marks(); track mark.participantId) {
-            <label class="attendance-row">
-              <input type="checkbox" [checked]="mark.present" (change)="toggle(mark.participantId, $event)" />
-              <span class="flex-1">{{ nameOf(mark.participantId) }}</span>
-              <span class="chip">{{ mark.present ? 'Present' : 'Absent' }}</span>
-            </label>
-          }
-        </div>
-        <div footer>
-          <button type="button" class="btn btn--secondary" (click)="attendanceFor.set(null)">Cancel</button>
-          <button type="button" class="btn btn--primary" (click)="saveAttendance()">Save attendance</button>
-        </div>
-      </app-modal>
-    }
   `,
   styles: [
     `
@@ -951,19 +926,6 @@ type Tab =
       .share__text { flex: 1; min-width: 220px; }
       .share__row { display: flex; align-items: center; gap: 0.5rem; }
       .share__url { min-width: 300px; font-size: var(--fs-xs); font-family: ui-monospace, monospace; }
-    `,
-    `
-      .attendance-row {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        padding: 0.45rem 0.6rem;
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        cursor: pointer;
-      }
-      .attendance-row:hover { background: var(--brand-50); }
-      .attendance-row input { width: 16px; height: 16px; accent-color: var(--brand-600); }
     `,
   ],
 })
@@ -1238,11 +1200,7 @@ export class ProgramDetailComponent {
   }
   /** Whether the batch's particulars are showing. Open on arrival. */
   protected readonly detailsOpen = signal(true);
-  protected readonly attendanceFor = signal<ProgramSession | null>(null);
-  protected readonly marks = signal<AttendanceMark[]>([]);
-
   protected readonly canManage = computed(() => this.auth.hasPermission('programs.manage'));
-  protected readonly presentCount = computed(() => this.marks().filter((m) => m.present).length);
 
   constructor() {
     effect(() => {
@@ -1436,36 +1394,4 @@ export class ProgramDetailComponent {
     });
   }
 
-  protected openAttendance(session: ProgramSession): void {
-    const batch = this.programme();
-    if (!batch) return;
-    this.attendanceFor.set(session);
-    this.marks.set(batch.participants.map((p) => ({ participantId: p.id, present: true })));
-  }
-
-  protected nameOf(participantId: number): string {
-    return this.programme()?.participants.find((p) => p.id === participantId)?.name ?? '';
-  }
-
-  protected toggle(participantId: number, event: Event): void {
-    const present = (event.target as HTMLInputElement).checked;
-    this.marks.update((list) =>
-      list.map((m) => (m.participantId === participantId ? { ...m, present } : m)),
-    );
-  }
-
-  protected setAll(present: boolean): void {
-    this.marks.update((list) => list.map((m) => ({ ...m, present })));
-  }
-
-  protected saveAttendance(): void {
-    const batch = this.programme();
-    const session = this.attendanceFor();
-    if (!batch || !session) return;
-    this.service.markAttendance(batch.id, session.id, this.marks()).subscribe((updated) => {
-      this.programme.set(updated);
-      this.attendanceFor.set(null);
-      this.toast.success('Attendance saved', `${this.presentCount()} marked present.`);
-    });
-  }
 }

@@ -186,11 +186,6 @@ export interface Program extends AuditInfo {
   participants: ProgramParticipant[];
 }
 
-export interface AttendanceMark {
-  participantId: Id;
-  present: boolean;
-}
-
 /** Actions the register exposes inline, depending on the current status. */
 export function programActions(
   program: Pick<

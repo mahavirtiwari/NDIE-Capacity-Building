@@ -118,44 +118,6 @@ public class FacultyService(NtmsDbContext db, ICurrentUser currentUser)
         };
     }
 
-    public async Task<FacultyDto> AddAsync(
-        int programmeId, TrainerUpsertDto dto, CancellationToken ct)
-    {
-        await ForWriteAsync(programmeId, ct);
-        Validate(dto);
-
-        /* The web is not where a coordinator does this. They register
-           whoever turned up from the app, on the day and on the spot,
-           and this door is the administrator's - for adding one that was
-           missed and for correcting what was taken down. Held here as
-           well as hidden on the screen, because a hidden button is not a
-           rule. */
-        EnsureNotACoordinator();
-
-        /* The same questions the app is asked, because this is the same
-           record. The trainer form is configured once in Super Admin and
-           the app renders it; this door was built before that and went on
-           asking a fixed set of its own, so a question the office had
-           marked required could be skipped entirely by adding the trainer
-           from the portal instead - and a question it had added was never
-           asked here at all. */
-        var form = await TrainerFormAsync(ct);
-        TrainerFormService.RequireWhatTheFormAsks(form, dto);
-
-        var trainer = new ProgrammeTrainer
-        {
-            ProgrammeId = programmeId,
-            RegisteredByUserId = currentUser.UserId,
-        };
-        Apply(trainer, dto);
-        TrainerFormService.KeepAnswers(trainer, form, dto);
-
-        db.ProgrammeTrainers.Add(trainer);
-        await db.SaveChangesAsync(ct);
-
-        return await OneAsync(trainer.Id, ct);
-    }
-
     public async Task<FacultyDto> UpdateAsync(
         int trainerId, TrainerUpsertDto dto, CancellationToken ct)
     {

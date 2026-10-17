@@ -31,11 +31,15 @@ public class FacultyController(FacultyService service) : ApiControllerBase
         Envelope(await service.ListAsync(
             request, categoryId, subCategoryId, programTypeId, agencyId, stateCode, programmeId, ct));
 
-    [HttpPost("programmes/{programmeId:int}")]
-    [HasPermission(Permissions.TrainersManage)]
-    public async Task<ActionResult<ApiEnvelope<FacultyDto>>> Add(
-        int programmeId, [FromBody] TrainerUpsertDto dto, CancellationToken ct) =>
-        Envelope(await service.AddAsync(programmeId, dto, ct), "Trainer added.");
+    /* No adding from here, by anybody. A trainer is registered at the
+       venue, on the day, by the coordinator standing in front of them -
+       from the app, which records where and when it was taken. A web form
+       offering the same thing from an office is a trainer nobody saw.
+
+       Removed rather than guarded, like the attendance route beside it: a
+       guard is a decision somebody can reverse by editing a line, and no
+       route at all is the rule. Correcting one already taken down stays,
+       below - that is a different act, and it cannot invent anybody. */
 
     [HttpPut("{trainerId:int}")]
     [HasPermission(Permissions.TrainersManage)]

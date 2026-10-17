@@ -612,17 +612,6 @@ public class SetExamTimeDto
     public int? ExamPaperId { get; set; }
 }
 
-public class AttendanceMarkDto
-{
-    public int ParticipantId { get; set; }
-    public bool Present { get; set; }
-}
-
-public class MarkAttendanceDto
-{
-    public List<AttendanceMarkDto> Marks { get; set; } = [];
-}
-
 public class EnrolDto
 {
     public List<int> ApplicationIds { get; set; } = [];
