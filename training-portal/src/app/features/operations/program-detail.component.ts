@@ -15,6 +15,9 @@ import { CertificateService } from '../../core/services/certificate.service';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
+import { ReportService } from '../../core/services/report.service';
+import { downloadWorkbook, stampedName } from '../../shared/excel';
+import { programmeReportSheets } from '../reports/programme-report.workbook';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ProgramTypeService } from '../../core/services/masters.service';
 import { ProgramService } from '../../core/services/workflow.service';
@@ -30,6 +33,8 @@ import { PageHeaderComponent } from '../../shared/components/page-header.compone
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
 
 type Tab =
+  | 'overview'
+  | 'venue'
   | 'sessions'
   | 'monitoring'
   | 'attendance'
@@ -77,6 +82,34 @@ type Tab =
         <a class="btn btn--secondary" routerLink="/operations/programs">
           <app-icon name="chevron-left" [size]="15" /> Back
         </a>
+
+        <!-- The day plan, for sending round. Built from what is already
+             on this page, so it works on a batch nobody has reported on
+             yet - which is exactly when somebody wants the schedule. -->
+        @if (batch.sessions.length > 0) {
+          <button
+            type="button"
+            class="btn btn--secondary"
+            [disabled]="downloading()"
+            (click)="downloadSchedule(batch)"
+          >
+            <app-icon name="download" [size]="15" /> Schedule
+          </button>
+        }
+
+        <!-- And the whole batch as a workbook: the same sheets View
+             reports builds, without going and finding it again. -->
+        @if (canReport()) {
+          <button
+            type="button"
+            class="btn btn--secondary"
+            [disabled]="downloading()"
+            (click)="exportExcel(batch)"
+          >
+            <app-icon name="download" [size]="15" />
+            {{ downloading() ? 'Working…' : 'Excel' }}
+          </button>
+        }
       </app-page-header>
 
       <!-- A refusal and a postponement are the two states nobody can act
@@ -107,303 +140,19 @@ type Tab =
         </div>
       }
 
-      <section class="card mb-md">
-        <!-- What this batch is, in one line, before any of the detail. -->
-        <div class="card__header record__bar">
-          <div class="row row-sm row-wrap">
-            <app-status-badge [value]="batch.status" />
-            <span class="chip chip--muted">
-              <app-icon
-                [name]="
-                  batch.mode === 'Virtual'
-                    ? 'monitor'
-                    : batch.mode === 'Hybrid'
-                      ? 'layers'
-                      : 'map-pin'
-                "
-                [size]="13"
-              />
-              {{ batch.mode }}
-            </span>
-            @if (batch.programTypeName) {
-              <span class="chip chip--muted">{{ batch.programTypeName }}</span>
-            }
-          </div>
-          <div class="row row-sm record__right">
-            <span class="text-xs text-muted">
-              {{ dayCount(batch) }} day{{ dayCount(batch) === 1 ? '' : 's' }} ·
-              {{ batch.sessions.length }} session{{ batch.sessions.length === 1 ? '' : 's' }}
-            </span>
-            <button
-              type="button"
-              class="btn btn--ghost btn--sm record__fold"
-              [attr.aria-expanded]="detailsOpen()"
-              aria-controls="batch-record"
-              (click)="detailsOpen.set(!detailsOpen())"
-            >
-              <app-icon [name]="detailsOpen() ? 'chevron-up' : 'chevron-down'" [size]="14" />
-              {{ detailsOpen() ? 'Hide details' : 'Show details' }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Folded, the four things somebody came to the page for stay on
-             it. A section that collapses to nothing makes the reader open
-             it again to check they are on the right batch. -->
-        @if (!detailsOpen()) {
-          <div class="record__gist">
-            <span>
-              <app-icon name="calendar" [size]="13" />
-              {{ batch.startDate | date: 'dd MMM yyyy' }} &ndash;
-              {{ batch.endDate | date: 'dd MMM yyyy' }}
-            </span>
-            <span class="tabular">
-              <app-icon name="clock" [size]="13" />
-              {{ batch.startTime }} &ndash; {{ batch.endTime }}
-            </span>
-            <span>
-              <app-icon name="map-pin" [size]="13" />
-              {{ batch.mode === 'Virtual' ? 'Online' : batch.venue }}
-            </span>
-            <span>
-              <app-icon name="user-check" [size]="13" />
-              {{ batch.participantCount }} of {{ batch.maxParticipants }} enrolled
-            </span>
-          </div>
-        }
-
-        <div class="record" id="batch-record" [hidden]="!detailsOpen()">
-          <!-- Tinted, and first, because places left is the number the desk
-               is actually ringing about. -->
-          <section class="group group--accent">
-            <h3 class="group__head"><app-icon name="user-check" [size]="14" /> Enrolment</h3>
-            <div class="group__body">
-              <div class="fact">
-                <span class="fact__term">Enrolled</span>
-                <span class="fact__value">
-                  <span class="seats tabular">{{ batch.participantCount }}</span>
-                  <span class="text-xs text-muted">of {{ batch.maxParticipants }}</span>
-                </span>
-                <div
-                  class="meter"
-                  role="progressbar"
-                  [attr.aria-valuenow]="batch.participantCount"
-                  [attr.aria-valuemin]="0"
-                  [attr.aria-valuemax]="batch.maxParticipants"
-                >
-                  <span class="meter__fill" [style.width.%]="fillPercent(batch)"></span>
-                </div>
-              </div>
-              <div class="fact">
-                <span class="fact__term">Registration</span>
-                <span class="fact__value">
-                  @if (batch.participantCount >= batch.maxParticipants) {
-                    <span class="chip chip--warn">Full — closed</span>
-                  } @else if (batch.registrationsOpen) {
-                    <span class="chip">Open</span>
-                    <span class="text-xs text-muted">
-                      {{ batch.maxParticipants - batch.participantCount }} left
-                    </span>
-                  } @else {
-                    <span class="chip chip--muted">Closed</span>
-                  }
-                </span>
-              </div>
-            </div>
-          </section>
-
-          <section class="group">
-            <h3 class="group__head"><app-icon name="calendar" [size]="14" /> Schedule</h3>
-            <div class="group__body">
-              <div class="fact">
-                <span class="fact__term">Dates</span>
-                <span class="fact__value">
-                  {{ batch.startDate | date: 'dd MMM yyyy' }} &ndash;
-                  {{ batch.endDate | date: 'dd MMM yyyy' }}
-                </span>
-              </div>
-              <div class="fact">
-                <span class="fact__term">Hours</span>
-                <span class="fact__value tabular">{{ batch.startTime }} &ndash; {{ batch.endTime }}</span>
-              </div>
-              <div class="fact">
-                <span class="fact__term">Exam</span>
-                <span class="fact__value">
-                  {{
-                    batch.examDateTime
-                      ? (batch.examDateTime | date: 'dd MMM yyyy, HH:mm')
-                      : 'Not scheduled'
-                  }}
-                  @if (batch.examPaperTitle) {
-                    <span class="text-xs text-muted">{{ batch.examPaperTitle }}</span>
-                  }
-                </span>
-              </div>
-            </div>
-          </section>
-
-          <section class="group">
-            <h3 class="group__head"><app-icon name="map-pin" [size]="14" /> Where</h3>
-            <div class="group__body">
-              <!-- A hybrid batch is held in a room and joined from a desk,
-                   so it shows both rather than having to pick one. -->
-              @if (batch.mode !== 'Virtual') {
-                <div class="fact">
-                  <span class="fact__term">Venue</span>
-                  <span class="fact__value">
-                    {{ batch.venue }}
-                    @if (batch.pincode) {
-                      <span class="text-xs text-muted tabular">PIN {{ batch.pincode }}</span>
-                    }
-                  </span>
-                </div>
-              }
-              @if (batch.mode !== 'Physical') {
-                <div class="fact">
-                  <span class="fact__term">Platform</span>
-                  <span class="fact__value">
-                    {{ batch.meetingPlatform || '—' }}
-                    @if (batch.meetingLink) {
-                      <a [href]="batch.meetingLink" target="_blank" rel="noopener" class="text-xs">
-                        Join <app-icon name="external" [size]="12" />
-                      </a>
-                    }
-                  </span>
-                </div>
-              }
-              <div class="fact">
-                <span class="fact__term">State/UT</span>
-                <span class="fact__value">
-                  {{ batch.state }}
-                  @if (batch.district || batch.city) {
-                    <span class="text-xs text-muted">
-                      {{ batch.district || batch.city }}
-                    </span>
-                  }
-                </span>
-              </div>
-
-              <!-- A move the agency has asked for and the manager has not
-                   answered. On the sheet rather than only in the register,
-                   because this is the screen somebody opens to find out
-                   where the programme actually is. -->
-              @if (batch.venueChangeRequestedOn) {
-                <div class="fact fact--wide fact--pending">
-                  <span class="fact__term">Venue change requested</span>
-                  <span class="fact__value">
-                    {{ batch.requestedVenue }}@if (batch.requestedCity) {, {{ batch.requestedCity }}}@if (batch.requestedPincode) { — {{ batch.requestedPincode }}}
-                    <span class="text-xs text-muted">
-                      asked {{ batch.venueChangeRequestedOn | date: 'dd MMM yyyy' }} ·
-                      {{ batch.venueChangeReason }}
-                    </span>
-                  </span>
-                </div>
-              }
-            </div>
-          </section>
-
-          <section class="group">
-            <h3 class="group__head"><app-icon name="users" [size]="14" /> Who</h3>
-            <div class="group__body">
-              <div class="fact">
-                <span class="fact__term">Implementing agency</span>
-                <span class="fact__value">{{ batch.agencyName || '—' }}</span>
-              </div>
-              <div class="fact">
-                <span class="fact__term">Coordinator</span>
-                <span class="fact__value">
-                  {{ batch.coordinatorName || '—' }}
-                  @if (batch.coordinatorMobile) {
-                    <span class="text-xs text-muted tabular">{{ batch.coordinatorMobile }}</span>
-                  }
-                  @if (batch.coordinatorEmail) {
-                    <span class="text-xs text-muted">{{ batch.coordinatorEmail }}</span>
-                  }
-                </span>
-              </div>
-              <div class="fact">
-                <span class="fact__term">Operation manager</span>
-                <span class="fact__value">{{ batch.operationManagerName || 'Not assigned' }}</span>
-              </div>
-            </div>
-          </section>
-
-          <section class="group">
-            <h3 class="group__head"><app-icon name="tag" [size]="14" /> Classification</h3>
-            <div class="group__body">
-              <div class="fact">
-                <span class="fact__term">Category</span>
-                <span class="fact__value">{{ batch.categoryName || '—' }}</span>
-              </div>
-              <div class="fact">
-                <span class="fact__term">Sub-category</span>
-                <span class="fact__value">{{ batch.subCategoryName || '—' }}</span>
-              </div>
-              <div class="fact">
-                <span class="fact__term">Programme type</span>
-                <span class="fact__value">{{ batch.programTypeName || '—' }}</span>
-              </div>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <!-- What the coordinator geo-tagged and photographed, which is the
-           answer to "was it actually held there". Only once there is
-           something to show: an empty frame reads as a venue nobody
-           recorded, which is a different thing from one not yet visited. -->
-      @if (venuePhotos().length > 0) {
-        <section class="card mb-md">
-          <div class="card__header">
-            <h2 class="card__title">
-              <app-icon name="map-pin" [size]="15" /> Venue as recorded
-              @if (field()?.venue2?.geoTaggedOn; as tagged) {
-                <span class="card__subtitle">
-                  geo-tagged {{ tagged | date: 'dd MMM yyyy, HH:mm' }}
-                </span>
-              }
-            </h2>
-            @if (venueMap(); as where) {
-              <a class="btn btn--ghost btn--sm" [href]="where" target="_blank" rel="noopener">
-                <app-icon name="map-pin" [size]="14" /> Open the map
-              </a>
-            }
-          </div>
-          <div class="card__body venue-shots">
-            @for (shot of venuePhotos(); track shot.photo.id) {
-              <app-monitoring-photo
-                [programmeId]="batch.id"
-                [photo]="shot.photo"
-                [caption]="shot.caption"
-              />
-            }
-          </div>
-        </section>
-      }
-
-      @if (isPublic()) {
-        <section class="card mb-md">
-          <div class="card__body share">
-            <div class="stack stack-xs share__text">
-              <strong class="text-sm">Registration link</strong>
-              <span class="text-xs text-muted">
-                Anyone with this link can see the batch and how many places are left. It stops
-                accepting registrations on its own once the batch is full.
-              </span>
-            </div>
-            <div class="share__row">
-              <input class="input share__url" readonly [value]="shareUrl()" (focus)="selectAll($event)" />
-              <button type="button" class="btn btn--secondary" (click)="copyLink()">
-                {{ copied() ? 'Copied' : 'Copy' }}
-              </button>
-              <a class="btn btn--ghost" [href]="shareUrl()" target="_blank" rel="noopener">Open</a>
-            </div>
-          </div>
-        </section>
-      }
 
       <section class="card">
         <div class="tabs tabs--inset">
+          <!-- What the batch is, and where it was held, come first. They
+               were two cards above this strip, so the strip began halfway
+               down the page and every other tab was read underneath
+               them. -->
+          <button type="button" class="tab" [class.is-active]="tab() === 'overview'" (click)="tab.set('overview')">
+            Overview
+          </button>
+          <button type="button" class="tab" [class.is-active]="tab() === 'venue'" (click)="tab.set('venue')">
+            Venue
+          </button>
           <button type="button" class="tab" [class.is-active]="tab() === 'sessions'" (click)="tab.set('sessions')">
             Sessions ({{ batch.sessions.length }})
           </button>
@@ -464,6 +213,236 @@ type Tab =
           </button>
         </div>
 
+        @if (tab() === 'overview') {
+          <div class="record">
+            <!-- Tinted, and first, because places left is the number the desk
+                 is actually ringing about. -->
+            <section class="group group--accent">
+              <h3 class="group__head"><app-icon name="user-check" [size]="14" /> Enrolment</h3>
+              <div class="group__body">
+                <div class="fact">
+                  <span class="fact__term">Enrolled</span>
+                  <span class="fact__value">
+                    <span class="seats tabular">{{ batch.participantCount }}</span>
+                    <span class="text-xs text-muted">of {{ batch.maxParticipants }}</span>
+                  </span>
+                </div>
+                <div class="fact">
+                  <span class="fact__term">Registration</span>
+                  <span class="fact__value">
+                    @if (batch.participantCount >= batch.maxParticipants) {
+                      <span class="chip chip--warn">Full — closed</span>
+                    } @else if (batch.registrationsOpen) {
+                      <span class="chip">Open</span>
+                      <span class="text-xs text-muted">
+                        {{ batch.maxParticipants - batch.participantCount }} left
+                      </span>
+                    } @else {
+                      <span class="chip chip--muted">Closed</span>
+                    }
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            <section class="group">
+              <h3 class="group__head"><app-icon name="calendar" [size]="14" /> Schedule</h3>
+              <div class="group__body">
+                <div class="fact">
+                  <span class="fact__term">Dates</span>
+                  <span class="fact__value">
+                    {{ batch.startDate | date: 'dd MMM yyyy' }} &ndash;
+                    {{ batch.endDate | date: 'dd MMM yyyy' }}
+                  </span>
+                </div>
+                <div class="fact">
+                  <span class="fact__term">Hours</span>
+                  <span class="fact__value tabular">{{ batch.startTime }} &ndash; {{ batch.endTime }}</span>
+                </div>
+                <div class="fact">
+                  <span class="fact__term">Exam</span>
+                  <span class="fact__value">
+                    {{
+                      batch.examDateTime
+                        ? (batch.examDateTime | date: 'dd MMM yyyy, HH:mm')
+                        : 'Not scheduled'
+                    }}
+                    @if (batch.examPaperTitle) {
+                      <span class="text-xs text-muted">{{ batch.examPaperTitle }}</span>
+                    }
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            <section class="group">
+              <h3 class="group__head"><app-icon name="map-pin" [size]="14" /> Where</h3>
+              <div class="group__body">
+                <!-- A hybrid batch is held in a room and joined from a desk,
+                     so it shows both rather than having to pick one. -->
+                @if (batch.mode !== 'Virtual') {
+                  <div class="fact">
+                    <span class="fact__term">Venue</span>
+                    <span class="fact__value">
+                      {{ batch.venue }}
+                      @if (batch.pincode) {
+                        <span class="text-xs text-muted tabular">PIN {{ batch.pincode }}</span>
+                      }
+                    </span>
+                  </div>
+                }
+                @if (batch.mode !== 'Physical') {
+                  <div class="fact">
+                    <span class="fact__term">Platform</span>
+                    <span class="fact__value">
+                      {{ batch.meetingPlatform || '—' }}
+                      @if (batch.meetingLink) {
+                        <a [href]="batch.meetingLink" target="_blank" rel="noopener" class="text-xs">
+                          Join <app-icon name="external" [size]="12" />
+                        </a>
+                      }
+                    </span>
+                  </div>
+                }
+                <div class="fact">
+                  <span class="fact__term">State/UT</span>
+                  <span class="fact__value">
+                    {{ batch.state }}
+                    @if (batch.district || batch.city) {
+                      <span class="text-xs text-muted">
+                        {{ batch.district || batch.city }}
+                      </span>
+                    }
+                  </span>
+                </div>
+
+                <!-- A move the agency has asked for and the manager has not
+                     answered. On the sheet rather than only in the register,
+                     because this is the screen somebody opens to find out
+                     where the programme actually is. -->
+                @if (batch.venueChangeRequestedOn) {
+                  <div class="fact fact--wide fact--pending">
+                    <span class="fact__term">Venue change requested</span>
+                    <span class="fact__value">
+                      {{ batch.requestedVenue }}@if (batch.requestedCity) {, {{ batch.requestedCity }}}@if (batch.requestedPincode) { — {{ batch.requestedPincode }}}
+                      <span class="text-xs text-muted">
+                        asked {{ batch.venueChangeRequestedOn | date: 'dd MMM yyyy' }} ·
+                        {{ batch.venueChangeReason }}
+                      </span>
+                    </span>
+                  </div>
+                }
+              </div>
+            </section>
+
+            <section class="group">
+              <h3 class="group__head"><app-icon name="users" [size]="14" /> Who</h3>
+              <div class="group__body">
+                <div class="fact">
+                  <span class="fact__term">Implementing agency</span>
+                  <span class="fact__value">{{ batch.agencyName || '—' }}</span>
+                </div>
+                <div class="fact">
+                  <span class="fact__term">Coordinator</span>
+                  <span class="fact__value">
+                    {{ batch.coordinatorName || '—' }}
+                    @if (batch.coordinatorMobile) {
+                      <span class="text-xs text-muted tabular">{{ batch.coordinatorMobile }}</span>
+                    }
+                    @if (batch.coordinatorEmail) {
+                      <span class="text-xs text-muted">{{ batch.coordinatorEmail }}</span>
+                    }
+                  </span>
+                </div>
+                <div class="fact">
+                  <span class="fact__term">Operation manager</span>
+                  <span class="fact__value">{{ batch.operationManagerName || 'Not assigned' }}</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="group">
+              <h3 class="group__head"><app-icon name="tag" [size]="14" /> Classification</h3>
+              <div class="group__body">
+                <div class="fact">
+                  <span class="fact__term">Category</span>
+                  <span class="fact__value">{{ batch.categoryName || '—' }}</span>
+                </div>
+                <div class="fact">
+                  <span class="fact__term">Sub-category</span>
+                  <span class="fact__value">{{ batch.subCategoryName || '—' }}</span>
+                </div>
+                <div class="fact">
+                  <span class="fact__term">Programme type</span>
+                  <span class="fact__value">{{ batch.programTypeName || '—' }}</span>
+                </div>
+              </div>
+            </section>
+          </div>
+
+        @if (isPublic()) {
+          <section class="card">
+            <div class="card__body share">
+              <div class="stack stack-xs share__text">
+                <strong class="text-sm">Registration link</strong>
+                <span class="text-xs text-muted">
+                  Anyone with this link can see the batch and how many places are left. It stops
+                  accepting registrations on its own once the batch is full.
+                </span>
+              </div>
+              <div class="share__row">
+                <input class="input share__url" readonly [value]="shareUrl()" (focus)="selectAll($event)" />
+                <button type="button" class="btn btn--secondary" (click)="copyLink()">
+                  {{ copied() ? 'Copied' : 'Copy' }}
+                </button>
+                <a class="btn btn--ghost" [href]="shareUrl()" target="_blank" rel="noopener">Open</a>
+              </div>
+            </div>
+          </section>
+        }
+        }
+        @if (tab() === 'venue') {
+        <!-- What the coordinator geo-tagged and photographed, which is the
+             answer to "was it actually held there". Only once there is
+             something to show: an empty frame reads as a venue nobody
+             recorded, which is a different thing from one not yet visited. -->
+        @if (venuePhotos().length > 0) {
+          <section class="card">
+            <div class="card__header">
+              <h2 class="card__title">
+                <app-icon name="map-pin" [size]="15" /> Venue as recorded
+                @if (field()?.venue2?.geoTaggedOn; as tagged) {
+                  <span class="card__subtitle">
+                    geo-tagged {{ tagged | date: 'dd MMM yyyy, HH:mm' }}
+                  </span>
+                }
+              </h2>
+              @if (venueMap(); as where) {
+                <a class="btn btn--ghost btn--sm" [href]="where" target="_blank" rel="noopener">
+                  <app-icon name="map-pin" [size]="14" /> Open the map
+                </a>
+              }
+            </div>
+            <div class="card__body venue-shots">
+              @for (shot of venuePhotos(); track shot.photo.id) {
+                <app-monitoring-photo
+                  [programmeId]="batch.id"
+                  [photo]="shot.photo"
+                  [caption]="shot.caption"
+                />
+              }
+            </div>
+          </section>
+        }
+          @if (venuePhotos().length === 0) {
+            <div class="card__body">
+              <p class="text-sm text-muted">
+                Nothing photographed here yet. The coordinator registers the venue from the
+                app, on the day, and what they record appears here.
+              </p>
+            </div>
+          }
+        }
         <!-- Mounted only while the tab is open, so the sheet is fetched when
              somebody asks for it and re-read fresh next time. -->
         @if (tab() === 'marksheet') {
@@ -955,13 +934,16 @@ type Tab =
 export class ProgramDetailComponent {
   private readonly service = inject(ProgramService);
   private readonly toast = inject(ToastService);
+  private readonly reports = inject(ReportService);
   private readonly auth = inject(AuthService);
   protected readonly copy = inject(SiteTextService);
 
   readonly id = input.required<string>();
 
   protected readonly programme = signal<Program | null>(null);
-  protected readonly tab = signal<Tab>('sessions');
+  /* Overview: what the batch is, which is what somebody opening one
+     reads before anything that was recorded against it. */
+  protected readonly tab = signal<Tab>('overview');
 
   /* ------------------------------------------------- the field record */
 
@@ -1258,6 +1240,83 @@ export class ProgramDetailComponent {
            a page that is otherwise fine. */
         error: () => this.field.set(null),
       });
+    });
+  }
+
+  /** Whether one of the two downloads is being built. */
+  protected readonly downloading = signal(false);
+
+  /** The report workbook is the reports register's, and so is its key. */
+  protected readonly canReport = computed(() => this.auth.hasPermission('reports.view'));
+
+  /**
+   * The batch's day plan as a workbook.
+   *
+   * From the sessions already on the page rather than a fresh read: this
+   * is the timetable the curriculum wrote, it is on screen in the
+   * Sessions tab, and a schedule somebody wants to forward should not
+   * wait on the report engine.
+   */
+  protected async downloadSchedule(batch: Program): Promise<void> {
+    this.downloading.set(true);
+    try {
+      await downloadWorkbook(
+        stampedName(`${batch.programmeId.replace(/[^A-Za-z0-9]+/g, '-')}-schedule`),
+        [
+          {
+            name: 'Schedule',
+            columns: [
+              { key: 'code', header: 'Code' },
+              { key: 'session', header: 'Session' },
+              { key: 'date', header: 'Date' },
+              { key: 'from', header: 'From' },
+              { key: 'to', header: 'To' },
+              { key: 'faculty', header: 'Faculty' },
+            ],
+            rows: batch.sessions.map((one) => ({
+              code: one.sessionCode || '—',
+              session: one.title,
+              date: one.sessionDate,
+              from: one.startTime,
+              to: one.endTime,
+              faculty: one.facultyName || '—',
+            })),
+          },
+        ],
+      );
+      this.toast.success('Schedule downloaded', batch.programmeId);
+    } catch {
+      this.toast.error('The schedule could not be built.');
+    } finally {
+      this.downloading.set(false);
+    }
+  }
+
+  /**
+   * The whole batch as a workbook, a sheet per section.
+   *
+   * The same sheets View reports builds, because a batch exported from
+   * two screens that disagreed would be two different documents with
+   * one name.
+   */
+  protected exportExcel(batch: Program): void {
+    this.downloading.set(true);
+
+    this.reports.programme(batch.id).subscribe({
+      next: async (report) => {
+        try {
+          await downloadWorkbook(
+            stampedName(`${batch.programmeId.replace(/[^A-Za-z0-9]+/g, '-')}-report`),
+            programmeReportSheets(report),
+          );
+          this.toast.success('Workbook downloaded', batch.programmeId);
+        } catch {
+          this.toast.error('The workbook could not be built.');
+        } finally {
+          this.downloading.set(false);
+        }
+      },
+      error: () => this.downloading.set(false),
     });
   }
 
