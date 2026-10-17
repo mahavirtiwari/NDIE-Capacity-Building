@@ -6,10 +6,12 @@ import {
   ExamPaper,
   FeeStructure,
   Id,
-  RecordStatus,
   ProfileForm,
+  RecordStatus,
   SignupField,
   SignupFieldUpsert,
+  TrainerField,
+  TrainerFieldUpsert,
   TrainingMaterial,
 } from '../models';
 import { ApiService } from './api.service';
@@ -119,5 +121,41 @@ export class SignupFormService {
 
   reorder(ids: Id[]): Observable<SignupField[]> {
     return this.api.put<SignupField[]>(`${this.resource}/order`, { ids });
+  }
+}
+
+/**
+ * The form a coordinator fills in to register a trainer.
+ *
+ * The same shape as the sign-up form and for the same reason: one form,
+ * a flat list of fields, and the order is part of what is edited.
+ */
+@Injectable({ providedIn: 'root' })
+export class TrainerFormService {
+  private readonly api = inject(ApiService);
+  private readonly resource = 'trainer-form';
+
+  list(): Observable<TrainerField[]> {
+    return this.api.get<TrainerField[]>(this.resource);
+  }
+
+  create(body: TrainerFieldUpsert): Observable<TrainerField> {
+    return this.api.post<TrainerField>(this.resource, body);
+  }
+
+  update(id: Id, body: TrainerFieldUpsert): Observable<TrainerField> {
+    return this.api.put<TrainerField>(`${this.resource}/${id}`, body);
+  }
+
+  setStatus(id: Id, status: RecordStatus): Observable<TrainerField> {
+    return this.api.patch<TrainerField>(`${this.resource}/${id}/status`, { status });
+  }
+
+  remove(id: Id): Observable<boolean> {
+    return this.api.delete<boolean>(`${this.resource}/${id}`);
+  }
+
+  reorder(ids: Id[]): Observable<TrainerField[]> {
+    return this.api.put<TrainerField[]>(`${this.resource}/order`, { ids });
   }
 }

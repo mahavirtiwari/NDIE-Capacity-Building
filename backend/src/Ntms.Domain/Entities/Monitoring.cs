@@ -114,6 +114,13 @@ public class ProgrammeTrainer : AuditableEntity
     /// and filed. The whole number is not printed anywhere.
     /// </summary>
     public string? Aadhaar { get; set; }
+
+    /// <summary>
+    /// What was answered to the questions the trainer form adds beyond
+    /// the columns above. Empty on a record registered before anybody
+    /// added one.
+    /// </summary>
+    public ICollection<TrainerAnswer> Answers { get; set; } = [];
 }
 
 /// <summary>

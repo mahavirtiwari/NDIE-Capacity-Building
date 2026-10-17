@@ -13,13 +13,14 @@ import type {
   MarksheetRowSave,
   MaterialTicket,
   MonitoringPhoto,
-  MyNotifications,
   MonitoringSession,
+  MyNotifications,
   Participant,
   SessionTopic,
-  TrainerOption,
   Submission,
   Trainer,
+  TrainerField,
+  TrainerOption,
   TrainerUpsert,
   TrainingMaterial,
   Venue,
@@ -239,6 +240,14 @@ export const trainers = {
   qualifications: () => api.get<string[]>('coordinator/qualifications'),
 
   /**
+   * The form to draw, as the office set it up: switched-on fields, in
+   * order. Read each time the screen opens, because somebody in the
+   * portal may have changed it since this handset last looked.
+   */
+  form: () =>
+    api.get<{ fields: TrainerField[] }>('trainer-form/active').then((f) => f.fields),
+
+  /**
    * Who a session may be recorded against: everybody any coordinator of
    * this agency has registered, not only the people already on this
    * batch. The same trainer teaches several of them.
@@ -249,10 +258,16 @@ export const trainers = {
 
 /** A trainer row as it will read once the server has it. */
 function provisional(body: TrainerUpsert): Omit<Trainer, 'id'> {
-  const { aadhaar, ...rest } = body;
+  const { aadhaar, answers, ...rest } = body;
   return {
     ...rest,
     aadhaarLast4: aadhaar && aadhaar.length >= 4 ? aadhaar.slice(-4) : null,
+    /* Posted by key, read back by question. The label is not known here
+       - the screen has it, the outbox does not - so the key stands in
+       until the server answers with the wording it was asked in. */
+    answers: Object.entries(answers ?? {})
+      .filter(([, value]) => !!value)
+      .map(([key, value]) => ({ key, label: key, value: value ?? null })),
   };
 }
 

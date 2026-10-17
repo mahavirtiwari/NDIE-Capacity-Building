@@ -406,6 +406,56 @@ public class ReorderDto
     public List<int> Ids { get; set; } = [];
 }
 
+/* ----------------------------------------------------- the trainer form */
+
+public class TrainerFieldOptionDto
+{
+    public string Value { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public int DisplayOrder { get; set; }
+}
+
+public class TrainerFieldDto
+{
+    public int Id { get; set; }
+    public string Key { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public string? Placeholder { get; set; }
+    public string? HelpText { get; set; }
+    public string Type { get; set; } = "Text";
+    public bool Required { get; set; }
+    public int DisplayOrder { get; set; }
+
+    /// <summary>Backed by a column on the trainer: editable, never removable.</summary>
+    public bool IsBuiltIn { get; set; }
+
+    /// <summary>Cannot be switched off; a trainer record would not work without it.</summary>
+    public bool IsLocked { get; set; }
+
+    public string Status { get; set; } = "Active";
+    public List<TrainerFieldOptionDto> Options { get; set; } = [];
+}
+
+public class TrainerFieldUpsertDto
+{
+    /// <summary>Ignored on update: the key is what answers are stored against.</summary>
+    public string Key { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public string? Placeholder { get; set; }
+    public string? HelpText { get; set; }
+    public string Type { get; set; } = "Text";
+    public bool Required { get; set; }
+    public int DisplayOrder { get; set; }
+    public string Status { get; set; } = "Active";
+    public List<TrainerFieldOptionDto>? Options { get; set; }
+}
+
+/// <summary>The trainer form: what a coordinator is asked, in order.</summary>
+public class TrainerFormDto
+{
+    public List<TrainerFieldDto> Fields { get; set; } = [];
+}
+
 /// <summary>The sign-up form: the questions everybody answers, in order.</summary>
 public class SignupFormDto
 {

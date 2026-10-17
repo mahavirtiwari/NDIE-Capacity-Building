@@ -135,6 +135,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Program types', route: '/masters/program-types', icon: 'layers', permissions: ['masters.manage'] },
       { label: 'Sign-up form', route: '/academics/signup-form', icon: 'form', permissions: ['masters.manage'] },
       { label: 'Profile forms', route: '/academics/profile-forms', icon: 'form', permissions: ['masters.manage'] },
+      { label: 'Trainer form', route: '/academics/trainer-form', icon: 'form', permissions: ['masters.manage'] },
       { label: 'Feedback forms', route: '/academics/feedback-forms', icon: 'clipboard', permissions: ['curriculum.manage'] },
       { label: 'Fee structures', route: '/academics/fees', icon: 'rupee', permissions: ['fees.view'] },
       { label: 'Choice lists', route: '/masters/option-sets', icon: 'form', permissions: ['masters.manage'] },

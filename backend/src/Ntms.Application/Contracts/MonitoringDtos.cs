@@ -204,6 +204,21 @@ public class TrainerUpsertDto
 
     /// <summary>Twelve digits. Sent whole, never sent back whole.</summary>
     public string? Aadhaar { get; set; }
+
+    /// <summary>
+    /// Answers to the questions the trainer form adds beyond the columns
+    /// above, keyed by the field's key. Empty where the office has added
+    /// none, which is the shipped state.
+    /// </summary>
+    public Dictionary<string, string?> Answers { get; set; } = [];
+}
+
+/// <summary>One answer to a question the trainer form adds.</summary>
+public class TrainerAnswerDto
+{
+    public string Key { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public string? Value { get; set; }
 }
 
 public class TrainerDto : TrainerUpsertDto
@@ -224,6 +239,12 @@ public class TrainerDto : TrainerUpsertDto
 
     /// <summary>Their identity document, photographed.</summary>
     public MonitoringPhotoDto? IdProof { get; set; }
+
+    /// <summary>
+    /// What was answered to the questions the trainer form adds, with the
+    /// wording as it stood when it was asked.
+    /// </summary>
+    public List<TrainerAnswerDto> Answers { get; set; } = [];
 }
 
 /* ---------------------------------------------------------------- session */

@@ -1,0 +1,568 @@
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  FIELD_TYPES,
+  FieldType,
+  RecordStatus,
+  TrainerField,
+  TrainerFieldOption,
+  fieldTypeHasOptions,
+} from '../../core/models';
+import { TrainerFormService } from '../../core/services/academics.service';
+import { ToastService } from '../../core/services/toast.service';
+import { ConfirmService } from '../../shared/components/confirm.service';
+import { CanDirective } from '../../shared/directives/can.directive';
+import { IconComponent } from '../../shared/components/icon.component';
+import { ModalComponent } from '../../shared/components/modal.component';
+import { PageHeaderComponent } from '../../shared/components/page-header.component';
+import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
+import { describeFirstError } from '../../core/validation/formats';
+
+/**
+ * The form a coordinator fills in to register a trainer.
+ *
+ * Deliberately not a data table. There is one form and the order of its
+ * fields is part of what is being edited, so it reads as the form it
+ * configures rather than as a register of rows — the same shape as the
+ * sign-up form beside it, for the same reason.
+ *
+ * What is being configured here used to be markup in the coordinator app.
+ * The questions a scheme asks about its faculty are the scheme's, and
+ * changing them should not mean a release and a hundred handsets
+ * updating in the field.
+ *
+ * One form, not one per programme type. A trainer is registered once and
+ * reused across every batch their agency runs, so a form that changed
+ * with the batch would ask the same person different things depending on
+ * which one they were being added to.
+ */
+@Component({
+  selector: 'app-trainer-form',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [
+    CanDirective,
+    ReactiveFormsModule,
+    IconComponent,
+    ModalComponent,
+    PageHeaderComponent,
+    StatusBadgeComponent,
+  ],
+  template: `
+    <app-page-header
+      icon="form"
+      title="Trainer form"
+      subtitle="What a coordinator is asked when they register a trainer in the app."
+      [breadcrumbs]="[{ label: 'Program setup' }, { label: 'Trainer form' }]"
+    >
+      <button *appCan="'masters.manage'" type="button" class="btn btn--primary" (click)="openForm()">
+        <app-icon name="plus" [size]="15" />
+        New field
+      </button>
+    </app-page-header>
+
+    <section class="card">
+      <div class="card__body card__body--tight">
+        <p class="text-muted text-sm">
+          One form, used by every coordinator in every agency. The app draws it in the
+          order set here and asks only for the fields that are switched on. A field marked
+          required is refused by the server as well as the app, so work handed in from a
+          handset that has been offline cannot get round it.
+        </p>
+      </div>
+
+      <div class="card__header">
+        <span class="card__title">Fields</span>
+        <span class="card__meta">{{ activeCount() }} of {{ fields().length }} asked in the app</span>
+      </div>
+
+      <div class="card__body field-list">
+        @if (loading()) {
+          <p class="empty">Loading the form...</p>
+        } @else if (fields().length === 0) {
+          <p class="empty">No fields yet.</p>
+        }
+
+        @for (field of fields(); track field.id; let i = $index) {
+          <article class="field" [class.is-off]="field.status !== 'Active'">
+            <div class="field__order">
+              <button type="button" class="btn btn--icon" title="Move up"
+                [disabled]="i === 0 || saving()" (click)="move(i, -1)">
+                <app-icon name="chevron-up" [size]="14" />
+              </button>
+              <button type="button" class="btn btn--icon" title="Move down"
+                [disabled]="i === fields().length - 1 || saving()" (click)="move(i, 1)">
+                <app-icon name="chevron-down" [size]="14" />
+              </button>
+            </div>
+
+            <div class="field__main">
+              <div class="field__title">
+                {{ field.label }}
+                @if (field.required) { <span class="req" title="Required">*</span> }
+                @if (field.isBuiltIn) { <span class="chip">Built in</span> }
+                @if (field.isLocked) { <span class="chip chip--lock">Always on</span> }
+              </div>
+              <div class="field__meta">
+                <code>{{ field.key }}</code>
+                <span>{{ typeLabel(field.type) }}</span>
+                @if (field.options.length) { <span>{{ field.options.length }} options</span> }
+              </div>
+              @if (field.helpText) {
+                <div class="field__help">{{ field.helpText }}</div>
+              }
+            </div>
+
+            <app-status-badge [value]="field.status" />
+
+            <div class="field__actions">
+              <button *appCan="'masters.manage'" type="button" class="btn btn--icon" title="Edit"
+                [disabled]="saving()" (click)="openForm(field)">
+                <app-icon name="edit" [size]="15" />
+              </button>
+
+              <!-- A field the trainer record cannot work without offers no
+                   switch at all, rather than one that always refuses. -->
+              @if (!field.isLocked) {
+                <button type="button" class="btn btn--sm"
+                  [class.btn--ghost]="field.status === 'Active'"
+                  [disabled]="saving()" (click)="toggle(field)">
+                  {{ field.status === 'Active' ? 'Disable' : 'Enable' }}
+                </button>
+              }
+
+              @if (!field.isBuiltIn) {
+                <button *appCan="'masters.manage'" type="button" class="btn btn--icon btn--danger" title="Remove"
+                  [disabled]="saving()" (click)="remove(field)">
+                  <app-icon name="trash" [size]="15" />
+                </button>
+              }
+            </div>
+          </article>
+        }
+      </div>
+    </section>
+
+    @if (formOpen()) {
+      <app-modal
+        [title]="editing() ? 'Edit field' : 'New field'"
+        subtitle="Shown on the Register trainer screen, in the order set here."
+        (closed)="formOpen.set(false)"
+      >
+        <!-- Each control is a .field: the label above it and the hint
+             under it, which is how every other form in the portal is
+             built. They were labels wrapping their own inputs, and
+             .field-label is a flex row — so the words, the box and the
+             hint all sat on one line and the hint squeezed the box to
+             half its width. -->
+        <form [formGroup]="form" id="trainer-field-form" class="editor" (ngSubmit)="save()">
+          <div class="editor__grid">
+            <div class="editor__field">
+              <label class="field-label" for="tfLabel">
+                What the coordinator sees <span class="req">*</span>
+              </label>
+              <input id="tfLabel" class="input" formControlName="label" placeholder="Full name" />
+              <span class="field-hint">The wording above the box on the Register trainer screen.</span>
+            </div>
+
+            <div class="editor__field">
+              <label class="field-label" for="tfKey">Key</label>
+              <input
+                id="tfKey"
+                class="input tabular"
+                formControlName="key"
+                placeholder="empanelmentNumber"
+                [readonly]="!!editing()"
+              />
+              <span class="field-hint">
+                {{ editing()
+                    ? 'Answers are stored against this, so it cannot change.'
+                    : 'Letters, digits and underscores. Cannot be changed later.' }}
+              </span>
+            </div>
+
+            <div class="editor__field">
+              <label class="field-label" for="tfType">Answer type</label>
+              <select id="tfType" class="input" formControlName="type">
+                @for (t of types; track t.value) {
+                  <option [value]="t.value">{{ t.label }}</option>
+                }
+              </select>
+              @if (editing()?.isBuiltIn) {
+                <span class="field-hint">Set by the column behind this field.</span>
+              }
+            </div>
+
+            <div class="editor__field">
+              <label class="field-label" for="tfPlaceholder">Placeholder</label>
+              <input
+                id="tfPlaceholder"
+                class="input"
+                formControlName="placeholder"
+                placeholder="Enter your answer"
+              />
+              <span class="field-hint">Greyed out inside the empty box.</span>
+            </div>
+
+            <div class="editor__field editor__field--wide">
+              <label class="field-label" for="tfHelp">Help text</label>
+              <input
+                id="tfHelp"
+                class="input"
+                formControlName="helpText"
+                placeholder="Shown under the field"
+              />
+            </div>
+          </div>
+
+          <!-- A switch rather than a bare tick: whether an applicant can
+               get past this field is the kind of thing worth reading
+               twice, and a sentence under it says what it does. -->
+          <label class="required-row">
+            <input type="checkbox" formControlName="required" />
+            <span class="required-row__text">
+              <span class="required-row__title">Required</span>
+              <span class="field-hint">A trainer cannot be registered without an answer.</span>
+            </span>
+          </label>
+
+          @if (needsOptions()) {
+            <div class="options">
+              <div class="options__head">
+                <span>Options</span>
+                <button type="button" class="btn btn--sm btn--ghost" (click)="addOption()">
+                  Add option
+                </button>
+              </div>
+              @for (option of options(); track $index; let i = $index) {
+                <div class="options__row">
+                  <input class="input" [value]="option.label"
+                    placeholder="Label shown to the coordinator"
+                    (input)="setOption(i, 'label', $event)" />
+                  <input class="input" [value]="option.value"
+                    placeholder="Stored value"
+                    (input)="setOption(i, 'value', $event)" />
+                  <button type="button" class="btn btn--icon btn--danger" title="Remove this option"
+                    (click)="dropOption(i)">
+                    <app-icon name="trash" [size]="14" />
+                  </button>
+                </div>
+              }
+              @if (options().length === 0) {
+                <p class="hint">A field the coordinator chooses from needs at least one option.</p>
+              }
+            </div>
+          }
+
+        </form>
+
+        <div footer>
+          <button type="button" class="btn btn--secondary" (click)="formOpen.set(false)">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="trainer-field-form"
+            class="btn btn--primary"
+            [disabled]="saving()"
+          >
+            {{ editing() ? 'Save changes' : 'Add field' }}
+          </button>
+        </div>
+      </app-modal>
+    }
+  `,
+  styles: [
+    `
+      /* The editor. Two columns where there is room for two, one where
+         there is not, and the help text spanning both because a sentence
+         does not want half a dialog. */
+      .editor {
+        display: grid;
+        gap: 1.1rem;
+      }
+      .editor__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.9rem 1.1rem;
+        align-items: start;
+      }
+      /* Not .field: this component already uses that name for the rows
+         of the list below, which is a four-column grid. The label, the
+         box and the hint were being dealt into three of those columns. */
+      .editor__field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        min-width: 0;
+      }
+      .editor__field--wide { grid-column: 1 / -1; }
+
+      .required-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.6rem;
+        padding: 0.7rem 0.85rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface-muted);
+        cursor: pointer;
+      }
+      .required-row input { margin-top: 0.15rem; }
+      .required-row__text { display: grid; gap: 0.1rem; }
+      .required-row__title {
+        font-size: var(--fs-sm);
+        font-weight: 600;
+        color: var(--ink-800);
+      }
+
+      /* The option rows, which are the other half of this dialog. */
+      .options {
+        display: grid;
+        gap: 0.5rem;
+        padding: 0.85rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface-muted);
+      }
+      .options__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: var(--fs-sm);
+        font-weight: 700;
+        color: var(--ink-800);
+      }
+      .options__row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+        gap: 0.5rem;
+        align-items: center;
+      }
+
+      .field-list { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem; }
+      .empty { color: var(--ink-500); font-size: var(--fs-sm); margin: 1rem 0; text-align: center; }
+
+      .field {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto auto;
+        align-items: center;
+        gap: 0.9rem;
+        padding: 0.7rem 0.85rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+      /* A disabled field stays legible: it is still part of the form somebody
+         is editing, just not one applicants see. */
+      .field.is-off { background: var(--ink-50); opacity: 0.8; }
+
+      .field__order { display: flex; flex-direction: column; gap: 0.1rem; }
+      .field__title {
+        display: flex; align-items: center; gap: 0.4rem;
+        font-weight: 600; font-size: var(--fs-md);
+      }
+      .req { color: var(--danger-500); }
+      .field__meta {
+        display: flex; flex-wrap: wrap; gap: 0.75rem;
+        color: var(--ink-500); font-size: var(--fs-xs); margin-top: 0.15rem;
+      }
+      .field__meta code { font-size: var(--fs-xs); }
+      .field__help { color: var(--ink-500); font-size: var(--fs-xs); margin-top: 0.2rem; }
+      .field__actions { display: flex; align-items: center; gap: 0.35rem; }
+
+      .chip--lock { background: var(--brand-50); color: var(--brand-700); }
+
+      /* .options, .options__head and .options__row are defined once,
+         with the editor at the top of this sheet. */
+      .hint { color: var(--ink-500); font-size: var(--fs-xs); }
+    `,
+  ],
+})
+export class TrainerFormComponent {
+  private readonly service = inject(TrainerFormService);
+  private readonly toast = inject(ToastService);
+  private readonly confirm = inject(ConfirmService);
+  private readonly fb = inject(FormBuilder);
+
+  protected readonly types = FIELD_TYPES;
+  protected readonly fields = signal<TrainerField[]>([]);
+
+  protected readonly loading = signal(true);
+  protected readonly saving = signal(false);
+  protected readonly formOpen = signal(false);
+  protected readonly editing = signal<TrainerField | null>(null);
+  protected readonly options = signal<TrainerFieldOption[]>([]);
+
+  protected readonly activeCount = computed(
+    () => this.fields().filter((f) => f.status === 'Active').length,
+  );
+
+  protected readonly form = this.fb.nonNullable.group({
+    key: ['', [Validators.required]],
+    label: ['', [Validators.required]],
+    type: ['text' as FieldType],
+    placeholder: [''],
+    helpText: [''],
+    required: [false],
+  });
+
+  constructor() {
+    this.load();
+  }
+
+  private load(): void {
+    this.loading.set(true);
+
+    this.service.list().subscribe({
+      next: (fields) => {
+        this.fields.set(fields);
+        this.loading.set(false);
+      },
+      error: () => this.loading.set(false),
+    });
+  }
+
+  protected typeLabel(type: FieldType): string {
+    return FIELD_TYPES.find((t) => t.value === type)?.label ?? type;
+  }
+
+  protected needsOptions(): boolean {
+    return fieldTypeHasOptions(this.form.controls.type.value);
+  }
+
+  protected openForm(field?: TrainerField): void {
+    this.editing.set(field ?? null);
+    this.options.set(field ? field.options.map((o) => ({ ...o })) : []);
+
+    this.form.reset({
+      key: field?.key ?? '',
+      label: field?.label ?? '',
+      type: field?.type ?? 'text',
+      placeholder: field?.placeholder ?? '',
+      helpText: field?.helpText ?? '',
+      required: field?.required ?? false,
+    });
+
+    /* The key is what answers are stored against, and the type of a built-in
+       field is decided by the column behind it. Both are shown rather than
+       hidden, so what cannot be changed is still visible. */
+    if (field) this.form.controls.key.disable();
+    else this.form.controls.key.enable();
+
+    if (field?.isBuiltIn) this.form.controls.type.disable();
+    else this.form.controls.type.enable();
+
+    this.formOpen.set(true);
+  }
+
+  protected addOption(): void {
+    this.options.update((list) => [...list, { value: '', label: '' }]);
+  }
+
+  protected dropOption(index: number): void {
+    this.options.update((list) => list.filter((_, i) => i !== index));
+  }
+
+  protected setOption(index: number, part: 'value' | 'label', event: Event): void {
+    const text = (event.target as HTMLInputElement).value;
+    this.options.update((list) =>
+      list.map((o, i) => (i === index ? { ...o, [part]: text } : o)),
+    );
+  }
+
+  protected save(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.form));
+      return;
+    }
+
+    const raw = this.form.getRawValue();
+    const editing = this.editing();
+
+    const body = {
+      key: raw.key,
+      label: raw.label,
+      type: raw.type,
+      placeholder: raw.placeholder || null,
+      helpText: raw.helpText || null,
+      required: raw.required,
+      displayOrder: editing?.displayOrder ?? 0,
+      status: editing?.status ?? ('Active' as RecordStatus),
+      options: this.options().filter((o) => o.value.trim().length > 0),
+    };
+
+    this.saving.set(true);
+    const request = editing
+      ? this.service.update(editing.id, body)
+      : this.service.create(body);
+
+    request.subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.formOpen.set(false);
+        this.toast.success(editing ? 'Field updated.' : 'Field added.');
+        this.load();
+      },
+      error: () => this.saving.set(false),
+    });
+  }
+
+  protected toggle(field: TrainerField): void {
+    const next: RecordStatus = field.status === 'Active' ? 'Inactive' : 'Active';
+    this.saving.set(true);
+    this.service.setStatus(field.id, next).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.toast.success(next === 'Active' ? 'Field enabled.' : 'Field disabled.');
+        this.load();
+      },
+      error: () => this.saving.set(false),
+    });
+  }
+
+  protected async remove(field: TrainerField): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: `Remove ${field.label}?`,
+      message:
+        'It stops being asked when a trainer is registered. Answers already given are kept, '
+        + 'so putting the field back later finds its history where it left it.',
+      confirmLabel: 'Remove',
+      tone: 'danger',
+    });
+    if (!ok) return;
+
+    this.saving.set(true);
+    this.service.remove(field.id).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.toast.success('Field removed.');
+        this.load();
+      },
+      error: () => this.saving.set(false),
+    });
+  }
+
+  protected move(index: number, by: number): void {
+    const list = [...this.fields()];
+    const target = index + by;
+    if (target < 0 || target >= list.length) return;
+
+    [list[index], list[target]] = [list[target], list[index]];
+    /* Moved on screen straight away; the order is saved behind it. Waiting for
+       the round trip makes reordering a list feel broken. */
+    this.fields.set(list);
+
+    this.saving.set(true);
+    this.service.reorder(list.map((f) => f.id)).subscribe({
+      next: (saved) => {
+        this.fields.set(saved);
+        this.saving.set(false);
+      },
+      error: () => {
+        this.saving.set(false);
+        this.load();
+      },
+    });
+  }
+}

@@ -383,3 +383,59 @@ public class SignupFormController(SignupFormService service) : ApiControllerBase
         [FromBody] ReorderDto dto, CancellationToken ct) =>
         Envelope(await service.ReorderAsync(dto.Ids, ct), "Order saved.");
 }
+
+/// <summary>
+/// The form a coordinator fills in to register a trainer.
+///
+/// One form, so no paging and no id in the collection route. The app reads
+/// it behind the coordinator's own sign-in rather than anonymously: unlike
+/// sign-up, nobody meets this screen without an account.
+/// </summary>
+[Route("api/trainer-form")]
+public class TrainerFormController(TrainerFormService service) : ApiControllerBase
+{
+    [HttpGet]
+    [HasPermission(Permissions.MastersView)]
+    public async Task<ActionResult<ApiEnvelope<List<TrainerFieldDto>>>> List(CancellationToken ct) =>
+        Envelope(await service.ListAsync(false, ct));
+
+    /// <summary>
+    /// What the coordinator app renders. Switched-off fields are left out,
+    /// because nothing should be asked that is not asked.
+    /// </summary>
+    [HttpGet("active")]
+    public async Task<ActionResult<ApiEnvelope<TrainerFormDto>>> Active(CancellationToken ct) =>
+        Envelope(await service.FormAsync(activeOnly: true, ct));
+
+    [HttpPost]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<TrainerFieldDto>>> Create(
+        [FromBody] TrainerFieldUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.CreateAsync(dto, ct), "Field added.");
+
+    [HttpPut("{id:int}")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<TrainerFieldDto>>> Update(
+        int id, [FromBody] TrainerFieldUpsertDto dto, CancellationToken ct) =>
+        Envelope(await service.UpdateAsync(id, dto, ct), "Field updated.");
+
+    [HttpPatch("{id:int}/status")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<TrainerFieldDto>>> SetStatus(
+        int id, [FromBody] StatusChangeDto dto, CancellationToken ct) =>
+        Envelope(await service.SetStatusAsync(id, dto.Status, ct));
+
+    [HttpDelete("{id:int}")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<bool>>> Delete(int id, CancellationToken ct)
+    {
+        await service.DeleteAsync(id, ct);
+        return Envelope(true, "Field removed.");
+    }
+
+    [HttpPut("order")]
+    [HasPermission(Permissions.MastersManage)]
+    public async Task<ActionResult<ApiEnvelope<List<TrainerFieldDto>>>> Reorder(
+        [FromBody] ReorderDto dto, CancellationToken ct) =>
+        Envelope(await service.ReorderAsync(dto.Ids, ct), "Order saved.");
+}

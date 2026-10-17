@@ -173,6 +173,15 @@ export const routes: Routes = [
               ),
           },
           {
+            path: 'trainer-form',
+            title: 'Trainer form · CBMS',
+            canActivate: [permissionGuard('masters.view')],
+            loadComponent: () =>
+              import('./features/academics/trainer-form.component').then(
+                (m) => m.TrainerFormComponent,
+              ),
+          },
+          {
             path: 'feedback-forms',
             title: 'Feedback forms · CBMS',
             canActivate: [permissionGuard('curriculum.view')],

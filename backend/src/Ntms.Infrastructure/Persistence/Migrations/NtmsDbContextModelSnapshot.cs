@@ -4703,6 +4703,160 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.ToTable("SystemSettings", (string)null);
                 });
 
+            modelBuilder.Entity("Ntms.Domain.Entities.TrainerAnswer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("TrainerId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Value")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TrainerId", "Key")
+                        .IsUnique();
+
+                    b.ToTable("TrainerAnswers", (string)null);
+                });
+
+            modelBuilder.Entity("Ntms.Domain.Entities.TrainerField", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("HelpText")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsBuiltIn")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsLocked")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Placeholder")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("Required")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("varchar(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("TrainerFields", (string)null);
+                });
+
+            modelBuilder.Entity("Ntms.Domain.Entities.TrainerFieldOption", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FieldId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FieldId");
+
+                    b.ToTable("TrainerFieldOptions", (string)null);
+                });
+
             modelBuilder.Entity("Ntms.Domain.Entities.TrainingApplication", b =>
                 {
                     b.Property<int>("Id")
@@ -6323,6 +6477,28 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Navigation("Category");
                 });
 
+            modelBuilder.Entity("Ntms.Domain.Entities.TrainerAnswer", b =>
+                {
+                    b.HasOne("Ntms.Domain.Entities.ProgrammeTrainer", "Trainer")
+                        .WithMany("Answers")
+                        .HasForeignKey("TrainerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Trainer");
+                });
+
+            modelBuilder.Entity("Ntms.Domain.Entities.TrainerFieldOption", b =>
+                {
+                    b.HasOne("Ntms.Domain.Entities.TrainerField", "Field")
+                        .WithMany("Options")
+                        .HasForeignKey("FieldId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Field");
+                });
+
             modelBuilder.Entity("Ntms.Domain.Entities.TrainingApplication", b =>
                 {
                     b.HasOne("Ntms.Domain.Entities.Applicant", "Applicant")
@@ -6704,6 +6880,11 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Navigation("Attendance");
                 });
 
+            modelBuilder.Entity("Ntms.Domain.Entities.ProgrammeTrainer", b =>
+                {
+                    b.Navigation("Answers");
+                });
+
             modelBuilder.Entity("Ntms.Domain.Entities.ProgrammeVenue", b =>
                 {
                     b.Navigation("Photos");
@@ -6717,6 +6898,11 @@ namespace Ntms.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Ntms.Domain.Entities.SubCategory", b =>
                 {
                     b.Navigation("ProgramTypes");
+                });
+
+            modelBuilder.Entity("Ntms.Domain.Entities.TrainerField", b =>
+                {
+                    b.Navigation("Options");
                 });
 
             modelBuilder.Entity("Ntms.Domain.Entities.TrainingApplication", b =>

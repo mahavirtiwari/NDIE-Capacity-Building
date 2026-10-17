@@ -160,6 +160,8 @@ export interface Trainer {
   qualificationDetails?: string | null;
   /** The last four digits. The whole number is never sent back. */
   aadhaarLast4?: string | null;
+  /** What was answered to the questions the form adds. */
+  answers?: { key: string; label: string; value?: string | null }[];
 }
 
 /** What is sent when a trainer is registered or corrected. */
@@ -176,6 +178,30 @@ export interface TrainerUpsert {
   qualificationDetails?: string;
   /** Sent whole, once. Nothing reads it back. */
   aadhaar?: string;
+  /** Answers to the questions the trainer form adds, keyed by field key. */
+  answers?: Record<string, string | undefined>;
+}
+
+/**
+ * One field on the trainer form, as the office set it up.
+ *
+ * The screen used to be markup: the questions it asked were whatever this
+ * build shipped with. It draws what the server sends now, in the order it
+ * is sent, asking only for the fields that are switched on.
+ */
+export interface TrainerField {
+  id: number;
+  key: string;
+  label: string;
+  placeholder?: string | null;
+  helpText?: string | null;
+  type: string;
+  required: boolean;
+  displayOrder: number;
+  isBuiltIn: boolean;
+  isLocked: boolean;
+  status: string;
+  options: { value: string; label: string }[];
 }
 
 export interface MonitoringSession {

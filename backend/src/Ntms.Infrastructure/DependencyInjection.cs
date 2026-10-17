@@ -113,6 +113,7 @@ public static class DependencyInjection
         services.AddScoped<CurriculumService>();
         services.AddScoped<ProfileFormService>();
         services.AddScoped<SignupFormService>();
+        services.AddScoped<TrainerFormService>();
         services.AddScoped<RejectionReasonService>();
         services.AddScoped<BlockReasonService>();
         services.AddScoped<SiteTextService>();

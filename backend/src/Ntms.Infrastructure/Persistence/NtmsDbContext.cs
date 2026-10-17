@@ -66,6 +66,9 @@ public class NtmsDbContext(DbContextOptions<NtmsDbContext> options, ICurrentUser
     public DbSet<SignupField> SignupFields => Set<SignupField>();
     public DbSet<SignupFieldOption> SignupFieldOptions => Set<SignupFieldOption>();
     public DbSet<ApplicantAnswer> ApplicantAnswers => Set<ApplicantAnswer>();
+    public DbSet<TrainerField> TrainerFields => Set<TrainerField>();
+    public DbSet<TrainerFieldOption> TrainerFieldOptions => Set<TrainerFieldOption>();
+    public DbSet<TrainerAnswer> TrainerAnswers => Set<TrainerAnswer>();
     public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
     public DbSet<PaymentInvoice> PaymentInvoices => Set<PaymentInvoice>();
 

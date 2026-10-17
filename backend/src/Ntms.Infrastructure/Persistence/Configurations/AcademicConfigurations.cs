@@ -430,3 +430,49 @@ public class ApplicantAnswerConfiguration : IEntityTypeConfiguration<ApplicantAn
         b.HasIndex(x => new { x.ApplicantId, x.Key }).IsUnique();
     }
 }
+
+public class TrainerFieldConfiguration : IEntityTypeConfiguration<TrainerField>
+{
+    public void Configure(EntityTypeBuilder<TrainerField> b)
+    {
+        b.ToTable("TrainerFields");
+        b.Property(x => x.Key).HasMaxLength(80).IsRequired();
+        b.Property(x => x.Label).HasMaxLength(250).IsRequired();
+        b.Property(x => x.Placeholder).HasMaxLength(200);
+        b.Property(x => x.HelpText).HasMaxLength(500);
+
+        /* One field per key: the app reads the form by key, so two rows
+           claiming the same one would make which is honoured a matter of
+           row order. There is one trainer form. */
+        b.HasIndex(x => x.Key).IsUnique();
+    }
+}
+
+public class TrainerFieldOptionConfiguration : IEntityTypeConfiguration<TrainerFieldOption>
+{
+    public void Configure(EntityTypeBuilder<TrainerFieldOption> b)
+    {
+        b.ToTable("TrainerFieldOptions");
+        b.Property(x => x.Value).HasMaxLength(120).IsRequired();
+        b.Property(x => x.Label).HasMaxLength(250).IsRequired();
+        b.HasOne(x => x.Field).WithMany(x => x.Options).HasForeignKey(x => x.FieldId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class TrainerAnswerConfiguration : IEntityTypeConfiguration<TrainerAnswer>
+{
+    public void Configure(EntityTypeBuilder<TrainerAnswer> b)
+    {
+        b.ToTable("TrainerAnswers");
+        b.Property(x => x.Key).HasMaxLength(80).IsRequired();
+        b.Property(x => x.Label).HasMaxLength(200).IsRequired();
+        b.Property(x => x.Value).HasMaxLength(2000);
+
+        b.HasOne(x => x.Trainer).WithMany(t => t.Answers).HasForeignKey(x => x.TrainerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        /* One answer per question per trainer. */
+        b.HasIndex(x => new { x.TrainerId, x.Key }).IsUnique();
+    }
+}

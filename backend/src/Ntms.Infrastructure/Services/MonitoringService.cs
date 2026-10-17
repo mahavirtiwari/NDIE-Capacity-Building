@@ -319,6 +319,7 @@ public class MonitoringService(
         var venue = await db.ProgrammeVenues.AsNoTracking()
             .FirstOrDefaultAsync(v => v.ProgrammeId == programmeId, ct);
         var trainers = await db.ProgrammeTrainers.AsNoTracking()
+            .Include(t => t.Answers)
             .Where(t => t.ProgrammeId == programmeId)
             .OrderBy(t => t.Id)
             .ToListAsync(ct);
@@ -420,6 +421,9 @@ public class MonitoringService(
             .Aadhaar(dto.Aadhaar)
             .ThrowIfInvalid();
 
+        var form = await TrainerFormAsync(ct);
+        RequireWhatTheFormAsks(form, dto);
+
         var trainer = new ProgrammeTrainer
         {
             ProgrammeId = programmeId,
@@ -435,6 +439,8 @@ public class MonitoringService(
         };
 
         Apply(trainer, dto);
+        KeepAnswers(trainer, form, dto);
+
         db.ProgrammeTrainers.Add(trainer);
         await db.SaveChangesAsync(ct);
         return ToDto(trainer);
@@ -443,7 +449,9 @@ public class MonitoringService(
     public async Task<TrainerDto> UpdateTrainerAsync(
         int trainerId, TrainerUpsertDto dto, CancellationToken ct)
     {
-        var trainer = await db.ProgrammeTrainers.FirstOrDefaultAsync(t => t.Id == trainerId, ct)
+        var trainer = await db.ProgrammeTrainers
+                          .Include(t => t.Answers)
+                          .FirstOrDefaultAsync(t => t.Id == trainerId, ct)
                       ?? throw AppException.NotFound("Trainer");
         await ForWriteAsync(trainer.ProgrammeId, ct);
 
@@ -454,6 +462,9 @@ public class MonitoringService(
             .Aadhaar(dto.Aadhaar)
             .ThrowIfInvalid();
 
+        var form = await TrainerFormAsync(ct);
+        RequireWhatTheFormAsks(form, dto);
+
         trainer.FullName = dto.FullName.Trim();
         trainer.Mobile = dto.Mobile.Trim();
         trainer.Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim().ToLowerInvariant();
@@ -461,9 +472,110 @@ public class MonitoringService(
         trainer.Organisation = dto.Organisation?.Trim();
 
         Apply(trainer, dto);
+        KeepAnswers(trainer, form, dto);
 
         await db.SaveChangesAsync(ct);
         return ToDto(trainer);
+    }
+
+    /// <summary>
+    /// The trainer form as it stands, switched-on fields only.
+    ///
+    /// Read on every registration rather than cached: the office changes
+    /// this from the portal and a coordinator in the field should be
+    /// working to the form as it is now, not as it was when the server
+    /// last restarted.
+    /// </summary>
+    private async Task<List<TrainerField>> TrainerFormAsync(CancellationToken ct) =>
+        await db.TrainerFields.AsNoTracking()
+            .Where(f => f.Status == RecordStatus.Active)
+            .OrderBy(f => f.DisplayOrder).ThenBy(f => f.Id)
+            .ToListAsync(ct);
+
+    /// <summary>
+    /// Refuses a registration that leaves a required question unanswered.
+    ///
+    /// The app enforces this too, and this is the copy that counts: the
+    /// app holds work offline and drains it later, by which time the form
+    /// may have changed, and an older build of it knows nothing about a
+    /// question added last week.
+    ///
+    /// Only the fields that are switched on. A question the office has
+    /// turned off is not asked and not missed.
+    /// </summary>
+    private static void RequireWhatTheFormAsks(
+        List<TrainerField> form, TrainerUpsertDto dto)
+    {
+        var missing = new List<string>();
+
+        foreach (var field in form.Where(f => f.Required))
+        {
+            var given = field.Key switch
+            {
+                /* The two the record cannot do without are checked by the
+                   guard above; these are the rest of the built-ins. */
+                "fullName" => !string.IsNullOrWhiteSpace(dto.FullName),
+                "mobile" => !string.IsNullOrWhiteSpace(dto.Mobile),
+                "email" => !string.IsNullOrWhiteSpace(dto.Email),
+                "qualification" => !string.IsNullOrWhiteSpace(dto.Qualification),
+                "qualificationDetails" => !string.IsNullOrWhiteSpace(dto.QualificationDetails),
+                "experience" => dto.YearsExperience is not null || dto.ExperienceMonths is not null,
+                "aadhaar" => !string.IsNullOrWhiteSpace(dto.Aadhaar),
+                /* The photographs are uploaded after the record exists, so
+                   they cannot be insisted on here without making it
+                   impossible to create one. The app asks for them. */
+                "photo" or "idProof" => true,
+                _ => dto.Answers.TryGetValue(field.Key, out var value)
+                     && !string.IsNullOrWhiteSpace(value),
+            };
+
+            if (!given) missing.Add(field.Label);
+        }
+
+        if (missing.Count > 0)
+        {
+            throw new AppException(
+                missing.Count == 1
+                    ? $"{missing[0]} is required."
+                    : "These are required: " + string.Join(", ", missing) + ".");
+        }
+    }
+
+    /// <summary>
+    /// Writes the answers to the questions the form adds.
+    ///
+    /// The wording is copied onto the answer rather than looked up later:
+    /// a field can be relabelled or removed afterwards, and an answer
+    /// whose question has gone is no longer evidence of anything.
+    /// </summary>
+    private static void KeepAnswers(
+        ProgrammeTrainer trainer, List<TrainerField> form, TrainerUpsertDto dto)
+    {
+        var custom = form.Where(f => !f.IsBuiltIn).ToList();
+        if (custom.Count == 0 && trainer.Answers.Count == 0) return;
+
+        foreach (var field in custom)
+        {
+            dto.Answers.TryGetValue(field.Key, out var value);
+            var clean = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+            var held = trainer.Answers.FirstOrDefault(a => a.Key == field.Key);
+
+            if (held is null)
+            {
+                if (clean is null) continue;
+                trainer.Answers.Add(new TrainerAnswer
+                {
+                    Key = field.Key,
+                    Label = field.Label,
+                    Value = clean,
+                });
+                continue;
+            }
+
+            held.Label = field.Label;
+            held.Value = clean;
+        }
     }
 
     /// <summary>
@@ -1638,6 +1750,17 @@ public class MonitoringService(
            that leaks it to every caller. */
         Aadhaar = null,
         AadhaarLast4 = t.Aadhaar is { Length: >= 4 } whole ? whole[^4..] : null,
+        Answers =
+        [
+            .. t.Answers
+                .OrderBy(a => a.Id)
+                .Select(a => new TrainerAnswerDto
+                {
+                    Key = a.Key,
+                    Label = a.Label,
+                    Value = a.Value,
+                }),
+        ],
     };
 
     private static VenueDto ToDto(ProgrammeVenue v, List<MonitoringPhoto> photos) => new()
