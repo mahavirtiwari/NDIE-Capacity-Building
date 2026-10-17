@@ -139,7 +139,18 @@ import { IconComponent } from '../shared/components/icon.component';
         line-height: 15px;
         text-align: center;
       }
-      .menu--wide { min-width: 320px; max-width: 360px; padding: 0; }
+      /* Written as .menu.menu--wide so it outranks .menu rather than
+         merely disagreeing with it.
+
+         Both carry one class and one scoping attribute, so they had the
+         same weight and the later one won - and .menu is declared further
+         down this file. The notifications panel was therefore 190px wide
+         with the base padding, not the 320 it asks for: every notice wrapped
+         its title over two lines and its body over five, and a panel
+         narrower than the sentence it holds reads as a column of fragments.
+         Qualifying it settles the question by weight instead of by
+         position, so moving either rule cannot bring the fault back. */
+      .menu.menu--wide { min-width: 320px; max-width: 360px; padding: 0; }
       .menu__head {
         display: flex;
         align-items: center;
@@ -155,7 +166,15 @@ import { IconComponent } from '../shared/components/icon.component';
         color: var(--ink-500);
         text-align: center;
       }
-      .menu__list { max-height: 340px; overflow-y: auto; }
+      /* As much of the list as the window can show, and no more.
+
+         A flat 340px is two and a half notices whatever the screen is:
+         short enough to hide most of the list on a desktop, and tall
+         enough to run off the bottom of a laptop once the panel's own
+         header is added to it. Measured against the viewport instead, with
+         the ceiling kept so it does not become a full-height column on a
+         tall monitor. */
+      .menu__list { max-height: min(60vh, 420px); overflow-y: auto; }
       .notice {
         display: grid;
         gap: 2px;
