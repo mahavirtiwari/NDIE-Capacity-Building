@@ -386,4 +386,16 @@ export interface FacultyUpsert {
   email?: string | null;
   designation?: string | null;
   organisation?: string | null;
+
+  /* These were being sent and were not declared. An object built into a
+     variable before it is passed loses excess-property checking, so the
+     interface could sit three fields short of the request without
+     anything saying so - and a mistyped name would have been dropped in
+     the same silence. */
+  yearsExperience?: number | null;
+  qualification?: string | null;
+  aadhaar?: string;
+
+  /** Answers to the questions the trainer form adds, keyed by field. */
+  answers?: Record<string, string>;
 }

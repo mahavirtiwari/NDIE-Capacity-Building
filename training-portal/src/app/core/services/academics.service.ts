@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import {
   Curriculum,
   ExamPaper,
@@ -137,6 +137,17 @@ export class TrainerFormService {
 
   list(): Observable<TrainerField[]> {
     return this.api.get<TrainerField[]>(this.resource);
+  }
+
+  /**
+   * Only the questions switched on, in the order they are asked — the
+   * same list the coordinator app draws itself from, so the portal's own
+   * Add trainer form asks exactly what the app does.
+   */
+  active(): Observable<TrainerField[]> {
+    return this.api
+      .get<{ fields: TrainerField[] }>(`${this.resource}/active`)
+      .pipe(map((form) => form.fields));
   }
 
   create(body: TrainerFieldUpsert): Observable<TrainerField> {

@@ -1,10 +1,11 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Faculty, Id, LookupItem } from '../../core/models';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Faculty, Id, LookupItem, TrainerField } from '../../core/models';
 import { AuthService } from '../../core/services/auth.service';
 import { FacultyService } from '../../core/services/report.service';
+import { TrainerFormService } from '../../core/services/academics.service';
 import { LookupService } from '../../core/services/masters.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -271,13 +272,18 @@ const COLUMNS: ColumnDef[] = [
             }
           </div>
 
-          <div class="field">
-            <label class="field-label" for="tfEmail">Email</label>
-            <input id="tfEmail" class="input" formControlName="email" [class.is-invalid]="invalid('email')" />
-            @if (invalid('email')) {
-              <span class="field-error">{{ errorFor('email', 'Email') }}</span>
-            }
-          </div>
+          @if (asks('email')) {
+            <div class="field">
+              <label class="field-label" for="tfEmail">
+                {{ label('email', 'Email') }}
+                @if (mustHave('email')) { <span class="req">*</span> }
+              </label>
+              <input id="tfEmail" class="input" formControlName="email" [class.is-invalid]="invalid('email')" />
+              @if (invalid('email')) {
+                <span class="field-error">{{ errorFor('email', 'Email') }}</span>
+              }
+            </div>
+          }
 
           <div class="field">
             <label class="field-label" for="tfDesignation">Designation</label>
@@ -289,30 +295,44 @@ const COLUMNS: ColumnDef[] = [
             <input id="tfOrg" class="input" formControlName="organisation" />
           </div>
 
-          <div class="field">
-            <label class="field-label" for="tfYears">Years of experience</label>
-            <input
-              id="tfYears"
-              class="input"
-              type="number"
-              min="0"
-              max="70"
-              formControlName="yearsExperience"
-            />
-          </div>
+          @if (asks('experience')) {
+            <div class="field">
+              <label class="field-label" for="tfYears">
+                {{ label('experience', 'Years of experience') }}
+                @if (mustHave('experience')) { <span class="req">*</span> }
+              </label>
+              <input
+                id="tfYears"
+                class="input"
+                type="number"
+                min="0"
+                max="70"
+                formControlName="yearsExperience"
+              />
+            </div>
+          }
 
-          <div class="field">
-            <label class="field-label" for="tfQual">Qualification</label>
-            <select id="tfQual" class="select" formControlName="qualification">
-              <option [ngValue]="null">Not stated</option>
-              @for (option of qualifications(); track option.id) {
-                <option [value]="option.name">{{ option.name }}</option>
-              }
-            </select>
-          </div>
+          @if (asks('qualification')) {
+            <div class="field">
+              <label class="field-label" for="tfQual">
+                {{ label('qualification', 'Qualification') }}
+                @if (mustHave('qualification')) { <span class="req">*</span> }
+              </label>
+              <select id="tfQual" class="select" formControlName="qualification">
+                <option [ngValue]="null">Not stated</option>
+                @for (option of qualifications(); track option.id) {
+                  <option [value]="option.name">{{ option.name }}</option>
+                }
+              </select>
+            </div>
+          }
 
+          @if (asks('aadhaar')) {
           <div class="field">
-            <label class="field-label" for="tfAadhaar">Aadhaar</label>
+            <label class="field-label" for="tfAadhaar">
+              {{ label('aadhaar', 'Aadhaar') }}
+              @if (mustHave('aadhaar')) { <span class="req">*</span> }
+            </label>
             <input
               id="tfAadhaar"
               class="input"
@@ -332,6 +352,35 @@ const COLUMNS: ColumnDef[] = [
                 : 'Shown as the last four digits everywhere.' }}
             </span>
           </div>
+          }
+
+          <!-- Whatever else the office decided to ask. Stored against the
+               field rather than as a column, so switching one off keeps
+               what was already answered. -->
+          @for (field of extras(); track field.key) {
+            <div class="field">
+              <label class="field-label" [attr.for]="'tfx-' + field.key">
+                {{ field.label }}
+                @if (field.required) { <span class="req">*</span> }
+              </label>
+              @if (field.type === 'select' && field.options.length > 0) {
+                <select [id]="'tfx-' + field.key" class="select" [formControlName]="field.key">
+                  <option value="">Not stated</option>
+                  @for (option of field.options; track option.value) {
+                    <option [value]="option.value">{{ option.label }}</option>
+                  }
+                </select>
+              } @else {
+                <input
+                  [id]="'tfx-' + field.key"
+                  class="input"
+                  [formControlName]="field.key"
+                  [placeholder]="field.placeholder || ''"
+                />
+              }
+              @if (field.helpText) { <span class="field-hint">{{ field.helpText }}</span> }
+            </div>
+          }
         </form>
         <div footer>
           <button type="button" class="btn btn--secondary" (click)="closeForm()">Cancel</button>
@@ -382,6 +431,44 @@ export class TrainersComponent {
   protected readonly saving = signal(false);
   protected readonly editing = signal<Faculty | null>(null);
 
+  /**
+   * The questions the office configured, which the app already renders.
+   *
+   * This screen asked a fixed set of its own: it went on asking for a
+   * field that had been switched off, never asked for one that had been
+   * added, and let a field marked required be skipped by adding the
+   * trainer from here instead of from the app. One record, asked for
+   * twice, two different ways.
+   *
+   * Photographs are the exception and stay out: they are taken on the
+   * day and uploaded against a record that already exists, so the server
+   * does not insist on them here either.
+   */
+  private readonly trainerForm = inject(TrainerFormService);
+
+  protected readonly asked = toSignal(this.trainerForm.active(), { initialValue: [] as TrainerField[] });
+
+  protected readonly extras = computed(() =>
+    this.asked().filter((f) => !f.isBuiltIn && f.type !== 'photos' && f.type !== 'file'),
+  );
+
+  /** Whether the configured form asks this built-in at all. */
+  protected asks(key: string): boolean {
+    const fields = this.asked();
+    /* Until the form has loaded, show what this screen always showed
+       rather than an empty dialog. */
+    return fields.length === 0 || fields.some((f) => f.key === key);
+  }
+
+  /** Whether it insists on an answer. */
+  protected mustHave(key: string): boolean {
+    return this.asked().some((f) => f.key === key && f.required);
+  }
+
+  protected label(key: string, fallback: string): string {
+    return this.asked().find((f) => f.key === key)?.label ?? fallback;
+  }
+
   protected readonly form = this.fb.group({
     programmeId: [null as number | null, Validators.required],
     fullName: ['', Validators.required],
@@ -416,6 +503,7 @@ export class TrainersComponent {
 
   constructor() {
     this.loadProgramTypes(null);
+    this.keepControlsInStep();
   }
 
   protected term = searchTerm;
@@ -479,6 +567,59 @@ export class TrainersComponent {
     this.editing.set(null);
   }
 
+  /**
+   * Adds a control for each question the office added, and takes away
+   * the ones it has since removed.
+   *
+   * Run as an effect rather than once at startup, because the form
+   * arrives over the wire after the component does, and can change under
+   * a screen that is left open.
+   */
+  private keepControlsInStep(): void {
+    effect(() => {
+      const extras = this.extras();
+      const group = this.form as unknown as FormGroup;
+
+      for (const field of extras) {
+        if (!group.contains(field.key)) {
+          group.addControl(
+            field.key,
+            this.fb.control('', field.required ? [Validators.required] : []),
+          );
+      }
+      }
+
+      for (const name of Object.keys(group.controls)) {
+        if (this.built.has(name)) continue;
+        if (!extras.some((f) => f.key === name)) group.removeControl(name);
+      }
+
+      /* A built-in the office marked required is required here too, and one
+         it relaxed stops being. The two that the record cannot do without
+         keep their own validators whatever the form says. */
+      const asked = this.asked();
+      if (asked.length === 0) return;
+
+      for (const key of ['email', 'qualification', 'yearsExperience'] as const) {
+        const control = group.get(key);
+        if (!control) continue;
+
+        const field = key === 'yearsExperience' ? 'experience' : key;
+        const must = asked.some((f) => f.key === field && f.required);
+        const base = key === 'email' ? [formatValidator('email')] : [];
+
+        control.setValidators(must ? [...base, Validators.required] : base);
+        control.updateValueAndValidity({ emitEvent: false });
+      }
+    });
+  }
+
+  /** The controls this screen has always had, which are never removed. */
+  private readonly built = new Set([
+    'programmeId', 'fullName', 'mobile', 'email', 'designation',
+    'organisation', 'yearsExperience', 'qualification', 'aadhaar',
+  ]);
+
   protected save(): void {
     const editing = this.editing();
 
@@ -507,6 +648,13 @@ export class TrainersComponent {
          never had it to show back, so treating blank as a clear would
          wipe it every time anybody corrected a telephone number. */
       aadhaar: raw.aadhaar?.trim() || undefined,
+
+      /* Keyed by the field, which is how the server stores them and how
+         the app sends them, so a trainer added here and one registered
+         on the day read the same afterwards. */
+      answers: Object.fromEntries(
+        this.extras().map((f) => [f.key, String((raw as Record<string, unknown>)[f.key] ?? '')]),
+      ),
     };
 
     this.saving.set(true);

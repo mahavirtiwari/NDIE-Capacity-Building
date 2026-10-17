@@ -665,6 +665,18 @@ const COLUMNS: ColumnDef[] = [
                 </option>
               }
             </select>
+            <!-- A required field with nothing in it to choose is a dead
+                 end, and it was a silent one: a newly empanelled agency
+                 whose first act is to raise a batch filled the form in,
+                 submitted it, and was told the coordinator was required
+                 with an empty list to pick from. The batch is run by
+                 somebody, so the answer is to appoint them first. -->
+            @if (form.value.agencyId && coordinators().length === 0) {
+              <span class="field-hint">
+                This agency has no coordinator yet, and a batch needs one to run it.
+                <a routerLink="/operations/coordinators">Appoint a coordinator</a> first.
+              </span>
+            }
           </div>
           <div class="field">
             <label class="field-label" for="npMode">Mode <span class="req">*</span></label>

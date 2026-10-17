@@ -132,12 +132,23 @@ public class FacultyService(NtmsDbContext db, ICurrentUser currentUser)
            rule. */
         EnsureNotACoordinator();
 
+        /* The same questions the app is asked, because this is the same
+           record. The trainer form is configured once in Super Admin and
+           the app renders it; this door was built before that and went on
+           asking a fixed set of its own, so a question the office had
+           marked required could be skipped entirely by adding the trainer
+           from the portal instead - and a question it had added was never
+           asked here at all. */
+        var form = await TrainerFormAsync(ct);
+        TrainerFormService.RequireWhatTheFormAsks(form, dto);
+
         var trainer = new ProgrammeTrainer
         {
             ProgrammeId = programmeId,
             RegisteredByUserId = currentUser.UserId,
         };
         Apply(trainer, dto);
+        TrainerFormService.KeepAnswers(trainer, form, dto);
 
         db.ProgrammeTrainers.Add(trainer);
         await db.SaveChangesAsync(ct);
@@ -150,12 +161,19 @@ public class FacultyService(NtmsDbContext db, ICurrentUser currentUser)
     {
         EnsureNotACoordinator();
 
-        var trainer = await db.ProgrammeTrainers.FirstOrDefaultAsync(t => t.Id == trainerId, ct)
+        var trainer = await db.ProgrammeTrainers
+                          .Include(t => t.Answers)
+                          .FirstOrDefaultAsync(t => t.Id == trainerId, ct)
                       ?? throw AppException.NotFound("Trainer");
 
         await ForWriteAsync(trainer.ProgrammeId, ct);
         Validate(dto);
+
+        var form = await TrainerFormAsync(ct);
+        TrainerFormService.RequireWhatTheFormAsks(form, dto);
+
         Apply(trainer, dto);
+        TrainerFormService.KeepAnswers(trainer, form, dto);
 
         await db.SaveChangesAsync(ct);
         return await OneAsync(trainerId, ct);
@@ -214,6 +232,13 @@ public class FacultyService(NtmsDbContext db, ICurrentUser currentUser)
             .Mobile(dto.Mobile)
             .Email(dto.Email, required: false)
             .ThrowIfInvalid();
+
+    /// <summary>The questions the form asks, in the order it asks them.</summary>
+    private async Task<List<TrainerField>> TrainerFormAsync(CancellationToken ct) =>
+        await db.TrainerFields.AsNoTracking()
+            .Where(f => f.Status == Domain.Common.RecordStatus.Active)
+            .OrderBy(f => f.DisplayOrder).ThenBy(f => f.Id)
+            .ToListAsync(ct);
 
     private static void Apply(ProgrammeTrainer trainer, TrainerUpsertDto dto)
     {

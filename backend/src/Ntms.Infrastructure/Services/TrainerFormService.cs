@@ -301,6 +301,95 @@ public class TrainerFormService(NtmsDbContext db)
         }
     }
 
+    /// <summary>
+    /// Refuses a registration that leaves a required question unanswered.
+    ///
+    /// Lives here, with the form, because both doors into a trainer record
+    /// have to ask the same questions. The app enforces it as well and
+    /// this is the copy that counts: the app holds work offline and drains
+    /// it later, by which time the form may have changed, and an older
+    /// build of it knows nothing about a question added last week. The
+    /// portal's own Add trainer form was not asking at all, which made it
+    /// a way round a rule the office had set.
+    ///
+    /// Only the fields that are switched on. A question the office has
+    /// turned off is not asked and not missed.
+    /// </summary>
+    public static void RequireWhatTheFormAsks(
+        List<TrainerField> form, TrainerUpsertDto dto)
+    {
+        var missing = new List<string>();
+
+        foreach (var field in form.Where(f => f.Required))
+        {
+            var given = field.Key switch
+            {
+                /* The two the record cannot do without are checked by the
+                   caller's own guard; these are the rest of the built-ins. */
+                "fullName" => !string.IsNullOrWhiteSpace(dto.FullName),
+                "mobile" => !string.IsNullOrWhiteSpace(dto.Mobile),
+                "email" => !string.IsNullOrWhiteSpace(dto.Email),
+                "qualification" => !string.IsNullOrWhiteSpace(dto.Qualification),
+                "qualificationDetails" => !string.IsNullOrWhiteSpace(dto.QualificationDetails),
+                "experience" => dto.YearsExperience is not null || dto.ExperienceMonths is not null,
+                "aadhaar" => !string.IsNullOrWhiteSpace(dto.Aadhaar),
+                /* The photographs are uploaded after the record exists, so
+                   they cannot be insisted on here without making it
+                   impossible to create one. The app asks for them. */
+                "photo" or "idProof" => true,
+                _ => dto.Answers.TryGetValue(field.Key, out var value)
+                     && !string.IsNullOrWhiteSpace(value),
+            };
+
+            if (!given) missing.Add(field.Label);
+        }
+
+        if (missing.Count > 0)
+        {
+            throw new AppException(
+                missing.Count == 1
+                    ? $"{missing[0]} is required."
+                    : "These are required: " + string.Join(", ", missing) + ".");
+        }
+    }
+
+    /// <summary>
+    /// Writes the answers to the questions the form adds.
+    ///
+    /// The wording is copied onto the answer rather than looked up later:
+    /// a field can be relabelled or removed afterwards, and an answer
+    /// whose question has gone is no longer evidence of anything.
+    /// </summary>
+    public static void KeepAnswers(
+        ProgrammeTrainer trainer, List<TrainerField> form, TrainerUpsertDto dto)
+    {
+        var custom = form.Where(f => !f.IsBuiltIn).ToList();
+        if (custom.Count == 0 && trainer.Answers.Count == 0) return;
+
+        foreach (var field in custom)
+        {
+            dto.Answers.TryGetValue(field.Key, out var value);
+            var clean = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+            var held = trainer.Answers.FirstOrDefault(a => a.Key == field.Key);
+
+            if (held is null)
+            {
+                if (clean is null) continue;
+                trainer.Answers.Add(new TrainerAnswer
+                {
+                    Key = field.Key,
+                    Label = field.Label,
+                    Value = clean,
+                });
+                continue;
+            }
+
+            held.Label = field.Label;
+            held.Value = clean;
+        }
+    }
+
     private static TrainerFieldDto Map(TrainerField f) => new()
     {
         Id = f.Id,
