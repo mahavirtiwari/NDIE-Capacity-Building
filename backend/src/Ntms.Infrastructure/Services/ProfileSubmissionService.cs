@@ -365,6 +365,25 @@ public class ProfileSubmissionService(
         submission.DecidedOn = form.RequiresScrutiny ? null : now;
         submission.DecidedByUserName = form.RequiresScrutiny ? null : "Not scrutinised";
 
+        /* Where this person is, taken from the answers they have just given.
+
+           The account's own state used to be set in one place only - the
+           applicant editing their address in the app - and sign-up never
+           asked. So an applicant who signed up, filled in a profile and
+           waited had no state on their account at all, and a state is what
+           the whole estate is divided by: the Applicants register and its
+           export are scoped by it, the State/UT filters read it, and the
+           officer a profile is placed with is chosen by it. All three were
+           quietly answering "nowhere".
+
+           The form has already asked. A field typed State or District
+           stores the LGD code, which is the same code every other state on
+           the record is written in, so the answer can simply be moved onto
+           the account - where the scope reads it. Only when the account has
+           none: an address the applicant has since corrected themselves is
+           theirs and is not overwritten by an older form. */
+        StampWhereTheyAreFrom(applicant, form, responses);
+
         /* Onto somebody's desk, not into a shared pile. Only where there is
            a decision to take: a form nobody reads needs no officer. */
         if (form.RequiresScrutiny)
@@ -429,9 +448,11 @@ public class ProfileSubmissionService(
     /// <summary>
     /// The profiles this account may read at all.
     ///
-    /// An Operation Manager sees the desk they were given. The tiers above
-    /// it see everything, which is how a profile nobody was found for gets
-    /// noticed and placed. Below it, nobody.
+    /// An Operation Manager sees the desk they were given. The Super Admin
+    /// and the Ministry see everything, which is how a profile nobody was
+    /// found for gets noticed and placed. An Admin sees the disciplines it
+    /// was allocated, which is the same answer every other register gives
+    /// it. Below the Operation Manager, nobody.
     ///
     /// That last part was missing: the rule narrowed for the Operation
     /// Manager and let every other tier through to the whole register,
@@ -456,9 +477,43 @@ public class ProfileSubmissionService(
                 var self = currentUser.UserId ?? 0;
                 return query.Where(s => s.AssignedToUserId == self);
 
+            /* Unscoped by design, and the only two that are. */
             case BaseRole.SuperAdmin:
             case BaseRole.Ministry:
+                return query;
+
+            /* An Admin saw the whole register, in every scheme and every
+               state, because it was grouped with the two tiers above it.
+               It does not belong there: an Admin is allocated categories,
+               sub-categories and states like an Operation Manager, and
+               every other register it reads honours that allocation. A
+               profile carries somebody's name, their documents and the
+               reason they were turned down, so reading one outside the
+               allocation is reading a stranger's file.
+
+               The discipline is narrowed and the territory is not, which is
+               the one place this differs from the other registers. A
+               profile's state is the applicant's, and an applicant has no
+               state until they fill in their address - so filtering on it
+               would hide exactly the profiles this tier exists to notice:
+               the ones nobody has been found for. Where the applicant has
+               said where they are, it is honoured. */
             case BaseRole.Admin:
+                var categories = currentUser.ScopeCategoryIds;
+                var subCategories = currentUser.ScopeSubCategoryIds;
+                var states = currentUser.ScopeStateCodes;
+
+                if (categories.Count > 0)
+                    query = query.Where(s => categories.Contains(s.CategoryId));
+                if (subCategories.Count > 0)
+                    query = query.Where(s => subCategories.Contains(s.SubCategoryId));
+                if (states.Count > 0)
+                {
+                    query = query.Where(
+                        s => s.Applicant!.StateCode == null
+                             || states.Contains(s.Applicant.StateCode.Value));
+                }
+
                 return query;
 
             default:
@@ -517,6 +572,64 @@ public class ProfileSubmissionService(
     /// profile stays in the register, unassigned, until a manager who
     /// covers it is appointed, and is then placed by itself.
     /// </summary>
+    /// <summary>
+    /// Moves the State and District the form asked for onto the account.
+    ///
+    /// Written onto the applicant rather than onto the submission because
+    /// the account is where every scope, filter and allocation in the
+    /// system already looks for somebody's territory. Putting a second
+    /// copy on the submission would mean two answers to one question.
+    ///
+    /// Nothing is overwritten. An applicant who has corrected their address
+    /// in the app has said something more recent than a form they filled in
+    /// months ago, and a district is cleared rather than kept when the
+    /// state it belonged to is not the one being set - a district of the
+    /// wrong state is worse than no district.
+    ///
+    /// A form that does not ask, or asks as free text, leaves the account
+    /// as it was: there is nothing here to read, and a typed place name
+    /// cannot be turned into a code that means the same thing as the rest
+    /// of the record.
+    /// </summary>
+    private static void StampWhereTheyAreFrom(
+        Applicant applicant, ProfileForm form, Dictionary<string, object?> responses)
+    {
+        if (applicant.StateCode is not null) return;
+
+        var fields = form.Sections
+            .Where(s => s.IsEnabled)
+            .SelectMany(s => s.Fields)
+            .ToList();
+
+        var state = CodeAnswered(fields, FieldType.State, responses);
+        if (state is null) return;
+
+        applicant.StateCode = state;
+        applicant.DistrictCode = CodeAnswered(fields, FieldType.District, responses);
+    }
+
+    /// <summary>
+    /// The LGD code answered to the first field of this type, where one was.
+    ///
+    /// Anything that is not a whole number is not a code - a form asking for
+    /// the state as text, an answer left blank, a repeating section whose
+    /// answer is a list - and reads as unanswered rather than as a guess.
+    /// </summary>
+    private static int? CodeAnswered(
+        IEnumerable<ProfileField> fields, FieldType type,
+        Dictionary<string, object?> responses)
+    {
+        foreach (var field in fields.Where(f => f.Type == type))
+        {
+            if (!responses.TryGetValue(field.Key, out var answer) || answer is null) continue;
+
+            var written = answer.ToString();
+            if (int.TryParse(written, out var code) && code > 0) return code;
+        }
+
+        return null;
+    }
+
     private async Task<int?> PickScrutinyOfficerAsync(
         int subCategoryId, int? applicantState, CancellationToken ct)
     {

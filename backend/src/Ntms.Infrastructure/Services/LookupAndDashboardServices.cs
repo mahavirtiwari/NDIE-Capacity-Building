@@ -500,6 +500,29 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
             result.DistrictsOf = Title(state.Name);
         }
 
+        /* An allocation of one state is a state filter nobody had to set.
+
+           The table below drops to districts whenever the reader can only
+           see one state, but the line above it only said which state those
+           districts belonged to when a filter had been chosen by hand. So a
+           manager allocated to Delhi alone opened the dashboard and read
+           "0 of 36 states and union territories have conducted a program"
+           over a list of Delhi's districts: the heading counting one thing
+           and the table showing another. */
+        if (onlyState is null
+            && currentUser.IsMasterScoped
+            && currentUser.ScopeStateCodes.Count == 1)
+        {
+            var only = currentUser.ScopeStateCodes[0];
+
+            var name = await db.States.AsNoTracking()
+                .Where(s => s.Code == only)
+                .Select(s => s.Name)
+                .FirstOrDefaultAsync(ct);
+
+            if (name is not null) result.DistrictsOf = Title(name);
+        }
+
         var rows = await programmes
             .Where(p => p.DistrictCode != null)
             .GroupBy(p => p.DistrictCode!.Value)

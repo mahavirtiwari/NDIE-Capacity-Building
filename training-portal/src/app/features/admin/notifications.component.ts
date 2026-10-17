@@ -96,7 +96,7 @@ const COLUMNS: ColumnDef[] = [
         [sortBy]="list.sortBy()"
         [sortDir]="list.sortDir()"
         emptyTitle="Nothing has been sent yet"
-        emptyMessage="An announcement you write here, and the notices raised when a programme opens, both appear in this list."
+        emptyMessage="An announcement you write here, and the notices raised when a program opens, both appear in this list."
         (pageChange)="list.page.set($event)"
         (pageSizeChange)="list.pageSize.set($event)"
         (sortChange)="list.setSort($event)"
@@ -119,7 +119,11 @@ const COLUMNS: ColumnDef[] = [
           @if ($any(row).kind === 'Custom') {
             <span class="chip chip--muted">Written</span>
           } @else {
-            <span class="chip">{{ $any(row).kind }}</span>
+            <!-- The event in words. The column used to print the name the
+                 code raises it by - ProgrammePermitted, SubCategoryAdded -
+                 which is an identifier, not a sentence, and read as
+                 something half-translated. -->
+            <span class="chip">{{ eventName($any(row).kind) }}</span>
           }
         </ng-template>
 
@@ -243,7 +247,7 @@ const COLUMNS: ColumnDef[] = [
               <label class="field-label" for="nfLink">Opens</label>
               <select id="nfLink" class="select" formControlName="linkPath">
                 <option value="">The notification list</option>
-                <option value="/programs">Programmes</option>
+                <option value="/programs">Programs</option>
                 <option value="/apply">Apply</option>
                 <option value="/profile-form">The profile form</option>
               </select>
@@ -279,6 +283,29 @@ export class NotificationsComponent {
 
   protected readonly columns = COLUMNS;
   protected readonly audiences = NOTIFICATION_AUDIENCES;
+
+  /**
+   * What raised a notice, said in words.
+   *
+   * Named here rather than derived from the identifier, because splitting
+   * it on its capitals would give "Programme Permitted" - the identifier
+   * with a space in it - and would still say "programme" on a screen that
+   * says "program" everywhere else. An event this list has not been taught
+   * falls back to being spaced out, which reads better than a blank.
+   */
+  private static readonly EVENT_NAMES: Record<string, string> = {
+    ProgrammeRaised: 'Program raised',
+    ProgrammePermitted: 'Program permitted',
+    ProgrammeOpened: 'Registration opened',
+    SubCategoryAdded: 'Sub-category added',
+  };
+
+  protected eventName(kind: string): string {
+    return (
+      NotificationsComponent.EVENT_NAMES[kind]
+      ?? kind.replace(/([a-z])([A-Z])/g, '$1 $2')
+    );
+  }
   protected term = searchTerm;
 
   protected readonly list = new ListState<AppNotification>(

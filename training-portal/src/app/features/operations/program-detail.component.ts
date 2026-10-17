@@ -373,7 +373,7 @@ type Tab =
                   <span class="fact__value">{{ batch.subCategoryName || '—' }}</span>
                 </div>
                 <div class="fact">
-                  <span class="fact__term">Programme type</span>
+                  <span class="fact__term">Program type</span>
                   <span class="fact__value">{{ batch.programTypeName || '—' }}</span>
                 </div>
               </div>

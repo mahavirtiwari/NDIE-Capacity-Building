@@ -192,7 +192,22 @@ export class DataTableComponent {
   readonly sortBy = input<string | null>(null);
   readonly sortDir = input<'asc' | 'desc'>('asc');
   readonly emptyTitle = input('No records found');
-  readonly emptyMessage = input<string>('Try changing the filters or add a new record.');
+
+  /**
+   * What an empty table says when the screen has not worded it itself.
+   *
+   * It used to end "or add a new record", which this component is in no
+   * position to promise. Twelve of the registers using it leave the
+   * default in place, and several of those are read-only to most of the
+   * people who open them - an Admin with fees.view was told to add a fee
+   * structure on a screen with no button to do it. On the Applicants
+   * register it was simply untrue: accounts arrive from the mobile app
+   * and no portal user has ever been able to make one.
+   *
+   * So the default says the one thing that is always true, and a screen
+   * that can offer something better says so itself.
+   */
+  readonly emptyMessage = input<string>('Nothing matches the filters above.');
   readonly emptyIcon = input<IconName>('inbox');
 
   /**

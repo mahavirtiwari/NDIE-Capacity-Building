@@ -213,7 +213,7 @@ const COLUMNS: ColumnDef[] = [
             <button
               type="button"
               class="btn btn--sm btn--secondary"
-              title="The programme report, as checked"
+              title="The program report, as checked"
               [disabled]="fetching()"
               (click)="report($any(row))"
             >
@@ -238,7 +238,7 @@ const COLUMNS: ColumnDef[] = [
         <div class="stack stack-xs">
           <span class="card__title">Download as Excel</span>
           <span class="card__subtitle">
-            One workbook across every programme the filters above match. Choose what goes in it.
+            One workbook across every program the filters above match. Choose what goes in it.
           </span>
         </div>
       </div>
@@ -265,7 +265,7 @@ const COLUMNS: ColumnDef[] = [
           >
             @if (building()) { <span class="spinner"></span> }
             <app-icon name="download" [size]="15" />
-            Build workbook ({{ workbookCount() }} programme{{ workbookCount() === 1 ? '' : 's' }})
+            Build workbook ({{ workbookCount() }} program{{ workbookCount() === 1 ? '' : 's' }})
           </button>
 
           <span class="field-hint">

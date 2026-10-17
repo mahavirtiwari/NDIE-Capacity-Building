@@ -60,7 +60,16 @@ public class RoleService(NtmsDbContext db, ICurrentUser currentUser)
     public async Task<PagedResult<AdminRoleDto>> ListAsync(
         PagedRequest request, string? baseRole, string? status, CancellationToken ct)
     {
+        /* Counted over the accounts this reader can see, not over the table.
+
+           The column said how many accounts hold each role anywhere in the
+           system, while the Portal users register beside it lists only the
+           subtree the reader is answerable for. An Admin with one Operation
+           Manager beneath them read "3" here and found one there, and
+           neither number was wrong on its own - they were counting
+           different things under one word. */
         var counts = await db.Users
+            .VisibleTo(currentUser)
             .GroupBy(u => u.RoleId)
             .Select(g => new { RoleId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.RoleId, x => x.Count, ct);
@@ -117,7 +126,9 @@ public class RoleService(NtmsDbContext db, ICurrentUser currentUser)
     {
         var role = await Base.FirstOrDefaultAsync(r => r.Id == id, ct)
                    ?? throw AppException.NotFound("Role");
-        var count = await db.Users.CountAsync(u => u.RoleId == id, ct);
+        /* The same count the register shows, over the same accounts. */
+        var count = await db.Users.VisibleTo(currentUser)
+            .CountAsync(u => u.RoleId == id, ct);
         return Describe(role, count);
     }
 

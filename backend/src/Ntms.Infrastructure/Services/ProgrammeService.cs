@@ -434,7 +434,9 @@ public class ProgrammeService(
         {
             await broadcasts.RaiseAsync(
                 "ProgrammeOpened",
-                "A new programme is open",
+                /* "program", like the two notices beside it and like the
+                   rest of the product. This one went to applicants. */
+                "A new program is open",
                 $"{entity.ProgrammeName} starts on "
                 + $"{entity.StartDate:dd MMM yyyy}. Registration is open now.",
                 NotificationAudience.Applicants,

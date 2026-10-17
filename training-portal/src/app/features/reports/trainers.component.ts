@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -36,6 +37,7 @@ const COLUMNS: ColumnDef[] = [
   selector: 'app-trainers',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    DatePipe,
     ReactiveFormsModule,
     PageHeaderComponent,
     DataTableComponent,
@@ -199,7 +201,13 @@ const COLUMNS: ColumnDef[] = [
 
         <ng-template appCell="conducted" let-row>
           <div class="stack stack-xs">
-            <span class="tabular">{{ $any(row).startDate }} – {{ $any(row).endDate }}</span>
+            <!-- Dated the way every other register dates a batch. These
+                 two came straight off the wire, so this was the one screen
+                 that said 2026-10-15 where the rest say 15 Oct 2026. -->
+            <span class="tabular">
+              {{ $any(row).startDate | date: 'dd MMM yyyy' }} –
+              {{ $any(row).endDate | date: 'dd MMM yyyy' }}
+            </span>
             <span class="text-xs text-muted">{{ $any(row).stateName }}</span>
           </div>
         </ng-template>

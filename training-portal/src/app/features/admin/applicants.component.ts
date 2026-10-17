@@ -166,6 +166,7 @@ const COLUMNS: ColumnDef[] = [
         [sortBy]="list.sortBy()"
         [sortDir]="list.sortDir()"
         emptyTitle="No applicants registered"
+        emptyMessage="Accounts are created in the mobile app, and appear here as soon as they are. Nobody adds one from the portal."
         emptyIcon="graduation"
         (pageChange)="list.goToPage($event)"
         (pageSizeChange)="list.setPageSize($event)"

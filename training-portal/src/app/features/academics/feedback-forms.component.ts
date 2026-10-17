@@ -75,7 +75,7 @@ const TYPES: { value: FeedbackQuestionType; label: string }[] = [
       icon="clipboard"
       title="Feedback forms"
       subtitle="What a program type asks its participants once a batch has been conducted."
-      [breadcrumbs]="[{ label: 'Academics' }, { label: 'Feedback forms' }]"
+      [breadcrumbs]="[{ label: 'Program setup' }, { label: 'Feedback forms' }]"
     >
       <button *appCan="'curriculum.manage'" type="button" class="btn btn--primary" (click)="openForm()">
         <app-icon name="plus" [size]="15" /> New feedback form

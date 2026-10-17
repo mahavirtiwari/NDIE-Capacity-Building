@@ -47,7 +47,7 @@ interface Region {
             [class.map__tab--on]="measure() === 'programTypes'"
             (click)="measure.set('programTypes')"
           >
-            Programme types
+            Program types
           </button>
         </div>
       </header>
@@ -124,7 +124,7 @@ interface Region {
                   </th>
                   <th class="num" [attr.aria-sort]="ariaSort('programmes')">
                     <button type="button" class="map__sort" (click)="sortBy('programmes')">
-                      Programmes conducted <span class="map__caret">{{ caret('programmes') }}</span>
+                      Programs conducted <span class="map__caret">{{ caret('programmes') }}</span>
                     </button>
                   </th>
                 </tr>
@@ -160,7 +160,13 @@ interface Region {
               </tbody>
               <tfoot>
                 <tr>
-                  <th>{{ districtsOf() ? 'All ' + districtsOf() : 'All India' }}</th>
+                  <th>
+                    @if (showingDistricts()) {
+                      {{ districtsOf() ? 'All ' + districtsOf() : 'Total' }}
+                    } @else {
+                      All India
+                    }
+                  </th>
                   <th class="num">{{ tableTotals().participants | number }}</th>
                   <th class="num">{{ tableTotals().programmes | number }}</th>
                 </tr>
@@ -595,6 +601,20 @@ export class StateCoverageMapComponent {
   /** Set when the filter names one state, which is what drops the table a level. */
   protected readonly districtsOf = computed(() => this.data()?.districtsOf || null);
 
+  /**
+   * Whether the table is a list of districts rather than of states.
+   *
+   * Decided by whether there are any, which is what the table itself goes
+   * on. It used to be decided by whether the server had named the state
+   * they belong to, and the server only names it when a state filter has
+   * been chosen by hand - so a manager allocated one state opened the
+   * dashboard to a list of its districts under a heading counting the
+   * country, and a footer totalling the country underneath it.
+   */
+  protected readonly showingDistricts = computed(
+    () => (this.data()?.districts ?? []).length > 0,
+  );
+
   /** Wording for this section, maintained under Administration → Site text. */
   protected readonly copy = inject(SiteTextService);
 
@@ -604,12 +624,14 @@ export class StateCoverageMapComponent {
    * than in the template means a reworded line cannot lose them.
    */
   protected readonly subtitle = computed(() => {
-    const state = this.districtsOf();
-    return state
+    return this.showingDistricts()
       ? this.copy.text('dashboard.map.districtSubtitle', {
           covered: this.districtsCovered(),
           total: (this.data()?.districts ?? []).length,
-          state,
+          /* Named where one state is being shown, and described where
+             several are: the sentence has to read either way, because
+             what decides it is the allocation and not the wording. */
+          state: this.districtsOf() ?? 'the states you cover',
         })
       : this.copy.text('dashboard.map.subtitle', {
           covered: this.data()?.statesCovered ?? 0,
@@ -659,7 +681,7 @@ export class StateCoverageMapComponent {
    */
   protected readonly tableTotals = computed(() => {
     const districts = this.data()?.districts ?? [];
-    if (this.districtsOf()) {
+    if (this.showingDistricts()) {
       return {
         participants: districts.reduce((sum, d) => sum + d.participants, 0),
         programmes: districts.reduce((sum, d) => sum + d.programmes, 0),

@@ -19,7 +19,7 @@ export function buildProgrammeReport(report: ProgrammeReport, logo?: string | nu
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>${esc(p.programmeCode)} — programme report</title>
+<title>${esc(p.programmeCode)} — program report</title>
 <style>${STYLES}</style>
 </head>
 <body>
