@@ -8,6 +8,7 @@ import { Banner, Button, Card } from '../../../src/components/ui';
 import { useGeoFix } from '../../../src/location/useGeoFix';
 import { colors, radius, spacing } from '../../../src/theme';
 import { useWorkshop } from '../../../src/workshop/WorkshopContext';
+import { indiaToday } from '../../../src/workshop/today';
 
 /**
  * The signed register, photographed, one day at a time.
@@ -31,7 +32,7 @@ export default function AttendancePhoto() {
     [detail?.startDate, detail?.endDate],
   );
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = indiaToday();
   const [day, setDay] = useState<string>(() => (days.includes(today) ? today : days[0] ?? today));
 
   const sheets = detail?.attendanceSheets ?? [];

@@ -6,6 +6,7 @@ import { Banner, Button, Card, Field, KeyboardAvoider } from '../../../src/compo
 import { isEmail } from '../../../src/validation/formats';
 import { colors, radius, spacing } from '../../../src/theme';
 import { useWorkshop } from '../../../src/workshop/WorkshopContext';
+import { indiaToday } from '../../../src/workshop/today';
 
 /**
  * Registering somebody at the door.
@@ -29,7 +30,7 @@ export default function OnSpotRegistration() {
   const { id, detail, refresh, locked } = useWorkshop();
   const registered = detail?.participants ?? [];
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = indiaToday();
   const firstDay = (detail?.startDate ?? '').slice(0, 10);
   const open = useMemo(() => !locked && firstDay === today, [locked, firstDay, today]);
 

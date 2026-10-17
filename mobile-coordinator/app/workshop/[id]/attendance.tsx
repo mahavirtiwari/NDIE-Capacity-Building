@@ -6,6 +6,7 @@ import { participants as participantsApi } from '../../../src/api/endpoints';
 import { Banner, Button, Card, EmptyState } from '../../../src/components/ui';
 import { colors, radius, spacing } from '../../../src/theme';
 import { useWorkshop } from '../../../src/workshop/WorkshopContext';
+import { indiaToday } from '../../../src/workshop/today';
 
 /**
  * Tick the register, one day at a time.
@@ -44,9 +45,8 @@ export default function Attendance() {
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  /* Today, by the phone's own clock. The programme runs where the
-     coordinator is standing. */
-  const today = new Date().toISOString().slice(0, 10);
+  /* Today in India, which is the day the server will accept. */
+  const today = indiaToday();
 
   /* A day already in the record is closed: the register was taken and
      is not reopened here. */
@@ -302,9 +302,9 @@ function programmeDays(start?: string | null, end?: string | null): string[] {
 
 /** Today if the programme is running, otherwise its first day. */
 function todayOr(days: string[]): string {
-  if (days.length === 0) return new Date().toISOString().slice(0, 10);
+  if (days.length === 0) return indiaToday();
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = indiaToday();
   return days.includes(today) ? today : days[0];
 }
 
