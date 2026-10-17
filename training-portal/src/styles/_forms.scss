@@ -77,15 +77,38 @@
   cursor: not-allowed;
 }
 
+/* Marked either because the field asked to be, or because Angular already
+   knows it is wrong.
+
+   The is-invalid binding is opt-in, written on a field at a time, and in
+   practice it went on the ones with a format to check - the e-mail, the
+   mobile, the PAN - and not on the plainly required ones beside them. So a
+   form refused for an empty name highlighted four other fields and left the
+   name looking fine, which is the opposite of helpful: the toast names the
+   field it is waiting on and the eye finds nothing there.
+
+   ng-invalid with ng-touched is the same question the binding asks, and
+   Angular puts it on every control without being told. Taking it as the
+   signal marks the fields nobody got round to, and a field that does bind
+   is-invalid is unaffected - both routes end at the same border.
+
+   ng-touched rather than ng-dirty alone, so nothing turns red before it has
+   been visited or the form submitted. */
 .input.is-invalid,
 .select.is-invalid,
-.textarea.is-invalid {
+.textarea.is-invalid,
+.input.ng-invalid.ng-touched,
+.select.ng-invalid.ng-touched,
+.textarea.ng-invalid.ng-touched {
   border-color: var(--danger-500);
 }
 
 .input.is-invalid:focus,
 .select.is-invalid:focus,
-.textarea.is-invalid:focus {
+.textarea.is-invalid:focus,
+.input.ng-invalid.ng-touched:focus,
+.select.ng-invalid.ng-touched:focus,
+.textarea.ng-invalid.ng-touched:focus {
   box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.16);
 }
 

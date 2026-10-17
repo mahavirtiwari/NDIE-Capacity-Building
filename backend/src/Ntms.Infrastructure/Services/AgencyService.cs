@@ -442,6 +442,25 @@ public class AgencyService(
             StateCode = entity.StateCode,
             City = entity.City,
             Status = RecordStatus.Active,
+
+            /* Who this login answers to, which every other account records
+               when it is created and this one did not.
+
+               The delegation chain is what the Portal users register is
+               filtered by, and it is walked one tier at a time: a
+               coordinator is found through the agency login that created
+               it, and that login through the manager that empanelled it.
+               A null here broke the walk at the first step, so an agency
+               empanelled from the portal was invisible in the register to
+               the very manager who empanelled it - and so was every
+               coordinator it went on to appoint, while their names went
+               on appearing on the batch sheets those managers permit.
+
+               Taken from the agency's owner rather than from the caller,
+               so a login created later - by the sweep that notices an
+               agency has none, or by somebody standing in - still answers
+               to whoever is accountable for the agency. */
+            ReportsToUserId = entity.OwnerUserId ?? currentUser.UserId,
         };
 
         /* The login inherits exactly what the agency was empanelled for, so
