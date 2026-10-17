@@ -60,19 +60,32 @@ public class QcController(QcService service) : ApiControllerBase
     ///
     /// Not a quality-control key: this is the agency reading its own
     /// coordinator's work, which is a different act from the manager's
-    /// check and is allowed by scope.
+    /// check.
+    ///
+    /// It was programs.view, with scope left to do the rest. Scope does not
+    /// do the rest: the Ministry is unscoped by design, so an observer that
+    /// creates nothing could move any report in the country out of the
+    /// agency's hands - and reading is the one thing the Ministry is for.
+    /// programs.manage is the key for acting on a batch, and the two tiers
+    /// that hold it are the two this was always meant for.
     /// </summary>
     [HttpPost("programmes/{programmeId:int}/forward")]
-    [HasPermission(Permissions.ProgramsView)]
+    [HasPermission(Permissions.ProgramsManage)]
     public async Task<ActionResult<ApiEnvelope<QcProgrammeDto>>> Forward(
         int programmeId, [FromBody] QcDecisionDto dto, CancellationToken ct) =>
         Envelope(
             await service.ForwardAsync(programmeId, dto.Remarks, ct),
             "Forwarded for quality check.");
 
-    /// <summary>The agency sends it back to the coordinator instead.</summary>
+    /// <summary>
+    /// The agency sends it back to the coordinator instead.
+    ///
+    /// Keyed like the forward beside it, and for the same reason: this
+    /// rejects a report and moves the batch to QC rejected, which is not
+    /// something a view key should buy.
+    /// </summary>
     [HttpPost("programmes/{programmeId:int}/send-back")]
-    [HasPermission(Permissions.ProgramsView)]
+    [HasPermission(Permissions.ProgramsManage)]
     public async Task<ActionResult<ApiEnvelope<QcProgrammeDto>>> SendBack(
         int programmeId, [FromBody] QcDecisionDto dto, CancellationToken ct) =>
         Envelope(

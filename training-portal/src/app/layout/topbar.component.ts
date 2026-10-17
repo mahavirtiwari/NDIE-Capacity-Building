@@ -298,10 +298,50 @@ export class TopbarComponent {
    * about a programme waiting on them has seen it, whether or not they
    * permit it there and then.
    */
+  /**
+   * Where a notice should take this reader, or nowhere.
+   *
+   * A notice carries one link and up to three clients read it, and the
+   * field was written for the handsets: of the four paths the system
+   * raises, three are app routes. The portal followed whichever it was
+   * given, so a coordinator tapping "A program is yours to run" landed on
+   * /workshop/19/registration - a screen that exists in the app and has
+   * never existed here - and got Page not found.
+   *
+   * Translated rather than followed. A batch is a batch in both places, so
+   * a workshop link becomes the batch's own screen; a path the portal has
+   * no answer for takes nobody anywhere, which is the honest outcome and
+   * beats a dead end. The notice is still marked read either way: it has
+   * been read.
+   */
+  private portalPathFor(linkPath: string): string | null {
+    const path = linkPath.trim();
+
+    /* The app's workshop screens are this batch, under the portal's own
+       route for it. */
+    const workshop = /^\/workshop\/(\d+)(?:\/|$)/.exec(path);
+    if (workshop) return `/operations/programs/${workshop[1]}`;
+
+    /* Already a portal path. */
+    if (path.startsWith('/operations/') || path.startsWith('/admin/')
+        || path.startsWith('/academics/') || path.startsWith('/access/')
+        || path.startsWith('/reports')) {
+      return path;
+    }
+
+    /* The apps' own register of batches; the portal's is under operations. */
+    if (path === '/programs') return '/operations/programs';
+
+    /* /apply and anything else belong to a screen the portal does not have. */
+    return null;
+  }
+
   protected openNotice(notice: { id: number; read: boolean; linkPath?: string | null }): void {
     this.notices.markRead(notice.id);
     this.bellOpen.set(false);
-    if (notice.linkPath) void this.router.navigateByUrl(notice.linkPath);
+
+    const to = notice.linkPath ? this.portalPathFor(notice.linkPath) : null;
+    if (to) void this.router.navigateByUrl(to);
   }
 
   protected signOut(): void {

@@ -283,7 +283,16 @@ public static class MasterScopeExtensions
     {
         if (!user.IsMasterScoped) return SeesEverything(user) ? query : query.Where(_ => false);
 
-        if (user.Tier == Domain.Common.BaseRole.AgencyAdmin)
+        /* An agency login, and a coordinator, see one agency: their own.
+
+           The coordinator was falling through to the allocation below,
+           which matches every agency empanelled for their program types in
+           their states - so a coordinator who runs batches for one agency
+           was offered the roster of its competitors in the filter on their
+           own screens. They belong to an agency exactly as the agency login
+           does, by the column on their account, and that is the answer. */
+        if (user.Tier is Domain.Common.BaseRole.AgencyAdmin
+            or Domain.Common.BaseRole.Coordinator)
         {
             return user.AgencyId is { } own
                 ? query.Where(a => a.Id == own)
