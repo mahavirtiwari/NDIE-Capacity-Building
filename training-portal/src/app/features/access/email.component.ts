@@ -6,7 +6,7 @@ import { EmailLogEntry, EmailPreview, EmailSettings, EmailTemplate } from '../..
 import { EmailService } from '../../core/services/email.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
-import { describeError, formatValidator } from '../../core/validation/formats';
+import { describeError, formatValidator, describeFirstError } from '../../core/validation/formats';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
@@ -549,6 +549,7 @@ export class EmailSettingsComponent {
   protected save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.form));
       return;
     }
     const raw = this.form.getRawValue();
@@ -623,6 +624,7 @@ export class EmailSettingsComponent {
     const key = this.selectedKey();
     if (!key || this.templateForm.invalid) {
       this.templateForm.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.templateForm));
       return;
     }
     this.savingTemplate.set(true);

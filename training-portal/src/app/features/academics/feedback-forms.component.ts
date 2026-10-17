@@ -25,6 +25,7 @@ import { PageHeaderComponent } from '../../shared/components/page-header.compone
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
 import { StatusToggleComponent } from '../../shared/components/status-toggle.component';
 import { ListState, searchTerm } from '../../shared/list-state';
+import { describeFirstError } from '../../core/validation/formats';
 
 const COLUMNS: ColumnDef[] = [
   { key: 'programTypeName', header: 'Program type', sortable: true, variant: 'primary' },
@@ -507,6 +508,7 @@ export class FeedbackFormsComponent {
   protected save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.form));
       return;
     }
 

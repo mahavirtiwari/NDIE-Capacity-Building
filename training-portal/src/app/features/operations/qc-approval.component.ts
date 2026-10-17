@@ -39,9 +39,9 @@ import { ListState } from '../../shared/list-state';
 const COLUMNS: ColumnDef[] = [
   { key: 'serial', header: 'S.No', width: '64px', align: 'center' },
   { key: 'report', header: 'Report', width: '80px', align: 'center' },
-  { key: 'programmeCode', header: 'Programme ID', width: '150px' },
+  { key: 'programmeCode', header: 'Program ID', width: '150px' },
   { key: 'agencyName', header: 'Agency name', width: '200px' },
-  { key: 'programmeName', header: 'Programme', variant: 'primary', width: '230px' },
+  { key: 'programmeName', header: 'Program', variant: 'primary', width: '230px' },
   { key: 'venue', header: 'Venue', width: '170px' },
   { key: 'startDate', header: 'Start date', width: '120px' },
   { key: 'endDate', header: 'End date', width: '120px' },
@@ -76,7 +76,7 @@ const COLUMNS: ColumnDef[] = [
   template: `
     <app-page-header
       title="QC approval"
-      subtitle="Programmes that have been conducted and whose report is waiting to be checked."
+      subtitle="Programs that have been conducted and whose report is waiting to be checked."
       icon="shield"
       [breadcrumbs]="[{ label: 'Operations' }, { label: 'QC approval' }]"
     />
@@ -125,7 +125,7 @@ const COLUMNS: ColumnDef[] = [
               class="input"
               type="search"
               formControlName="search"
-              placeholder="Programme ID, name or agency"
+              placeholder="Program ID, name or agency"
             />
           </div>
         </form>
@@ -210,7 +210,7 @@ const COLUMNS: ColumnDef[] = [
       >
         <div class="stack stack-md">
           <div class="dl">
-            <div><span class="dl__term">Programme</span><span>{{ row.programmeName }}</span></div>
+            <div><span class="dl__term">Program</span><span>{{ row.programmeName }}</span></div>
             <div><span class="dl__term">Type</span><span>{{ row.programTypeName ?? '—' }}</span></div>
             <div><span class="dl__term">Agency</span><span>{{ row.agencyName ?? '—' }}</span></div>
             <div>
@@ -459,9 +459,9 @@ export class QcApprovalComponent {
       case 'Pending':
         return 'Nothing waiting';
       case 'Approved':
-        return 'No approved programmes';
+        return 'No approved programs';
       default:
-        return 'No rejected programmes';
+        return 'No rejected programs';
     }
   });
 

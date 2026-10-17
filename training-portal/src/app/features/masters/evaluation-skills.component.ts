@@ -17,6 +17,7 @@ import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
 import { StatusToggleComponent } from '../../shared/components/status-toggle.component';
+import { describeFirstError } from '../../core/validation/formats';
 
 const COLUMNS: ColumnDef[] = [
   { key: 'displayOrder', header: '#', align: 'center', width: '60px' },
@@ -372,6 +373,7 @@ export class EvaluationSkillsComponent {
     if (!programTypeId) return;
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.form));
       return;
     }
 

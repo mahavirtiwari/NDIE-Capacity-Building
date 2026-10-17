@@ -26,7 +26,7 @@ import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
-import { requiredFormat } from '../../core/validation/formats';
+import { requiredFormat, describeFirstError } from '../../core/validation/formats';
 import { ListState, searchTerm } from '../../shared/list-state';
 
 /*
@@ -47,7 +47,10 @@ const COLUMNS: ColumnDef[] = [
   { key: 'startDate', header: 'Start date', sortable: true, width: '110px' },
   { key: 'endDate', header: 'End date', width: '110px' },
   { key: 'participantCount', header: 'Participants', align: 'center', width: '90px' },
-  { key: 'comments', header: 'Comments', width: '260px' },
+  /* Headed by what it holds. The column is the badge, the reason behind
+     it and whatever the row is waiting on; "Comments" named the one field
+     the cell happens to read and not the thing anybody looks at it for. */
+  { key: 'comments', header: 'Status', width: '260px' },
 ];
 
 @Component({
@@ -1083,6 +1086,7 @@ export class ProgramsComponent {
   protected save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.form));
       return;
     }
     this.saving.set(true);

@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
-  ALL_PERMISSIONS,
   AdminRole,
   AppRole,
   PERMISSION_CATALOGUE,
@@ -22,6 +21,7 @@ import { PageHeaderComponent } from '../../shared/components/page-header.compone
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
 import { StatusToggleComponent } from '../../shared/components/status-toggle.component';
 import { ListState, searchTerm } from '../../shared/list-state';
+import { describeFirstError } from '../../core/validation/formats';
 
 const COLUMNS: ColumnDef[] = [
   { key: 'name', header: 'Role', sortable: true, variant: 'primary' },
@@ -206,7 +206,7 @@ const labelFor = (base: string): string => ROLE_LABELS[base as AppRole] ?? base;
     @if (formOpen()) {
       <app-modal
         [title]="editing() ? 'Edit role' : 'New role'"
-        [subtitle]="selectedCount() + ' of ' + totalPermissions + ' permissions granted'"
+        [subtitle]="selectedCount() + ' of ' + totalPermissions() + ' permissions granted'"
         size="lg"
         (closed)="closeForm()"
       >
@@ -363,7 +363,17 @@ export class RolesComponent {
       .map((g) => ({ ...g, permissions: g.permissions.filter((p) => set.has(p.key)) }))
       .filter((g) => g.permissions.length > 0);
   });
-  protected readonly totalPermissions = ALL_PERMISSIONS.length;
+  /**
+   * How many keys are on offer for the role being shaped.
+   *
+   * The catalogue above, not the whole permission list: a tier may never
+   * hold some of them and those are not shown, so counting them in the
+   * denominator read as "18 of 33" over a list of 27 and left somebody
+   * hunting for six checkboxes that were never there.
+   */
+  protected readonly totalPermissions = computed(() =>
+    this.catalogue().reduce((n, group) => n + group.permissions.length, 0),
+  );
 
   protected readonly list = new ListState<AdminRole>((request) => this.service.list(request), {
     sortBy: 'name',
@@ -416,8 +426,17 @@ export class RolesComponent {
     );
   }
 
+  /**
+   * Every key on offer, or none.
+   *
+   * From the catalogue rather than the whole permission list: the keys a
+   * tier may never hold are not shown, and sending them anyway had the
+   * dialog grant more than the server would keep.
+   */
   protected selectAll(all: boolean): void {
-    this.selected.set(all ? [...ALL_PERMISSIONS] : []);
+    this.selected.set(
+      all ? this.catalogue().flatMap((group) => group.permissions.map((p) => p.key)) : [],
+    );
   }
 
   /**
@@ -499,6 +518,7 @@ export class RolesComponent {
   protected save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.form));
       return;
     }
     if (!this.selected().length) {

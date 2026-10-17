@@ -20,8 +20,7 @@ import { StatusToggleComponent } from '../../shared/components/status-toggle.com
 import {
   UppercaseDirective,
   describeError,
-  formatValidator,
-} from '../../core/validation/formats';
+  formatValidator, describeFirstError } from '../../core/validation/formats';
 import { abbreviate, composeCode } from '../../core/validation/code-suggest';
 import { ListState, searchTerm } from '../../shared/list-state';
 
@@ -308,6 +307,7 @@ export class SubCategoriesComponent {
   protected save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.form));
       return;
     }
     this.saving.set(true);

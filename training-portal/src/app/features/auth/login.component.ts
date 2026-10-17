@@ -9,6 +9,7 @@ import { SiteTextService } from '../../core/services/site-text.service';
 import { BrandLogoComponent } from '../../shared/components/brand-logo.component';
 import { AuthArtComponent } from './auth-art.component';
 import { IconComponent } from '../../shared/components/icon.component';
+import { describeFirstError } from '../../core/validation/formats';
 
 interface DemoAccount {
   alias: string;
@@ -249,6 +250,7 @@ export class LoginComponent {
   protected submit(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.form));
       return;
     }
     this.busy.set(true);

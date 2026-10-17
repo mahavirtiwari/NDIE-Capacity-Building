@@ -3,7 +3,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { BrandingService } from '../../core/services/branding.service';
 import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
-import { describeError, formatValidator } from '../../core/validation/formats';
+import { describeError, formatValidator, describeFirstError } from '../../core/validation/formats';
 import { LogoSlot } from '../../core/models';
 import { ConfirmService } from '../../shared/components/confirm.service';
 import { IconComponent } from '../../shared/components/icon.component';
@@ -499,6 +499,7 @@ export class BrandingComponent {
   protected save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.form));
       return;
     }
     const raw = this.form.getRawValue();

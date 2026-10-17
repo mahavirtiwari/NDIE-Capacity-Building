@@ -33,8 +33,7 @@ import {
   UppercaseDirective,
   describeError,
   formatValidator,
-  requiredFormat,
-} from '../../core/validation/formats';
+  requiredFormat, describeFirstError } from '../../core/validation/formats';
 import { ListState, searchTerm } from '../../shared/list-state';
 
 const COLUMNS: ColumnDef[] = [
@@ -44,7 +43,7 @@ const COLUMNS: ColumnDef[] = [
      same sheet. */
   { key: 'code', header: 'Agency ID', sortable: true, width: '115px' },
   { key: 'name', header: 'Agency', sortable: true, variant: 'primary' },
-  { key: 'agencyType', header: 'Organization type', width: '160px' },
+  { key: 'agencyType', header: 'Organisation type', width: '160px' },
   { key: 'contact', header: 'Contact person', width: '220px' },
   /* No login column. The agency signs in with the code in the first
      column — they are the same string now — and a column repeating it
@@ -1050,6 +1049,7 @@ export class AgenciesComponent {
   protected save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.form));
       return;
     }
     this.saving.set(true);

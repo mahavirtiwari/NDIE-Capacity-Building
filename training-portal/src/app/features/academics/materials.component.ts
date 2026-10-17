@@ -22,6 +22,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
 import { StatusToggleComponent } from '../../shared/components/status-toggle.component';
 import { DurationPipe, FileSizePipe } from '../../shared/pipes/format.pipes';
 import { ListState, searchTerm } from '../../shared/list-state';
+import { describeFirstError } from '../../core/validation/formats';
 
 const COLUMNS: ColumnDef[] = [
   { key: 'title', header: 'Material', sortable: true, variant: 'primary' },
@@ -649,6 +650,7 @@ export class MaterialsComponent {
   protected save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.form));
       return;
     }
     this.saving.set(true);

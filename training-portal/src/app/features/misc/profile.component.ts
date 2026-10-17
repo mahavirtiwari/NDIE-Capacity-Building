@@ -5,7 +5,7 @@ import { SiteTextService } from '../../core/services/site-text.service';
 import { ToastService } from '../../core/services/toast.service';
 import { IconComponent } from '../../shared/components/icon.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
-import { describeError, requiredFormat } from '../../core/validation/formats';
+import { describeError, requiredFormat, describeFirstError } from '../../core/validation/formats';
 
 @Component({
   selector: 'app-profile',
@@ -156,6 +156,7 @@ export class ProfileComponent {
   protected saveContact(): void {
     if (this.contactForm.invalid) {
       this.contactForm.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.contactForm));
       return;
     }
     this.toast.success('Contact details updated', 'Your user ID is unchanged.');
@@ -164,6 +165,7 @@ export class ProfileComponent {
   protected savePassword(): void {
     if (this.passwordForm.invalid) {
       this.passwordForm.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.passwordForm));
       return;
     }
     const raw = this.passwordForm.getRawValue();

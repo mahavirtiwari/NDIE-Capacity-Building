@@ -809,11 +809,31 @@ public class ApplicantService(
         DateTime? registeredFrom, DateTime? registeredTo, string? search,
         CancellationToken ct)
     {
-        var request = new PagedRequest { Page = 1, PageSize = 100000, Search = search };
-        var page = await ListAsync(
-            request, categoryId, state, standing, isBlocked, registeredFrom, registeredTo, ct);
+        /* Walked a page at a time rather than asked for in one go.
 
-        var ids = page.Items.Select(r => r.Id).ToList();
+           This asked for a hundred thousand rows, which the contract
+           reads as nonsense and answers with ten - so every export of
+           this register, however many applicants matched, was the first
+           ten of them under a message that said it had worked. The cap
+           below is a real limit rather than an accident: an export is
+           opened in a spreadsheet, and twenty thousand rows is already
+           more than anybody reads. */
+        const int ceiling = 20_000;
+        var size = PagedRequest.MaxRowsPerPage;
+        var matched = new List<ApplicantDto>();
+
+        for (var number = 1; matched.Count < ceiling; number++)
+        {
+            var request = new PagedRequest { Page = number, PageSize = size, Search = search };
+            var page = await ListAsync(
+                request, categoryId, state, standing, isBlocked, registeredFrom, registeredTo, ct);
+
+            matched.AddRange(page.Items);
+
+            if (page.Items.Count < size || matched.Count >= page.Total) break;
+        }
+
+        var ids = matched.Select(r => r.Id).ToList();
         if (ids.Count == 0) return [];
 
         /* Three reads for the whole export rather than three per row. */
@@ -836,9 +856,9 @@ public class ApplicantService(
         var answersByApplicant = answers.GroupBy(a => a.ApplicantId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        var rows = new List<ApplicantExportRowDto>(page.Items.Count);
+        var rows = new List<ApplicantExportRowDto>(matched.Count);
 
-        foreach (var item in page.Items)
+        foreach (var item in matched)
         {
             var mine = byApplicant.GetValueOrDefault(item.Id) ?? [];
             var rejected = mine

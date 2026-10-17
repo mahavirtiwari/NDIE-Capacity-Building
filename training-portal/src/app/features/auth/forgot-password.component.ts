@@ -7,6 +7,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { BrandLogoComponent } from '../../shared/components/brand-logo.component';
 import { IconComponent } from '../../shared/components/icon.component';
 import { AuthArtComponent } from './auth-art.component';
+import { describeFirstError } from '../../core/validation/formats';
 
 type Step = 'request' | 'reset';
 
@@ -263,6 +264,7 @@ export class ForgotPasswordComponent {
   protected request(): void {
     if (this.requestForm.invalid) {
       this.requestForm.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.requestForm));
       return;
     }
 
@@ -284,6 +286,7 @@ export class ForgotPasswordComponent {
   protected reset(): void {
     if (this.resetForm.invalid) {
       this.resetForm.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.resetForm));
       return;
     }
 

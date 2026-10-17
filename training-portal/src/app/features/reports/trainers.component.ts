@@ -16,7 +16,7 @@ import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { ListState, searchTerm } from '../../shared/list-state';
-import { describeError, formatValidator, requiredFormat } from '../../core/validation/formats';
+import { describeError, formatValidator, requiredFormat, describeFirstError } from '../../core/validation/formats';
 
 const COLUMNS: ColumnDef[] = [
   { key: 'fullName', header: 'Trainer', sortable: true, variant: 'primary' },
@@ -481,6 +481,7 @@ export class TrainersComponent {
 
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.form));
       return;
     }
 

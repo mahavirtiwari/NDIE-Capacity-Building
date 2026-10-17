@@ -26,6 +26,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
 import { StatusToggleComponent } from '../../shared/components/status-toggle.component';
 import { InrPipe } from '../../shared/pipes/format.pipes';
 import { ListState, searchTerm } from '../../shared/list-state';
+import { describeFirstError } from '../../core/validation/formats';
 
 const COLUMNS: ColumnDef[] = [
   { key: 'title', header: 'Fee structure', sortable: true, variant: 'primary' },
@@ -541,6 +542,7 @@ export class FeesComponent {
   protected save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.form));
       return;
     }
     this.saving.set(true);

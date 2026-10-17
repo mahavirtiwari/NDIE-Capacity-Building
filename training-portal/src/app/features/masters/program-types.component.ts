@@ -34,8 +34,7 @@ import { StatusToggleComponent } from '../../shared/components/status-toggle.com
 import {
   UppercaseDirective,
   describeError,
-  formatValidator,
-} from '../../core/validation/formats';
+  formatValidator, describeFirstError } from '../../core/validation/formats';
 import { computeFeeTotals, type FeeStructure } from '../../core/models';
 import { abbreviate, composeCode } from '../../core/validation/code-suggest';
 import { ListState, searchTerm } from '../../shared/list-state';
@@ -571,6 +570,9 @@ interface WayDraft {
             <div class="field">
               <label class="field-label" for="ptName">Name <span class="req">*</span></label>
               <input id="ptName" class="input" formControlName="name" [class.is-invalid]="invalid('name')" />
+              @if (invalid('name')) {
+                <span class="field-error">{{ errorFor('name', 'Name') }}</span>
+              }
             </div>
             <div class="field">
               <label class="field-label" for="ptCode">Code</label>
@@ -588,7 +590,16 @@ interface WayDraft {
             </div>
             <div class="field">
               <label class="field-label" for="ptDays">Duration (days) <span class="req">*</span></label>
-              <input id="ptDays" type="number" class="input" formControlName="durationDays" />
+              <input
+                id="ptDays"
+                type="number"
+                class="input"
+                formControlName="durationDays"
+                [class.is-invalid]="invalid('durationDays')"
+              />
+              @if (invalid('durationDays')) {
+                <span class="field-error">{{ errorFor('durationDays', 'Duration') }}</span>
+              }
             </div>
             <div class="field">
               <label class="field-label" for="ptModeSel">Delivery mode</label>
@@ -1467,6 +1478,7 @@ export class ProgramTypesComponent {
   protected save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.form));
       return;
     }
     if (this.marksProblem()) {

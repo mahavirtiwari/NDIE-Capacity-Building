@@ -22,6 +22,7 @@ import { LookupService } from '../../core/services/masters.service';
         <select
           class="select"
           [id]="idFor('category')"
+          [class.is-invalid]="missing('categoryId')"
           formControlName="categoryId"
           (change)="onCategoryChange()"
         >
@@ -30,6 +31,9 @@ import { LookupService } from '../../core/services/masters.service';
             <option [ngValue]="item.id">{{ item.name }}</option>
           }
         </select>
+        @if (missing('categoryId')) {
+          <span class="field-error">Category is required.</span>
+        }
       </div>
 
       <div class="field">
@@ -39,6 +43,7 @@ import { LookupService } from '../../core/services/masters.service';
         <select
           class="select"
           [id]="idFor('sub')"
+          [class.is-invalid]="missing('subCategoryId')"
           formControlName="subCategoryId"
           (change)="onSubCategoryChange()"
         >
@@ -47,6 +52,9 @@ import { LookupService } from '../../core/services/masters.service';
             <option [ngValue]="item.id">{{ item.name }}</option>
           }
         </select>
+        @if (missing('subCategoryId')) {
+          <span class="field-error">Sub-category is required.</span>
+        }
       </div>
 
       @if (showProgramType()) {
@@ -54,12 +62,20 @@ import { LookupService } from '../../core/services/masters.service';
           <label class="field-label" [for]="idFor('pt')">
             Program Type @if (required()) { <span class="req">*</span> }
           </label>
-          <select class="select" [id]="idFor('pt')" formControlName="programTypeId">
+          <select
+            class="select"
+            [id]="idFor('pt')"
+            [class.is-invalid]="missing('programTypeId')"
+            formControlName="programTypeId"
+          >
             <option [ngValue]="null">{{ anyLabel() }}</option>
             @for (item of programTypes(); track item.id) {
               <option [ngValue]="item.id">{{ item.name }}</option>
             }
           </select>
+          @if (missing('programTypeId')) {
+            <span class="field-error">Program type is required.</span>
+          }
         </div>
       }
     </ng-container>
@@ -69,6 +85,19 @@ import { LookupService } from '../../core/services/masters.service';
   styles: [':host { display: contents; }'],
 })
 export class CascadeSelectComponent {
+  /**
+   * Whether this select is the reason a form will not save.
+   *
+   * Pressing Save on a dialog with these left on "Select" marked the
+   * group touched and nothing else: the two controls that were actually
+   * missing looked exactly as they had a moment before, and the button
+   * read as broken. They say so now, like every other field does.
+   */
+  protected missing(name: string): boolean {
+    const field = this.group().get(name);
+    return !!field && field.invalid && (field.dirty || field.touched);
+  }
+
   private readonly lookups = inject(LookupService);
   private static seq = 0;
   private readonly uid = `cascade-${++CascadeSelectComponent.seq}`;

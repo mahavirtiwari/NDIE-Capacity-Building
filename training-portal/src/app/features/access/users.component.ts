@@ -57,8 +57,7 @@ import {
   describeError,
   formatValidator,
   requiredFormat,
-  UppercaseDirective,
-} from '../../core/validation/formats';
+  UppercaseDirective, describeFirstError } from '../../core/validation/formats';
 import { ListState, searchTerm } from '../../shared/list-state';
 
 /** The same screen serves "Portal users" and the coordinator-only view. */
@@ -551,13 +550,13 @@ const TIER_DEPTH: Record<string, number> = {
             </div>
             @if (needsFullRecord()) {
               <div class="field">
-                <label class="field-label" for="uOrg">Organization <span class="req">*</span></label>
+                <label class="field-label" for="uOrg">Organisation <span class="req">*</span></label>
                 <input id="uOrg" class="input" formControlName="organisationName" maxlength="200"
                   placeholder="The body this person works for"
                   [class.is-invalid]="invalid('organisationName')" />
                 @if (invalid('organisationName')) {
                   <span class="field-error">
-                    {{ errorFor('organisationName', 'Organization name') }}
+                    {{ errorFor('organisationName', 'Organisation name') }}
                   </span>
                 }
               </div>
@@ -1545,6 +1544,7 @@ export class UsersComponent {
   protected save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.form));
       return;
     }
     this.saving.set(true);
@@ -1665,7 +1665,7 @@ export class UsersComponent {
       row.mobile ? { label: 'Mobile', value: row.mobile, href: `tel:${row.mobile}` } : null,
       row.designation ? { label: 'Designation', value: row.designation } : null,
       row.organisationName || row.agencyName
-        ? { label: 'Organization', value: (row.organisationName || row.agencyName)! }
+        ? { label: 'Organisation', value: (row.organisationName || row.agencyName)! }
         : null,
       row.pan ? { label: 'PAN', value: row.pan, tabular: true } : null,
       row.aadhaarLast4

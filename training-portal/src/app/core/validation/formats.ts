@@ -1,6 +1,7 @@
 import { Directive, ElementRef, HostListener, inject } from '@angular/core';
 import {
   AbstractControl,
+  FormGroup,
   NgControl,
   ValidationErrors,
   ValidatorFn,
@@ -118,4 +119,55 @@ export class UppercaseDirective {
     this.ngControl?.control?.setValue(upper, { emitEvent: false });
     input.setSelectionRange(caret, caret);
   }
+}
+
+/**
+ * What to say when a form will not save.
+ *
+ * Walks the group for the first control the form is unhappy about and
+ * describes it, so a refused Save can name the field instead of leaving
+ * somebody to hunt for it. The control's own name is turned into words -
+ * `subCategoryId` reads as "Sub category" - which is close enough to the
+ * label above it to point at the right box.
+ *
+ * Nested groups and arrays are walked too: a dialog whose rows are a form
+ * array is exactly the one where the missing answer is hardest to find.
+ */
+export function describeFirstError(group: AbstractControl | null): string {
+  const found = firstInvalid(group, '');
+  if (!found) return 'Check the highlighted fields and try again.';
+
+  const [name, control] = found;
+  return describeError(control.errors, name ? wordsOf(name) : 'This field');
+}
+
+function firstInvalid(
+  control: AbstractControl | null,
+  name: string,
+): [string, AbstractControl] | null {
+  if (!control || control.valid) return null;
+  if (control.errors) return [name, control];
+
+  const children: Record<string, AbstractControl> | AbstractControl[] | null =
+    (control as FormGroup).controls ?? null;
+
+  if (!children) return null;
+
+  for (const [key, child] of Object.entries(children)) {
+    const found = firstInvalid(child as AbstractControl, Number.isNaN(Number(key)) ? key : name);
+    if (found) return found;
+  }
+
+  return null;
+}
+
+/** `subCategoryId` -> `Sub category`. Ids are not shown to anybody. */
+function wordsOf(name: string): string {
+  const words = name
+    .replace(/Id$/, '')
+    .replace(/([A-Z])/g, ' $1')
+    .trim()
+    .toLowerCase();
+
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }

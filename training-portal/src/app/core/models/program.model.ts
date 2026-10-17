@@ -305,9 +305,9 @@ export const QC_STATUSES: QcStatus[] =
 
 export const QC_STATUS_LABELS: Record<QcStatus, string> = {
   AwaitingAgency: 'With the agency',
-  Pending: 'Pending programmes',
-  Approved: 'Approved programmes',
-  Rejected: 'Rejected programmes',
+  Pending: 'Pending programs',
+  Approved: 'Approved programs',
+  Rejected: 'Rejected programs',
 };
 
 /**

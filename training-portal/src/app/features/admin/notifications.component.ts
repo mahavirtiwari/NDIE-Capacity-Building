@@ -22,6 +22,7 @@ import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { CanDirective } from '../../shared/directives/can.directive';
 import { ListState, searchTerm } from '../../shared/list-state';
+import { describeFirstError } from '../../core/validation/formats';
 
 const COLUMNS: ColumnDef[] = [
   { key: 'title', header: 'Notification', sortable: true, variant: 'primary' },
@@ -336,6 +337,7 @@ export class NotificationsComponent {
   protected save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.form));
       return;
     }
 

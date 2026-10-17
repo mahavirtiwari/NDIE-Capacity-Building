@@ -18,8 +18,10 @@ import { CellTemplateDirective, ColumnDef, DataTableComponent } from '../../shar
 import { CanDirective } from '../../shared/directives/can.directive';
 import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
+import { StatusToggleComponent } from '../../shared/components/status-toggle.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { ListState, searchTerm } from '../../shared/list-state';
+import { describeFirstError } from '../../core/validation/formats';
 
 const COLUMNS: ColumnDef[] = [
   { key: 'serial', header: 'S.No', width: '70px', align: 'center' },
@@ -41,6 +43,7 @@ const COLUMNS: ColumnDef[] = [
     CellTemplateDirective,
     ModalComponent,
     IconComponent,
+    StatusToggleComponent,
   ],
   template: `
     <app-page-header
@@ -122,7 +125,7 @@ const COLUMNS: ColumnDef[] = [
           Active curriculum
         </button>
         <button type="button" class="tab" [class.is-active]="view() === 'Inactive'" (click)="setView('Inactive')">
-          Blocked curriculum
+          Disabled curriculum
         </button>
       </div>
 
@@ -165,15 +168,16 @@ const COLUMNS: ColumnDef[] = [
             <button *appCan="'curriculum.manage'" type="button" class="btn btn--icon" title="Edit" (click)="openForm($any(row))">
               <app-icon name="edit" [size]="15" />
             </button>
-            <button
-              type="button"
-              class="btn btn--sm"
-              [class.btn--subtle-danger]="$any(row).status === 'Active'"
-              [class.btn--secondary]="$any(row).status !== 'Active'"
-              (click)="setStatus($any(row), $any(row).status === 'Active' ? 'Inactive' : 'Active')"
-            >
-              {{ $any(row).status === 'Active' ? 'Block' : 'Unblock' }}
-            </button>
+<!-- The shared switch, as on every other register. This was a
+                 text button reading Block / Unblock, which named the same
+                 act two different ways depending on which screen somebody
+                 happened to be on. -->
+            <ng-container *appCan="'curriculum.manage'">
+              <app-status-toggle
+                [status]="$any(row).status"
+                (toggled)="setStatus($any(row), $event)"
+              />
+            </ng-container>
           </div>
         </ng-template>
       </app-data-table>
@@ -439,6 +443,7 @@ export class CurriculumComponent {
   protected save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.form));
       return;
     }
     this.saving.set(true);
@@ -461,19 +466,24 @@ export class CurriculumComponent {
   }
 
   protected async setStatus(row: Curriculum, status: RecordStatus): Promise<void> {
-    const verb = status === 'Active' ? 'Unblock' : 'Block';
+    const verb = status === 'Active' ? 'Enable' : 'Disable';
     const confirmed = await this.confirm.ask({
-      title: `${verb} curriculum?`,
+      title: `${verb} this curriculum?`,
+      /* About the syllabus, which is what this row is. The old wording
+         said the program became available for scheduling again, which
+         is not what switching a curriculum does: batches are scheduled
+         from the program type either way. */
       message:
         status === 'Active'
-          ? 'The program becomes available again for scheduling new batches.'
-          : 'The program moves to the blocked list. Running batches keep their syllabus.',
+          ? 'New batches of this program type will be set up from it again.'
+          : 'New batches will not take their sessions from it. Batches already '
+            + 'running keep the syllabus they were given.',
       confirmLabel: verb,
       tone: status === 'Active' ? 'primary' : 'danger',
     });
     if (!confirmed) return;
     this.service.setStatus(row.id, status).subscribe(() => {
-      this.toast.success(`Curriculum ${verb.toLowerCase()}ed`, row.programTypeName ?? '');
+      this.toast.success(`Curriculum ${verb.toLowerCase()}d`, row.programTypeName ?? '');
       this.list.reload();
     });
   }

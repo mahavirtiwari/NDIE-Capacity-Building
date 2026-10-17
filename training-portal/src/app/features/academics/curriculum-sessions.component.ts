@@ -17,6 +17,7 @@ import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
 import { StatusToggleComponent } from '../../shared/components/status-toggle.component';
+import { describeFirstError } from '../../core/validation/formats';
 
 /**
  * HH:mm, which is what a time input takes and what a timetable reads as.
@@ -548,6 +549,7 @@ export class CurriculumSessionsComponent {
     const programme = this.curriculum();
     if (!programme || this.sessionForm.invalid) {
       this.sessionForm.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.sessionForm));
       return;
     }
     const value = this.sessionForm.getRawValue();
@@ -596,6 +598,7 @@ export class CurriculumSessionsComponent {
     const parent = this.topicParent();
     if (!programme || !parent || this.topicForm.invalid) {
       this.topicForm.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.topicForm));
       return;
     }
     const value = this.topicForm.getRawValue();

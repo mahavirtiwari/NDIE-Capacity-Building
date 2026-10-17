@@ -45,8 +45,17 @@ import { IconComponent, IconName } from './icon.component';
       .stat--warning .stat__icon { background: var(--warning-700); color: #fff; }
       .stat--danger .stat__icon { background: var(--danger-700); color: #fff; }
       .stat--info .stat__icon { background: var(--info-700); color: #fff; }
+      /* Two lines' worth of room whether the label needs them or not.
+
+         The tiles are a fixed height and centred, so a label that wraps
+         pushed its own figure down: "Programs conducted" and "Candidates
+         participated" sat nine pixels below "Profiles received" on the
+         same row, and a row of figures that do not line up is the first
+         thing the eye catches on a dashboard. */
       .stat__label {
+        min-height: calc(var(--fs-xs) * 1.5 * 2);
         font-size: var(--fs-xs);
+        line-height: 1.5;
         text-transform: uppercase;
         letter-spacing: 0.04em;
         color: var(--ink-500);

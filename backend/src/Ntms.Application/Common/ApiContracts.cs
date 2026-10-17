@@ -43,11 +43,23 @@ public class PagedRequest
         set => _page = value < 1 ? 1 : value;
     }
 
+    /// <summary>
+    /// How many rows a page holds, capped.
+    ///
+    /// Asking for more than the ceiling gets the ceiling. It used to get
+    /// ten - the default - so a caller asking for everything was handed
+    /// less than one that asked for nothing, which is how the applicant
+    /// export came to write the first ten of a thousand and report
+    /// success. Nonsense below one still falls back to the default.
+    /// </summary>
     public int PageSize
     {
         get => _pageSize;
-        set => _pageSize = value is < 1 or > MaxPageSize ? 10 : value;
+        set => _pageSize = value < 1 ? 10 : (value > MaxPageSize ? MaxPageSize : value);
     }
+
+    /// <summary>The most rows one page may carry, for callers that walk them.</summary>
+    public static int MaxRowsPerPage => MaxPageSize;
 
     public string? Search { get; set; }
     public string? SortBy { get; set; }

@@ -17,6 +17,7 @@ import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
+import { describeFirstError } from '../../core/validation/formats';
 
 /**
  * The form an applicant fills in to create an account.
@@ -468,6 +469,7 @@ export class SignupFormComponent {
   protected save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.toast.error('Check the form', describeFirstError(this.form));
       return;
     }
 
