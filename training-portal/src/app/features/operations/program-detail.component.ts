@@ -1352,7 +1352,7 @@ export class ProgramDetailComponent {
       });
       if (off.length > 0) {
         trouble.push(
-          `${off.length} session${off.length === 1 ? '' : 's'} fall outside the batch's hours of ${batch.startTime} – ${batch.endTime}.`,
+          `${off.length} session${off.length === 1 ? ' falls' : 's fall'} outside the batch's hours of ${batch.startTime} – ${batch.endTime}.`,
         );
       }
     }
