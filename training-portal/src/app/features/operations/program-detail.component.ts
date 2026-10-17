@@ -576,6 +576,42 @@ type Tab =
         }
 
         @if (tab() === 'sessions') {
+          <!-- Said out loud, because nothing else says it.
+
+               The timetable is written from the program type's curriculum
+               when the batch is permitted, and a curriculum that does not
+               fit the batch is fitted to it anyway: a Day 2 session on a
+               one-day batch is dated to day 1 rather than to a day after
+               the batch has ended. That is the right call on its own - a
+               session dated outside its own batch is worse - but it was
+               made silently, and what comes out can be a plan nobody could
+               run. Three sessions landed on one date here, two of them on
+               top of each other, in the morning, for a batch that runs in
+               the evening.
+
+               Checked here rather than at the moment it is written: this
+               reads the timetable as it now stands, so it keeps telling
+               the truth after somebody edits a session, and it tells it to
+               the coordinator who has to run the day as well as to the
+               manager who permitted it. -->
+          @if (timetableTrouble(batch); as trouble) {
+            <div class="alert alert--warning mb-md">
+              <app-icon name="alert" [size]="16" />
+              <span>
+                <strong>This timetable does not fit the batch.</strong>
+                @for (line of trouble; track line) {
+                  <br />{{ line }}
+                }
+                <br />
+                <span class="text-xs text-muted">
+                  The sessions come from the program type's curriculum. Either the
+                  curriculum or the batch's dates and hours need to agree before the day
+                  can be run as planned.
+                </span>
+              </span>
+            </div>
+          }
+
           <div class="table-wrap">
             <table class="table table--compact table--wide">
               <thead>
@@ -1244,6 +1280,86 @@ export class ProgramDetailComponent {
   }
 
   /** Whether one of the two downloads is being built. */
+  /**
+   * What is wrong with this batch's timetable, in sentences, or null.
+   *
+   * Three things, because all three were produced at once by one batch:
+   * a session dated outside the batch, two sessions on one date running
+   * over each other, and sessions at hours the batch does not run.
+   *
+   * They come from the same place. The timetable is written from the
+   * curriculum when the batch is permitted; a curriculum day past the end
+   * of the batch is pulled back to the last day, and each session keeps
+   * the time the curriculum gave it. Neither is wrong by itself, and
+   * together they can produce a day nobody could deliver - which was
+   * happening silently, on a screen that showed the sessions as though
+   * they were a plan.
+   *
+   * Read off the sessions rather than worked out when they are written,
+   * so it still holds after somebody edits one.
+   */
+  protected timetableTrouble(batch: Program): string[] | null {
+    const sessions = batch.sessions ?? [];
+    if (sessions.length === 0) return null;
+
+    const trouble: string[] = [];
+    const minutes = (time: string | null | undefined): number | null => {
+      const parts = /^(\d{1,2}):(\d{2})/.exec((time ?? '').trim());
+      return parts ? Number(parts[1]) * 60 + Number(parts[2]) : null;
+    };
+
+    const day = (value: string): string => (value ?? '').slice(0, 10);
+    const first = day(batch.startDate);
+    const last = day(batch.endDate);
+
+    const outside = sessions.filter((s) => day(s.sessionDate) < first || day(s.sessionDate) > last);
+    if (outside.length > 0) {
+      trouble.push(
+        `${outside.length} session${outside.length === 1 ? ' falls' : 's fall'} on a date the batch does not run.`,
+      );
+    }
+
+    /* Overlapping, which is the one a coordinator meets head on: two
+       sessions to mark attendance for at the same moment. */
+    const clashes = new Set<string>();
+    for (let i = 0; i < sessions.length; i++) {
+      for (let j = i + 1; j < sessions.length; j++) {
+        const a = sessions[i];
+        const b = sessions[j];
+        if (day(a.sessionDate) !== day(b.sessionDate)) continue;
+
+        const from = [minutes(a.startTime), minutes(b.startTime)];
+        const to = [minutes(a.endTime), minutes(b.endTime)];
+        if (from.some((m) => m === null) || to.some((m) => m === null)) continue;
+
+        if (from[0]! < to[1]! && from[1]! < to[0]!) {
+          clashes.add(`${a.sessionCode || a.title} and ${b.sessionCode || b.title}`);
+        }
+      }
+    }
+    for (const pair of clashes) trouble.push(`${pair} are scheduled at the same time.`);
+
+    /* And the hours. A batch that runs in the evening with a morning
+       timetable is not a clash between sessions, so it needs saying
+       separately or it goes unmentioned. */
+    const opens = minutes(batch.startTime);
+    const closes = minutes(batch.endTime);
+    if (opens !== null && closes !== null) {
+      const off = sessions.filter((s) => {
+        const from = minutes(s.startTime);
+        const to = minutes(s.endTime);
+        return from !== null && to !== null && (from < opens || to > closes);
+      });
+      if (off.length > 0) {
+        trouble.push(
+          `${off.length} session${off.length === 1 ? '' : 's'} fall outside the batch's hours of ${batch.startTime} – ${batch.endTime}.`,
+        );
+      }
+    }
+
+    return trouble.length > 0 ? trouble : null;
+  }
+
   protected readonly downloading = signal(false);
 
   /** The report workbook is the reports register's, and so is its key. */
