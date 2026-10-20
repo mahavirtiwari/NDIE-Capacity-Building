@@ -205,6 +205,11 @@ public class ApplicantConfiguration : IEntityTypeConfiguration<Applicant>
         b.HasIndex(x => x.ApplicantCode).IsUnique();
         b.HasIndex(x => x.Email);
 
+        /* The register's default order, and the only column it sorts by
+           without being asked. Every page of a thousand-row register was
+           otherwise a sort of the whole table to return ten rows. */
+        b.HasIndex(x => x.RegisteredOn);
+
         /* One account per person, where the person is their PAN.
 
            It was once unique on (Pan, CategoryId), because a category was
@@ -348,6 +353,12 @@ public class ProgrammeConfiguration : IEntityTypeConfiguration<Programme>
 
         b.HasIndex(x => x.ProgrammeId).IsUnique();
         b.HasIndex(x => new { x.Status, x.StartDate });
+
+        /* And on the date alone, because the register's default order is
+           the date and its default filter is nothing: a composite led by
+           Status serves a filtered view and cannot serve an unfiltered
+           sort, which is the one everybody opens. */
+        b.HasIndex(x => x.StartDate);
 
         b.HasOne(x => x.Curriculum).WithMany().HasForeignKey(x => x.CurriculumId)
             .OnDelete(DeleteBehavior.Restrict);

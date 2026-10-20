@@ -314,6 +314,8 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("[Pan] <> ''");
 
+                    b.HasIndex("RegisteredOn");
+
                     b.HasIndex("StateCode");
 
                     b.HasIndex("SubCategoryId");
@@ -3737,6 +3739,8 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.HasIndex("RequestedDistrictCode");
+
+                    b.HasIndex("StartDate");
 
                     b.HasIndex("StateCode");
 
