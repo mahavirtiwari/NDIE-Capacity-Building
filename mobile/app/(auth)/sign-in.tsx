@@ -80,7 +80,7 @@ export default function SignIn() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.hero}>
-            <BrandLogo size={52} />
+            <BrandLogo size={84} />
             <Text style={styles.brand}>{branding.portalTitle}</Text>
             {/* The organisation's name and the strapline under it are
                 already on the logo above, and the title says what the

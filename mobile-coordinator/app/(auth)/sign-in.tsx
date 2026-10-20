@@ -58,7 +58,7 @@ export default function SignIn() {
           <View style={styles.hero}>
             {/* The organisation's own mark, served by the API and kept on the
                 device, so this screen is branded even with no signal. */}
-            <BrandLogo size={52} />
+            <BrandLogo size={84} />
             <Text style={styles.brand}>PROGRAM MONITORING</Text>
           </View>
 
