@@ -649,11 +649,29 @@ public class CertificateService(
            certificate so an award is never withheld for want of artwork. */
         if (row is null) return null;
 
-        await using var stream = templates.Open(row.RelativePath);
-        using var buffer = new MemoryStream();
-        await stream.CopyToAsync(buffer, ct);
+        /* Nor is a template whose file has gone. The row said there was
+           artwork and the disk disagrees - which is a problem to fix, but
+           not one to refuse somebody their certificate over, and the line
+           above has always said so. Without this the two cases parted
+           company: no row fell back quietly, a missing file threw and took
+           the whole render with it. */
+        try
+        {
+            await using var stream = templates.Open(row.RelativePath);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer, ct);
 
-        return new CertificateRenderer.Template(row.ContentType, buffer.ToArray());
+            return new CertificateRenderer.Template(row.ContentType, buffer.ToArray());
+        }
+        catch (AppException)
+        {
+            logger.LogWarning(
+                "Certificate template {Id} for program type {ProgramType} is recorded at "
+                + "{Path} but no file is there. Falling back to a plain certificate.",
+                row.Id, programTypeId, row.RelativePath);
+
+            return null;
+        }
     }
 
     private async Task<string> OrganisationNameAsync(CancellationToken ct) =>
