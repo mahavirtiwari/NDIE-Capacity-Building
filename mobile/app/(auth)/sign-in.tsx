@@ -82,10 +82,10 @@ export default function SignIn() {
           <View style={styles.hero}>
             <BrandLogo size={52} />
             <Text style={styles.brand}>{branding.portalTitle}</Text>
-            <Text style={styles.org}>{branding.organisationName}</Text>
-            <Text style={styles.tagline}>
-              {text('app.signin.tagline', 'Training and certification for MSME professionals.')}
-            </Text>
+            {/* The organisation's name and the strapline under it are
+                already on the logo above, and the title says what the
+                system is. Three lines of masthead pushed the thing
+                somebody came here to do - the sign-in - down the page. */}
           </View>
 
           <View style={styles.panel}>
@@ -189,13 +189,6 @@ const styles = StyleSheet.create({
   content: { flexGrow: 1, paddingBottom: spacing.xl },
 
   hero: { alignItems: 'center', paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl, gap: spacing.sm },
-  tagline: {
-    fontSize: font.sm,
-    color: colors.ink600,
-    textAlign: 'center',
-    lineHeight: 19,
-    marginTop: 2,
-  },
   brand: {
     fontSize: font.lg,
     fontWeight: '700',
@@ -203,7 +196,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
   },
-  org: { fontSize: font.sm, color: colors.ink500 },
 
   panel: {
     flex: 1,
