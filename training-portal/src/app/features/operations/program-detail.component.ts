@@ -490,31 +490,38 @@ type Tab =
             <table class="table table--compact table--wide">
               <thead>
                 <tr>
-                  <!-- The title is the column anybody scans, so it takes
-                       what is left. A code is a fixed eight characters and
-                       was being given twice the room of the thing it
-                       identifies, which pushed every title onto three
-                       lines. -->
-                  <th style="width: 120px">Code</th>
+                  <!-- What the session is and what it covers, which is the
+                       column anybody reads, and then when and who. The code
+                       went: it is an internal key that named the row beside
+                       the title that names it better, in a fixed-width
+                       column wide enough for eight characters. So did the
+                       present count, which was 0 / 0 on every row of every
+                       batch until the register is taken from the app - the
+                       chip on the right already says whether it has been,
+                       and Attendance is a tab of its own. -->
                   <th>Session</th>
                   <th style="width: 115px">Date</th>
                   <th style="width: 125px">Time</th>
                   <th style="width: 160px">Faculty</th>
-                  <th style="width: 100px" class="text-center">Present</th>
                   <th class="col-actions"></th>
                 </tr>
               </thead>
               <tbody>
                 @for (session of batch.sessions; track session.id) {
                   <tr>
-                    <td class="cell-muted tabular">{{ session.sessionCode || '—' }}</td>
-                    <td class="cell-primary">{{ session.title }}</td>
+                    <td class="cell-primary">
+                      {{ session.title }}
+                      <!-- The topics under it, from the program type's
+                           curriculum. The timetable has always been the
+                           shape of the day without ever saying what is
+                           taught in it. -->
+                      @if (session.topics.length > 0) {
+                        <span class="topics">{{ session.topics.join(' · ') }}</span>
+                      }
+                    </td>
                     <td>{{ session.sessionDate | date: 'dd MMM yyyy' }}</td>
                     <td class="cell-muted">{{ session.startTime }} – {{ session.endTime }}</td>
                     <td class="cell-muted">{{ session.facultyName || '—' }}</td>
-                    <td class="text-center tabular">
-                      {{ session.presentCount }} / {{ batch.participants.length }}
-                    </td>
                     <!-- The register is taken in the room, on the day, from
                          the app - by the coordinator who is standing there.
                          The web offered a button that wrote the same record
@@ -531,7 +538,7 @@ type Tab =
                   </tr>
                 } @empty {
                   <tr>
-                    <td colspan="7" class="cell-muted text-center">No sessions captured yet.</td>
+                    <td colspan="5" class="cell-muted text-center">No sessions captured yet.</td>
                   </tr>
                 }
               </tbody>
@@ -926,6 +933,16 @@ type Tab =
       .share__text { flex: 1; min-width: 220px; }
       .share__row { display: flex; align-items: center; gap: 0.5rem; }
       .share__url { min-width: 300px; font-size: var(--fs-xs); font-family: ui-monospace, monospace; }
+      /* The syllabus under the session's name: a second line, quiet
+         enough that the timetable still scans as a timetable. */
+      .topics {
+        display: block;
+        margin-top: 2px;
+        font-size: var(--fs-xs);
+        font-weight: 400;
+        color: var(--ink-500);
+        line-height: 1.45;
+      }
     `,
   ],
 })

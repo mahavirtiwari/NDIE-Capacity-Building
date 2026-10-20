@@ -277,6 +277,13 @@ export const PROGRAMS: Program[] = Array.from({ length: 26 }, (_, idx) => {
       facultyName: ['Dr. S. Venkatesh', 'Prof. Anjali Deb', 'Mr. H. Bhatt'][si % 3],
       presentCount: status === 'Conducted' ? Math.max(0, participantCount - (si % 4)) : 0,
       isAttendanceLocked: status === 'Conducted',
+      topics: [
+        ['What ZED is', 'Levels and benefits', 'What an assessor does'],
+        ['Scoring the parameters', 'Evidence and sampling'],
+        ['Reading a filled assessment', 'Two worked examples'],
+        ['On-site conduct', 'Interviewing the unit'],
+        ['Writing the report', 'Common findings'],
+      ][si] ?? [],
     })),
     participants: participantsFor(id, Math.min(participantCount, 10)),
     createdBy: coordinator.fullName,

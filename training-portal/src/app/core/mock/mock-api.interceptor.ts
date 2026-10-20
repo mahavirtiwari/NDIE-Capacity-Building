@@ -372,6 +372,7 @@ function customRoutes(
         facultyName: (body['facultyName'] as string) ?? '',
         presentCount: 0,
         isAttendanceLocked: false,
+        topics: [],
       };
       program.sessions.push(session);
       return decorate(resource, program as unknown as Record<string, unknown>);

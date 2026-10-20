@@ -80,7 +80,55 @@ public class ProgrammeService(
 
         var dto = programme.ToDto();
         await AddProfileAnswersAsync(dto, ct);
+        await AddSessionTopicsAsync(programme, dto, ct);
         return dto;
+    }
+
+    /// <summary>
+    /// What each session covers, read off the curriculum the timetable was
+    /// written from.
+    ///
+    /// Matched by session code, which is what the timetable copies across
+    /// and what the curriculum names its sessions by. Read at the time of
+    /// asking rather than copied onto the batch, so a syllabus corrected
+    /// in one place is corrected everywhere - the alternative is a batch
+    /// teaching whatever the course said on the day it was permitted.
+    ///
+    /// Silent where there is nothing to say: a batch with no curriculum
+    /// recorded, or a session whose code the curriculum no longer has,
+    /// simply shows no topics.
+    /// </summary>
+    private async Task AddSessionTopicsAsync(
+        Programme programme, ProgrammeDto dto, CancellationToken ct)
+    {
+        var codes = dto.Sessions
+            .Select(s => s.SessionCode)
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Distinct()
+            .ToList();
+
+        if (programme.CurriculumId is not { } curriculumId || codes.Count == 0) return;
+
+        var topics = await db.CurriculumTopics.AsNoTracking()
+            .Where(t => t.Status == RecordStatus.Active
+                        && t.Session!.CurriculumId == curriculumId
+                        && t.Session.Status == RecordStatus.Active
+                        && codes.Contains(t.Session.SessionCode))
+            .OrderBy(t => t.DisplayOrder).ThenBy(t => t.Id)
+            .Select(t => new { t.Session!.SessionCode, t.TopicName })
+            .ToListAsync(ct);
+
+        if (topics.Count == 0) return;
+
+        var byCode = topics
+            .GroupBy(t => t.SessionCode)
+            .ToDictionary(g => g.Key, g => g.Select(t => t.TopicName).ToList());
+
+        foreach (var session in dto.Sessions)
+        {
+            if (session.SessionCode is { } code && byCode.TryGetValue(code, out var found))
+                session.Topics = found;
+        }
     }
 
     /// <summary>

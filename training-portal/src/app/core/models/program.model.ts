@@ -96,6 +96,8 @@ export interface ProgramSession {
   facultyName?: string;
   presentCount: number;
   isAttendanceLocked: boolean;
+  /** What the session covers, from the program type's curriculum. */
+  topics: string[];
 }
 
 /**
