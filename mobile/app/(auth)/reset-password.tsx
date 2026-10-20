@@ -191,13 +191,16 @@ export default function ResetPassword() {
           )}
         </Text>
 
-        <Pressable
+        {/* A button, like the one above it. As bare text it read as a
+            footnote under the small print rather than the way out of a
+            reset somebody has decided against. Secondary, because
+            setting the new password is still the thing this screen is
+            for. */}
+        <Button
+          label="Back to sign in"
+          variant="secondary"
           onPress={() => router.replace('/(auth)/sign-in')}
-          accessibilityRole="button"
-          style={styles.back}
-        >
-          <Text style={styles.backText}>Back to sign in</Text>
-        </Pressable>
+        />
       </ScrollView>
     </KeyboardAvoider>
   );
@@ -228,6 +231,4 @@ const styles = StyleSheet.create({
   resendDisabled: { color: colors.ink400 },
 
   note: { fontSize: font.sm, color: colors.ink500, lineHeight: 19 },
-  back: { alignItems: 'center', paddingVertical: spacing.sm },
-  backText: { fontSize: font.base, fontWeight: '600', color: colors.brand700 },
 });
