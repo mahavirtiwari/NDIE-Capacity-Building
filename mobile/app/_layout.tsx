@@ -1,10 +1,11 @@
 import { Redirect, Stack, useSegments } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../src/auth/AuthContext';
 import { BrandingProvider } from '../src/branding/BrandingContext';
+import { MenuButton, SideMenu } from '../src/components/SideMenu';
 import { Loading } from '../src/components/ui';
 import { SiteTextProvider } from '../src/content/SiteTextContext';
 import { NetworkProvider } from '../src/offline/NetworkContext';
@@ -61,6 +62,20 @@ function Routes() {
     listenForNotificationTaps();
   }, []);
 
+  /* The same menu the tabs carry.
+
+     Nine places are reachable from the side menu and five of them are
+     tabs, which keep the hamburger that opened it. The other four -
+     Examinations, Feedback, Payments and About - are pushed onto this
+     stack, so they arrived wearing a back arrow and nothing else: a
+     screen chosen from the menu that could not reach the menu, and did
+     not look like the five beside it in the list. They carry it now. */
+  const [menu, setMenu] = useState(false);
+  const fromMenu = {
+    headerLeft: () => <MenuButton onPress={() => setMenu(true)} />,
+    headerBackVisible: false,
+  };
+
   if (loading) return <Loading />;
 
   /* Signed out, and not on one of the screens that exists to sign you
@@ -75,6 +90,7 @@ function Routes() {
   return (
     <View style={{ flex: 1 }}>
       <OfflineNotice />
+      <SideMenu open={menu} onClose={() => setMenu(false)} />
       <Stack
         screenOptions={{
           /* The crimson of the primary button, carried across every bar in
@@ -97,10 +113,10 @@ function Routes() {
         {/* One screen for the money: what is owed, what was paid, and the
             invoice for each. Invoices used to be a screen of their own
             built on the same two lists. */}
-        <Stack.Screen name="payments" options={{ title: 'Payments & invoices' }} />
+        <Stack.Screen name="payments" options={{ title: 'Payments & invoices', ...fromMenu }} />
         <Stack.Screen name="profile-form" options={{ title: 'Your profile' }} />
         <Stack.Screen name="change-password" options={{ title: 'Change password' }} />
-        <Stack.Screen name="about" options={{ title: 'About' }} />
+        <Stack.Screen name="about" options={{ title: 'About', ...fromMenu }} />
         <Stack.Screen
           name="profile-submission/[subCategoryId]"
           options={{ title: 'Profile submission' }}
@@ -113,9 +129,9 @@ function Routes() {
           name="payment/status/[orderId]"
           options={{ title: 'Payment', headerBackVisible: false, gestureEnabled: false }}
         />
-        <Stack.Screen name="feedback/index" options={{ title: 'Feedback' }} />
+        <Stack.Screen name="feedback/index" options={{ title: 'Feedback', ...fromMenu }} />
         <Stack.Screen name="feedback/[participantId]" options={{ title: 'Your feedback' }} />
-        <Stack.Screen name="exam/index" options={{ title: 'Examinations' }} />
+        <Stack.Screen name="exam/index" options={{ title: 'Examinations', ...fromMenu }} />
         <Stack.Screen name="exam/[participantId]" options={{ title: 'Examination' }} />
         {/* No back arrow: a paper is left through the submit button or the
             warning behind the hardware key, not by drifting out of it. */}

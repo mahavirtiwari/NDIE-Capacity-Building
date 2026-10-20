@@ -111,14 +111,14 @@ export default function Verify() {
           <Subtitle>{`We sent a 6 digit code to ${email ?? 'your address'}.`}</Subtitle>
         </View>
 
+        {/* The ID is in the e-mail this screen is waiting on, and it is on
+            the account afterwards, so repeating it here was telling
+            somebody something they are about to be told anyway - above
+            the one box they came to this screen to fill in. */}
         {isEmailChange ? (
           <Banner tone="warning">
             You changed the address on your account, so it has to be confirmed again before you can
             sign in. Your applicant ID and password are unchanged.
-          </Banner>
-        ) : applicantCode ? (
-          <Banner tone="info">
-            {`Your applicant ID is ${applicantCode}. Keep it safe — it is how you sign in.`}
           </Banner>
         ) : null}
 

@@ -5,7 +5,7 @@ import { ApiError } from '../../src/api/client';
 import { me } from '../../src/api/endpoints';
 import type { TrainingMaterial } from '../../src/api/types';
 import { useResource } from '../../src/api/useResource';
-import { Banner, Card, Chip, EmptyState, Loading, shortDate } from '../../src/components/ui';
+import { Banner, Card, EmptyState, Loading } from '../../src/components/ui';
 import { colors, font, radius, spacing } from '../../src/theme';
 
 /**
@@ -137,19 +137,13 @@ function MaterialCard({
               </Text>
             ) : null}
 
-            <View style={styles.chips}>
-              <Chip>{material.kind}</Chip>
-              {material.programTypeName ? <Chip>{material.programTypeName}</Chip> : null}
-              {material.durationMinutes ? <Chip>{`${material.durationMinutes} min`}</Chip> : null}
-              {material.fileSizeKb ? (
-                <Chip>{`${Math.round(material.fileSizeKb / 1024) || 1} MB`}</Chip>
-              ) : null}
-              <Chip>{material.language}</Chip>
-            </View>
-
-            <Text style={styles.foot}>
-              {`v${material.version} · published ${shortDate(material.publishedOn)}`}
-            </Text>
+            {/* The name, and what it is about where there is a line of it.
+                The kind, the program type, the size, the language, the
+                version and the date it was published were six more pieces
+                of furniture around a single document - all of it true, none
+                of it what somebody scanning a short list is reading for,
+                and together taller than the title they came for. The
+                document's own screen still carries them. */}
           </View>
 
           <Ionicons name="chevron-forward" size={17} color={colors.ink500} />
@@ -189,6 +183,4 @@ const styles = StyleSheet.create({
   body: { flex: 1, gap: 4 },
   title: { fontSize: font.base, fontWeight: '700', color: colors.ink900, lineHeight: 20 },
   description: { fontSize: font.xs, color: colors.ink600, lineHeight: 17 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 2 },
-  foot: { fontSize: font.xs, color: colors.ink500, marginTop: 2 },
 });

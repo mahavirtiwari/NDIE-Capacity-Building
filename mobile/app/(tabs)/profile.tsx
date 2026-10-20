@@ -7,7 +7,6 @@ import { auth as authApi, me } from '../../src/api/endpoints';
 import type { Applicant, SignupField, SignupForm } from '../../src/api/types';
 import { GENDER_OPTIONS, SOCIAL_CATEGORY_OPTIONS } from '../../src/api/types';
 import { useAuth } from '../../src/auth/AuthContext';
-import { useBranding } from '../../src/branding/BrandingContext';
 import {
   Banner,
   Button,
@@ -39,7 +38,6 @@ import { isEmail, isMobile } from '../../src/validation/formats';
 export default function Profile() {
   const router = useRouter();
   const { applicant, signOut, refreshProfile } = useAuth();
-  const { branding } = useBranding();
 
   const [form, setForm] = useState<SignupForm | null>(null);
 
@@ -215,10 +213,6 @@ export default function Profile() {
             </View>
             <StatusPill value={applicant.isBlocked ? 'Inactive' : 'Active'} />
           </View>
-
-          <Banner tone="info">
-            Your applicant ID never changes and is what you sign in with.
-          </Banner>
         </Card>
 
         {/* What was filled in at sign-up, read back. Only the two boxes
@@ -335,11 +329,6 @@ export default function Profile() {
           <Ionicons name="log-out-outline" size={18} color={colors.danger700} />
           <Text style={styles.signOutLabel}>Sign out</Text>
         </Pressable>
-
-        <Text style={styles.footer}>
-          {branding.organisationName}
-          {branding.supportEmail ? `\n${branding.supportEmail}` : ''}
-        </Text>
       </ScrollView>
     </KeyboardAvoider>
   );
@@ -471,5 +460,4 @@ const styles = StyleSheet.create({
   },
   signOutLabel: { fontSize: font.base, fontWeight: '600', color: colors.danger700 },
 
-  footer: { fontSize: font.xs, color: colors.ink500, textAlign: 'center', lineHeight: 17 },
 });

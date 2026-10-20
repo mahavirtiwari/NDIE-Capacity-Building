@@ -1,7 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
-import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BrandLogo, useBranding } from '../src/branding/BrandingContext';
 import { Card } from '../src/components/ui';
 import { colors, font, radius, spacing } from '../src/theme';
@@ -29,8 +28,9 @@ export default function About() {
       <Stack.Screen options={{ title: 'About' }} />
 
       <View style={styles.hero}>
+        {/* The mark carries the organisation's name already; printing it
+            again underneath was the same words twice. */}
         <BrandLogo size={66} />
-        <Text style={styles.org}>{branding.organisationName}</Text>
         {branding.portalTitle ? <Text style={styles.title}>{branding.portalTitle}</Text> : null}
       </View>
 
@@ -53,49 +53,8 @@ export default function About() {
         </Card>
       )}
 
-      {branding.supportEmail || branding.supportUrl ? (
-        <Card style={styles.card}>
-          <Text style={styles.heading}>Getting help</Text>
-          {branding.supportUrl ? (
-            <Row
-              icon="globe-outline"
-              label="Contact us"
-              value={branding.supportUrl}
-              onPress={() => void Linking.openURL(branding.supportUrl!)}
-            />
-          ) : null}
-          {branding.supportEmail ? (
-            <Row
-              icon="mail-outline"
-              label="Email"
-              value={branding.supportEmail}
-              onPress={() => void Linking.openURL(`mailto:${branding.supportEmail}`)}
-            />
-          ) : null}
-        </Card>
-      ) : null}
-
       <Text style={styles.version}>{`Version ${version}`}</Text>
     </ScrollView>
-  );
-}
-
-function Row({
-  icon,
-  label,
-  value,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  value: string;
-  onPress: () => void;
-}) {
-  return (
-    <Text style={styles.row} onPress={onPress} accessibilityRole="link">
-      <Ionicons name={icon} size={14} color={colors.brand700} /> {label}:{' '}
-      <Text style={styles.link}>{value}</Text>
-    </Text>
   );
 }
 
@@ -111,20 +70,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  org: {
-    fontSize: font.md,
-    fontWeight: '700',
-    color: colors.ink900,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
   title: { fontSize: font.sm, color: colors.ink600, textAlign: 'center' },
 
   card: { gap: spacing.sm },
-  heading: { fontSize: font.md, fontWeight: '700', color: colors.ink900 },
   body: { fontSize: font.sm, color: colors.ink700, lineHeight: 21 },
-  row: { fontSize: font.sm, color: colors.ink700, lineHeight: 22 },
-  link: { color: colors.brand700, fontWeight: '600' },
 
   version: { fontSize: font.xs, color: colors.ink500, textAlign: 'center' },
 });
