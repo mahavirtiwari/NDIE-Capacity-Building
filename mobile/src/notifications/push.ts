@@ -98,17 +98,33 @@ export async function registerForPush(): Promise<void> {
       });
     }
 
+    /* Expo will not mint a token for a standalone build without knowing
+       which Expo project it belongs to, and a build made outside EAS has
+       no easConfig to fall back on. Said out loud, because the whole of
+       this function used to fail into a silent catch: every notice the
+       server raised went out to nought handsets, the in-app list carried
+       on working because it is fetched rather than pushed, and there was
+       nothing anywhere to say push had never once been delivered. */
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
-    const token = (await Notifications.getExpoPushTokenAsync(
-      projectId ? { projectId } : undefined,
-    )).data;
+
+    if (!projectId) {
+      console.warn(
+        '[push] No Expo projectId, so this handset cannot be registered and will '
+        + 'receive no notifications. Set extra.eas.projectId in app.json.',
+      );
+      return;
+    }
+
+    const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
 
     lastToken = token;
     await me.registerDevice({ token, platform: Platform.OS, app: 'applicant' });
-  } catch {
-    /* No push for this handset today. The notifications list still works,
-       because it is fetched rather than pushed. */
+  } catch (caught) {
+    /* The notifications list still works, because it is fetched rather
+       than pushed - which is exactly why this was worth saying. A silent
+       failure here looks identical to a system with nothing to send. */
+    console.warn('[push] This handset could not be registered for notifications.', caught);
   }
 }
 
