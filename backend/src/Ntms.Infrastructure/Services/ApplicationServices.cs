@@ -265,13 +265,36 @@ public class ApplicantService(
                 "every category - the category is chosen in the app, not here.");
         }
 
+        /* One account per mailbox, checked here as the PAN is above.
+
+           It was never enforced, and the damage only showed at recovery:
+           an address is resolved to one account or to none, so a second
+           registration on a mailbox quietly made both of them
+           unrecoverable by e-mail - the code never arrived and the reply
+           was the same one an unregistered address gets. Staging has two
+           such addresses across seven accounts, which is how it was
+           found.
+
+           Not an identity, still. Signing in takes the applicant ID, the
+           address stays theirs to change, and nothing here names the
+           account that holds it. */
+        var lowered = dto.Email.Trim().ToLowerInvariant();
+
+        if (await db.Applicants.AsNoTracking().AnyAsync(a => a.Email == lowered, ct))
+        {
+            throw AppException.Conflict(
+                "This email address is already registered. Sign in with the applicant ID you "
+                + "were sent, or use 'forgot password' to set a new one. Each account needs its "
+                + "own address, because that is where a reset code is sent.");
+        }
+
         var entity = new Applicant
         {
             ApplicantCode = await codes.NextApplicantCodeAsync(ct),
             FullName = dto.FullName.Trim(),
             /* Lower-cased so it always matches the OTP challenge destination,
                whatever collation the database runs under. */
-            Email = dto.Email.Trim().ToLowerInvariant(),
+            Email = lowered,
             Mobile = dto.Mobile.Trim(),
             /* Empty where the form does not ask for one. The unique index that
                holds the one-registration-per-category rule skips those rows,

@@ -163,6 +163,33 @@ public class ApplicantAuthService(
        is the identity and the password is untouched - so a change that is
        never finished costs nothing. */
 
+    /// <summary>
+    /// Refuses an address that already belongs to another applicant.
+    ///
+    /// One account per mailbox. It was never enforced, and the cost
+    /// showed up at the worst moment: recovery by e-mail resolves an
+    /// address to one account or to none, so the second registration on
+    /// a mailbox quietly made both of them unrecoverable that way - the
+    /// code simply never arrived, and the reply said the same thing it
+    /// says for an address that was never registered at all.
+    ///
+    /// This does not make the e-mail an identity. Signing in still takes
+    /// the applicant ID, the address is still theirs to change, and
+    /// nothing here says which account holds it.
+    /// </summary>
+    private async Task EnsureNobodyElseHasAsync(string email, int selfId, CancellationToken ct)
+    {
+        var taken = await db.Applicants.AsNoTracking()
+            .AnyAsync(a => a.Id != selfId && a.Email == email, ct);
+
+        if (taken)
+        {
+            throw AppException.Conflict(
+                "That email address is already registered to an account. Each account needs "
+                + "its own address, because it is where a password reset is sent.");
+        }
+    }
+
     /// <summary>Sends a code to the address they want to move to.</summary>
     public async Task<ApplicantDto> RequestEmailChangeAsync(
         int applicantId, string email, CancellationToken ct)
@@ -176,6 +203,8 @@ public class ApplicantAuthService(
 
         if (string.Equals(wanted, applicant.Email, StringComparison.OrdinalIgnoreCase))
             throw new AppException("That is already the address on your account.");
+
+        await EnsureNobodyElseHasAsync(wanted, applicant.Id, ct);
 
         applicant.PendingEmail = wanted;
         await db.SaveChangesAsync(ct);
@@ -215,6 +244,12 @@ public class ApplicantAuthService(
         /* Throws on a wrong, stale or spent code, so nothing below runs
            unless the person holding this session can also read that inbox. */
         await otp.SpendCodeAsync(OtpService.EmailChangeChannel, wanted, code, ct);
+
+        /* Asked again at the moment of the move. Between the code being
+           sent and it coming back, somebody else may have taken the
+           address - two applicants can both be holding a code for it,
+           and only the first to come back may have it. */
+        await EnsureNobodyElseHasAsync(wanted, applicant.Id, ct);
 
         applicant.Email = wanted;
         applicant.EmailVerified = true;
