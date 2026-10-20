@@ -2980,7 +2980,6 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<byte[]>("Content")
-                        .IsRequired()
                         .HasColumnType("varbinary(max)");
 
                     b.Property<string>("ContentType")
@@ -3032,6 +3031,14 @@ namespace Ntms.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime?>("ModifiedOn")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("RelativePath")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
 
                     b.Property<bool>("Stamped")
                         .HasColumnType("bit");

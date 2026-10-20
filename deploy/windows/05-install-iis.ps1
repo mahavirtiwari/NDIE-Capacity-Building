@@ -188,8 +188,10 @@ $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRul
 Set-Acl -Path $SitePath -AclObject $acl
 Write-Host "  [ok]  $poolIdentity can read $SitePath" -ForegroundColor Green
 
-# The storage root is the one place it may write: photographs and certificate
-# artwork land here, outside the folder a redeploy replaces.
+# The storage root is the one place it may write: monitoring photographs,
+# applicants' profile pictures and documents, training material and
+# certificate artwork all land here, outside the folder a redeploy replaces.
+# The grant is inherited, so a new subfolder under it needs nothing further.
 foreach ($path in @($StorageRoot)) {
     if (-not (Test-Path $path)) { New-Item -ItemType Directory -Path $path -Force | Out-Null }
     $acl = Get-Acl $path

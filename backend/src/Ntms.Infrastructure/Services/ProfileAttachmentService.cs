@@ -5,6 +5,7 @@ using Ntms.Application.Contracts;
 using Ntms.Domain.Common;
 using Ntms.Domain.Entities;
 using Ntms.Infrastructure.Persistence;
+using Ntms.Infrastructure.Storage;
 
 namespace Ntms.Infrastructure.Services;
 
@@ -27,6 +28,7 @@ namespace Ntms.Infrastructure.Services;
 public class ProfileAttachmentService(
     NtmsDbContext db,
     ProfileFormService forms,
+    ProfileAttachmentStore files,
     ILogger<ProfileAttachmentService> logger)
 {
     /// <summary>Where a field sets no limit of its own.</summary>
@@ -64,7 +66,7 @@ public class ProfileAttachmentService(
         string? DeviceModel,
         string? DeviceOsVersion,
         bool Stamped,
-        int SizeBytes);
+        long SizeBytes);
 
     /// <summary>How many pictures are held for a field, and how many it takes.</summary>
     public async Task<Standing> StandingAsync(
@@ -122,6 +124,14 @@ public class ProfileAttachmentService(
         var stamp = PhotoStamp.Apply(
             content, capturedOn, facts.Latitude, facts.Longitude, logger);
 
+        var stored = await files.SaveAsync(
+            stamp.Content,
+            /* The type the stamp produced where it worked, and whatever
+               arrived where it did not. */
+            stamp.Stamped ? stamp.ContentType : type,
+            applicantId,
+            ct);
+
         db.ProfileAttachments.Add(new ProfileAttachment
         {
             ApplicantId = applicantId,
@@ -130,7 +140,8 @@ public class ProfileAttachmentService(
             EntryIndex = entry,
             DisplayOrder = existing.Count == 0 ? 1 : existing.Max(p => p.DisplayOrder) + 1,
             ContentType = stamp.Stamped ? stamp.ContentType : type,
-            Content = stamp.Content,
+            RelativePath = stored.RelativePath,
+            SizeBytes = stored.SizeBytes,
             CapturedOn = capturedOn,
             SyncedOn = now,
             Latitude = facts.Latitude,
@@ -166,6 +177,7 @@ public class ProfileAttachmentService(
                     ?? throw AppException.NotFound("Picture");
 
         db.ProfileAttachments.Remove(going);
+        files.Delete(going.RelativePath);
 
         var order = 1;
         foreach (var photo in photos.Where(p => p.Id != going.Id))
@@ -182,6 +194,10 @@ public class ProfileAttachmentService(
     public async Task<Standing> ClearAsync(
         int applicantId, int subCategoryId, string fieldKey, int entry, CancellationToken ct)
     {
+        await ForgetFilesAsync(
+            p => p.ApplicantId == applicantId && p.SubCategoryId == subCategoryId
+                 && p.FieldKey == fieldKey && p.EntryIndex == entry, ct);
+
         await db.ProfileAttachments
             .Where(p => p.ApplicantId == applicantId && p.SubCategoryId == subCategoryId
                         && p.FieldKey == fieldKey && p.EntryIndex == entry)
@@ -207,7 +223,7 @@ public class ProfileAttachmentService(
                                       && p.DisplayOrder == displayOrder, ct)
             ?? throw AppException.NotFound("Picture");
 
-        return (photo.Content, photo.ContentType);
+        return (await BytesOfAsync(photo, ct), photo.ContentType);
     }
 
     /// <summary>
@@ -235,8 +251,49 @@ public class ProfileAttachmentService(
                 p.DeviceModel,
                 p.DeviceOsVersion,
                 p.Stamped,
-                p.Content.Length))
+                /* The recorded size, not the length of the bytes: the bytes
+                   are a file now and a listing does not open them. */
+                p.RelativePath != "" ? p.SizeBytes : (p.Content == null ? 0 : p.Content.Length)))
             .ToListAsync(ct);
+
+    /// <summary>
+    /// Deletes the files behind the rows a bulk delete is about to remove.
+    ///
+    /// ExecuteDelete goes straight to SQL and never loads an entity, so
+    /// nothing would otherwise know there was a file to tidy up. The paths
+    /// are read first and the files removed after - and a file that cannot
+    /// be removed does not stop the row going, because an orphaned file on
+    /// disk is a smaller problem than an attachment the applicant cannot
+    /// get rid of.
+    /// </summary>
+    private async Task ForgetFilesAsync(
+        System.Linq.Expressions.Expression<Func<ProfileAttachment, bool>> which,
+        CancellationToken ct)
+    {
+        var paths = await db.ProfileAttachments.AsNoTracking()
+            .Where(which)
+            .Select(a => a.RelativePath)
+            .Where(path => path != "")
+            .ToListAsync(ct);
+
+        foreach (var path in paths) files.Delete(path);
+    }
+
+    /// <summary>
+    /// The bytes of one attachment, from wherever it is kept.
+    ///
+    /// The file, where one has been written; the column otherwise. The
+    /// fallback exists because the move to disk drains the old rows in the
+    /// background, so for a while a profile holds some of each, and a
+    /// scrutiny officer opening a picture must not have to know which.
+    /// </summary>
+    private async Task<byte[]> BytesOfAsync(ProfileAttachment held, CancellationToken ct)
+    {
+        if (!string.IsNullOrEmpty(held.RelativePath))
+            return await files.ReadAsync(held.RelativePath, ct);
+
+        return held.Content ?? throw AppException.NotFound("File");
+    }
 
     /// <summary>Trimmed to what the column holds, or null if there is nothing.</summary>
     private static string? Trimmed(string? value, int max)
@@ -257,7 +314,11 @@ public class ProfileAttachmentService(
         var held = await db.ProfileAttachments.AsNoTracking()
             .Where(a => a.ApplicantId == applicantId && a.SubCategoryId == subCategoryId
                         && a.FieldKey == fieldKey && a.EntryIndex == entry)
-            .Select(a => new { a.FileName, Size = (long)a.Content.Length })
+            .Select(a => new
+            {
+                a.FileName,
+                Size = a.RelativePath != "" ? a.SizeBytes : (a.Content == null ? 0L : a.Content.Length),
+            })
             .FirstOrDefaultAsync(ct);
 
         return new FileStanding(fieldKey, held?.FileName, held?.Size ?? 0);
@@ -308,10 +369,16 @@ public class ProfileAttachmentService(
            one rather than with the new file behind the old ones. This
            entry only: the same field on the row above is a different
            question with a different answer. */
+        await ForgetFilesAsync(
+            a => a.ApplicantId == applicantId && a.SubCategoryId == subCategoryId
+                 && a.FieldKey == fieldKey && a.EntryIndex == entry, ct);
+
         await db.ProfileAttachments
             .Where(a => a.ApplicantId == applicantId && a.SubCategoryId == subCategoryId
                         && a.FieldKey == fieldKey && a.EntryIndex == entry)
             .ExecuteDeleteAsync(ct);
+
+        var stored = await files.SaveAsync(content, contentType, applicantId, ct);
 
         db.ProfileAttachments.Add(new ProfileAttachment
         {
@@ -324,7 +391,8 @@ public class ProfileAttachmentService(
             ContentType = string.IsNullOrWhiteSpace(contentType)
                 ? "application/octet-stream"
                 : contentType,
-            Content = content,
+            RelativePath = stored.RelativePath,
+            SizeBytes = stored.SizeBytes,
             CapturedOn = DateTime.UtcNow,
         });
 
@@ -341,7 +409,7 @@ public class ProfileAttachmentService(
                         && a.FieldKey == fieldKey && a.EntryIndex == entry, ct)
             ?? throw AppException.NotFound("File for this field");
 
-        return (held.Content, held.ContentType, held.FileName ?? $"{fieldKey}");
+        return (await BytesOfAsync(held, ct), held.ContentType, held.FileName ?? $"{fieldKey}");
     }
 
     /// <summary>
@@ -412,6 +480,10 @@ public class ProfileAttachmentService(
            entry still in it would pair every later marksheet with the
            wrong qualification. */
         await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        await ForgetFilesAsync(
+            a => a.ApplicantId == applicantId && a.SubCategoryId == subCategoryId
+                 && keys.Contains(a.FieldKey) && a.EntryIndex == entry, ct);
 
         var dropped = await db.ProfileAttachments
             .Where(a => a.ApplicantId == applicantId && a.SubCategoryId == subCategoryId

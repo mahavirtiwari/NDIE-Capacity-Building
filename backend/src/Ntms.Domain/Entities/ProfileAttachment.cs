@@ -66,7 +66,31 @@ public class ProfileAttachment : AuditableEntity
     public string? FileName { get; set; }
 
     public string ContentType { get; set; } = "image/jpeg";
-    public byte[] Content { get; set; } = [];
+
+    /// <summary>
+    /// Where the file sits under the attachment root, as
+    /// <c>applicant/{id}/{guid}.{ext}</c>.
+    ///
+    /// The bytes used to be on this row. Images are the largest thing the
+    /// system holds and nothing queries them, so every backup carried
+    /// them and the database grew with the photographs rather than with
+    /// the records - and the coordinator's app made that worse by the
+    /// week. The row keeps what is searched and points at the file, which
+    /// is how monitoring photographs have always been kept.
+    /// </summary>
+    public string RelativePath { get; set; } = string.Empty;
+
+    public long SizeBytes { get; set; }
+
+    /// <summary>
+    /// The bytes, for rows written before the files moved to disk.
+    ///
+    /// Emptied as each one is drained to a file, and read only as a
+    /// fallback while that is still happening. The column goes once the
+    /// drain has finished everywhere; until then a row is whichever of
+    /// the two it has.
+    /// </summary>
+    public byte[]? Content { get; set; }
 
     /// <summary>When it was taken, or when it was chosen.</summary>
     public DateTime CapturedOn { get; set; } = DateTime.UtcNow;

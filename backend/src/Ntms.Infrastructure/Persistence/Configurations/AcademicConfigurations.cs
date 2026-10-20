@@ -116,6 +116,7 @@ public class ProfileAttachmentConfiguration : IEntityTypeConfiguration<ProfileAt
         b.Property(x => x.FieldKey).HasMaxLength(80).IsRequired();
         b.Property(x => x.FileName).HasMaxLength(260);
         b.Property(x => x.ContentType).HasMaxLength(100).IsRequired();
+        b.Property(x => x.RelativePath).HasMaxLength(400);
 
         /* Same precision as the coordinator's monitoring shots: six decimal
            places is a tenth of a metre, which is past what a handset knows
