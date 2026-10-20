@@ -11,6 +11,28 @@ public class Applicant : AuditableEntity
     /// <summary>System generated, e.g. APP240012. Unique, immutable.</summary>
     public string ApplicantCode { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Given name and family name, as the applicant wrote them.
+    ///
+    /// Two columns rather than one, because a scheme that addresses
+    /// somebody by their given name, sorts a register by their family
+    /// name and prints both on a certificate cannot do any of it from a
+    /// single string it has to guess at.
+    ///
+    /// The family name is optional. Plenty of people have one name.
+    /// </summary>
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The two above, joined - the name everything else reads.
+    ///
+    /// Kept as its own column rather than composed on the way out: forty
+    /// odd places read it, four of them SQL views that the reporting
+    /// screens are built on, and a name assembled differently in each
+    /// would drift. Written by <see cref="Naming.Compose"/> wherever
+    /// either part changes, and never set directly.
+    /// </summary>
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Mobile { get; set; } = string.Empty;

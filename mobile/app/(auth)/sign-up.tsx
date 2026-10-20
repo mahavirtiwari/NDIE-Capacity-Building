@@ -132,6 +132,8 @@ export default function SignUp() {
     setFailure(null);
     try {
       const applicant = await auth.signUp({
+        firstName: (values.firstName ?? '').trim(),
+        lastName: (values.lastName ?? '').trim(),
         fullName: (values.fullName ?? '').trim(),
         email: (values.email ?? '').trim(),
         mobile: (values.mobile ?? '').trim(),

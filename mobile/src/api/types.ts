@@ -67,6 +67,9 @@ export const SOCIAL_CATEGORY_OPTIONS: { value: SocialCategory; label: string }[]
 export interface Applicant {
   id: number;
   applicantCode: string;
+  firstName: string;
+  lastName: string;
+  /** The two above joined - what every screen shows. */
   fullName: string;
   email: string;
   mobile: string;

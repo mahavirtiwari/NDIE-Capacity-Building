@@ -595,6 +595,8 @@ public static class DtoMappings
         {
             Id = e.Id,
             ApplicantCode = e.ApplicantCode,
+            FirstName = e.FirstName,
+            LastName = e.LastName,
             FullName = e.FullName,
             Email = e.Email,
             Mobile = e.Mobile,

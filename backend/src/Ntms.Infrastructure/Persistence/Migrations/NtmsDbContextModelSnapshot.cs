@@ -231,6 +231,11 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Property<bool>("EmailVerified")
                         .HasColumnType("bit");
 
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasMaxLength(160)
@@ -248,6 +253,11 @@ namespace Ntms.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime?>("LastLoginOn")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
 
                     b.Property<string>("Mobile")
                         .IsRequired()

@@ -187,6 +187,11 @@ public class ApplicantConfiguration : IEntityTypeConfiguration<Applicant>
     {
         b.ToTable("Applicants");
         b.Property(x => x.ApplicantCode).HasMaxLength(20).IsRequired();
+        /* The parts, and the whole they are joined into. The whole keeps
+           the length it had; the parts are each given most of it, since
+           either one may be the long half of a name. */
+        b.Property(x => x.FirstName).HasMaxLength(120).IsRequired();
+        b.Property(x => x.LastName).HasMaxLength(120).IsRequired();
         b.Property(x => x.FullName).HasMaxLength(160).IsRequired();
         b.Property(x => x.Email).HasMaxLength(200).IsRequired();
         b.Property(x => x.PendingEmail).HasMaxLength(200);

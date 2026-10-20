@@ -9,6 +9,8 @@ public class ApplicantDto : AuditDto
 {
     public int Id { get; set; }
     public string ApplicantCode { get; set; } = string.Empty;
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Mobile { get; set; } = string.Empty;
@@ -226,6 +228,13 @@ public class ApplicantExportRowDto
 /// <summary>Basic sign-up from the mobile app, before OTP verification.</summary>
 public class ApplicantSignUpDto
 {
+    /// <summary>
+    /// The name in two parts. FullName is still accepted, for a form
+    /// that has not been rebuilt around the two - whichever arrives,
+    /// the other is worked out from it.
+    /// </summary>
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Mobile { get; set; } = string.Empty;
@@ -387,6 +396,18 @@ public class ProgrammeSessionDto
     public string? FacultyName { get; set; }
     public int PresentCount { get; set; }
     public bool IsAttendanceLocked { get; set; }
+
+    /// <summary>
+    /// What this session covers, in the order the curriculum lists it.
+    ///
+    /// Read from the curriculum rather than copied onto the batch when
+    /// the timetable is written: the topics are the course, the course
+    /// is maintained in one place, and a batch carrying its own stale
+    /// copy would quietly teach last year's syllabus. Empty where the
+    /// curriculum has no topics under the session, or where the batch
+    /// predates having one.
+    /// </summary>
+    public List<string> Topics { get; set; } = [];
 }
 
 public class ProgrammeParticipantDto

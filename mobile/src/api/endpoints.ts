@@ -55,6 +55,11 @@ export const lookups = {
 };
 
 export interface SignUpPayload {
+  /* The name in two parts, which is how it is stored. fullName is still
+     sent for a form built before the parts existed; the server works out
+     whichever half it was not given. */
+  firstName: string;
+  lastName: string;
   fullName: string;
   email: string;
   mobile: string;

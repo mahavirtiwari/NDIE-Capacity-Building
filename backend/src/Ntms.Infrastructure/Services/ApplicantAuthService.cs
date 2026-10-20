@@ -135,6 +135,20 @@ public class ApplicantAuthService(
 
         applicant.Mobile = dto.Mobile.Trim();
 
+        /* The name, where either part was sent. Both columns and the
+           joined one move together, so the three can never disagree. */
+        if (dto.FirstName is not null || dto.LastName is not null)
+        {
+            var first = (dto.FirstName ?? applicant.FirstName).Trim();
+            var last = (dto.LastName ?? applicant.LastName).Trim();
+
+            Guard.Check().Required(Naming.Compose(first, last), "Name").ThrowIfInvalid();
+
+            applicant.FirstName = first;
+            applicant.LastName = last;
+            applicant.FullName = Naming.Compose(first, last);
+        }
+
         /* All of these are left alone when they are not sent, so a client
            that does not show a field cannot blank what the applicant
            already said. The e-mail is not here at all: it moves only

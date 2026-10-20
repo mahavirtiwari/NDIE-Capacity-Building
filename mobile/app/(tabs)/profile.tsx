@@ -336,6 +336,8 @@ export default function Profile() {
 
 /** The built-in questions, and where each one's answer is kept. */
 const BUILT_IN: Record<string, (applicant: Applicant) => string> = {
+  firstName: (a) => a.firstName,
+  lastName: (a) => a.lastName,
   fullName: (a) => a.fullName,
   email: (a) => a.email,
   mobile: (a) => a.mobile,

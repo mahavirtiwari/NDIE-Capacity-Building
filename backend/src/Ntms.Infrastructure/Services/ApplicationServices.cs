@@ -222,10 +222,22 @@ public class ApplicantService(
 
         var pan = Asks("pan") ? Formats.Normalise(dto.Pan) : null;
 
+        /* The name may arrive in two parts or as one, depending on how
+           the form was built, and either way both the parts and the whole
+           are stored. A form asking only for fullName splits it; a form
+           asking for the parts joins them. */
+        var (first, last) = Asks("firstName") || Asks("lastName")
+            ? (dto.FirstName.Trim(), dto.LastName.Trim())
+            : Naming.Split(dto.FullName);
+
+        var whole = Naming.Compose(first, last);
+
         var guard = Guard.Check()
-            .Required(dto.FullName, "Full name")
+            .Required(whole, "Name")
             .Email(dto.Email)
             .Mobile(dto.Mobile);
+
+        if (Demands("lastName")) guard = guard.Required(last, "Last name");
 
         if (Asks("pan")) guard = guard.Pan(pan, required: Demands("pan"));
 
@@ -291,7 +303,9 @@ public class ApplicantService(
         var entity = new Applicant
         {
             ApplicantCode = await codes.NextApplicantCodeAsync(ct),
-            FullName = dto.FullName.Trim(),
+            FirstName = first,
+            LastName = last,
+            FullName = whole,
             /* Lower-cased so it always matches the OTP challenge destination,
                whatever collation the database runs under. */
             Email = lowered,

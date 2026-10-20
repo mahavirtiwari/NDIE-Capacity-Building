@@ -30,6 +30,11 @@ public class SignupFormService(NtmsDbContext db)
     /// </summary>
     private static readonly IReadOnlyDictionary<string, bool> BuiltIn = new Dictionary<string, bool>
     {
+        /* The name, in the two parts it is actually made of. fullName
+           stays in the list so a form built before these existed goes on
+           working; it writes both parts at once. */
+        ["firstName"] = true,
+        ["lastName"] = false,
         ["fullName"] = true,
         ["email"] = true,
         ["mobile"] = true,

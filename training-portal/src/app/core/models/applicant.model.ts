@@ -35,6 +35,9 @@ export const APPLICANT_STANDINGS: { value: ApplicantStanding; label: string }[] 
 export interface Applicant extends AuditInfo {
   id: Id;
   applicantCode: string;
+  firstName: string;
+  lastName: string;
+  /** The two above joined — what the registers and the reports show. */
   fullName: string;
   email: string;
   mobile: string;

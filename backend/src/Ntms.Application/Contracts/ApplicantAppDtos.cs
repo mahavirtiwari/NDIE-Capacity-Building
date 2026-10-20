@@ -27,6 +27,11 @@ public class ApplicantLoginResponseDto
 /// </summary>
 public class ApplicantProfileUpdateDto
 {
+    /* Their own name, correctable like the rest of what they declared.
+       Left alone when not sent, so a client that does not show the
+       fields cannot blank them. */
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
     public string Mobile { get; set; } = string.Empty;
     /* Correctable by the applicant: it was their own declaration to begin with. */
     public string? Gender { get; set; }

@@ -203,6 +203,8 @@ export const APPLICANTS: Applicant[] = Array.from({ length: 48 }, (_, idx) => {
   return {
     id: i,
     applicantCode: `APP${String(240000 + i)}`,
+    firstName: first,
+    lastName: last,
     fullName: `${first} ${last}`,
     email: `${first.toLowerCase()}.${last.toLowerCase()}${i}@example.com`,
     mobile: `9${String(810000000 + i * 12345).slice(0, 9)}`,
