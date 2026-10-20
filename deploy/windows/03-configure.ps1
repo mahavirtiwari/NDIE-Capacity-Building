@@ -141,15 +141,16 @@ if ($StorageRoot.StartsWith($SitePath, [StringComparison]::OrdinalIgnoreCase)) {
 
 $monitoringRoot = Join-Path $StorageRoot 'monitoring'
 $templateRoot = Join-Path $StorageRoot 'certificate-templates'
-# Applicants' profile pictures and documents, and the training material the
-# scheme publishes. Both were missing from this list and both default, when
-# unset, to App_Data inside the published folder - which is precisely what the
-# check above exists to prevent. Materials have been landing there all along.
-$attachmentRoot = Join-Path $StorageRoot 'profile-attachments'
+# Applicants' own files - profile pictures, documents and exam selfies - and
+# the training material the scheme publishes. Both were missing from this list
+# and both default, when unset, to App_Data inside the published folder, which
+# is precisely what the check above exists to prevent. Materials have been
+# landing there all along.
+$applicantFileRoot = Join-Path $StorageRoot 'applicant-files'
 $materialsRoot = Join-Path $StorageRoot 'materials'
 
 foreach ($path in @(
-    $StorageRoot, $monitoringRoot, $templateRoot, $attachmentRoot, $materialsRoot)) {
+    $StorageRoot, $monitoringRoot, $templateRoot, $applicantFileRoot, $materialsRoot)) {
     if (-not (Test-Path $path)) {
         New-Item -ItemType Directory -Path $path -Force | Out-Null
         Write-Host "  [ok]  Created $path" -ForegroundColor Green
@@ -177,7 +178,7 @@ $settings = [ordered]@{
     Storage           = [ordered]@{
         MonitoringRoot          = $monitoringRoot
         CertificateTemplateRoot = $templateRoot
-        ProfileAttachmentRoot   = $attachmentRoot
+        ApplicantFileRoot   = $applicantFileRoot
         MaterialsRoot           = $materialsRoot
     }
 

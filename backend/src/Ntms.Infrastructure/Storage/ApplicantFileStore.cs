@@ -4,7 +4,8 @@ using Ntms.Application.Common;
 namespace Ntms.Infrastructure.Storage;
 
 /// <summary>
-/// Where an applicant's profile pictures and documents live on disk.
+/// Where an applicant's own files live on disk: the pictures and documents
+/// they attach to a profile, and the selfie taken when they sit an exam.
 ///
 /// They used to live in the database, as bytes on the attachment row. That
 /// was defensible when there was one picture per applicant and it was read
@@ -18,11 +19,12 @@ namespace Ntms.Infrastructure.Storage;
 /// Files are laid out <c>applicant/{id}/{guid}.{ext}</c>: a folder per
 /// applicant, so everything one person sent can be handed over, archived or
 /// removed as a unit, and a GUID name so an upload can neither overwrite an
-/// earlier one nor smuggle a path in through its own filename. Which field
-/// an image answers is on the row, not in the path - a field key is whatever
-/// the form designer typed, and that does not belong in a directory name.
+/// earlier one nor smuggle a path in through its own filename. What each
+/// file is stays on its row, not in the path - a profile field key is
+/// whatever the form designer typed, and that does not belong in a
+/// directory name.
 /// </summary>
-public class ProfileAttachmentStore
+public class ApplicantFileStore
 {
     /* Matched against the type the caller sniffed, not the extension the
        client claims. Documents are allowed here as well as pictures: the
@@ -40,16 +42,16 @@ public class ProfileAttachmentStore
 
     private readonly string root;
 
-    public ProfileAttachmentStore(IConfiguration config)
+    public ApplicantFileStore(IConfiguration config)
     {
         /* Configurable because production points it at a share every web
            head mounts, and because it must sit outside the published site
            folder - a release that replaces that folder would otherwise take
            the applicants' documents with it. The default keeps a developer
            working without setting anything up. */
-        var configured = config["Storage:ProfileAttachmentRoot"];
+        var configured = config["Storage:ApplicantFileRoot"];
         root = string.IsNullOrWhiteSpace(configured)
-            ? Path.Combine(AppContext.BaseDirectory, "App_Data", "profile-attachments")
+            ? Path.Combine(AppContext.BaseDirectory, "App_Data", "applicant-files")
             : configured;
     }
 

@@ -5,6 +5,7 @@ using Ntms.Domain.Common;
 using Ntms.Domain.Entities;
 using Ntms.Infrastructure.Identity;
 using Ntms.Infrastructure.Persistence;
+using Ntms.Infrastructure.Storage;
 
 namespace Ntms.Infrastructure.Services;
 
@@ -28,8 +29,40 @@ namespace Ntms.Infrastructure.Services;
 /// questions changed — ExamPaperService refuses. Were that relaxed, this would
 /// start showing a candidate questions they were never asked.
 /// </summary>
-public class ExamReviewService(NtmsDbContext db, ICurrentUser currentUser)
+public class ExamReviewService(
+    NtmsDbContext db, ICurrentUser currentUser, ApplicantFileStore files)
 {
+    /// <summary>
+    /// The picture taken when a sitting started.
+    ///
+    /// Scoped exactly as the sheet it belongs to, because it is part of
+    /// the same evidence: whoever may read the attempt may see who sat
+    /// it, and nobody else. From the file where one was written, and
+    /// from the column for sittings recorded before the pictures moved
+    /// to disk.
+    /// </summary>
+    public async Task<(byte[] Content, string ContentType)> SelfieAsync(
+        int programmeId, int attemptId, CancellationToken ct)
+    {
+        await ForReadAsync(programmeId, ct);
+
+        var attempt = await db.ExamAttempts.AsNoTracking()
+            .FirstOrDefaultAsync(
+                a => a.Id == attemptId && a.Participant!.ProgrammeId == programmeId, ct)
+            ?? throw AppException.NotFound("Sitting");
+
+        var type = string.IsNullOrWhiteSpace(attempt.SelfieContentType)
+            ? "image/jpeg"
+            : attempt.SelfieContentType;
+
+        if (!string.IsNullOrEmpty(attempt.SelfiePath))
+            return (await files.ReadAsync(attempt.SelfiePath, ct), type);
+
+        return attempt.SelfieData is { Length: > 0 } bytes
+            ? (bytes, type)
+            : throw AppException.NotFound("Selfie");
+    }
+
     /// <summary>
     /// The programme, if this account may read it — the same rule as the
     /// marksheet, because this is the evidence behind one of its columns.
@@ -107,6 +140,8 @@ public class ExamReviewService(NtmsDbContext db, ICurrentUser currentUser)
         {
             ParticipantId = attempt.ParticipantId,
             CandidateName = attempt.Participant?.Applicant?.FullName ?? string.Empty,
+            HasSelfie = attempt.SelfiePath != "" || attempt.SelfieData != null,
+            SelfieTakenOn = attempt.SelfieTakenOn,
             ApplicationNo = attempt.Participant?.Application?.ApplicationNo ?? string.Empty,
             PaperCode = paper.Code,
             PaperTitle = paper.Title,

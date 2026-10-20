@@ -1351,6 +1351,14 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Property<byte[]>("SelfieData")
                         .HasColumnType("varbinary(max)");
 
+                    b.Property<string>("SelfiePath")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<long>("SelfieSizeBytes")
+                        .HasColumnType("bigint");
+
                     b.Property<DateTime?>("SelfieTakenOn")
                         .HasColumnType("datetime2");
 

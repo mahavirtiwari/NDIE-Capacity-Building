@@ -175,6 +175,16 @@ public class ExamAttemptReviewDto : ExamAttemptSummaryDto
 {
     public int ParticipantId { get; set; }
     public string CandidateName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether a picture was taken when this sitting started, and when.
+    ///
+    /// The picture itself is fetched separately, by its own route: a
+    /// review sheet is read far more often than a face is checked, and
+    /// a photograph on every row of it would be paid for every time.
+    /// </summary>
+    public bool HasSelfie { get; set; }
+    public DateTime? SelfieTakenOn { get; set; }
     public string ApplicationNo { get; set; } = string.Empty;
 
     public string PaperCode { get; set; } = string.Empty;

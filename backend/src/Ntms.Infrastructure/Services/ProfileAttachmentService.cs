@@ -28,7 +28,7 @@ namespace Ntms.Infrastructure.Services;
 public class ProfileAttachmentService(
     NtmsDbContext db,
     ProfileFormService forms,
-    ProfileAttachmentStore files,
+    ApplicantFileStore files,
     ILogger<ProfileAttachmentService> logger)
 {
     /// <summary>Where a field sets no limit of its own.</summary>

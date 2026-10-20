@@ -7,7 +7,9 @@ using Ntms.Infrastructure.Persistence;
 namespace Ntms.Infrastructure.Storage;
 
 /// <summary>
-/// Moves the attachments that are still bytes in the database out to files.
+/// Moves the applicant files that are still bytes in the database out to
+/// disk: the pictures and documents on a profile, and the selfie taken at
+/// the start of an exam.
 ///
 /// The pictures used to be kept on the row. New ones are written to disk
 /// from the moment this release is up, but the ones already taken are
@@ -26,9 +28,9 @@ namespace Ntms.Infrastructure.Storage;
 /// the application serves pictures throughout. The column is dropped in a
 /// later release, once this has reported nothing left to do.
 /// </summary>
-public class ProfileAttachmentDrain(
+public class ApplicantFileDrain(
     IServiceScopeFactory scopes,
-    ILogger<ProfileAttachmentDrain> logger) : BackgroundService
+    ILogger<ApplicantFileDrain> logger) : BackgroundService
 {
     /// <summary>Small, because each row carries a photograph.</summary>
     private const int Batch = 20;
@@ -56,7 +58,7 @@ public class ProfileAttachmentDrain(
             {
                 using var scope = scopes.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<NtmsDbContext>();
-                var files = scope.ServiceProvider.GetRequiredService<ProfileAttachmentStore>();
+                var files = scope.ServiceProvider.GetRequiredService<ApplicantFileStore>();
 
                 var batch = await db.ProfileAttachments
                     .Where(a => a.RelativePath == "" && a.Content != null)
@@ -104,6 +106,8 @@ public class ProfileAttachmentDrain(
                    ends. Stop and leave them for the next start. */
                 if (batch.All(a => a.RelativePath == "")) break;
             }
+
+            moved += await DrainSelfiesAsync(stopping);
         }
         catch (OperationCanceledException)
         {
@@ -117,8 +121,68 @@ public class ProfileAttachmentDrain(
         if (moved > 0 || failed > 0)
         {
             logger.LogInformation(
-                "Profile attachments moved to disk: {Moved} written, {Failed} left for next time.",
+                "Applicant files moved to disk: {Moved} written, {Failed} left for next time.",
                 moved, failed);
         }
     }
+
+    /// <summary>
+    /// The same job for the pictures taken when a candidate starts an exam,
+    /// which were kept on the attempt row for the same reason and move to
+    /// the same place - the candidate's own folder.
+    /// </summary>
+    private async Task<int> DrainSelfiesAsync(CancellationToken stopping)
+    {
+        var moved = 0;
+
+        while (!stopping.IsCancellationRequested)
+        {
+            using var scope = scopes.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<NtmsDbContext>();
+            var files = scope.ServiceProvider.GetRequiredService<ApplicantFileStore>();
+
+            var batch = await db.ExamAttempts
+                .Include(a => a.Participant)
+                .Where(a => a.SelfiePath == "" && a.SelfieData != null)
+                .OrderBy(a => a.Id)
+                .Take(Batch)
+                .ToListAsync(stopping);
+
+            if (batch.Count == 0) break;
+
+            foreach (var attempt in batch)
+            {
+                if (attempt.SelfieData is not { Length: > 0 } bytes
+                    || attempt.Participant is null)
+                {
+                    attempt.SelfieData = null;
+                    continue;
+                }
+
+                try
+                {
+                    var stored = await files.SaveAsync(
+                        bytes, attempt.SelfieContentType, attempt.Participant.ApplicantId,
+                        stopping);
+
+                    attempt.SelfiePath = stored.RelativePath;
+                    attempt.SelfieSizeBytes = stored.SizeBytes;
+                    attempt.SelfieData = null;
+                    moved++;
+                }
+                catch (Exception caught)
+                {
+                    logger.LogWarning(
+                        caught, "Exam selfie {Id} could not be moved to disk.", attempt.Id);
+                }
+            }
+
+            await db.SaveChangesAsync(stopping);
+
+            if (batch.All(a => a.SelfiePath == "")) break;
+        }
+
+        return moved;
+    }
+
 }

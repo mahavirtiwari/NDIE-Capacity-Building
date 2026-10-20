@@ -78,7 +78,21 @@ public class ExamAttempt : AuditableEntity
     /// non-match would lock out a candidate who travelled to be there — so
     /// it is a human looking, until somebody decides otherwise.
     /// </summary>
+    /// <summary>
+    /// Where the picture sits under the applicant file root, in the same
+    /// folder as everything else that belongs to this person.
+    /// </summary>
+    public string SelfiePath { get; set; } = string.Empty;
+
+    public long SelfieSizeBytes { get; set; }
+
+    /// <summary>
+    /// The bytes, for sittings recorded before the picture moved to disk.
+    /// Emptied as each is drained to a file; the column goes once that has
+    /// finished everywhere.
+    /// </summary>
     public byte[]? SelfieData { get; set; }
+
     public string? SelfieContentType { get; set; }
     public DateTime? SelfieTakenOn { get; set; }
 

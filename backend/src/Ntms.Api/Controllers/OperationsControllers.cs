@@ -504,6 +504,25 @@ public class ProgrammeExamAttemptsController(ExamReviewService service) : ApiCon
     public async Task<ActionResult<ApiEnvelope<ExamAttemptReviewDto>>> Get(
         int id, int attemptId, CancellationToken ct) =>
         Envelope(await service.GetAsync(id, attemptId, ct));
+
+    /// <summary>
+    /// The picture taken when the candidate started this sitting.
+    ///
+    /// It has been captured since the exam was built - the column's own
+    /// comment says it is there "so whoever reviews a result can see who
+    /// actually sat it" - and until now nothing served it. Written and
+    /// never read is not evidence of anything.
+    ///
+    /// Returned as the image itself rather than inside the envelope, so a
+    /// review screen can point an img at it.
+    /// </summary>
+    [HttpGet("{attemptId:int}/selfie")]
+    [HasPermission(Permissions.ProgramsView)]
+    public async Task<IActionResult> Selfie(int id, int attemptId, CancellationToken ct)
+    {
+        var (content, contentType) = await service.SelfieAsync(id, attemptId, ct);
+        return File(content, contentType);
+    }
 }
 
 [Route("api/lookups")]

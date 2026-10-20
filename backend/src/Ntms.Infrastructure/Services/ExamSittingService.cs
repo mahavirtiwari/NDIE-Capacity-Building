@@ -6,6 +6,7 @@ using Ntms.Domain.Common;
 using Ntms.Domain.Entities;
 using Ntms.Infrastructure.Email;
 using Ntms.Infrastructure.Persistence;
+using Ntms.Infrastructure.Storage;
 
 namespace Ntms.Infrastructure.Services;
 
@@ -25,6 +26,7 @@ public class ExamSittingService(
     NtmsDbContext db,
     ResultRecorder results,
     CertificateService certificates,
+    ApplicantFileStore files,
     ILogger<ExamSittingService> logger)
 {
     /* ------------------------------------------------------------ access */
@@ -274,12 +276,37 @@ public class ExamSittingService(
             StartedOn = now,
             ExpiresOn = now.AddMinutes(paper.DurationMinutes),
             Status = ExamAttemptStatus.InProgress,
-            SelfieData = selfie,
             SelfieContentType = selfieContentType,
             SelfieTakenOn = now,
             PaperTotal = paper.Questions.Sum(q => q.Marks),
             QuestionCount = paper.Questions.Count,
         };
+
+        /* The picture goes to a file in the candidate's own folder, beside
+           whatever else belongs to them. It used to be bytes on this row,
+           which made every backup of the exam tables carry the faces. */
+        if (selfie is { Length: > 0 })
+        {
+            try
+            {
+                var stored = await files.SaveAsync(
+                    selfie, selfieContentType, participant.ApplicantId, ct);
+
+                attempt.SelfiePath = stored.RelativePath;
+                attempt.SelfieSizeBytes = stored.SizeBytes;
+            }
+            catch (Exception caught)
+            {
+                /* A sitting is not refused because its photograph could not
+                   be written. The candidate is in the room and the clock is
+                   running; an invigilator with no picture is a smaller
+                   problem than an exam that would not start. */
+                logger.LogWarning(
+                    caught,
+                    "The selfie for participant {Participant} could not be stored.",
+                    participant.Id);
+            }
+        }
 
         db.ExamAttempts.Add(attempt);
         await db.SaveChangesAsync(ct);
