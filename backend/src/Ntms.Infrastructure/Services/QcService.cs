@@ -229,18 +229,38 @@ public class QcService(
     /// <summary>
     /// The submission this agency may forward, or a refusal.
     ///
-    /// Scope rather than a quality-control permission: this is the
-    /// agency reading its own coordinator's work, which is not the
-    /// manager's check and does not need the manager's key.
+    /// The agency that ran the batch, and nobody else. Scope was the only
+    /// test, and scope is wide: the Operation Manager sees the batch, so
+    /// did the coordinator who wrote the report, and both could forward
+    /// it. A manager handing a report to themselves is not a check, and a
+    /// coordinator forwarding their own work is the step being skipped
+    /// rather than taken - the agency is in the middle precisely because
+    /// it answers for what its coordinator handed in.
+    ///
+    /// Not a quality-control permission either. This is the agency
+    /// reading its own coordinator's work before passing it on, which is
+    /// not the manager's check and does not need the manager's key -
+    /// which the agency does not hold, and that is the point.
+    ///
+    /// An agency login and no other, so a report cannot be moved along
+    /// from the Super Admin's desk either. Everyone else reads it.
     /// </summary>
     private async Task<ProgrammeSubmission> ForwardableAsync(int programmeId, CancellationToken ct)
     {
-        var inScope = await db.Programmes.AsNoTracking()
-            .WithinScope(currentUser)
-            .AnyAsync(p => p.Id == programmeId, ct);
+        var agencyId = await db.Programmes.AsNoTracking()
+            .Where(p => p.Id == programmeId)
+            .Select(p => (int?)p.AgencyId)
+            .FirstOrDefaultAsync(ct)
+            ?? throw AppException.NotFound("Program");
 
-        if (!inScope)
-            throw AppException.Forbidden("This program is outside your allocation.");
+        if (currentUser.AgencyId is null)
+        {
+            throw AppException.Forbidden(
+                "Only the implementing agency that ran this program can forward its report.");
+        }
+
+        if (currentUser.AgencyId != agencyId)
+            throw AppException.Forbidden("This program was not run by your agency.");
 
         var submission = await db.ProgrammeSubmissions
             .FirstOrDefaultAsync(s => s.ProgrammeId == programmeId, ct)
@@ -312,10 +332,15 @@ public class QcService(
     /// <summary>
     /// The report for one programme, built from the sealed record.
     ///
-    /// Readable once QC has accepted it, and by the manager doing the QC
-    /// before that — reading the report is how the check is made, so
-    /// withholding it until after the decision would be the wrong way
-    /// round. Everyone else waits for the approval.
+    /// Only once quality control has accepted it. The manager used to be
+    /// able to open it beforehand on the grounds that reading the report
+    /// is how the check is made - but it is not: the check is made
+    /// against what the coordinator captured, which is on the programme's
+    /// own field record, photograph by photograph and session by session.
+    /// The report is the scheme's statement that a batch was run and
+    /// passed, and a statement of that kind should not exist while the
+    /// question is still open. Nobody can hand round, print or file a
+    /// report of a batch that has not been accepted.
     /// </summary>
     public async Task<Reporting.ProgrammeReportRenderer.Rendered> ReportAsync(
         int programmeId,
@@ -326,11 +351,21 @@ public class QcService(
             .FirstOrDefaultAsync(s => s.ProgrammeId == programmeId, ct)
             ?? throw AppException.NotFound("Submitted programme");
 
-        if (submission.QcStatus != QcStatus.Approved
-            && !currentUser.HasPermission(Permissions.ProgramsQc))
+        if (submission.QcStatus != QcStatus.Approved)
         {
-            throw AppException.Forbidden(
-                "This report is still with quality control.");
+            throw AppException.Forbidden(submission.QcStatus switch
+            {
+                QcStatus.AwaitingAgency =>
+                    "The report is generated once quality control accepts this program. The "
+                    + "implementing agency has not forwarded it yet; what the coordinator "
+                    + "captured can be read on the program itself.",
+                QcStatus.Rejected =>
+                    "This report was sent back and has not been accepted, so there is no "
+                    + "report to open.",
+                _ =>
+                    "The report is generated once quality control accepts this program. What "
+                    + "the coordinator captured can be read on the program itself.",
+            });
         }
 
         var programme = await db.Programmes.AsNoTracking()

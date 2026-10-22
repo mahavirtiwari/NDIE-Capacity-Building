@@ -981,6 +981,17 @@ export class ProgramDetailComponent {
 
   readonly id = input.required<string>();
 
+  /**
+   * Which tab to land on, from <c>?view=</c>.
+   *
+   * So a screen elsewhere can send somebody to the part of a batch it is
+   * talking about. The QC queues use it: the agency and the manager are
+   * being asked to judge what the coordinator recorded, and the link they
+   * follow should open that rather than the overview and leave them
+   * hunting for the tab.
+   */
+  readonly view = input<string | undefined>(undefined);
+
   protected readonly programme = signal<Program | null>(null);
   /* Overview: what the batch is, which is what somebody opening one
      reads before anything that was recorded against it. */
@@ -1057,6 +1068,19 @@ export class ProgramDetailComponent {
   protected openField(tab: Tab): void {
     this.tab.set(tab);
   }
+
+  /** The tabs a link may ask for. A name that is not one of them is ignored. */
+  private static readonly Tabs: readonly Tab[] = [
+    'overview',
+    'venue',
+    'monitoring',
+    'attendance',
+    'trainers',
+    'participants',
+    'feedback',
+    'marksheet',
+    'certificates',
+  ];
   protected readonly statusLabels = PROGRAM_STATUS_LABELS;
 
   /* --------------------------------------------------------- the record */
@@ -1249,6 +1273,15 @@ export class ProgramDetailComponent {
   protected readonly seesApplicants = computed(() => this.auth.hasPermission('applications.view'));
 
   constructor() {
+    /* Where the link asked to land, before anything is fetched: the tab
+       mounts its own panel and fetches for itself. */
+    effect(() => {
+      const asked = this.view();
+      if (asked && (ProgramDetailComponent.Tabs as readonly string[]).includes(asked)) {
+        this.tab.set(asked as Tab);
+      }
+    });
+
     effect(() => {
       const id = Number(this.id());
       if (!id) return;

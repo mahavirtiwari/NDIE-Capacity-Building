@@ -210,11 +210,21 @@ const COLUMNS: ColumnDef[] = [
             <button type="button" class="btn btn--sm btn--secondary" (click)="open($any(row))">
               <app-icon name="eye" [size]="14" /> Figures
             </button>
+            <!-- Only once the batch has been accepted. The report is
+                 generated at that point and not before - a batch reads
+                 as conducted when quality control passes it - and the
+                 buttons used to be on every row, so most of them asked
+                 the server for a document that does not exist and got a
+                 refusal back. -->
             <button
               type="button"
               class="btn btn--sm btn--secondary"
-              title="The program report, as checked"
-              [disabled]="fetching()"
+              [title]="
+                $any(row).status === 'Conducted'
+                  ? 'The program report, as checked'
+                  : 'The report is generated once quality control accepts this program'
+              "
+              [disabled]="fetching() || $any(row).status !== 'Conducted'"
               (click)="report($any(row))"
             >
               <app-icon name="file" [size]="14" /> Report
@@ -223,7 +233,7 @@ const COLUMNS: ColumnDef[] = [
               type="button"
               class="btn btn--icon"
               title="Download the report"
-              [disabled]="fetching()"
+              [disabled]="fetching() || $any(row).status !== 'Conducted'"
               (click)="report($any(row), true)"
             >
               <app-icon name="download" [size]="15" />

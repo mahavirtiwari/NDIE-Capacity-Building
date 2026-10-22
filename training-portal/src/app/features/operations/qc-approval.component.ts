@@ -9,6 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
   CellTemplateDirective,
@@ -46,6 +47,8 @@ const COLUMNS: ColumnDef[] = [
   { key: 'startDate', header: 'Start date', width: '120px' },
   { key: 'endDate', header: 'End date', width: '120px' },
   { key: 'submitted', header: 'Submitted', width: '180px' },
+  /* The decision, where the decision is being read. */
+  { key: 'decision', header: 'Decision', width: '190px', align: 'center' },
 ];
 
 /**
@@ -66,6 +69,7 @@ const COLUMNS: ColumnDef[] = [
   imports: [
     DatePipe,
     ReactiveFormsModule,
+    RouterLink,
     PageHeaderComponent,
     DataTableComponent,
     CellTemplateDirective,
@@ -133,7 +137,7 @@ const COLUMNS: ColumnDef[] = [
 
       <app-data-table
         exportName="QC approval"
-        minWidth="1260px"
+        minWidth="1450px"
         [columns]="columns"
         [rows]="rows()"
         [total]="list.total()"
@@ -149,18 +153,66 @@ const COLUMNS: ColumnDef[] = [
           <span class="cell-muted tabular">{{ $any(row).serial }}</span>
         </ng-template>
 
-        <!-- The report is the thing being checked, so it is the first
-             thing on the row rather than something found inside it. -->
+        <!-- Only where there is a report: it is generated once the batch
+             has been accepted, and it is not the agency's to hand out.
+             Before that, the thing to read is the field record, which the
+             program ID beside this opens. -->
         <ng-template appCell="report" let-row>
-          <button
-            type="button"
-            class="btn btn--icon"
-            title="Open the report"
-            [disabled]="busy()"
-            (click)="openReport($any(row))"
-          >
-            <app-icon name="file" [size]="16" />
-          </button>
+          @if (canOpenReport($any(row))) {
+            <button
+              type="button"
+              class="btn btn--icon"
+              title="Open the report"
+              [disabled]="busy()"
+              (click)="openReport($any(row))"
+            >
+              <app-icon name="file" [size]="16" />
+            </button>
+          } @else {
+            <span class="cell-muted">—</span>
+          }
+        </ng-template>
+
+        <!-- The decision, on the row. It used to live only in the sheet
+             behind the program ID, so a manager looking at a queue of
+             forwarded reports had nothing on screen to act with and no
+             reason to think the ID was a button. Approving and forwarding
+             need no words and happen here; sending back needs a reason,
+             so it opens the sheet where the box is. -->
+        <ng-template appCell="decision" let-row>
+          @if (canDecide($any(row))) {
+            <div class="row row-sm" style="justify-content: center">
+              <button
+                type="button"
+                class="btn btn--sm btn--success"
+                [disabled]="busy()"
+                (click)="approveNow($any(row))"
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                class="btn btn--sm btn--danger"
+                [disabled]="busy()"
+                (click)="read($any(row))"
+              >
+                Send back
+              </button>
+            </div>
+          } @else if (canForward($any(row))) {
+            <div class="row row-sm" style="justify-content: center">
+              <button
+                type="button"
+                class="btn btn--sm btn--primary"
+                [disabled]="busy()"
+                (click)="read($any(row))"
+              >
+                Forward
+              </button>
+            </div>
+          } @else {
+            <span class="cell-muted">—</span>
+          }
         </ng-template>
 
         <ng-template appCell="programmeCode" let-row>
@@ -250,19 +302,39 @@ const COLUMNS: ColumnDef[] = [
             </span>
           </div>
 
-          <div>
-            <button type="button" class="btn btn--secondary" (click)="openReport(row)">
-              <app-icon name="file" [size]="15" /> Open the full report
-            </button>
-            <button
-              type="button"
+          <!-- What the coordinator actually recorded: the venue and its
+               photographs, the faculty, every session with its picture,
+               the register day by day. This is what the check is made
+               against, and it had no link from here at all - so the
+               agency reading its coordinator's work had a handful of
+               counts and a report it could not open. -->
+          <div class="row row-sm row-wrap">
+            <a
               class="btn btn--secondary"
-              style="margin-left: 0.5rem"
-              (click)="openReport(row, true)"
+              [routerLink]="['/operations/programs', row.programmeId]"
+              [queryParams]="{ view: 'monitoring' }"
             >
-              <app-icon name="download" [size]="15" /> Download
-            </button>
+              <app-icon name="eye" [size]="15" /> What the coordinator captured
+            </a>
+
+            <!-- The report, once there is one. It is generated when the
+                 batch is accepted; before that there is nothing to open,
+                 and it is not the agency's to hand out afterwards. -->
+            @if (canOpenReport(row)) {
+              <button type="button" class="btn btn--secondary" (click)="openReport(row)">
+                <app-icon name="file" [size]="15" /> Open the full report
+              </button>
+              <button type="button" class="btn btn--secondary" (click)="openReport(row, true)">
+                <app-icon name="download" [size]="15" /> Download
+              </button>
+            }
           </div>
+
+          @if (row.qcStatus === 'AwaitingAgency' || row.qcStatus === 'Pending') {
+            <p class="text-sm text-muted">
+              The report is generated once quality control accepts this program.
+            </p>
+          }
 
           @if (row.forwardedOn) {
             <div class="card">
@@ -509,6 +581,19 @@ export class QcApprovalComponent {
   }
 
   /**
+   * Accepts from the row, without opening the sheet.
+   *
+   * Only approving: it is the one decision that needs no words, and a
+   * manager working through a queue of forwarded reports should not have
+   * to open each one to say yes to it. Sending back needs a reason, so
+   * that button opens the sheet where the box is.
+   */
+  protected approveNow(row: QcProgramme): void {
+    this.remarks.setValue('');
+    this.decide(row, 'approve');
+  }
+
+  /**
    * Whether this account may decide this report.
    *
    * Pending, and the account holds the quality-control key. The server
@@ -521,15 +606,40 @@ export class QcApprovalComponent {
   }
 
   /**
-   * The agency's step: only while the report is still with them.
+   * The agency's step: only while the report is still with them, and
+   * only for the agency that ran the batch.
    *
    * Not gated on the quality-control key. This is the agency reading
    * its own coordinator's work before passing it on, which is a
    * different act from the manager's check - and the people who do it
    * do not hold that key, which is the whole reason the step exists.
+   *
+   * It was gated on nothing but the queue, so every account that could
+   * see the row was offered the button: the Operation Manager, who would
+   * then be handing a report to themselves, and the coordinator who
+   * wrote it. The server now refuses both; this stops the screen asking.
    */
   protected canForward(row: QcProgramme): boolean {
-    return row.qcStatus === 'AwaitingAgency';
+    const mine = this.auth.user()?.agencyId;
+    return row.qcStatus === 'AwaitingAgency' && !!mine && mine === row.agencyId;
+  }
+
+  /**
+   * Whether the report exists to be opened.
+   *
+   * It is generated once quality control accepts the batch, and not
+   * before: the report is the scheme's statement that a programme was
+   * run and passed, and there is no such statement while the question is
+   * open. What the coordinator captured is read on the programme itself,
+   * which is how the check is actually made and is a link on this sheet.
+   *
+   * And not offered in the agency's own section at all. The agency's job
+   * here is to read its coordinator's work and pass it on or send it
+   * back; the finished report is the scheme's, and the agency reads it
+   * from Reports like everybody else.
+   */
+  protected canOpenReport(row: QcProgramme): boolean {
+    return row.qcStatus === 'Approved' && this.auth.hasPermission('programs.qc');
   }
 
   /**
