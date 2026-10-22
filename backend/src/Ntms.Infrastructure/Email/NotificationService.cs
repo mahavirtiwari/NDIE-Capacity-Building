@@ -58,6 +58,12 @@ public interface INotificationService
     Task SendProgrammePermittedAsync(
         Programme programme, string email, string name, CancellationToken ct = default);
 
+    /// <summary>
+    /// Telling one registered participant that their batch has been put off.
+    /// </summary>
+    Task SendProgrammePostponedAsync(
+        Programme programme, string email, string name, CancellationToken ct = default);
+
     /// <summary>The manager not agreeing to put a batch off, back to the agency.</summary>
     Task SendPostponementDeclinedAsync(
         Programme programme, string asked, string remarks, string email, string name,
@@ -448,6 +454,27 @@ public class NotificationService(
                 ? string.Empty
                 : $"Join link: {programme.MeetingLink}",
         }, ct, schedule is null ? [] : [schedule]);
+    }
+
+    public async Task SendProgrammePostponedAsync(
+        Programme programme, string email, string name, CancellationToken ct = default)
+    {
+        var agency = programme.Agency?.Name
+                     ?? await db.Agencies.AsNoTracking()
+                         .Where(a => a.Id == programme.AgencyId)
+                         .Select(a => a.Name)
+                         .FirstOrDefaultAsync(ct)
+                     ?? string.Empty;
+
+        await SendAsync(EmailTemplateDefaults.ProgrammePostponed, email, new()
+        {
+            ["name"] = name,
+            ["programmeName"] = programme.ProgrammeName,
+            ["programmeId"] = programme.ProgrammeId,
+            ["startDate"] = programme.StartDate.ToString("dd MMM yyyy"),
+            ["endDate"] = programme.EndDate.ToString("dd MMM yyyy"),
+            ["agencyName"] = agency,
+        }, ct);
     }
 
     public async Task SendProgrammePermittedAsync(

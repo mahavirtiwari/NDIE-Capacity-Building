@@ -44,6 +44,7 @@ public static class EmailTemplateDefaults
     public const string ProgrammeSchedule = "programme-schedule";
     public const string ProgrammeRaised = "programme-raised";
     public const string ProgrammePermitted = "programme-permitted";
+    public const string ProgrammePostponed = "programme-postponed";
     public const string PostponementRequested = "postponement-requested";
     public const string PostponementDeclined = "postponement-declined";
     public const string VenueChangeRequested = "venue-change-requested";
@@ -635,6 +636,30 @@ public static class EmailTemplateDefaults
             PlainTextBody =
                 "Venue change on {{programmeId}} ({{programmeName}}) was {{outcome}}. "
                 + "{{currentVenue}} to {{requestedVenue}}. {{remarks}}",
+        },
+        new()
+        {
+            Key = ProgrammePostponed,
+            Name = "Program postponed",
+            Description =
+                "Sent to everybody registered on a program when the operation manager "
+                + "puts it off. Nothing told them before this: the batch simply stopped "
+                + "being in their app, on dates they had kept free.",
+            Placeholders = "name,programmeName,programmeId,startDate,endDate,agencyName",
+            Subject = "{{programmeId}} has been postponed",
+            HtmlBody = """
+                <p>Dear {{name}},</p>
+                <p><strong>{{programmeName}}</strong> ({{programmeId}}), which you had
+                registered for on {{startDate}}, has been postponed. No new dates have been
+                set yet.</p>
+                <p>You do not need to do anything, and your registration has not cost you
+                an attempt. When the program is held again, or when another batch of it
+                opens, you can register for it in the app as usual.</p>
+                <p>If you had kept those days free, they are yours again.</p>
+                """,
+            PlainTextBody =
+                "{{programmeName}} ({{programmeId}}) on {{startDate}} has been postponed. "
+                + "No new dates yet. You can register for another batch when one opens.",
         },
         new()
         {

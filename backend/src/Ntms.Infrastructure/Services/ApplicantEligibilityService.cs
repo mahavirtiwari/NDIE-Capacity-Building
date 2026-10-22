@@ -133,6 +133,7 @@ public class ApplicantEligibilityService(NtmsDbContext db)
                 p.Programme!.ProgramTypeId,
                 p.Programme.StartDate,
                 p.Programme.EndDate,
+                p.Programme.Status,
                 p.Programme.ProgramType!.CertificationPolicy,
                 p.AttendancePercent,
                 p.Result,
@@ -155,6 +156,11 @@ public class ApplicantEligibilityService(NtmsDbContext db)
                         && (a.PaymentStatus == PaymentStatus.Pending
                             || a.PaymentStatus == PaymentStatus.Failed)
                         && a.Programme!.EndDate >= today
+                        /* As above: a batch that was put off or refused is
+                           not holding the applicant's dates. */
+                        && a.Programme.Status != ProgramStatus.Postponed
+                        && a.Programme.Status != ProgramStatus.PermissionRejected
+                        && a.Programme.Status != ProgramStatus.QCRejected
                         /* The seat may already have been taken on a later
                            attempt; the participant row is then the record
                            and this application is only its history. */
@@ -236,8 +242,26 @@ public class ApplicantEligibilityService(NtmsDbContext db)
             .Select(s => s.ProgramTypeId)
             .ToHashSet();
 
+        /* A batch that is not going to happen holds nobody.
+
+           This counted any pending seat on a future batch as a live
+           booking, and a postponed batch is both of those - so the
+           applicant was told to finish the one they were registered for
+           before taking another, about a course that had been called off
+           and had no new date. They could not register for the batch that
+           replaced it, from the app or at the desk, which is the whole
+           reason a batch gets postponed rather than cancelled.
+
+           Put off, refused permission or sent back by quality control:
+           none of them is a commitment the applicant has to honour. The
+           seat stays on the record, because they did register and the
+           history is theirs; it simply stops standing in their way. */
         var live = seats
-            .Where(s => s.Result == ParticipantResult.Pending && s.EndDate >= today)
+            .Where(s => s.Result == ParticipantResult.Pending
+                        && s.EndDate >= today
+                        && s.Status != ProgramStatus.Postponed
+                        && s.Status != ProgramStatus.PermissionRejected
+                        && s.Status != ProgramStatus.QCRejected)
             .ToList();
 
         var booked = live.Select(s => s.ProgramTypeId)

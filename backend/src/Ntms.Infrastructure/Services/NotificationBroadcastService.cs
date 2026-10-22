@@ -283,7 +283,26 @@ public class NotificationBroadcastService(
         var userId = applicantId is null ? currentUser.UserId : null;
         if (applicantId is null && userId is null) return new MyNotificationsDto();
 
+        /* Nothing from before they arrived.
+
+           The audience is a question about who somebody is, which made
+           every notice ever sent to applicants part of an account opened
+           this morning: a new applicant signed in and found months of
+           announcements about batches that had already been held, every
+           one of them unread, none of them anything to do with them.
+
+           A notice is addressed to the people who were there to receive
+           it. Joining afterwards is not the same as having missed it. */
+        var joined = applicantId is { } who
+            ? await db.Applicants.AsNoTracking()
+                .Where(a => a.Id == who).Select(a => (DateTime?)a.RegisteredOn)
+                .FirstOrDefaultAsync(ct)
+            : await db.Users.AsNoTracking()
+                .Where(u => u.Id == userId).Select(u => (DateTime?)u.CreatedOn)
+                .FirstOrDefaultAsync(ct);
+
         var mine = await Addressed(applicantId, userId)
+            .Where(n => joined == null || n.SentOn == null || n.SentOn >= joined)
             .OrderByDescending(n => n.SentOn)
             .Take(Math.Clamp(take, 1, 100))
             .Select(n => new

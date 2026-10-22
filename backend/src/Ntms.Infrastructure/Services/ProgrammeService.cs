@@ -458,6 +458,13 @@ public class ProgrammeService(
            marked. Certificates are not worth failing the closure over, so
            a run that cannot finish is logged and the batch still closes —
            the Certificates tab issues what is left. */
+        /* Put off, so the people who had kept the days free are told.
+
+           Nothing told them before. The batch stopped appearing in the
+           app and that was the whole of it - somebody who had registered
+           for a course on the 18th found out by it not happening. */
+        if (target == ProgramStatus.Postponed) await TellParticipantsPostponedAsync(entity, ct);
+
         if (target == ProgramStatus.Conducted)
         {
             try
@@ -513,6 +520,73 @@ public class ProgrammeService(
         }
 
         return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// Tells everybody registered on a batch that it has been put off.
+    ///
+    /// On the handset and by e-mail, because the two reach different
+    /// people: somebody who has not opened the app since registering is
+    /// exactly the person who will otherwise travel.
+    ///
+    /// Never throws into the caller. The batch has been postponed; a mail
+    /// server that is down does not un-postpone it, and a failure here
+    /// must not leave the status unsaved.
+    /// </summary>
+    private async Task TellParticipantsPostponedAsync(Programme programme, CancellationToken ct)
+    {
+        try
+        {
+            var registered = await db.ProgrammeParticipants.AsNoTracking()
+                .Where(p => p.ProgrammeId == programme.Id)
+                .Select(p => new
+                {
+                    p.ApplicantId,
+                    p.Applicant!.FullName,
+                    p.Applicant.Email,
+                })
+                .ToListAsync(ct);
+
+            if (registered.Count == 0) return;
+
+            await broadcasts.RaiseAsync(
+                "ProgrammePostponed",
+                "A program has been postponed",
+                $"{programme.ProgrammeName} ({programme.ProgrammeId}), due to start "
+                + $"{programme.StartDate:dd MMM yyyy}, has been put off. You can register "
+                + "for another batch when one opens.",
+                NotificationAudience.Applicants,
+                subCategoryId: programme.SubCategoryId,
+                stateCode: programme.StateCode,
+                linkPath: "/programs",
+                ct: ct);
+
+            foreach (var person in registered)
+            {
+                if (string.IsNullOrWhiteSpace(person.Email)) continue;
+
+                try
+                {
+                    await notifications.SendProgrammePostponedAsync(
+                        programme, person.Email, person.FullName, ct);
+                }
+                catch (Exception caught)
+                {
+                    /* One address that bounces must not stop the rest
+                       being told. */
+                    logger.LogWarning(
+                        caught,
+                        "Applicant {Applicant} could not be told that {Programme} was postponed.",
+                        person.ApplicantId, programme.ProgrammeId);
+                }
+            }
+        }
+        catch (Exception caught)
+        {
+            logger.LogError(
+                caught,
+                "Nobody could be told that {Programme} was postponed.", programme.ProgrammeId);
+        }
     }
 
     /// <summary>
