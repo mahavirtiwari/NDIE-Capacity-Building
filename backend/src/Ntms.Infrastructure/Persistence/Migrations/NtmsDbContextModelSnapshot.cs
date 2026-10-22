@@ -2247,6 +2247,11 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Property<int>("ProgrammeId")
                         .HasColumnType("int");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(40)");
+
                     b.Property<int>("TrainerId")
                         .HasColumnType("int");
 
@@ -2259,6 +2264,8 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.HasIndex("ProgrammeId");
 
                     b.HasIndex("TrainerId");
+
+                    b.HasIndex("ProgrammeId", "Status");
 
                     b.ToTable("MonitoringSessions", (string)null);
                 });

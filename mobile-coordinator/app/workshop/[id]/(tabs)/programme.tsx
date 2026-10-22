@@ -65,11 +65,20 @@ export default function ProgrammeManagement() {
         </Banner>
       ) : null}
 
+      {/* A session left open is said here rather than only on the screen
+          itself: it is the thing standing between the batch and its
+          report, and nobody would think to go and look. */}
       <MenuRow
         icon="easel-outline"
         title="Session capture"
-        status={p?.sessionCount ? `${p.sessionCount} recorded` : 'No session recorded yet'}
-        done={(p?.sessionCount ?? 0) > 0}
+        status={
+          (p?.sessionsInProgress ?? 0) > 0
+            ? 'One session in progress — add its photo'
+            : p?.sessionCount
+              ? `${p.sessionCount} recorded`
+              : 'No session recorded yet'
+        }
+        done={(p?.sessionCount ?? 0) > 0 && (p?.sessionsInProgress ?? 0) === 0}
         onPress={() => go('session')}
       />
 

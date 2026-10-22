@@ -778,6 +778,36 @@ public class MonitoringService(
         ];
     }
 
+    /// <summary>
+    /// The curriculum's topics for this batch, flat, in the order they are
+    /// to be taught: by day, then by the order the Super Admin put the
+    /// sessions in, then the topics within each.
+    ///
+    /// The same order the app is served in, read back here so that the
+    /// sequence is settled by the curriculum and not by whichever row a
+    /// coordinator happened to tap.
+    /// </summary>
+    private async Task<List<(int SessionId, int TopicId, string Session, string Topic, int? Day)>>
+        PlannedTopicsAsync(Programme programme, CancellationToken ct)
+    {
+        var curriculumId = await CurriculumForAsync(programme, ct);
+        if (curriculumId is null) return [];
+
+        var sessions = await db.CurriculumSessions.AsNoTracking()
+            .Include(s => s.Topics)
+            .Where(s => s.CurriculumId == curriculumId && s.Status == RecordStatus.Active)
+            .OrderBy(s => s.Day ?? int.MaxValue).ThenBy(s => s.DisplayOrder).ThenBy(s => s.Id)
+            .ToListAsync(ct);
+
+        return
+        [
+            .. sessions.SelectMany(s => s.Topics
+                .Where(t => t.Status == RecordStatus.Active)
+                .OrderBy(t => t.DisplayOrder).ThenBy(t => t.Id)
+                .Select(t => (s.Id, t.Id, s.SessionName, t.TopicName, s.Day))),
+        ];
+    }
+
     public async Task<MonitoringSessionDto> AddSessionAsync(
         int programmeId, MonitoringSessionUpsertDto dto, CancellationToken ct)
     {
@@ -801,6 +831,59 @@ public class MonitoringService(
         if (topic.Session?.CurriculumId != await CurriculumForAsync(programme, ct))
             throw new AppException("That topic is not part of this program's curriculum.");
 
+        var already = await db.MonitoringSessions
+            .Where(s => s.ProgrammeId == programmeId)
+            .ToListAsync(ct);
+
+        /* A session already open is the one being taught. Starting a second
+           while the first has no photograph against it would leave two
+           sessions claiming to be happening at once, and the batch could be
+           submitted with neither finished. Carry on with that one. */
+        var open = already.FirstOrDefault(s => s.Status == MonitoringSessionState.InProgress);
+        if (open is not null && open.CurriculumTopicId != dto.CurriculumTopicId)
+        {
+            var what = await db.CurriculumTopics.AsNoTracking()
+                .Where(t => t.Id == open.CurriculumTopicId)
+                .Select(t => t.TopicName)
+                .FirstOrDefaultAsync(ct);
+
+            throw new AppException(
+                $"\"{what}\" is still in progress. Finish it - its photograph completes it - "
+                + "before starting the next topic.");
+        }
+
+        /* Reopening the same topic rather than writing it twice: the app
+           lands here again when the photograph failed to upload and the
+           coordinator tries once more. */
+        if (open is not null)
+        {
+            open.TrainerId = trainer.Id;
+            open.Comments = dto.Comments?.Trim();
+            open.ConductedOn = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            return await LoadSessionAsync(open.Id, ct);
+        }
+
+        /* The curriculum is a sequence and the training follows it. The
+           coordinator was offered every outstanding topic on every day at
+           once, so day three could be recorded on the first morning and the
+           record of what was taught bore no relation to the order the Super
+           Admin laid the course out in. The next topic is the next topic. */
+        var planned = await PlannedTopicsAsync(programme, ct);
+        var done = already.Select(s => s.CurriculumTopicId).ToHashSet();
+        var next = planned.FirstOrDefault(p => !done.Contains(p.TopicId));
+
+        if (next.TopicId == 0)
+            throw new AppException("Every topic on this curriculum has already been recorded.");
+
+        if (next.TopicId != dto.CurriculumTopicId)
+        {
+            var where = next.Day is { } day ? $"Day {day}, " : string.Empty;
+            throw new AppException(
+                "Topics are recorded in the curriculum's order. The next one is "
+                + $"\"{next.Topic}\" ({where}{next.Session}).");
+        }
+
         var session = new MonitoringSession
         {
             ProgrammeId = programmeId,
@@ -808,6 +891,7 @@ public class MonitoringService(
             CurriculumSessionId = dto.CurriculumSessionId,
             CurriculumTopicId = dto.CurriculumTopicId,
             ConductedOn = DateTime.UtcNow,
+            Status = MonitoringSessionState.InProgress,
             Comments = dto.Comments?.Trim(),
         };
 
@@ -1316,6 +1400,11 @@ public class MonitoringService(
                     ?? throw AppException.NotFound("Session");
                 photo.SessionId = session.Id;
 
+                /* The photograph is what finishes a session. Until it lands
+                   the session is one that has been started, which is what
+                   the register now says. */
+                session.Status = MonitoringSessionState.Conducted;
+
                 var previous = await db.MonitoringPhotos
                     .Where(x => x.SessionId == session.Id)
                     .ToListAsync(ct);
@@ -1626,7 +1715,11 @@ public class MonitoringService(
             VenueExteriorPhoto = exterior,
             VenueInteriorPhoto = interior,
             TrainerCount = trainers.Count,
-            SessionCount = sessions.Count,
+            /* Finished ones. A session in progress is not yet a session
+               that was held, and counting it said the record was further
+               along than it was. */
+            SessionCount = sessions.Count(s => s.Status == MonitoringSessionState.Conducted),
+            SessionsInProgress = sessions.Count(s => s.Status == MonitoringSessionState.InProgress),
             ParticipantCount = participants.Count,
             AttendanceMarkedCount = marked,
             PresentCount = participants.Count(p => p.IsPresent == true),
@@ -1668,6 +1761,20 @@ public class MonitoringService(
             }
         }
         if (sessions.Count == 0) progress.Blockers.Add("Record at least one session.");
+        else
+        {
+            /* A session that was started and never photographed is not a
+               session anybody can show happened. It used to pass straight
+               into the report and be counted among the rest. */
+            var unfinished = sessions.Count(s => s.Status == MonitoringSessionState.InProgress);
+            if (unfinished > 0)
+            {
+                progress.Blockers.Add(unfinished == 1
+                    ? "One session is still in progress: add its photo to finish it."
+                    : $"{unfinished} sessions are still in progress: add their photos to "
+                      + "finish them.");
+            }
+        }
         if (participants.Count == 0) progress.Blockers.Add("Register at least one participant.");
         else if (marked < participants.Count)
             progress.Blockers.Add($"Mark attendance for all {participants.Count} participants.");
@@ -1794,6 +1901,7 @@ public class MonitoringService(
         TrainerId = s.TrainerId,
         TrainerName = s.Trainer?.FullName,
         CurriculumSessionId = s.CurriculumSessionId,
+        Status = s.Status.ToString(),
         TopicName = s.CurriculumSession?.SessionName,
         CurriculumTopicId = s.CurriculumTopicId,
         SubTopicName = s.CurriculumTopic?.TopicName,

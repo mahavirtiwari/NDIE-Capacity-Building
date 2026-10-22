@@ -137,7 +137,13 @@ public class MonitoringProgressDto
     public bool VenueExteriorPhoto { get; set; }
     public bool VenueInteriorPhoto { get; set; }
     public int TrainerCount { get; set; }
+
+    /// <summary>Sessions finished: taught and photographed.</summary>
     public int SessionCount { get; set; }
+
+    /// <summary>Started and not yet photographed. Blocks submission.</summary>
+    public int SessionsInProgress { get; set; }
+
     public int ParticipantCount { get; set; }
     public int AttendanceMarkedCount { get; set; }
     public int PresentCount { get; set; }
@@ -316,6 +322,10 @@ public class MonitoringSessionDto
     public string? SubTopicName { get; set; }
     public DateTime ConductedOn { get; set; }
     public string? Comments { get; set; }
+
+    /// <summary>"InProgress" until the photograph lands, "Conducted" after.</summary>
+    public string Status { get; set; } = "Conducted";
+
     public MonitoringPhotoDto? Photo { get; set; }
 }
 

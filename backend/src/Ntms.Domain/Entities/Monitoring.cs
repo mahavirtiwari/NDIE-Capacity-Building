@@ -148,6 +148,11 @@ public class MonitoringSession : AuditableEntity
     public DateTime ConductedOn { get; set; } = DateTime.UtcNow;
     public string? Comments { get; set; }
 
+    /// <summary>
+    /// In progress until the photograph lands, conducted after it.
+    /// </summary>
+    public MonitoringSessionState Status { get; set; } = MonitoringSessionState.InProgress;
+
     public ICollection<MonitoringPhoto> Photos { get; set; } = [];
 }
 

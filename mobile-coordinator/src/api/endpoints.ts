@@ -294,6 +294,12 @@ export const sessions = {
         curriculumSessionId: body.curriculumSessionId,
         curriculumTopicId: body.curriculumTopicId,
         conductedOn: NOW(),
+        /* It has not reached the server, let alone been photographed. The
+           photograph is queued behind it and the server finishes it when
+           the two of them drain; the screen does not hold a queued session
+           open, or a coordinator with no signal could record one topic and
+           then nothing at all. */
+        status: 'InProgress',
         comments: body.comments ?? null,
       },
     });

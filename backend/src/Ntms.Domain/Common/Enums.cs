@@ -434,6 +434,29 @@ public enum MonitoringPhotoKind
 }
 
 /// <summary>
+/// Where a recorded session has got to.
+///
+/// The record and its photograph are two calls, so between them there is a
+/// session that has been started and not finished - and that gap was not
+/// written down anywhere. If the photograph failed to upload, the topic had
+/// a row against it and dropped out of the coordinator's list for good:
+/// recorded, unphotographed, and unrecordable again.
+///
+/// So the state is kept. A session is in progress from the moment the
+/// coordinator starts it until its photograph arrives, which is also what
+/// anybody reading the batch wants to know - that it is being taught right
+/// now, and which topic. A batch is not submitted with one still open.
+/// </summary>
+public enum MonitoringSessionState
+{
+    /// <summary>Started, being taught, not yet photographed.</summary>
+    InProgress = 1,
+
+    /// <summary>Taught and photographed. The record is complete.</summary>
+    Conducted = 2,
+}
+
+/// <summary>
 /// What a programme awards at the end of it.
 ///
 /// The distinction matters because the two documents say different things: a

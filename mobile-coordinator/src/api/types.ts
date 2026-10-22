@@ -118,7 +118,10 @@ export interface Progress {
   venueExteriorPhoto: boolean;
   venueInteriorPhoto: boolean;
   trainerCount: number;
+  /** Finished: taught and photographed. */
   sessionCount: number;
+  /** Started and not yet photographed. Blocks submission. */
+  sessionsInProgress: number;
   participantCount: number;
   attendanceMarkedCount: number;
   presentCount: number;
@@ -214,6 +217,8 @@ export interface MonitoringSession {
   subTopicName?: string;
   conductedOn: string;
   comments?: string | null;
+  /** In progress until its photograph lands; conducted once it has. */
+  status: 'InProgress' | 'Conducted';
   photo?: MonitoringPhoto | null;
 }
 

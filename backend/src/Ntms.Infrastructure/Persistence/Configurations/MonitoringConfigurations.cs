@@ -63,8 +63,13 @@ public class MonitoringSessionConfiguration : IEntityTypeConfiguration<Monitorin
     {
         b.ToTable("MonitoringSessions");
         b.Property(x => x.Comments).HasMaxLength(1000);
+        b.Property(x => x.Status).HasMaxLength(20);
 
         b.HasIndex(x => x.ProgrammeId);
+
+        /* Asked on every save: whether this batch already has a session
+           open, and what the next topic in the curriculum is. */
+        b.HasIndex(x => new { x.ProgrammeId, x.Status });
 
         b.HasOne(x => x.Programme).WithMany().HasForeignKey(x => x.ProgrammeId)
             .OnDelete(DeleteBehavior.Cascade);
