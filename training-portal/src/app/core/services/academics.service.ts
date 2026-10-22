@@ -1,9 +1,10 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, catchError, map, of } from 'rxjs';
 import {
   Curriculum,
   ExamPaper,
+  ExamPaperChoice,
   FeeStructure,
   Id,
   ProfileForm,
@@ -49,6 +50,24 @@ export class FeeService extends CrudService<FeeStructure> {
 @Injectable({ providedIn: 'root' })
 export class ExamPaperService extends CrudService<ExamPaper> {
   protected readonly resource = 'exam-papers';
+
+  /**
+   * The live papers, to choose between, without the papers themselves.
+   *
+   * The ordinary lookup is behind exams.view and returns every question and
+   * option; the tier that schedules an exam holds neither the key nor any
+   * business with the questions. This endpoint is on programs.approve and
+   * carries only what a dropdown needs - which is why the dropdown now has
+   * something in it.
+   */
+  choices(): Observable<ExamPaperChoice[]> {
+    return this.api.get<ExamPaperChoice[]>(`${this.resource}/choices`).pipe(
+      catchError((error: unknown) => {
+        console.warn('Lookup "exam-papers/choices" failed; continuing with an empty list.', error);
+        return of([] as ExamPaperChoice[]);
+      }),
+    );
+  }
 }
 
 /** What an upload becomes, ready for the publish form to record. */

@@ -293,6 +293,30 @@ public class ExamPaperDto : AuditDto
     public List<ExamQuestionDto> Questions { get; set; } = [];
 }
 
+/// <summary>
+/// A paper as a picker needs it: enough to choose one by, and nothing to sit
+/// it with.
+///
+/// The exam is scheduled by whoever permitted the batch, and that tier is
+/// deliberately barred from reading papers - anybody who can see the
+/// questions before the day can hand them to the people sitting them. So the
+/// dropdown on the scheduling dialog was asking an endpoint it could never
+/// be allowed to call, the lookup swallowed the refusal and came up empty,
+/// and no paper was ever bound to a batch however many were published.
+///
+/// This is the way round that does not give anything away: the code, the
+/// title and how many questions are on it. Not the questions, not the
+/// options, not the instructions, not the pass mark.
+/// </summary>
+public class ExamPaperChoiceDto
+{
+    public int Id { get; set; }
+    public int ProgramTypeId { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public int QuestionCount { get; set; }
+}
+
 public class ExamPaperUpsertDto
 {
     public int ProgramTypeId { get; set; }

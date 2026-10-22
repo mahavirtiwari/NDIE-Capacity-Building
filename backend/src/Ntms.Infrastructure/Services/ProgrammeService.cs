@@ -265,6 +265,8 @@ public class ProgrammeService(
         await EnsureNothingClashesAsync(
             null, coordinator.Id, dto.StartDate, dto.EndDate, ct);
 
+        EnsureRunsForTheRightNumberOfDays(programType, dto);
+
         /* The floor belongs to the program type and the ceiling to the
            agency, so a batch cannot be raised for fewer than the type is
            worth running for. */
@@ -358,6 +360,14 @@ public class ProgrammeService(
         Validate(dto, dto.StartDate == entity.StartDate
             ? null
             : DateOnly.FromDateTime(DateTime.UtcNow.Date));
+
+        /* The same length on an edit as on the way in. A batch raised at
+           the right length and then shortened is the same wrong thing. */
+        var editedType = await db.ProgramTypes.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == dto.ProgramTypeId, ct)
+            ?? throw AppException.NotFound("Program type");
+
+        EnsureRunsForTheRightNumberOfDays(editedType, dto);
 
         /* The same boundary on the way in as on the way out. Editing a batch
            into a state the caller does not hold is the same hole as creating
@@ -977,17 +987,52 @@ public class ProgrammeService(
         var entity = await db.Programmes.FirstOrDefaultAsync(p => p.Id == id, ct)
                      ?? throw AppException.NotFound("Program");
 
-        if (dto.ExamDateTime.Date < entity.StartDate.ToDateTime(TimeOnly.MinValue).Date)
-            throw new AppException("The exam cannot be scheduled before the batch starts.");
+        /* The exam belongs to the course, so it sits inside it, and the
+           course has to have begun before anybody is examined on it.
+
+           Only the near edge was checked, and loosely: "not before the
+           first day" is satisfied by the first day itself, so a batch that
+           had not started yet could be given an exam - and nothing at all
+           stopped a batch that ran for a week in March being examined in
+           August. A date outside the course is not that course's exam,
+           whatever the register says afterwards.
+
+           India's today, as everywhere else dated here. */
+        var examOn = DateOnly.FromDateTime(dto.ExamDateTime);
+        var today = DateOnly.FromDateTime(IndianTime.From(DateTime.UtcNow));
+
+        if (today < entity.StartDate)
+        {
+            throw new AppException(
+                $"This batch starts on {entity.StartDate:dd MMM yyyy}. The exam is scheduled "
+                + "once it is running.");
+        }
+
+        if (examOn < entity.StartDate || examOn > entity.EndDate)
+        {
+            throw new AppException(
+                $"The exam has to fall within the batch: {entity.StartDate:dd MMM yyyy} to "
+                + $"{entity.EndDate:dd MMM yyyy}.");
+        }
 
         if (dto.ExamPaperId is { } paperId)
         {
             /* The paper has to belong to this batch's programme type, or the
-               candidates would sit somebody else's examination. */
-            var belongs = await db.ExamPapers.AsNoTracking()
-                .AnyAsync(e => e.Id == paperId && e.ProgramTypeId == entity.ProgramTypeId, ct);
-            if (!belongs)
+               candidates would sit somebody else's examination. Live, or it
+               is not a paper anybody is meant to sit. And with questions on
+               it: an empty paper opens, scores nought and fails the cohort. */
+            var paper = await db.ExamPapers.AsNoTracking()
+                .Where(e => e.Id == paperId)
+                .Select(e => new { e.ProgramTypeId, e.Status, Questions = e.Questions.Count })
+                .FirstOrDefaultAsync(ct);
+
+            if (paper is null) throw AppException.NotFound("Exam paper");
+            if (paper.ProgramTypeId != entity.ProgramTypeId)
                 throw new AppException("That paper belongs to a different program type.");
+            if (paper.Status != RecordStatus.Active)
+                throw new AppException("That paper is not live, so it cannot be sat.");
+            if (paper.Questions == 0)
+                throw new AppException("That paper has no questions on it yet.");
         }
 
         entity.ExamPaperId = dto.ExamPaperId;
@@ -1368,6 +1413,41 @@ public class ProgrammeService(
                 "The timetable for {Programme} could not be written from its curriculum.",
                 programme.ProgrammeId);
         }
+    }
+
+    /// <summary>
+    /// A batch runs for as many days as its program type says it does.
+    ///
+    /// The duration is the course. A five-day Assessor Training is five
+    /// days of it; the same name over one day is a different thing being
+    /// certified under the same certificate. Nothing checked, so the days
+    /// on the type were a label on a master screen and the batch was
+    /// whatever anybody typed.
+    ///
+    /// It is also where the broken timetables came from. The curriculum is
+    /// written against the type's days and the timetable is written from
+    /// the curriculum, so a five-day plan put into a one-day batch had its
+    /// later days pulled back onto the first - three sessions on one date,
+    /// two of them on top of each other. Held to the right length, the
+    /// timetable comes out right by construction.
+    ///
+    /// Silent where the type sets no duration: some do not, and a rule
+    /// cannot be read from a blank.
+    /// </summary>
+    private static void EnsureRunsForTheRightNumberOfDays(
+        ProgramType programType, ProgrammeUpsertDto dto)
+    {
+        if (programType.DurationDays <= 0) return;
+
+        var days = dto.EndDate.DayNumber - dto.StartDate.DayNumber + 1;
+        if (days == programType.DurationDays) return;
+
+        throw new AppException(
+            $"{programType.Name} runs for {programType.DurationDays} "
+            + $"day{(programType.DurationDays == 1 ? "" : "s")}, and these dates are "
+            + $"{days}. Set the end date to "
+            + $"{dto.StartDate.AddDays(programType.DurationDays - 1):dd MMM yyyy}, "
+            + "or change the duration on the program type.");
     }
 
     private static void Validate(ProgrammeUpsertDto dto, DateOnly? notBefore)

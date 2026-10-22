@@ -471,6 +471,20 @@ function crud(
   if (method === 'GET' && rest[0] === 'all') {
     return applyQuery(rows, query).map((r) => decorate(resource, r));
   }
+  /* The papers as the exam-scheduling picker gets them live: identifying
+     fields only, never the questions. Here so the dialog has something in
+     it against the mock backend too. */
+  if (method === 'GET' && rest[0] === 'choices' && resource === 'exam-papers') {
+    return rows
+      .filter((r) => r['status'] === 'Active')
+      .map((r) => ({
+        id: r['id'],
+        programTypeId: r['programTypeId'],
+        code: r['code'],
+        title: r['title'],
+        questionCount: ((r['questions'] as unknown[]) ?? []).length,
+      }));
+  }
   if (method === 'GET' && !rest.length) {
     const filtered = applyQuery(rows, query);
     const page = paginate(filtered, query);

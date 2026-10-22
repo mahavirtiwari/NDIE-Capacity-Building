@@ -191,6 +191,21 @@ export interface Program extends AuditInfo {
   participants: ProgramParticipant[];
 }
 
+/**
+ * Today, as the dates on a batch are written: by the clock on the wall.
+ *
+ * toISOString() is UTC, and in India that reads as yesterday until half past
+ * five in the morning - so a batch starting today would have looked as though
+ * it had not started yet to the first person at their desk. Returned as the
+ * same yyyy-mm-dd the API sends, so the comparison is a string one and no
+ * zone gets involved at all.
+ */
+export function todayLocal(): string {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
 /** Actions the register exposes inline, depending on the current status. */
 export function programActions(
   program: Pick<
@@ -199,6 +214,7 @@ export function programActions(
     | 'registrationsOpen'
     | 'examDateTime'
     | 'startDate'
+    | 'endDate'
     | 'mode'
     | 'venueChangeRequestedOn'
     | 'postponementRequestedOn'
@@ -225,6 +241,19 @@ export function programActions(
     !!startsOn &&
     new Date(new Date().toDateString()) < new Date(startsOn.getTime() - 86_400_000);
 
+  /* An exam is set on a course that is running. The option was offered on a
+     batch whose registration flag happened to be off, which is a different
+     question and mostly a different batch: nothing turns that flag off when
+     a course begins, so on an ordinary batch the option never appeared at
+     all and no exam could be scheduled - while a batch that filled up early
+     offered it weeks before anybody had been taught anything.
+
+     Not withdrawn once the course is over. The window for the exam has
+     passed by then and the server says so, but a batch that was never
+     examined is something the manager has to be able to see and act on,
+     and a button that silently disappears tells them nothing. */
+  const started = !!program.startDate && todayLocal() >= program.startDate;
+
   const asked = !!program.postponementRequestedOn;
 
   return {
@@ -236,7 +265,7 @@ export function programActions(
     canAcceptPermission: program.status === 'New',
     canRejectPermission: program.status === 'New',
     canReopenRegistrations: open && !program.registrationsOpen && inTime,
-    canSetExamTime: open && !program.registrationsOpen,
+    canSetExamTime: open && started,
     /* Putting a batch off is an answer to an ask, not something done to a
        running batch out of nowhere: the agency is the one that knows the
        hall has flooded. It was offered on every open batch and on every

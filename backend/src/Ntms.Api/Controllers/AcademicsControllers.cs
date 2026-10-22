@@ -172,6 +172,22 @@ public class ExamPapersController(ExamPaperService service) : ApiControllerBase
         [FromQuery] string? status, CancellationToken ct) =>
         Envelope(await service.AllAsync(status, ct));
 
+    /// <summary>
+    /// The papers, to choose between, for whoever schedules an exam.
+    ///
+    /// On programs.approve rather than exams.view, and that is the point of
+    /// it: the manager who permits a batch is the one who sets its exam, and
+    /// is deliberately not allowed to read papers. The choice is not the
+    /// paper - a code, a title and a question count give nothing away - so
+    /// this says just that much and the lookup behind the scheduling dialog
+    /// stops coming back empty.
+    /// </summary>
+    [HttpGet("choices")]
+    [HasPermission(Permissions.ProgramsApprove)]
+    public async Task<ActionResult<ApiEnvelope<List<ExamPaperChoiceDto>>>> Choices(
+        CancellationToken ct) =>
+        Envelope(await service.ChoicesAsync(ct));
+
     [HttpGet("{id:int}")]
     [HasPermission(Permissions.ExamsView)]
     public async Task<ActionResult<ApiEnvelope<ExamPaperDto>>> Get(int id, CancellationToken ct) =>

@@ -185,6 +185,33 @@ public class ExamPaperService(NtmsDbContext db)
                 .OrderBy(e => e.Code).ToListAsync(ct))
             .Select(e => e.ToDto())];
 
+    /// <summary>
+    /// The live papers for each program type, as a picker needs them.
+    ///
+    /// Separate from AllAsync because of who asks. Scheduling an exam is the
+    /// job of the tier that permitted the batch, and that tier is barred
+    /// from exams.view on purpose, so the dropdown that was reading the
+    /// ordinary lookup got a refusal every time and rendered nothing - which
+    /// is why a batch never ended up with a paper on it. AllAsync also
+    /// returns the questions and their options, so granting the key would
+    /// have been worse than the bug.
+    ///
+    /// Live only: a draft or retired paper is not something to sit.
+    /// </summary>
+    public async Task<List<ExamPaperChoiceDto>> ChoicesAsync(CancellationToken ct) =>
+        await db.ExamPapers.AsNoTracking()
+            .Where(e => e.Status == RecordStatus.Active)
+            .OrderBy(e => e.Code)
+            .Select(e => new ExamPaperChoiceDto
+            {
+                Id = e.Id,
+                ProgramTypeId = e.ProgramTypeId,
+                Code = e.Code,
+                Title = e.Title,
+                QuestionCount = e.Questions.Count,
+            })
+            .ToListAsync(ct);
+
     public async Task<ExamPaperDto> GetAsync(int id, CancellationToken ct) =>
         (await Base.FirstOrDefaultAsync(e => e.Id == id, ct)
          ?? throw AppException.NotFound("Exam paper")).ToDto();

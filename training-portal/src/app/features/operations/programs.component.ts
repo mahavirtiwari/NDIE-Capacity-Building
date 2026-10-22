@@ -4,7 +4,7 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
-  ExamPaper,
+  ExamPaperChoice,
   LookupItem,
   PROGRAM_MODES,
   PROGRAM_STATUSES,
@@ -822,8 +822,19 @@ const COLUMNS: ColumnDef[] = [
         <div class="stack stack-md">
           <div class="field">
             <label class="field-label" for="examWhen">Examination date &amp; time</label>
-            <input id="examWhen" type="datetime-local" class="input" [value]="examValue()" (change)="examValue.set(value($event))" />
-            <span class="field-hint">The online paper opens to candidates at this time.</span>
+            <!-- Bounded by the batch's own dates. The exam is part of the
+                 course, so it is sat during it; the server refuses anything
+                 outside the window too, and says the same thing. -->
+            <input id="examWhen" type="datetime-local" class="input"
+              [value]="examValue()"
+              [min]="programme.startDate + 'T00:00'"
+              [max]="programme.endDate + 'T23:59'"
+              (change)="examValue.set(value($event))" />
+            <span class="field-hint">
+              The online paper opens to candidates at this time. It has to fall within the
+              batch: {{ programme.startDate | date: 'dd MMM yyyy' }} to
+              {{ programme.endDate | date: 'dd MMM yyyy' }}.
+            </span>
           </div>
 
           <div class="field">
@@ -838,7 +849,7 @@ const COLUMNS: ColumnDef[] = [
               </option>
               @for (paper of papersFor(programme); track paper.id) {
                 <option [value]="paper.id" [selected]="paper.id === examPaperId()">
-                  {{ paper.code }} · {{ paper.title }}
+                  {{ paper.code }} · {{ paper.title }} ({{ paper.questionCount }} questions)
                 </option>
               }
             </select>
@@ -857,7 +868,17 @@ const COLUMNS: ColumnDef[] = [
         </div>
         <div footer>
           <button type="button" class="btn btn--secondary" (click)="examFor.set(null)">Cancel</button>
-          <button *appCan="'programs.manage'" type="button" class="btn btn--primary" (click)="saveExam()">Save exam time</button>
+          <!-- programs.approve, which is what the endpoint behind it asks
+               for, and what opened the dialog in the first place.
+               programs.manage is the agency's key for running a batch that
+               exists; a manager holding only approve - which is the whole
+               of what deciding an exam is - got the dialog with no way to
+               save out of it.
+
+               Nothing to save until a time has been chosen, either: the
+               field no longer arrives with one already in it. -->
+          <button *appCan="'programs.approve'" type="button" class="btn btn--primary"
+            [disabled]="!examValue()" (click)="saveExam()">Save exam time</button>
         </div>
       </app-modal>
     }
@@ -978,12 +999,19 @@ export class ProgramsComponent {
   protected readonly examPaperId = signal<number | null>(null);
 
   /* Every live paper, filtered per batch when the modal opens: the list is
-     short and fetched once rather than on each programme. */
-  private readonly papers = toSignal(inject(ExamPaperService).all({ status: 'Active' }), {
-    initialValue: [] as ExamPaper[],
+     short and fetched once rather than on each programme.
+
+     From the choices endpoint, not the ordinary lookup. The lookup is behind
+     exams.view, which the manager scheduling the exam is barred from holding
+     - it returns the questions - so it answered 403 every time, the base
+     service logged the refusal and handed back an empty list, and the
+     dropdown had nothing in it. A paper could be published and never
+     bound to anything. */
+  private readonly papers = toSignal(inject(ExamPaperService).choices(), {
+    initialValue: [] as ExamPaperChoice[],
   });
 
-  protected papersFor(programme: Program): ExamPaper[] {
+  protected papersFor(programme: Program): ExamPaperChoice[] {
     return this.papers().filter((paper) => paper.programTypeId === programme.programTypeId);
   }
 
@@ -1375,17 +1403,18 @@ export class ProgramsComponent {
 
   protected openExam(programme: Program): void {
     this.examFor.set(programme);
-    this.examValue.set(
-      programme.examDateTime
-        ? localInput(programme.examDateTime)
-        : `${programme.endDate}T15:00`,
-    );
+    /* Empty where none is set. It used to come up filled in with three
+       o'clock on the last day, which is not a time anybody chose: a manager
+       who opened the dialog to look, and saved, booked an exam at a moment
+       the scheme had invented for them, and the field read as though a
+       decision had already been taken. */
+    this.examValue.set(programme.examDateTime ? localInput(programme.examDateTime) : '');
     this.examPaperId.set(programme.examPaperId ?? null);
   }
 
   protected saveExam(): void {
     const programme = this.examFor();
-    if (!programme) return;
+    if (!programme || !this.examValue()) return;
     /* The dedicated endpoint, not the programme update: the update contract
        carries neither the exam time nor the paper, so sending them there was
        quietly doing nothing. */

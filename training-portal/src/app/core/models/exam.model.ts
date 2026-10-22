@@ -51,6 +51,22 @@ export interface ExamPaper extends AuditInfo {
   questions: ExamQuestion[];
 }
 
+/**
+ * A paper as the exam-scheduling dialog needs it.
+ *
+ * Deliberately not an ExamPaper. The manager who schedules an exam is barred
+ * from reading papers - the questions are the exam - so the picker is served
+ * from its own endpoint that carries the code, the title and how many
+ * questions are on it, and nothing anybody could sit the paper with.
+ */
+export interface ExamPaperChoice {
+  id: Id;
+  programTypeId: Id;
+  code: string;
+  title: string;
+  questionCount: number;
+}
+
 export function examTotalMarks(paper: Pick<ExamPaper, 'questions'>): number {
   return paper.questions.reduce((s, q) => s + (q.marks || 0), 0);
 }
