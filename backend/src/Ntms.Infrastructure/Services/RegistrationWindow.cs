@@ -36,12 +36,50 @@ public static class RegistrationWindow
                    + "taking registrations.";
         }
 
-        if (batch.MaxParticipants > 0 && batch.ParticipantCount >= batch.MaxParticipants)
+        if (Seats(batch) is { } seats && batch.ParticipantCount >= seats)
             return "This program is full.";
 
         if (!batch.RegistrationsOpen) return "Registrations for this program are closed.";
 
         return null;
+    }
+
+    /// <summary>
+    /// How many places the batch takes before it shuts, or null for no
+    /// limit at all.
+    ///
+    /// Two numbers bear on this and the scheme asked for the lower of
+    /// them. The agency sets a ceiling on the batch; the Super Admin sets
+    /// a floor on the program type - the fewest candidates a batch of
+    /// that type is worth running for - and registration is to close once
+    /// that number has been reached. So a type with a floor of twenty
+    /// takes twenty, whatever ceiling the agency wrote, and a type with
+    /// no floor takes the agency's ceiling as before.
+    ///
+    /// Worth saying plainly, because it reads oddly and is deliberate:
+    /// the floor is being used as the batch size. A batch that was raised
+    /// for thirty will therefore shut at its type's twenty rather than
+    /// filling. If the intention was ever that the floor only decides
+    /// whether a batch is worth running, this method is the one place to
+    /// change.
+    ///
+    /// Zero means unset on both, which is how everything that predates
+    /// either number reads.
+    /// </summary>
+    public static int? Seats(Programme batch)
+    {
+        var ceiling = batch.MaxParticipants > 0 ? batch.MaxParticipants : (int?)null;
+        var floor = batch.ProgramType?.MinParticipants > 0
+            ? batch.ProgramType!.MinParticipants
+            : (int?)null;
+
+        return (ceiling, floor) switch
+        {
+            (null, null) => null,
+            (null, { } f) => f,
+            ({ } c, null) => c,
+            ({ } c, { } f) => Math.Min(c, f),
+        };
     }
 
     /// <summary>The same question, where only yes or no is wanted.</summary>

@@ -102,10 +102,27 @@ public static class ProgrammeVisibility
     ///
     /// Registration closing is separate from the status: a batch fills up, or
     /// is held back, without being rejected.
+    ///
+    /// The places are counted here as well as leaned on through the flag.
+    /// The flag is turned off when the last seat goes, but it is turned off
+    /// by whoever took that seat - so a batch that reached its number
+    /// before the number changed, or by a route that did not think to
+    /// close it, stayed on this list until somebody tried to register and
+    /// was refused. Asked twice, in two places, rather than advertised
+    /// wrongly once.
+    ///
+    /// The ceiling the agency set and the floor the type carries, which is
+    /// the same pair <see cref="Services.RegistrationWindow.Seats"/> reads;
+    /// written out longhand because this one runs in the database.
     /// </summary>
     public static IQueryable<Programme> OpenForRegistration(
         this IQueryable<Programme> query, DateOnly today) =>
         query.Where(p => Approved.Contains(p.Status)
                          && p.RegistrationsOpen
-                         && p.StartDate >= today);
+                         && p.StartDate >= today
+                         && (p.MaxParticipants <= 0
+                             || p.ParticipantCount < p.MaxParticipants)
+                         && (p.ProgramType == null
+                             || p.ProgramType.MinParticipants <= 0
+                             || p.ParticipantCount < p.ProgramType.MinParticipants));
 }

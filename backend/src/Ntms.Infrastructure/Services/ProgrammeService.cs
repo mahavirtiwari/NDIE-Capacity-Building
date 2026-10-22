@@ -414,7 +414,11 @@ public class ProgrammeService(
     /// </summary>
     public async Task<ProgrammeDto> ChangeStatusAsync(int id, ProgrammeStatusDto dto, CancellationToken ct)
     {
-        var entity = await db.Programmes.FirstOrDefaultAsync(p => p.Id == id, ct)
+        /* The type comes with it: how many places the batch takes is read
+           from the type's floor as well as the batch's own ceiling. */
+        var entity = await db.Programmes
+                         .Include(p => p.ProgramType)
+                         .FirstOrDefaultAsync(p => p.Id == id, ct)
                      ?? throw AppException.NotFound("Program");
 
         var target = EnumMaps.ParseEnum(dto.Status, entity.Status);
@@ -942,7 +946,9 @@ public class ProgrammeService(
     public async Task<ProgrammeDto> ReopenRegistrationsAsync(
         int id, ReopenRegistrationsDto dto, CancellationToken ct)
     {
-        var entity = await db.Programmes.FirstOrDefaultAsync(p => p.Id == id, ct)
+        var entity = await db.Programmes
+                         .Include(p => p.ProgramType)
+                         .FirstOrDefaultAsync(p => p.Id == id, ct)
                      ?? throw AppException.NotFound("Program");
 
         if (entity.Status is ProgramStatus.Conducted or ProgramStatus.PermissionRejected
@@ -1095,7 +1101,9 @@ public class ProgrammeService(
     /// <summary>Enrols approved applicants into the batch.</summary>
     public async Task<ProgrammeDto> EnrolAsync(int id, EnrolDto dto, CancellationToken ct)
     {
-        var entity = await db.Programmes.Include(p => p.Participants)
+        var entity = await db.Programmes
+                         .Include(p => p.Participants)
+                         .Include(p => p.ProgramType)
                          .FirstOrDefaultAsync(p => p.Id == id, ct)
                      ?? throw AppException.NotFound("Program");
 
@@ -1206,7 +1214,11 @@ public class ProgrammeService(
     /// </summary>
     private static void CloseIfFull(Programme programme)
     {
-        if (programme.MaxParticipants > 0 && programme.ParticipantCount >= programme.MaxParticipants)
+        /* The same count of places the register and the public catalogue
+           use, rather than a third reading of it here: the agency's
+           ceiling, or the program type's floor where that is lower. */
+        if (RegistrationWindow.Seats(programme) is { } seats
+            && programme.ParticipantCount >= seats)
         {
             programme.RegistrationsOpen = false;
         }

@@ -214,8 +214,11 @@ public class BatchRegistrationService(
         application.Status = ApplicationStatus.Enrolled;
         batch.ParticipantCount = batch.Participants.Count;
 
-        /* Full is full: the next applicant should be told before they try. */
-        if (batch.ParticipantCount >= batch.MaxParticipants) batch.RegistrationsOpen = false;
+        /* Full is full: the next applicant should be told before they try.
+           How many places that is, is one rule and lives in one place -
+           the agency's ceiling, or its type's floor where that is lower. */
+        if (RegistrationWindow.Seats(batch) is { } seats && batch.ParticipantCount >= seats)
+            batch.RegistrationsOpen = false;
 
         await db.SaveChangesAsync(ct);
 
