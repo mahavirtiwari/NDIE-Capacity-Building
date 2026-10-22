@@ -111,9 +111,9 @@ public static class ProgrammeVisibility
     /// was refused. Asked twice, in two places, rather than advertised
     /// wrongly once.
     ///
-    /// The ceiling the agency set and the floor the type carries, which is
-    /// the same pair <see cref="Services.RegistrationWindow.Seats"/> reads;
-    /// written out longhand because this one runs in the database.
+    /// The ceiling the agency set, which is what
+    /// <see cref="Services.RegistrationWindow.Seats"/> reads; written out
+    /// longhand because this one runs in the database.
     /// </summary>
     public static IQueryable<Programme> OpenForRegistration(
         this IQueryable<Programme> query, DateOnly today) =>
@@ -121,8 +121,5 @@ public static class ProgrammeVisibility
                          && p.RegistrationsOpen
                          && p.StartDate >= today
                          && (p.MaxParticipants <= 0
-                             || p.ParticipantCount < p.MaxParticipants)
-                         && (p.ProgramType == null
-                             || p.ProgramType.MinParticipants <= 0
-                             || p.ParticipantCount < p.ProgramType.MinParticipants));
+                             || p.ParticipantCount < p.MaxParticipants));
 }

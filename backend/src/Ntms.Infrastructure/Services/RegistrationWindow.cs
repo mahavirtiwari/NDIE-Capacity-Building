@@ -48,39 +48,25 @@ public static class RegistrationWindow
     /// How many places the batch takes before it shuts, or null for no
     /// limit at all.
     ///
-    /// Two numbers bear on this and the scheme asked for the lower of
-    /// them. The agency sets a ceiling on the batch; the Super Admin sets
-    /// a floor on the program type - the fewest candidates a batch of
-    /// that type is worth running for - and registration is to close once
-    /// that number has been reached. So a type with a floor of twenty
-    /// takes twenty, whatever ceiling the agency wrote, and a type with
-    /// no floor takes the agency's ceiling as before.
+    /// The ceiling the agency set on the batch, and only that. The program
+    /// type also carries a number - MinParticipants - and registration
+    /// closing was briefly read from it as well, on the lower of the two.
+    /// It is not a second cap: it is the fewest candidates a batch of that
+    /// type is worth running for, which is a question about whether to run
+    /// the batch at all and not about when to stop filling it. Read as a
+    /// cap it shut a batch raised for thirty at its type's twenty, and the
+    /// agency's own number stopped meaning anything.
     ///
-    /// Worth saying plainly, because it reads oddly and is deliberate:
-    /// the floor is being used as the batch size. A batch that was raised
-    /// for thirty will therefore shut at its type's twenty rather than
-    /// filling. If the intention was ever that the floor only decides
-    /// whether a batch is worth running, this method is the one place to
-    /// change.
+    /// So: the floor decides whether a batch is worth running, and is
+    /// checked where that decision is made - a batch cannot be raised with
+    /// a ceiling below its type's floor. The ceiling decides when
+    /// registration closes, which is here.
     ///
-    /// Zero means unset on both, which is how everything that predates
-    /// either number reads.
+    /// Zero means unset, which is how a batch with no ceiling at all
+    /// reads: it takes everybody until it starts.
     /// </summary>
-    public static int? Seats(Programme batch)
-    {
-        var ceiling = batch.MaxParticipants > 0 ? batch.MaxParticipants : (int?)null;
-        var floor = batch.ProgramType?.MinParticipants > 0
-            ? batch.ProgramType!.MinParticipants
-            : (int?)null;
-
-        return (ceiling, floor) switch
-        {
-            (null, null) => null,
-            (null, { } f) => f,
-            ({ } c, null) => c,
-            ({ } c, { } f) => Math.Min(c, f),
-        };
-    }
+    public static int? Seats(Programme batch) =>
+        batch.MaxParticipants > 0 ? batch.MaxParticipants : null;
 
     /// <summary>The same question, where only yes or no is wanted.</summary>
     public static bool IsOpen(Programme batch) => Closed(batch) is null;

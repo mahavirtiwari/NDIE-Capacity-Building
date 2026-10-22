@@ -306,10 +306,9 @@ public class ProgrammeCatalogueService(NtmsDbContext db, ApplicantEligibilitySer
     private static PublicProgrammeDto ToPublic(Programme p)
     {
         var virtualBatch = p.Mode == ProgramMode.Virtual;
-        /* Places, from the one rule: the agency's ceiling or the type's
-           floor, whichever is lower. The catalogue read the ceiling on its
-           own and so could show seats left on a batch the register had
-           already shut. */
+        /* Places, from the one rule rather than worked out again here, so
+           the catalogue cannot show seats left on a batch the register
+           has already shut. */
         var seats = RegistrationWindow.Seats(p);
         var full = seats is { } cap && p.ParticipantCount >= cap;
         /* India's today, like the rest of the system. This asked UTC, so for
@@ -341,10 +340,8 @@ public class ProgrammeCatalogueService(NtmsDbContext db, ApplicantEligibilitySer
             EndDate = p.EndDate,
             DurationDays = p.EndDate.DayNumber - p.StartDate.DayNumber + 1,
 
-            /* The places the batch actually takes, not the agency's number
-               on its own: the applicant is being told how many seats are
-               left, and that has to be the figure the server will refuse
-               them on. */
+            /* The figure the server will refuse them on, which is what an
+               applicant reading how many seats are left is asking about. */
             MaxParticipants = seats ?? p.MaxParticipants,
             Enrolled = p.ParticipantCount,
             /* Clamped: lowering a cap below the number already enrolled would

@@ -215,8 +215,7 @@ public class BatchRegistrationService(
         batch.ParticipantCount = batch.Participants.Count;
 
         /* Full is full: the next applicant should be told before they try.
-           How many places that is, is one rule and lives in one place -
-           the agency's ceiling, or its type's floor where that is lower. */
+           How many places that is, is one rule and lives in one place. */
         if (RegistrationWindow.Seats(batch) is { } seats && batch.ParticipantCount >= seats)
             batch.RegistrationsOpen = false;
 
