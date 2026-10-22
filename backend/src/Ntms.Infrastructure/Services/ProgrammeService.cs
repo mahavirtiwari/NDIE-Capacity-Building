@@ -1339,6 +1339,38 @@ public class ProgrammeService(
                 ? "A hybrid batch needs a meeting link as well as a venue."
                 : "A virtual batch needs a meeting link.");
         }
+
+        /* And a link somebody can actually open.
+
+           "Required" was the whole of the check, so a batch was raised
+           with a room name, a sentence, or a full stop in the box - and
+           the people who found out were the candidates, on the morning,
+           when the only thing standing between them and the session
+           turned out not to be a link at all.
+
+           What it must be: an absolute http or https address with a host
+           that has a dot in it. Not which platform - the comment above
+           explains why the scheme does not care - and no attempt to
+           decide whether the meeting exists, which nothing here could
+           know. This rules out what is actually typed by mistake. */
+        if (mode != ProgramMode.Physical)
+        {
+            var link = dto.MeetingLink!.Trim();
+
+            var usable = Uri.TryCreate(link, UriKind.Absolute, out var parsed)
+                         && (parsed.Scheme == Uri.UriSchemeHttp
+                             || parsed.Scheme == Uri.UriSchemeHttps)
+                         && parsed.Host.Contains('.')
+                         && !parsed.Host.EndsWith('.');
+
+            if (!usable)
+            {
+                throw new AppException(
+                    "The meeting link has to be a web address the candidates can open, "
+                    + "starting with http:// or https:// - for example "
+                    + "https://meet.example.org/the-batch.");
+            }
+        }
     }
 
     private static TimeOnly ParseTime(string? value, TimeOnly fallback) =>

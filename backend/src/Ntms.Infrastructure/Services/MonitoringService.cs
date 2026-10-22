@@ -1641,6 +1641,32 @@ public class MonitoringService(
         if (!exterior) progress.Blockers.Add("Add the venue exterior photo.");
         if (!interior) progress.Blockers.Add("Add the venue interior photo.");
         if (trainers.Count == 0) progress.Blockers.Add("Register at least one trainer.");
+        else
+        {
+            /* A trainer with no face and no identity document is a name
+               somebody typed. The photographs cannot be insisted on when
+               the record is created - there is nothing to attach them to
+               until it exists - so they are insisted on here, which is
+               the last moment anybody can still take them. */
+            var withoutPhoto = trainers.Count(t =>
+                !photos.Any(p => p.Kind == MonitoringPhotoKind.TrainerPhoto && p.TrainerId == t.Id));
+            var withoutProof = trainers.Count(t =>
+                !photos.Any(p => p.Kind == MonitoringPhotoKind.TrainerIdProof && p.TrainerId == t.Id));
+
+            if (withoutPhoto > 0)
+            {
+                progress.Blockers.Add(withoutPhoto == 1
+                    ? "Add the photo for the trainer that has none."
+                    : $"Add photos for the {withoutPhoto} trainers that have none.");
+            }
+
+            if (withoutProof > 0)
+            {
+                progress.Blockers.Add(withoutProof == 1
+                    ? "Add the ID proof for the trainer that has none."
+                    : $"Add ID proof for the {withoutProof} trainers that have none.");
+            }
+        }
         if (sessions.Count == 0) progress.Blockers.Add("Record at least one session.");
         if (participants.Count == 0) progress.Blockers.Add("Register at least one participant.");
         else if (marked < participants.Count)

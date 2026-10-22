@@ -1320,7 +1320,76 @@ public class ApplicationService(
 
             var formatError = CheckFormat(field, ValueToString(scope[field.Key]));
             if (formatError is not null) errors.Add(prefix + formatError);
+
+            foreach (var dateError in CheckDates(field, scope[field.Key]))
+                errors.Add(prefix + dateError);
         }
+    }
+
+    /// <summary>
+    /// What is wrong with the dates in an answer, if anything.
+    ///
+    /// Dates went unchecked entirely: the field carried MinDate and MaxDate
+    /// and nothing read them, so a date of birth in 2095 was accepted, and
+    /// so was a qualification awarded next year. A profile is a record of
+    /// what has already happened to somebody - where it is not, the form
+    /// says so by setting a MaxDate of its own, and that is honoured.
+    ///
+    /// A duration is two dates and the same rule applies to both, plus the
+    /// obvious one: it cannot end before it began.
+    /// </summary>
+    private static IEnumerable<string> CheckDates(ProfileField field, JsonElement value)
+    {
+        if (field.Type is not (FieldType.Date or FieldType.Duration)) yield break;
+
+        var today = DateOnly.FromDateTime(IndianTime.From(DateTime.UtcNow));
+        var ceiling = field.Validation.MaxDate ?? today;
+        var floor = field.Validation.MinDate;
+
+        string? Wrong(DateOnly on, string what)
+        {
+            if (on > ceiling)
+            {
+                return field.Validation.MaxDate is null
+                    ? $"{what} cannot be in the future."
+                    : $"{what} cannot be after {ceiling:dd MMM yyyy}.";
+            }
+
+            return floor is { } from && on < from
+                ? $"{what} cannot be before {from:dd MMM yyyy}."
+                : null;
+        }
+
+        if (field.Type == FieldType.Date)
+        {
+            if (!DateOnly.TryParse(ValueToString(value), out var on))
+            {
+                yield return $"'{field.Label}' is not a valid date.";
+                yield break;
+            }
+
+            if (Wrong(on, $"'{field.Label}'") is { } problem) yield return problem;
+            yield break;
+        }
+
+        /* A duration arrives as an object - from, to, and the months
+           between them - where every other answer is a string. */
+        if (value.ValueKind != JsonValueKind.Object) yield break;
+
+        DateOnly? Read(string name) =>
+            value.TryGetProperty(name, out var part)
+            && DateOnly.TryParse(ValueToString(part), out var on)
+                ? on
+                : null;
+
+        var started = Read("from");
+        var ended = Read("to");
+
+        if (started is { } s && Wrong(s, $"The start of '{field.Label}'") is { } a) yield return a;
+        if (ended is { } e && Wrong(e, $"The end of '{field.Label}'") is { } b) yield return b;
+
+        if (started is { } began && ended is { } finished && finished < began)
+            yield return $"'{field.Label}' cannot end before it starts.";
     }
 
     /// <summary>What one entry of a repeating section is called, in a sentence.</summary>
