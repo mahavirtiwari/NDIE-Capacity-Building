@@ -394,6 +394,8 @@ function customRoutes(
         program.participants.push({
           id: nextId(program.participants),
           applicantId: application.applicantId,
+          applicantCode:
+            db.applicants.find((a) => a.id === application.applicantId)?.applicantCode ?? '',
           applicationNo: application.applicationNo,
           name: application.applicantName,
           email: application.applicantEmail,

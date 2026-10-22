@@ -346,6 +346,12 @@ type Tab =
                   <span class="fact__term">Coordinator</span>
                   <span class="fact__value">
                     {{ batch.coordinatorName || '—' }}
+                    <!-- With their ID, because two coordinators may share a
+                         name and the ID is what identifies them everywhere
+                         else in the system. -->
+                    @if (batch.coordinatorCode) {
+                      <span class="text-xs text-muted tabular">{{ batch.coordinatorCode }}</span>
+                    }
                     @if (batch.coordinatorMobile) {
                       <span class="text-xs text-muted tabular">{{ batch.coordinatorMobile }}</span>
                     }
@@ -713,7 +719,27 @@ type Tab =
                   <tr>
                     <td>
                       <div class="cell-primary">{{ participant.name }}</div>
-                      <div class="cell-muted">{{ participant.email }}</div>
+                      <!-- The applicant's own ID, which is what a register is
+                           looked up on, and a way through to the record it
+                           belongs to. A link only for somebody who can open
+                           that screen: a coordinator holds no applicants
+                           permission and would arrive at a refusal. -->
+                      <div class="cell-muted">
+                        @if (participant.applicantCode) {
+                          @if (seesApplicants()) {
+                            <a
+                              class="link"
+                              [routerLink]="['/admin/applicants']"
+                              [queryParams]="{ search: participant.applicantCode, open: participant.applicantCode }"
+                              >{{ participant.applicantCode }}</a
+                            >
+                          } @else {
+                            <span class="tabular">{{ participant.applicantCode }}</span>
+                          }
+                          <span class="text-muted"> · </span>
+                        }
+                        {{ participant.email }}
+                      </div>
                     </td>
                     <td class="cell-muted tabular">{{ participant.mobile || '—' }}</td>
                     @if (organisationLabel()) {
@@ -1218,6 +1244,9 @@ export class ProgramDetailComponent {
   /** Whether the batch's particulars are showing. Open on arrival. */
   protected readonly detailsOpen = signal(true);
   protected readonly canManage = computed(() => this.auth.hasPermission('programs.manage'));
+
+  /** Whether this reader can open the applicants register at all. */
+  protected readonly seesApplicants = computed(() => this.auth.hasPermission('applications.view'));
 
   constructor() {
     effect(() => {

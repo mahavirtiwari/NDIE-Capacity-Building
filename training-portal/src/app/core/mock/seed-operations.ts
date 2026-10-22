@@ -186,6 +186,7 @@ function participantsFor(programId: number, count: number): ProgramParticipant[]
     return {
       id: programId * 100 + i + 1,
       applicantId: applicant.id,
+      applicantCode: applicant.applicantCode,
       applicationNo: `APL/2026/${String(1000 + applicant.id)}`,
       name: applicant.fullName,
       email: applicant.email,

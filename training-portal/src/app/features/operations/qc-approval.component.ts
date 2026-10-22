@@ -455,7 +455,7 @@ export class QcApprovalComponent {
   protected readonly emptyTitle = computed(() => {
     switch (this.tab()) {
       case 'AwaitingAgency':
-        return 'Nothing with the agency';
+        return 'Nothing waiting to be forwarded';
       case 'Pending':
         return 'Nothing waiting';
       case 'Approved':
@@ -468,9 +468,9 @@ export class QcApprovalComponent {
   protected readonly emptyMessage = computed(() => {
     switch (this.tab()) {
       case 'AwaitingAgency':
-        return 'No report is waiting for the agency to forward it.';
+        return 'A conducted program appears here until its agency forwards the report.';
       case 'Pending':
-        return 'Every conducted programme has been checked.';
+        return 'Every report that was forwarded has been checked.';
       case 'Approved':
         return 'No report has passed the quality check under the current filters.';
       default:

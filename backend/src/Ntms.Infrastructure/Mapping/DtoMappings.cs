@@ -758,6 +758,7 @@ public static class DtoMappings
             AgencyName = e.Agency?.Name,
             CoordinatorId = e.CoordinatorId,
             CoordinatorName = e.Coordinator?.FullName,
+            CoordinatorCode = e.Coordinator?.UserCode,
             CoordinatorMobile = e.Coordinator?.Mobile,
             CoordinatorEmail = e.Coordinator?.Email,
             OperationManagerId = e.OperationManagerId,
@@ -804,6 +805,7 @@ public static class DtoMappings
                 {
                     Id = p.Id,
                     ApplicantId = p.ApplicantId,
+                    ApplicantCode = p.Applicant?.ApplicantCode ?? string.Empty,
                     ApplicationNo = p.Application?.ApplicationNo ?? string.Empty,
                     Name = p.Applicant?.FullName ?? string.Empty,
                     Email = p.Applicant?.Email ?? string.Empty,

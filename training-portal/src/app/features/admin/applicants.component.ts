@@ -1,5 +1,13 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
 import {
@@ -660,6 +668,42 @@ export class ApplicantsComponent {
 
   constructor() {
     this.list.sortDir.set('desc');
+    this.arriveFromALink();
+  }
+
+  /**
+   * Opens the register on one applicant, where a link said which.
+   *
+   * A participant row on a batch sheet carries the applicant's ID, and
+   * following it should land on that person rather than on a register of
+   * a thousand for the reader to search again. ?search= filters the list
+   * and ?open= opens the record once it arrives.
+   *
+   * Read once, in the constructor: this is where somebody came in from,
+   * not a filter they go on steering with the address bar.
+   */
+  private arriveFromALink(): void {
+    const params = inject(ActivatedRoute).snapshot.queryParamMap;
+
+    const search = params.get('search');
+    if (!search) return;
+
+    this.list.search.set(search);
+    this.list.reload();
+
+    const open = params.get('open');
+    if (!open) return;
+
+    /* The row has to arrive before it can be opened, and it arrives with
+       the page. Taken from the loaded rows rather than fetched again, so
+       a code that matches nothing simply leaves the register filtered. */
+    const stop = effect(() => {
+      const found = this.list.rows().find((row) => row.applicantCode === open);
+      if (!found) return;
+
+      stop.destroy();
+      this.openDetail(found);
+    });
   }
 
   /* A plain confirm will not do: blocking somebody has to be explained, and

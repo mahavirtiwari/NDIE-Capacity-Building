@@ -64,6 +64,8 @@ export function statusNeedsReason(status: ProgramStatus): boolean {
 export interface ProgramParticipant {
   id: Id;
   applicantId: Id;
+  /** The applicant's own ID, shown beside their name. */
+  applicantCode: string;
   applicationNo: string;
   name: string;
   email: string;
@@ -150,6 +152,7 @@ export interface Program extends AuditInfo {
   agencyName?: string;
   coordinatorId: Id;
   coordinatorName?: string;
+  coordinatorCode?: string;
   coordinatorMobile?: string | null;
   coordinatorEmail?: string | null;
   operationManagerId: Id;
@@ -301,8 +304,10 @@ export const QC_STATUSES: QcStatus[] =
   ['AwaitingAgency', 'Pending', 'Approved', 'Rejected'];
 
 export const QC_STATUS_LABELS: Record<QcStatus, string> = {
-  AwaitingAgency: 'With the agency',
-  Pending: 'Pending programs',
+  /* Named for the step rather than for whose desk it is sitting on: the
+     tabs read as a quality-control queue, which is what the screen is. */
+  AwaitingAgency: 'QC',
+  Pending: 'QC Pending',
   Approved: 'Approved programs',
   Rejected: 'Rejected programs',
 };

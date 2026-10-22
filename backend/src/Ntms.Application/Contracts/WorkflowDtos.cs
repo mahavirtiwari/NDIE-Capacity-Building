@@ -414,6 +414,14 @@ public class ProgrammeParticipantDto
 {
     public int Id { get; set; }
     public int ApplicantId { get; set; }
+
+    /// <summary>
+    /// The applicant's own ID, which is what they are known by everywhere
+    /// and what a register is looked up on. A name and a mobile number
+    /// identify somebody loosely; this identifies them.
+    /// </summary>
+    public string ApplicantCode { get; set; } = string.Empty;
+
     public string ApplicationNo { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
@@ -499,6 +507,13 @@ public class ProgrammeDto : AuditDto
     public string? ExamPaperTitle { get; set; }
     public int CoordinatorId { get; set; }
     public string? CoordinatorName { get; set; }
+
+    /// <summary>
+    /// The coordinator's user ID, beside their name. Two coordinators
+    /// called the same thing are two identical lines otherwise, and the ID
+    /// is what they are known by everywhere else in the system.
+    /// </summary>
+    public string? CoordinatorCode { get; set; }
 
     /// <summary>
     /// How to reach whoever was in the room.
