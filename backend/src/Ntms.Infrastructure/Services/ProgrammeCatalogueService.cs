@@ -3,6 +3,7 @@ using Ntms.Application.Common;
 using Ntms.Application.Contracts;
 using Ntms.Domain.Common;
 using Ntms.Domain.Entities;
+using Ntms.Infrastructure.Email;
 using Ntms.Infrastructure.Mapping;
 using Ntms.Infrastructure.Persistence;
 
@@ -306,7 +307,13 @@ public class ProgrammeCatalogueService(NtmsDbContext db, ApplicantEligibilitySer
     {
         var virtualBatch = p.Mode == ProgramMode.Virtual;
         var full = p.MaxParticipants > 0 && p.ParticipantCount >= p.MaxParticipants;
-        var over = DateOnly.FromDateTime(DateTime.UtcNow) > p.EndDate;
+        /* India's today, like the rest of the system. This asked UTC, so for
+           five and a half hours each night a batch read as still running on
+           the day after it finished. */
+        var today = DateOnly.FromDateTime(IndianTime.From(DateTime.UtcNow));
+        var over = today > p.EndDate;
+        var started = today >= p.StartDate;
+        var shut = RegistrationWindow.Closed(p);
 
         return new PublicProgrammeDto
         {
@@ -335,15 +342,17 @@ public class ProgrammeCatalogueService(NtmsDbContext db, ApplicantEligibilitySer
                otherwise advertise a negative number of seats. */
             SeatsLeft = Math.Max(0, p.MaxParticipants - p.ParticipantCount),
 
-            ScheduleStatus = DateOnly.FromDateTime(DateTime.UtcNow) < p.StartDate
-                ? "Upcoming"
-                : over ? "Completed" : "Ongoing",
+            ScheduleStatus = !started ? "Upcoming" : over ? "Completed" : "Ongoing",
 
-            RegistrationsOpen = p.RegistrationsOpen,
-            RegistrationStatus = p.RegistrationsOpen
+            /* What the applicant is told, and what the server will actually
+               do, from the same answer. The flag alone said "Open" on a
+               batch that had already begun. */
+            RegistrationsOpen = shut is null,
+            RegistrationStatus = shut is null
                 ? "Open"
                 : full ? "Full"
                 : over ? "Already held"
+                : started ? "Started"
                 : p.Status == ProgramStatus.New ? "Awaiting approval"
                 : "Closed",
 

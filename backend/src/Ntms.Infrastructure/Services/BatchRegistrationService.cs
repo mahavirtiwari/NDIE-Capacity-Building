@@ -87,14 +87,14 @@ public class BatchRegistrationService(
 
         await GuardProgramTypeAsync(applicantId, batch, ct);
 
-        if (!batch.RegistrationsOpen)
-            throw new AppException("Registrations for this batch are closed.");
+        /* Closed, full, already held, or already running - asked in one
+           place so the app, the desk and the register all answer the same.
+           Nothing here used to ask whether the batch had begun, so a course
+           that started on Monday took registrations on Thursday. */
+        if (RegistrationWindow.Closed(batch) is { } shut) throw new AppException(shut);
 
         if (batch.Participants.Any(p => p.ApplicantId == applicantId))
             throw new AppException("You are already registered for this batch.");
-
-        if (batch.Participants.Count >= batch.MaxParticipants)
-            throw new AppException("This batch is full.");
 
         /* ---- the application ------------------------------------------
            Still created, because the fee, the TDS declaration and the

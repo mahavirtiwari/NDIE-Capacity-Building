@@ -111,7 +111,16 @@ public class MonitoringService(
     /// submission check lives here rather than at each call site because
     /// "sealed" has to mean sealed against writes nobody has thought of yet.
     /// </summary>
-    private async Task<Programme> ForWriteAsync(int programmeId, CancellationToken ct)
+    /// <param name="duringProgramme">
+    /// Whether this write has to happen while the batch is actually running.
+    /// True for everything captured on the ground - the venue, the trainers,
+    /// the sessions, the register, the photographs - because all of it is a
+    /// record of something that happened in the room, and a record of the
+    /// room made three days later is not one. False for handing the report
+    /// in, which is the one thing that is meant to come afterwards.
+    /// </param>
+    private async Task<Programme> ForWriteAsync(
+        int programmeId, CancellationToken ct, bool duringProgramme = true)
     {
         var programme = await db.Programmes
             .FirstOrDefaultAsync(p => p.Id == programmeId, ct)
@@ -147,6 +156,41 @@ public class MonitoringService(
         if (sealedOn is not null)
             throw AppException.Conflict(
                 $"This program was finally submitted on {IndianTime.Format(sealedOn.Value)} and can no longer be changed.");
+
+        /* And inside the days the batch runs.
+
+           Everything captured here is evidence of something that happened
+           in a room on a day: who turned up, who taught, what the venue
+           looked like. None of it could be observed before the batch began
+           or after it finished, so none of it may be written then - a venue
+           photographed three days after the course ended is a photograph of
+           an empty hall, and an attendance sheet filled in afterwards is
+           somebody remembering.
+
+           Whole days rather than the hour the timetable ends. A coordinator
+           sets up before the first session and finishes the register after
+           the last one, and refusing them at 17:00 on the closing day would
+           block honest work to prevent nothing - what this stops is the
+           record being made on another day altogether. */
+        if (duringProgramme)
+        {
+            var today = DateOnly.FromDateTime(IndianTime.From(DateTime.UtcNow));
+
+            if (today < programme.StartDate)
+            {
+                throw new AppException(
+                    $"This program starts on {programme.StartDate:dd MMM yyyy}. "
+                    + "Nothing can be recorded against it until then.");
+            }
+
+            if (today > programme.EndDate)
+            {
+                throw new AppException(
+                    $"This program ended on {programme.EndDate:dd MMM yyyy}. "
+                    + "Its record is closed - send the report in, or ask for it to be "
+                    + "reopened if something is missing.");
+            }
+        }
 
         return programme;
     }
@@ -1420,7 +1464,9 @@ public class MonitoringService(
     public async Task<ProgrammeSubmissionDto> SubmitAsync(
         int programmeId, SubmitProgrammeDto dto, CancellationToken ct)
     {
-        await ForWriteAsync(programmeId, ct);
+        /* The one write that belongs after the batch: the report is
+           written up once it is over, which is the point of it. */
+        await ForWriteAsync(programmeId, ct, duringProgramme: false);
 
         var venue = await db.ProgrammeVenues.AsNoTracking()
             .FirstOrDefaultAsync(v => v.ProgrammeId == programmeId, ct);
