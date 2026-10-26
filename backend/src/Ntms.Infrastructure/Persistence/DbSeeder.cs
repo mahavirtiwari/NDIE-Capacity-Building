@@ -277,17 +277,32 @@ public class DbSeeder(
     /// <summary>
     /// The fields an applicant fills in to create an account.
     ///
-    /// These six exist as columns on the applicant record whether or not
-    /// there is a row here, so seeding them is not creating the form - it is
-    /// making the form that already exists editable. Only the ones missing are
-    /// added, so a label somebody changed is never quietly put back.
+    /// These exist as columns on the applicant record whether or not there is
+    /// a row here, so seeding them is not creating the form - it is making the
+    /// form that already exists editable. Only the ones missing are added, so
+    /// a label somebody changed is never quietly put back.
+    ///
+    /// The name is seeded in its two parts. It was seeded as fullName alone,
+    /// and the two parts - which the applicant record has columns for, which
+    /// the sign-up code reads, and which this service's own built-in list
+    /// names - were never put on the form at all. So an administrator wanting
+    /// a first and a last name box could not switch them on, because they did
+    /// not exist, and could not create them either: the key check refused
+    /// firstName and lastName as "already on the form". The only way through
+    /// was to relabel fullName and invent a custom field beside it, and that
+    /// combination stopped anybody registering at all.
+    ///
+    /// fullName is not seeded any more. It is still a built-in key, so a form
+    /// that already has it goes on working, but a new form asks for the parts
+    /// and composes the whole from them.
     /// </summary>
     private async Task SeedSignupFormAsync(CancellationToken ct)
     {
         /* key, label, placeholder, type, required, locked */
         var builtIn = new (string Key, string Label, string? Placeholder, FieldType Type, bool Required, bool Locked)[]
         {
-            ("fullName", "Full name", "As printed on your PAN", FieldType.Text, true, true),
+            ("firstName", "First name", "As printed on your PAN", FieldType.Text, true, true),
+            ("lastName", "Last name", "As printed on your PAN", FieldType.Text, true, false),
             ("email", "Email", "Enter email address", FieldType.Email, true, true),
             ("mobile", "Mobile", "Enter mobile number", FieldType.Mobile, true, true),
             ("pan", "PAN", "ABCDE1234F", FieldType.Pan, true, false),

@@ -77,13 +77,37 @@ public class SignupFormService(NtmsDbContext db)
         var key = Normalise(dto.Key);
         Validate(dto, key);
 
-        if (BuiltIn.ContainsKey(key))
+        /* Case-insensitively, both of them.
+ 
+           The dictionary and the column are both ordinal by default, so
+           "LastName" was neither the built-in "lastName" nor a duplicate of
+           it, and a custom field was created alongside a built-in key. The
+           sign-up code then matched the two to each other - it asks what the
+           form wants without caring about case - and read the name from the
+           built-in property, which the app had left empty because it fills
+           that from a key spelled the other way. Nobody could register: the
+           form said First Name and Last Name, both were typed in, and the
+           server answered that the name was required.
+ 
+           A key differing from another only by case is the same question
+           asked twice however it is stored, so it is refused as a duplicate
+           either way. */
+        var clash = BuiltIn.Keys.FirstOrDefault(
+            k => string.Equals(k, key, StringComparison.OrdinalIgnoreCase));
+
+        if (clash is not null)
         {
             throw AppException.Conflict(
-                $"'{key}' is a built-in field. It is already on the form and can be edited there.");
+                $"'{clash}' is a built-in field. It is already on the form and can be edited "
+                + "there.");
         }
 
-        if (await db.SignupFields.AnyAsync(f => f.Key == key, ct))
+        /* Compared here rather than in the query, so the answer does not
+           depend on the database's collation. A sign-up form is under a
+           dozen fields. */
+        var keys = await db.SignupFields.Select(f => f.Key).ToListAsync(ct);
+
+        if (keys.Any(k => string.Equals(k, key, StringComparison.OrdinalIgnoreCase)))
         {
             throw AppException.Conflict($"A field with the key '{key}' already exists on the form.");
         }
