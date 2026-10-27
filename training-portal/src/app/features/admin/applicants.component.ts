@@ -30,8 +30,17 @@ import { TimelineComponent } from '../../shared/components/timeline.component';
 import { ListState, searchTerm } from '../../shared/list-state';
 
 const COLUMNS: ColumnDef[] = [
-  { key: 'applicantCode', header: 'Applicant ID', sortable: true, width: '140px' },
-  { key: 'fullName', header: 'Applicant', sortable: true, variant: 'primary' },
+  /* The name and the code in one column, the code under the name. Two
+     columns for one fact about one person, side by side, took a quarter
+     of the table between them and left the categories and the reason
+     squeezed into what was left.
+
+     Keyed on the code, which is what the column sorted by before and the
+     only one of the two that sorts to anything useful: the codes run in
+     the order the accounts were opened. The key is the sort field as
+     well as the cell's name, so the merged column keeps the code's. */
+  { key: 'applicantCode', header: 'Applicant', sortable: true,
+    variant: 'primary', width: '190px' },
   { key: 'contact', header: 'Contact', width: '250px' },
   { key: 'pan', header: 'PAN', width: '130px' },
   /* The first discipline they entered. An account holds a profile per
@@ -184,10 +193,20 @@ const COLUMNS: ColumnDef[] = [
              identified by the code the system issued them; a name is
              shared by three people in a register this size and is theirs
              to change. -->
+        <!-- The name, the code under it, and the block where there is
+             one. The code opens the applicant, not the name: a name is
+             shared by three people in a register this size and is theirs
+             to change, and the code is what the system issued. -->
         <ng-template appCell="applicantCode" let-row>
-          <button type="button" class="cell-link tabular" (click)="openDetail($any(row))">
-            {{ $any(row).applicantCode }}
-          </button>
+          <div class="stack stack-xs">
+            <span>{{ $any(row).fullName }}</span>
+            <button type="button" class="cell-link tabular" (click)="openDetail($any(row))">
+              {{ $any(row).applicantCode }}
+            </button>
+            @if ($any(row).isBlocked) {
+              <span class="badge badge--danger">Blocked</span>
+            }
+          </div>
         </ng-template>
 
         <ng-template appCell="statusReason" let-row>
@@ -205,14 +224,6 @@ const COLUMNS: ColumnDef[] = [
           }
         </ng-template>
 
-        <ng-template appCell="fullName" let-row>
-          <div class="stack stack-xs">
-            <span>{{ $any(row).fullName }}</span>
-            @if ($any(row).isBlocked) {
-              <span class="badge badge--danger">Blocked</span>
-            }
-          </div>
-        </ng-template>
         <ng-template appCell="contact" let-row>
           <div class="stack stack-xs">
             <span>{{ $any(row).email }}</span>

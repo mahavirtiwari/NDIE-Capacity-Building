@@ -431,7 +431,14 @@ public class ProfileAttachmentService(
                 EntryIndex = a.EntryIndex,
                 FileName = a.FileName,
                 ContentType = a.ContentType,
-                SizeBytes = a.Content.Length,
+                /* The recorded size, not the length of the bytes. The bytes
+                   are a file now: Content is null on every drained row, the
+                   length of null is null in SQL, and null does not go into a
+                   long - so opening any profile that had an attachment threw
+                   before the page rendered anything. The two other listings
+                   were changed when the files moved; this one was missed. */
+                SizeBytes = a.RelativePath != "" ? a.SizeBytes
+                                                 : (a.Content == null ? 0L : a.Content.Length),
                 SubmittedOn = a.SyncedOn,
             })
             .ToListAsync(ct);

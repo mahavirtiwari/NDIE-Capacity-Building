@@ -42,16 +42,25 @@ import { ListState, searchTerm } from '../../shared/list-state';
  * together anyway.
  */
 const COLUMNS: ColumnDef[] = [
-  { key: 'applicant', header: 'Applicant', variant: 'primary', width: '170px' },
-  /* The code, not the name, is the identity — and so the thing that
-     opens the profile. */
-  { key: 'applicantCode', header: 'Applicant ID', width: '130px' },
+  /* The name and the code in one column, the code under the name. They
+     are one fact about one person and they were two columns a tenth of
+     the table wide each, which pushed everything that varies - the
+     sub-category, the reason - into the narrow end of the row.
+
+     The code, not the name, is the identity, and so the thing that opens
+     the profile. */
+  { key: 'applicant', header: 'Applicant', variant: 'primary', width: '190px' },
   { key: 'categoryName', header: 'Category', width: '140px' },
   { key: 'subCategoryName', header: 'Sub-category', width: '150px' },
   { key: 'attemptNo', header: 'Attempt', width: '90px', align: 'center' },
   { key: 'submittedOn', header: 'Submission date', sortable: true, width: '130px' },
   { key: 'assignedToName', header: 'Assigned to', width: '140px' },
-  { key: 'status', header: 'Status', width: '150px' },
+  { key: 'status', header: 'Status', width: '120px' },
+  /* When it was decided, in a column of its own. It used to sit under
+     the badge with the name of whoever decided it, which made the status
+     column three lines tall on every settled row and put a date where a
+     date could not be read against the dates in the columns beside it. */
+  { key: 'decidedOn', header: 'Approved on', width: '130px' },
   /* Last, and the only column without a width: a reason is a sentence
      and should take whatever room is left rather than wrap in a box. */
   { key: 'reason', header: 'Reason' },
@@ -230,18 +239,17 @@ const COLUMNS: ColumnDef[] = [
              reader looks at was not the thing they could click, and the
              button repeated down the page in the brand colour pulled the
              eye away from the names. -->
+        <!-- The name, and the code beneath it. The code opens the profile,
+             not the name: an applicant is identified by the code the system
+             issued them — a name is shared by three people in any register
+             this size, and is theirs to change. -->
         <ng-template appCell="applicant" let-row>
-          {{ $any(row).applicantName }}
-        </ng-template>
-
-        <!-- The code opens the profile, not the name. An applicant is
-             identified by the code the system issued them — a name is
-             shared by three people in any register this size, and is
-             theirs to change. -->
-        <ng-template appCell="applicantCode" let-row>
-          <a class="cell-link tabular" [routerLink]="['/admin/profile-scrutiny', $any(row).id]">
-            {{ $any(row).applicantCode }}
-          </a>
+          <div class="stack stack-xs">
+            <span>{{ $any(row).applicantName }}</span>
+            <a class="cell-link tabular" [routerLink]="['/admin/profile-scrutiny', $any(row).id]">
+              {{ $any(row).applicantCode }}
+            </a>
+          </div>
         </ng-template>
 <!-- A first attempt is the ordinary case and reads as a plain
              number. A second or third is somebody who was turned down and
@@ -267,18 +275,20 @@ const COLUMNS: ColumnDef[] = [
             <span class="chip chip--warn">Unassigned</span>
           }
         </ng-template>
-<!-- The badge, and under it who decided and when. The reason has
-             a column of its own. -->
+<!-- The badge, and nothing else. The date is a column now and the
+             reason has one of its own; who decided it is on the profile,
+             which is where somebody asking that question is going. -->
         <ng-template appCell="status" let-row>
-          <div class="stack stack-xs">
-            <app-status-badge [value]="$any(row).status" />
-            @if ($any(row).decidedOn) {
-              <span class="text-xs cell-muted">
-                {{ $any(row).decidedOn | date: 'dd MMM yyyy' }}
-                @if ($any(row).decidedByUserName) { · {{ $any(row).decidedByUserName }} }
-              </span>
-            }
-          </div>
+          <app-status-badge [value]="$any(row).status" />
+        </ng-template>
+
+        <!-- Only where there has been a decision. A profile still waiting
+             has nothing to put here, and a dash in every row of a date
+             column reads as a column of dashes. -->
+        <ng-template appCell="decidedOn" let-row>
+          @if ($any(row).decidedOn) {
+            <span>{{ $any(row).decidedOn | date: 'dd MMM yyyy' }}</span>
+          }
         </ng-template>
 
         <!-- A rejection that does not say why makes the officer open the
