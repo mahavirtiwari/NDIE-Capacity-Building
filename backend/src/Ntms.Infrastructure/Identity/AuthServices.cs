@@ -43,7 +43,14 @@ public interface ICurrentUser
     /// <summary>The account's tier, used for the delegation rules.</summary>
     Domain.Common.BaseRole? Tier { get; }
 
-    /// <summary>The agency behind an Implementing Agency login, else null.</summary>
+    /// <summary>
+    /// The agency this account belongs to, else null.
+    ///
+    /// Not only an Implementing Agency login, whatever this once said: a
+    /// coordinator is attached to the agency that appointed them and
+    /// carries it here too. Anything that means "the agency itself" has to
+    /// ask <see cref="Tier"/> as well, or it will accept the coordinator.
+    /// </summary>
     int? AgencyId { get; }
 }
 

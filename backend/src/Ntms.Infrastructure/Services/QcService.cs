@@ -253,10 +253,24 @@ public class QcService(
             .FirstOrDefaultAsync(ct)
             ?? throw AppException.NotFound("Program");
 
+        /* The agency's own login, and not merely somebody who belongs to
+           the agency. A coordinator carries the agency they work for on
+           their account too, so matching on the agency alone let the
+           coordinator forward the report they had just written - which is
+           the step being skipped rather than taken, and the one thing the
+           agency sitting in the middle exists to prevent. The tier is what
+           distinguishes them. */
+        if (currentUser.Tier != BaseRole.AgencyAdmin)
+        {
+            throw AppException.Forbidden(
+                "Only the implementing agency's own login can forward a report for quality "
+                + "control.");
+        }
+
         if (currentUser.AgencyId is null)
         {
             throw AppException.Forbidden(
-                "Only the implementing agency that ran this program can forward its report.");
+                "This account is not attached to an implementing agency.");
         }
 
         if (currentUser.AgencyId != agencyId)

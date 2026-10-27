@@ -641,6 +641,12 @@ export class QcApprovalComponent {
    * wrote it. The server now refuses both; this stops the screen asking.
    */
   protected canForward(row: QcProgramme): boolean {
+    /* The agency's own login, not merely somebody who belongs to the
+       agency: a coordinator carries the same agency on their account, and
+       matching on it alone offered them the button for the report they
+       had just written. */
+    if (!this.auth.hasRole('AgencyAdmin')) return false;
+
     const mine = this.auth.user()?.agencyId;
     return row.qcStatus === 'AwaitingAgency' && !!mine && mine === row.agencyId;
   }
