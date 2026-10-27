@@ -726,11 +726,20 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
             kpis.Add(new() { Key = "profilesApproved", Label = "Profiles approved", Value = profilesApproved, Tone = "success", Icon = "check" });
         }
 
+        /* Short enough to stay on one line.
+
+           The tiles are equal width and the labels were not equal length:
+           at an ordinary desktop width "Programs conducted" and
+           "Candidates participated" wrapped onto a second line while the
+           three beside them did not, so the row read as ragged even though
+           every tile is the same size and every figure sits at the same
+           height. The wording is what to shorten, not the type: a label
+           that fits says the same thing without the band looking broken. */
         if (answersForTheScheme && seesProgrammes)
         {
-            kpis.Add(new() { Key = "programs", Label = "Programs conducted", Value = conducted, Tone = "info", Icon = "calendar" });
-            kpis.Add(new() { Key = "participated", Label = "Candidates participated", Value = participated, Tone = "primary", Icon = "users" });
-            kpis.Add(new() { Key = "certified", Label = "Candidates certified", Value = certified, Tone = "success", Icon = "award" });
+            kpis.Add(new() { Key = "programs", Label = "Programs held", Value = conducted, Tone = "info", Icon = "calendar" });
+            kpis.Add(new() { Key = "participated", Label = "Participants", Value = participated, Tone = "primary", Icon = "users" });
+            kpis.Add(new() { Key = "certified", Label = "Certifications", Value = certified, Tone = "success", Icon = "award" });
         }
 
         return new DashboardDto
