@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { of } from 'rxjs';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
@@ -1007,9 +1008,16 @@ export class ProgramsComponent {
      service logged the refusal and handed back an empty list, and the
      dropdown had nothing in it. A paper could be published and never
      bound to anything. */
-  private readonly papers = toSignal(inject(ExamPaperService).choices(), {
-    initialValue: [] as ExamPaperChoice[],
-  });
+  /* Asked for only by an account that can schedule an exam. The endpoint
+     is on programs.approve, and a Super Admin is barred from holding that
+     key - so every visit to the register from that account fetched a
+     refusal, which nothing showed and nothing needed. */
+  private readonly papers = toSignal(
+    this.auth.hasPermission('programs.approve')
+      ? inject(ExamPaperService).choices()
+      : of([] as ExamPaperChoice[]),
+    { initialValue: [] as ExamPaperChoice[] },
+  );
 
   protected papersFor(programme: Program): ExamPaperChoice[] {
     return this.papers().filter((paper) => paper.programTypeId === programme.programTypeId);
