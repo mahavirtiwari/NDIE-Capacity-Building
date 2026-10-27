@@ -266,6 +266,7 @@ public class ProgrammeService(
             null, coordinator.Id, dto.StartDate, dto.EndDate, ct);
 
         EnsureRunsForTheRightNumberOfDays(programType, dto);
+        await EnsureTheDayIsLongEnoughAsync(dto, programType.Id, ct);
 
         /* The floor belongs to the program type and the ceiling to the
            agency, so a batch cannot be raised for fewer than the type is
@@ -368,6 +369,7 @@ public class ProgrammeService(
             ?? throw AppException.NotFound("Program type");
 
         EnsureRunsForTheRightNumberOfDays(editedType, dto);
+        await EnsureTheDayIsLongEnoughAsync(dto, editedType.Id, ct);
 
         /* The same boundary on the way in as on the way out. Editing a batch
            into a state the caller does not hold is the same hole as creating
@@ -1451,6 +1453,70 @@ public class ProgrammeService(
             + $"{days}. Set the end date to "
             + $"{dto.StartDate.AddDays(programType.DurationDays - 1):dd MMM yyyy}, "
             + "or change the duration on the program type.");
+    }
+
+    /// <summary>
+    /// The batch's working day has to be long enough to hold the sessions
+    /// its curriculum will put in it.
+    ///
+    /// The other half of "hours and duration do not match the curriculum".
+    /// The days were checked and the hours were not, so a batch could be
+    /// raised declaring three in the morning to six in the morning while
+    /// the curriculum it would run teaches from ten until half past five.
+    /// The timetable is written from the curriculum when the batch is
+    /// permitted, so the sessions land where the Super Admin put them and
+    /// the batch's own hours say something else entirely - which the
+    /// programme screen then reports, after the course has been held.
+    ///
+    /// Asked at the point the hours are typed instead. Only sessions the
+    /// curriculum gives an explicit time: one that does not take the
+    /// batch's own hours, whatever they are, and cannot fall outside them.
+    ///
+    /// Never throws for want of a curriculum. A program type whose
+    /// curriculum has not been written yet must not stop a batch being
+    /// raised, which is the rule the timetable writer already follows.
+    /// </summary>
+    private async Task EnsureTheDayIsLongEnoughAsync(
+        ProgrammeUpsertDto dto, int programTypeId, CancellationToken ct)
+    {
+        var opens = ParseTime(dto.StartTime, new TimeOnly(10, 0));
+        var closes = ParseTime(dto.EndTime, new TimeOnly(17, 0));
+
+        var curriculumId = await db.Curricula.AsNoTracking()
+            .Where(c => c.ProgramTypeId == programTypeId && c.Status == RecordStatus.Active)
+            .OrderBy(c => c.EffectiveFrom).ThenBy(c => c.Id)
+            .Where(c => c.EffectiveFrom <= dto.StartDate)
+            .Select(c => (int?)c.Id)
+            .LastOrDefaultAsync(ct);
+
+        if (curriculumId is null) return;
+
+        var outside = await db.CurriculumSessions.AsNoTracking()
+            .Where(s => s.CurriculumId == curriculumId && s.Status == RecordStatus.Active
+                        && s.StartTime != null && s.EndTime != null
+                        && (s.StartTime < opens || s.EndTime > closes))
+            .OrderBy(s => s.Day ?? int.MaxValue).ThenBy(s => s.DisplayOrder).ThenBy(s => s.Id)
+            .Select(s => new { s.SessionName, s.StartTime, s.EndTime })
+            .ToListAsync(ct);
+
+        if (outside.Count == 0) return;
+
+        /* Written out rather than formatted in place: a time format is
+           "HH:mm" and a colon inside an interpolation hole is where the
+           format begins, so it has to be escaped or kept out of one. */
+        static string Clock(TimeOnly? at) => at?.ToString("HH:mm") ?? "--:--";
+
+        var first = outside[0];
+        var rest = outside.Count - 1;
+
+        throw new AppException(
+            $"This program's curriculum teaches \"{first.SessionName}\" from "
+            + $"{Clock(first.StartTime)} to {Clock(first.EndTime)}"
+            + (rest > 0
+                ? $", and {rest} other session{(rest == 1 ? "" : "s")} also fall"
+                : ", which falls")
+            + $" outside a day of {Clock(opens)} to {Clock(closes)}. Widen the batch's "
+            + "hours, or change the times on the curriculum.");
     }
 
     private static void Validate(ProgrammeUpsertDto dto, DateOnly? notBefore)
