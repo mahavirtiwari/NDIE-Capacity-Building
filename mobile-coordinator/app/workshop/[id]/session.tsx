@@ -35,7 +35,7 @@ import { useWorkshop } from '../../../src/workshop/WorkshopContext';
  * no evidence behind it.
  */
 export default function SessionManagement() {
-  const { id, detail, refresh, locked } = useWorkshop();
+  const { id, detail, refresh, readOnly, readOnlyReason } = useWorkshop();
   const geo = useGeoFix();
 
   const [curriculum, setCurriculum] = useState<SessionTopic[] | null>(null);
@@ -159,7 +159,7 @@ export default function SessionManagement() {
   return (
     <KeyboardAvoider style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {locked ? <Banner tone="info">Finally submitted — read only.</Banner> : null}
+        {readOnlyReason ? <Banner tone="info">{readOnlyReason}</Banner> : null}
 
         {finished.length > 0 ? (
           <Card style={styles.card}>
@@ -175,7 +175,7 @@ export default function SessionManagement() {
           </Card>
         ) : null}
 
-        {!locked ? (
+        {!readOnly ? (
           <Card style={styles.card}>
             <Text style={styles.heading}>{open ? 'Finish this session' : 'Record a session'}</Text>
 

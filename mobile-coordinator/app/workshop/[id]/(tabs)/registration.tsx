@@ -9,7 +9,7 @@ import { useState } from 'react';
 /** Tab 1 of the manual: register the venue and the trainers. */
 export default function Registration() {
   const router = useRouter();
-  const { id, detail, loading, failure, refresh, locked } = useWorkshop();
+  const { id, detail, loading, failure, refresh, readOnly } = useWorkshop();
   const [refreshing, setRefreshing] = useState(false);
 
   if (loading && !detail) return <Loading label="Loading program…" />;
@@ -54,7 +54,7 @@ export default function Registration() {
 
       {failure ? <Banner tone="danger">{failure}</Banner> : null}
 
-      {locked ? (
+      {readOnly ? (
         <Banner tone="info">
           This program was finally submitted. Everything below is read only.
         </Banner>

@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { ApiError } from '../api/client';
 import { workshops } from '../api/endpoints';
 import type { WorkshopDetail } from '../api/types';
+import { indiaToday } from './today';
 
 /**
  * The workshop currently being recorded, shared by the four tabs and the
@@ -17,8 +18,25 @@ interface WorkshopValue {
   loading: boolean;
   failure: string | null;
   refresh: () => Promise<void>;
-  /** True once finally submitted: every capture screen goes read only. */
+  /** True once finally submitted: every screen, submission included, is read only. */
   locked: boolean;
+  /**
+   * True when nothing more may be captured: submitted, or the programme's
+   * dates have passed.
+   *
+   * The server refuses every capture outside the programme's own days -
+   * the sessions, the venue, the trainers, the register - and said so only
+   * when the coordinator pressed save. They would fill a form at a venue,
+   * take the photograph, and be told then that the course had ended.
+   *
+   * Separate from locked because submission is the one write that belongs
+   * after the batch: the report is written up once it is over, which is
+   * the point of it. The submit screen asks locked; everything that
+   * captures asks this.
+   */
+  readOnly: boolean;
+  /** Why, for the banner at the top of each screen. Null while open. */
+  readOnlyReason: string | null;
 }
 
 const WorkshopContext = createContext<WorkshopValue | null>(null);
@@ -44,10 +62,33 @@ export function WorkshopProvider({ id, children }: { id: number; children: React
     void refresh();
   }, [refresh]);
 
-  const value = useMemo<WorkshopValue>(
-    () => ({ id, detail, loading, failure, refresh, locked: detail?.isSubmitted ?? false }),
-    [id, detail, loading, failure, refresh],
-  );
+  const value = useMemo<WorkshopValue>(() => {
+    const locked = detail?.isSubmitted ?? false;
+
+    /* India's today, from the one helper that knows it. The rule being
+       anticipated here is the server's, and the server's day is India's. */
+    const today = indiaToday();
+
+    const reason = locked
+      ? 'Finally submitted — these screens are read only.'
+      : detail && today < detail.startDate
+        ? `This program starts on ${detail.startDate}. There is nothing to record yet.`
+        : detail && today > detail.endDate
+          ? `This program ended on ${detail.endDate}. Nothing more can be recorded, `
+            + 'but the report can still be submitted.'
+          : null;
+
+    return {
+      id,
+      detail,
+      loading,
+      failure,
+      refresh,
+      locked,
+      readOnly: reason !== null,
+      readOnlyReason: reason,
+    };
+  }, [id, detail, loading, failure, refresh]);
 
   return <WorkshopContext.Provider value={value}>{children}</WorkshopContext.Provider>;
 }

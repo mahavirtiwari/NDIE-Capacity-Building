@@ -29,7 +29,7 @@ import { useWorkshop } from '../../../../src/workshop/WorkshopContext';
  */
 export default function ProgrammeManagement() {
   const router = useRouter();
-  const { id, detail, loading, failure, refresh, locked } = useWorkshop();
+  const { id, detail, loading, failure, refresh, readOnly, readOnlyReason } = useWorkshop();
   const [refreshing, setRefreshing] = useState(false);
 
   if (loading && !detail) return <Loading label="Loading program…" />;
@@ -55,11 +55,11 @@ export default function ProgrammeManagement() {
 
       {failure ? <Banner tone="danger">{failure}</Banner> : null}
 
-      {locked ? (
-        <Banner tone="info">Finally submitted — these screens are read only.</Banner>
+      {readOnly ? (
+        <Banner tone="info">{readOnlyReason}</Banner>
       ) : null}
 
-      {!locked && (p?.trainerCount ?? 0) === 0 ? (
+      {!readOnly && (p?.trainerCount ?? 0) === 0 ? (
         <Banner tone="warning">
           Register a trainer on the Registration tab before recording a session.
         </Banner>

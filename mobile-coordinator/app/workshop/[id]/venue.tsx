@@ -25,7 +25,7 @@ import { useWorkshop } from '../../../src/workshop/WorkshopContext';
  */
 export default function RegisterVenue() {
   const router = useRouter();
-  const { id, detail, refresh, locked } = useWorkshop();
+  const { id, detail, refresh, readOnly, readOnlyReason } = useWorkshop();
   const existing = detail?.venue2 ?? null;
 
   const geo = useGeoFix();
@@ -102,7 +102,7 @@ export default function RegisterVenue() {
         </Card>
 
 
-        {locked ? <Banner tone="info">Finally submitted — read only.</Banner> : null}
+        {readOnlyReason ? <Banner tone="info">{readOnlyReason}</Banner> : null}
         {errors.venue ? <Banner tone="danger">{errors.venue}</Banner> : null}
 
         <Card style={styles.card}>
@@ -153,7 +153,7 @@ export default function RegisterVenue() {
             icon="locate-outline"
             onPress={() => void geo.capture()}
             loading={geo.status === 'asking' || geo.status === 'locating'}
-            disabled={locked}
+            disabled={readOnly}
             variant="secondary"
           />
         </Card>
@@ -175,7 +175,7 @@ export default function RegisterVenue() {
             existingPath={existing?.exteriorPhoto?.url ?? null}
             onPick={setExterior}
             onClear={() => setExterior(null)}
-            disabled={locked}
+            disabled={readOnly}
           />
           {errors.exterior ? <Banner tone="danger">{errors.exterior}</Banner> : null}
         </Card>
@@ -189,14 +189,14 @@ export default function RegisterVenue() {
             existingPath={existing?.interiorPhoto?.url ?? null}
             onPick={setInterior}
             onClear={() => setInterior(null)}
-            disabled={locked}
+            disabled={readOnly}
           />
           {errors.interior ? <Banner tone="danger">{errors.interior}</Banner> : null}
         </Card>
 
         {failure ? <Banner tone="danger">{failure}</Banner> : null}
 
-        {!locked ? <Button label="Save venue" onPress={save} loading={busy} /> : null}
+        {!readOnly ? <Button label="Save venue" onPress={save} loading={busy} /> : null}
     </ScrollView>
   );
 }

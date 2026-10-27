@@ -16,7 +16,7 @@ import { useWorkshop } from '../../../src/workshop/WorkshopContext';
  * a coordinator working down a queue can see at a glance where they had got to.
  */
 export default function ParticipantPhoto() {
-  const { id, detail, refresh, locked } = useWorkshop();
+  const { id, detail, refresh, readOnly, readOnlyReason } = useWorkshop();
   const geo = useGeoFix();
 
   const people = detail?.participants ?? [];
@@ -55,7 +55,7 @@ export default function ParticipantPhoto() {
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      {locked ? <Banner tone="info">Finally submitted — read only.</Banner> : null}
+      {readOnlyReason ? <Banner tone="info">{readOnlyReason}</Banner> : null}
 
       <Card style={styles.card}>
         <Text style={styles.heading}>Participants</Text>
@@ -63,7 +63,7 @@ export default function ParticipantPhoto() {
           <Pressable
             key={item.id}
             style={[styles.row, chosen === item.id && styles.rowOn]}
-            disabled={locked}
+            disabled={readOnly}
             onPress={() => {
               setChosen(item.id);
               setImage(null);
@@ -97,7 +97,7 @@ export default function ParticipantPhoto() {
         ))}
       </Card>
 
-      {person && !locked ? (
+      {person && !readOnly ? (
         <Card style={styles.card}>
           <Text style={styles.heading}>{person.fullName}</Text>
           {person.applicantCode ? (

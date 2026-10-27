@@ -24,7 +24,7 @@ import { indiaToday } from '../../../src/workshop/today';
  * screen does not offer it.
  */
 export default function AttendancePhoto() {
-  const { id, detail, refresh, locked } = useWorkshop();
+  const { id, detail, refresh, readOnly, readOnlyReason } = useWorkshop();
   const geo = useGeoFix();
 
   const days = useMemo(
@@ -41,7 +41,7 @@ export default function AttendancePhoto() {
      on their own, so nothing already uploaded disappears. */
   const undated = sheets.filter((s) => !s.attendanceDay);
 
-  const editable = !locked && forDay.length === 0 && day === today;
+  const editable = !readOnly && forDay.length === 0 && day === today;
 
   const [image, setImage] = useState<CapturedImage | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -65,7 +65,7 @@ export default function AttendancePhoto() {
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      {locked ? <Banner tone="info">Finally submitted — read only.</Banner> : null}
+      {readOnlyReason ? <Banner tone="info">{readOnlyReason}</Banner> : null}
 
       {days.length > 1 ? (
         <ScrollView
@@ -109,14 +109,14 @@ export default function AttendancePhoto() {
         )}
       </Card>
 
-      {!locked && forDay.length > 0 ? (
+      {!readOnly && forDay.length > 0 ? (
         <Banner tone="info">
           This day's sheet has been submitted and cannot be changed. Ask the office if
           something on it is wrong.
         </Banner>
       ) : null}
 
-      {!locked && forDay.length === 0 && day !== today ? (
+      {!readOnly && forDay.length === 0 && day !== today ? (
         <Banner tone="warning">
           {day > today
             ? 'This day has not happened yet. The sheet is photographed on the day.'

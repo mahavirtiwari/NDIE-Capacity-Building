@@ -32,7 +32,7 @@ import { indiaToday } from '../../../src/workshop/today';
  * offer them.
  */
 export default function Attendance() {
-  const { id, detail, refresh, locked } = useWorkshop();
+  const { id, detail, refresh, readOnly, readOnlyReason } = useWorkshop();
   const people = detail?.participants ?? [];
   const days = programmeDays(detail?.startDate, detail?.endDate);
 
@@ -51,7 +51,7 @@ export default function Attendance() {
   /* A day already in the record is closed: the register was taken and
      is not reopened here. */
   const taken = people.some((person) => (person.days ?? []).some((d) => d.day === day));
-  const editable = !locked && !taken && day === today;
+  const editable = !readOnly && !taken && day === today;
 
   /* Seeded from what is already recorded for this day, so a second pass
      corrects the first rather than starting from blank. Re-runs when the day
@@ -116,16 +116,16 @@ export default function Attendance() {
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      {locked ? <Banner tone="info">Finally submitted — read only.</Banner> : null}
+      {readOnlyReason ? <Banner tone="info">{readOnlyReason}</Banner> : null}
 
-      {!locked && taken ? (
+      {!readOnly && taken ? (
         <Banner tone="info">
           This day's register was taken and cannot be changed. Ask the office if something
           on it is wrong.
         </Banner>
       ) : null}
 
-      {!locked && !taken && day !== today ? (
+      {!readOnly && !taken && day !== today ? (
         <Banner tone="warning">
           {day > today
             ? 'This day has not happened yet. A register is taken on the day.'

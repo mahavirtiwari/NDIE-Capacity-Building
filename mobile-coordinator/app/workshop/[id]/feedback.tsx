@@ -14,7 +14,7 @@ import { useWorkshop } from '../../../src/workshop/WorkshopContext';
  * back and can be corrected until the workshop is submitted.
  */
 export default function Feedback() {
-  const { detail, refresh, locked } = useWorkshop();
+  const { detail, refresh, readOnly, readOnlyReason } = useWorkshop();
   const people = detail?.participants ?? [];
 
   const [chosen, setChosen] = useState<number | null>(null);
@@ -62,7 +62,7 @@ export default function Feedback() {
   return (
     <KeyboardAvoider style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {locked ? <Banner tone="info">Finally submitted — read only.</Banner> : null}
+        {readOnlyReason ? <Banner tone="info">{readOnlyReason}</Banner> : null}
 
         <Card style={styles.card}>
           <Text style={styles.heading}>Participants</Text>
@@ -70,7 +70,7 @@ export default function Feedback() {
             <Pressable
               key={item.id}
               style={[styles.row, chosen === item.id && styles.rowOn]}
-              disabled={locked}
+              disabled={readOnly}
               onPress={() => open(item.id)}
             >
               <View style={styles.rowText}>
@@ -84,7 +84,7 @@ export default function Feedback() {
           ))}
         </Card>
 
-        {person && !locked ? (
+        {person && !readOnly ? (
           <Card style={styles.card}>
             <Text style={styles.heading}>{person.fullName}</Text>
 

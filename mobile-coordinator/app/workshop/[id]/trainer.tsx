@@ -34,7 +34,7 @@ import { useWorkshop } from '../../../src/workshop/WorkshopContext';
  * Anything the office adds is drawn from its type.
  */
 export default function RegisterTrainer() {
-  const { id, detail, refresh, locked } = useWorkshop();
+  const { id, detail, refresh, readOnly, readOnlyReason } = useWorkshop();
   const registered = detail?.trainers ?? [];
   const geo = useGeoFix();
 
@@ -358,7 +358,7 @@ export default function RegisterTrainer() {
   return (
     <KeyboardAvoider style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {locked ? <Banner tone="info">Finally submitted — read only.</Banner> : null}
+        {readOnlyReason ? <Banner tone="info">{readOnlyReason}</Banner> : null}
 
         {registered.length > 0 ? (
           <Card style={styles.card}>
@@ -389,7 +389,7 @@ export default function RegisterTrainer() {
           </Card>
         ) : null}
 
-        {!locked ? (
+        {!readOnly ? (
           <Card style={styles.card}>
             <Text style={styles.heading}>Add a trainer</Text>
 

@@ -27,12 +27,12 @@ import { indiaToday } from '../../../src/workshop/today';
  * batch whose register says somebody attended three days they did not.
  */
 export default function OnSpotRegistration() {
-  const { id, detail, refresh, locked } = useWorkshop();
+  const { id, detail, refresh, readOnly, readOnlyReason } = useWorkshop();
   const registered = detail?.participants ?? [];
 
   const today = indiaToday();
   const firstDay = (detail?.startDate ?? '').slice(0, 10);
-  const open = useMemo(() => !locked && firstDay === today, [locked, firstDay, today]);
+  const open = useMemo(() => !readOnly && firstDay === today, [readOnly, firstDay, today]);
 
   const [code, setCode] = useState('');
   const [email, setEmail] = useState('');
@@ -70,9 +70,9 @@ export default function OnSpotRegistration() {
   return (
     <KeyboardAvoider style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {locked ? <Banner tone="info">Finally submitted — read only.</Banner> : null}
+        {readOnlyReason ? <Banner tone="info">{readOnlyReason}</Banner> : null}
 
-        {!locked && firstDay && firstDay !== today ? (
+        {!readOnly && firstDay && firstDay !== today ? (
           <Banner tone="warning">
             {firstDay > today
               ? `Registration at the door opens on the first day, ${longDate(firstDay)}.`
