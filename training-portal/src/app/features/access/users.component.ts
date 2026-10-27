@@ -10,6 +10,7 @@ import {
   untracked,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { of } from 'rxjs';
 import { FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 import {
   AdminRole,
@@ -928,8 +929,21 @@ export class UsersComponent {
   protected readonly exportRows = () => this.list.fetchAll();
   protected readonly isCoordinatorView = computed(() => this.scope() === 'coordinators');
 
-  /** What may be assigned when creating somebody: the tier below this one. */
-  protected readonly roles = toSignal(this.roleService.all(), { initialValue: [] as AdminRole[] });
+  /**
+   * What may be assigned when creating somebody: the tier below this one.
+   *
+   * Read only by the create and edit form, and that form opens only for an
+   * account that may manage somebody. The endpoint behind it asks for
+   * roles.view, which an Operation Manager does not hold - so the register
+   * fetched a refusal on every load for a list it was never going to show
+   * them. The register itself reads visibleRoles, which they may have.
+   */
+  protected readonly roles = toSignal(
+    this.auth.hasPermission(['users.manage', 'coordinators.manage'])
+      ? this.roleService.all()
+      : of([] as AdminRole[]),
+    { initialValue: [] as AdminRole[] },
+  );
 
   /** What the register can hold, which reaches further down than that. */
   protected readonly visibleRoles = toSignal(this.roleService.visible(), {
@@ -1129,8 +1143,14 @@ export class UsersComponent {
    * empanelment rather than by a tier that can edit it, so tying the reset to
    * editing left that account with nobody able to issue it a password - and
    * with mail switched off, no way in at all.
+   *
+   * Wider in tier, not in key. The endpoint asks for users.manage and the
+   * tier test says nothing about it, so an Operation Manager - who sits
+   * above a coordinator and does not hold that key - was shown the button
+   * on every coordinator row and got a refusal for pressing it.
    */
   protected canResetPassword(row: PortalUser): boolean {
+    if (!this.auth.hasPermission('users.manage')) return false;
     if (this.canEdit(row)) return true;
 
     const mine = TIER_DEPTH[this.myTier() ?? ''];
