@@ -378,6 +378,27 @@ const COLUMNS: ColumnDef[] = [
             </div>
           }
 
+          <!-- Why there is nothing to press, where there is nothing to
+               press. A report sitting in a queue with no buttons under it
+               and no sentence either reads as a fault in the screen, and
+               was reported as one: the manager looking at it holds every
+               other key and had no way to tell that quality control was
+               the one they were missing. -->
+          @if (!canDecide(row) && !canForward(row)) {
+            @if (row.qcStatus === 'Pending') {
+              <p class="text-sm text-muted">
+                This report has been forwarded and is waiting on quality control, which is
+                not part of your role. Ask the Super Admin for the quality-control permission
+                if it should be.
+              </p>
+            } @else if (row.qcStatus === 'AwaitingAgency') {
+              <p class="text-sm text-muted">
+                This report is with {{ row.agencyName ?? 'the implementing agency' }}, who
+                forward it for quality control. Nobody else can move it along.
+              </p>
+            }
+          }
+
           <!-- The decision is asked for only of the manager who holds it,
                and only while there is one to take. -->
           @if (canDecide(row) || canForward(row)) {
