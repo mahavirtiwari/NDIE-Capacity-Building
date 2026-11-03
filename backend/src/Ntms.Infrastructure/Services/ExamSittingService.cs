@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Ntms.Application.Common;
@@ -182,9 +183,28 @@ public class ExamSittingService(
         }
 
         if (programme.ExamDateTime is null) return "The exam has not been scheduled yet.";
-        if (programme.ExamDateTime > DateTime.UtcNow)
+
+        /* Against India's now, because the exam time is India's.
+
+           It is typed into a datetime-local field by somebody in an office
+           here and stored exactly as typed, like every other date and time
+           on a batch. This asked UTC - so a paper set for ten in the
+           morning stayed shut until half past three in the afternoon, and
+           the line below told the candidate it opened at half past three,
+           because IndianTime.Format added the same five and a half hours a
+           second time to a figure that already had them.
+
+           Both halves were the same mistake: treating a wall clock as an
+           instant. The hour the manager chose is the hour it opens, and
+           the hour the candidate is told. */
+        var nowInIndia = IndianTime.From(DateTime.UtcNow);
+
+        if (programme.ExamDateTime > nowInIndia)
         {
-            return $"The paper opens on {IndianTime.Format(programme.ExamDateTime.Value)}.";
+            return "The paper opens on "
+                   + programme.ExamDateTime.Value.ToString(
+                       "dd MMM yyyy, hh:mm tt", CultureInfo.InvariantCulture)
+                   + " IST.";
         }
 
         if (used >= paper.MaxAttempts)

@@ -99,6 +99,21 @@ public class Programme : AuditableEntity
     public string? Comments { get; set; }
 
     public bool RegistrationsOpen { get; set; }
+
+    /// <summary>
+    /// When the online paper opens, as a wall clock in India.
+    ///
+    /// Not an instant in UTC, whatever the type suggests. It is typed into
+    /// a datetime-local field by somebody in an office in Delhi, posted
+    /// without a zone, and stored exactly as typed - the same convention
+    /// as StartDate, StartTime and every session's time, all of which mean
+    /// what the office meant and are never converted.
+    ///
+    /// So it must never be compared against DateTime.UtcNow, and never
+    /// passed to IndianTime, which exists to turn a real UTC instant into
+    /// India's and would add five and a half hours to a figure already in
+    /// it. Compare it against IndianTime.From(DateTime.UtcNow).
+    /// </summary>
     public DateTime? ExamDateTime { get; set; }
 
     /// <summary>
