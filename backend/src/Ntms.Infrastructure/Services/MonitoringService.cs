@@ -1076,6 +1076,30 @@ public class MonitoringService(
                 ApplicantId = applicant.Id,
                 EnrolledOn = today,
             });
+
+            /* And the counter that everything else reads.
+
+               It is kept on the batch rather than counted each time, and
+               the two other ways somebody is enrolled - from the app and
+               from the office desk - both set it. This one added the row
+               and left the number alone, so a batch filled at the door
+               went on reporting nobody on it: no seats taken in the
+               catalogue, no participants in the register, and - because
+               the cap is checked against this number - no way for it ever
+               to fill up and close.
+
+               Counted rather than incremented, so a batch whose number has
+               already drifted is put right the next time somebody is
+               enrolled at the door. */
+            programme.ParticipantCount = await db.ProgrammeParticipants
+                .CountAsync(x => x.ProgrammeId == programmeId, ct) + 1;
+
+            /* Full is full, wherever the last seat went. */
+            if (RegistrationWindow.Seats(programme) is { } seats
+                && programme.ParticipantCount >= seats)
+            {
+                programme.RegistrationsOpen = false;
+            }
         }
 
         var person = new OnSpotParticipant
