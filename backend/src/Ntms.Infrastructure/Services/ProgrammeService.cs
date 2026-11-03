@@ -1038,7 +1038,20 @@ public class ProgrammeService(
         }
 
         entity.ExamPaperId = dto.ExamPaperId;
-        entity.ExamDateTime = dto.ExamDateTime;
+
+        /* Stored as the instant it names, not as the clock face it was typed
+           on. The field posts "2026-11-03T11:40" with no zone and the manager
+           meant twenty to twelve here; everything downstream - the serialiser
+           that stamps a Z on the way out, the gate that compares against
+           UtcNow, the line that formats it for the candidate - reads it as
+           UTC. Kept as typed it was all three of those wrong by five and a
+           half hours, so a paper set for twenty to twelve opened at ten past
+           five and said so.
+
+           The window check above is deliberately on the typed value: the
+           batch's own dates are calendar days in India, and comparing them
+           against a UTC instant would be the same mistake backwards. */
+        entity.ExamDateTime = IndianTime.ToUtc(dto.ExamDateTime);
         entity.RegistrationsOpen = false;
         if (entity.Status == ProgramStatus.PermissionAccepted)
             entity.Status = ProgramStatus.CalendarCreated;

@@ -32,6 +32,21 @@ public static class IndianTime
             utc.Kind == DateTimeKind.Utc ? utc : DateTime.SpecifyKind(utc, DateTimeKind.Utc),
             Zone);
 
+    /// <summary>
+    /// The other direction: a wall clock somebody typed in India, as the UTC
+    /// instant it names.
+    ///
+    /// A datetime-local field posts "2026-11-03T11:40" with no zone, and the
+    /// person who typed it meant twenty to twelve in the morning here. Stored
+    /// as it arrives it is neither UTC nor labelled, and everything
+    /// downstream - the serialiser that stamps a Z on the way out, the
+    /// comparisons against UtcNow, Format above - reads it as UTC and is five
+    /// and a half hours out.
+    /// </summary>
+    public static DateTime ToUtc(DateTime wallClockInIndia) =>
+        TimeZoneInfo.ConvertTimeToUtc(
+            DateTime.SpecifyKind(wallClockInIndia, DateTimeKind.Unspecified), Zone);
+
     /// <summary>Reader-facing form, e.g. "23 Sep 2026, 05:03 PM IST".</summary>
     public static string Format(DateTime utc) =>
         From(utc).ToString("dd MMM yyyy, hh:mm tt",

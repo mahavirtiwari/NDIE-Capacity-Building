@@ -101,18 +101,19 @@ public class Programme : AuditableEntity
     public bool RegistrationsOpen { get; set; }
 
     /// <summary>
-    /// When the online paper opens, as a wall clock in India.
+    /// When the online paper opens, in UTC.
     ///
-    /// Not an instant in UTC, whatever the type suggests. It is typed into
-    /// a datetime-local field by somebody in an office in Delhi, posted
-    /// without a zone, and stored exactly as typed - the same convention
-    /// as StartDate, StartTime and every session's time, all of which mean
-    /// what the office meant and are never converted.
+    /// A real instant, unlike StartDate and StartTime beside it, which are
+    /// calendar fields meaning whatever the office meant and never
+    /// converted. This one is a moment: the serialiser stamps it with a Z
+    /// on the way out so every client renders it in its own zone, the gate
+    /// that opens the paper compares it against UtcNow, and IndianTime
+    /// turns it into IST for anybody being told about it.
     ///
-    /// So it must never be compared against DateTime.UtcNow, and never
-    /// passed to IndianTime, which exists to turn a real UTC instant into
-    /// India's and would add five and a half hours to a figure already in
-    /// it. Compare it against IndianTime.From(DateTime.UtcNow).
+    /// It is typed on a wall clock, though - a datetime-local field with
+    /// no zone - so whatever writes it has to convert first, with
+    /// IndianTime.ToUtc. Stored as typed it was read as UTC by all three
+    /// of those and the paper opened five and a half hours late.
     /// </summary>
     public DateTime? ExamDateTime { get; set; }
 
