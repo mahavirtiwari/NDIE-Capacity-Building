@@ -555,12 +555,18 @@ public class NotificationService(
     public async Task SendProgrammePermittedAsync(
         Programme programme, string email, string name, CancellationToken ct = default)
     {
-        var agency = programme.Agency?.Name
-                     ?? await db.Agencies.AsNoTracking()
-                         .Where(a => a.Id == programme.AgencyId)
-                         .Select(a => a.Name)
-                         .FirstOrDefaultAsync(ct)
-                     ?? string.Empty;
+        /* The agency's name for the message, and its address to copy in.
+
+           The batch is the coordinator's to run and the agency's to
+           answer for: it raised the batch, it appointed the coordinator,
+           and it is the one the scheme asks when the day does not
+           happen. It was told nothing when permission came through. */
+        var agencyRow = await db.Agencies.AsNoTracking()
+            .Where(a => a.Id == programme.AgencyId)
+            .Select(a => new { a.Name, a.Email })
+            .FirstOrDefaultAsync(ct);
+
+        var agency = programme.Agency?.Name ?? agencyRow?.Name ?? string.Empty;
 
         var state = programme.State?.Name
                     ?? await db.States.AsNoTracking()
@@ -585,7 +591,7 @@ public class NotificationService(
             ["meetingLink"] = string.IsNullOrWhiteSpace(programme.MeetingLink)
                 ? string.Empty
                 : $"Join link: {programme.MeetingLink}",
-        }, ct);
+        }, ct, cc: agencyRow?.Email is { } agencyEmail ? [agencyEmail] : null);
     }
 
     public Task SendVenueChangeRequestedAsync(
@@ -658,7 +664,8 @@ public class NotificationService(
     /// </summary>
     private async Task SendAsync(
         string key, string to, Dictionary<string, string> values, CancellationToken ct,
-        IReadOnlyList<EmailAttachment>? attachments = null)
+        IReadOnlyList<EmailAttachment>? attachments = null,
+        IReadOnlyList<string>? cc = null)
     {
         if (string.IsNullOrWhiteSpace(to)) return;
 
@@ -681,6 +688,16 @@ public class NotificationService(
             HtmlBody = await LayoutAsync(Fill(template.HtmlBody, values, escape: true), ct),
             PlainTextBody = Fill(template.PlainTextBody, values, escape: false),
             Attachments = attachments ?? [],
+            /* Blanks and the recipient's own address dropped: copying
+               somebody on their own message reads as a mistake, and an
+               empty address is one the server will reject. */
+            Cc =
+            [
+                .. (cc ?? [])
+                    .Where(one => !string.IsNullOrWhiteSpace(one))
+                    .Where(one => !string.Equals(one, to, StringComparison.OrdinalIgnoreCase))
+                    .Distinct(StringComparer.OrdinalIgnoreCase),
+            ],
         }, ct);
     }
 
