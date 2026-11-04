@@ -35,6 +35,31 @@ public interface INotificationService
     Task SendScrutinyOutcomeAsync(
         TrainingApplication application, string applicantEmail, string applicantName,
         string outcome, string remarks, CancellationToken ct = default);
+
+    /// <summary>
+    /// Confirms a profile form to the applicant who handed it in.
+    ///
+    /// <paramref name="next"/> is what happens to it now, which is not the
+    /// same sentence every time: a form the discipline has nobody reading is
+    /// accepted as it arrives, and telling that applicant to wait for a
+    /// decision would be telling them to wait for nothing.
+    /// </summary>
+    Task SendProfileSubmittedAsync(
+        ProfileSubmission submission, string next, CancellationToken ct = default);
+
+    /// <summary>
+    /// Tells the Operation Manager a profile has been put on their desk -
+    /// when it is handed in, or later, once somebody covering its discipline
+    /// and state is appointed.
+    /// </summary>
+    Task SendProfileAssignedAsync(
+        ProfileSubmission submission, PortalUser officer, string? state,
+        CancellationToken ct = default);
+
+    /// <summary>The decision on a profile form, back to the applicant.</summary>
+    Task SendProfileOutcomeAsync(
+        ProfileSubmission submission, string outcome, string reason, string remarks,
+        string next, CancellationToken ct = default);
     Task SendProgrammeRaisedAsync(
         Programme programme, string agencyName, string email, string name,
         CancellationToken ct = default);
@@ -381,6 +406,56 @@ public class NotificationService(
         }, ct);
 
     /// <summary>Tells the manager a batch is waiting on their permission.</summary>
+    public Task SendProfileSubmittedAsync(
+        ProfileSubmission submission, string next, CancellationToken ct = default) =>
+        SendAsync(EmailTemplateDefaults.ProfileSubmitted,
+            submission.Applicant?.Email ?? string.Empty, new()
+        {
+            ["name"] = submission.Applicant?.FullName ?? "Applicant",
+            ["applicantCode"] = submission.Applicant?.ApplicantCode ?? string.Empty,
+            ["discipline"] = submission.SubCategory?.Name ?? "your",
+            ["category"] = submission.Category?.Name ?? string.Empty,
+            ["submittedOn"] = submission.SubmittedOn is { } on
+                ? IndianTime.Format(on)
+                : string.Empty,
+            ["next"] = next,
+        }, ct);
+
+    public Task SendProfileAssignedAsync(
+        ProfileSubmission submission, PortalUser officer, string? state,
+        CancellationToken ct = default) =>
+        SendAsync(EmailTemplateDefaults.ProfileAssigned, officer.Email, new()
+        {
+            ["name"] = officer.FullName,
+            ["applicant"] = submission.Applicant?.FullName ?? "An applicant",
+            ["applicantCode"] = submission.Applicant?.ApplicantCode ?? string.Empty,
+            ["discipline"] = submission.SubCategory?.Name ?? string.Empty,
+            ["category"] = submission.Category?.Name ?? string.Empty,
+            /* Not stated rather than left blank: an applicant who has told
+               nobody where they are is why a profile is placed on the
+               discipline alone, and the officer should see that. */
+            ["state"] = string.IsNullOrWhiteSpace(state) ? "Not stated" : state,
+            ["submittedOn"] = submission.SubmittedOn is { } on
+                ? IndianTime.Format(on)
+                : string.Empty,
+            ["attemptNo"] = submission.AttemptNo.ToString(),
+        }, ct);
+
+    public Task SendProfileOutcomeAsync(
+        ProfileSubmission submission, string outcome, string reason, string remarks,
+        string next, CancellationToken ct = default) =>
+        SendAsync(EmailTemplateDefaults.ProfileOutcome,
+            submission.Applicant?.Email ?? string.Empty, new()
+        {
+            ["name"] = submission.Applicant?.FullName ?? "Applicant",
+            ["applicantCode"] = submission.Applicant?.ApplicantCode ?? string.Empty,
+            ["discipline"] = submission.SubCategory?.Name ?? "your",
+            ["outcome"] = outcome,
+            ["reason"] = string.IsNullOrWhiteSpace(reason) ? "—" : reason,
+            ["remarks"] = string.IsNullOrWhiteSpace(remarks) ? "—" : remarks,
+            ["next"] = next,
+        }, ct);
+
     public Task SendProgrammeRaisedAsync(
         Programme programme, string agencyName, string email, string name,
         CancellationToken ct = default) =>

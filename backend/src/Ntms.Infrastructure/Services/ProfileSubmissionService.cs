@@ -1,9 +1,12 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Ntms.Application.Common;
 using Ntms.Application.Contracts;
 using Ntms.Domain.Common;
 using Ntms.Domain.Entities;
+using Ntms.Infrastructure.Email;
 using Ntms.Infrastructure.Identity;
 using Ntms.Infrastructure.Persistence;
 
@@ -23,7 +26,10 @@ public class ProfileSubmissionService(
     NtmsDbContext db,
     ProfileFormService forms,
     ProfileAttachmentService attachments,
-    ICurrentUser currentUser)
+    ICurrentUser currentUser,
+    INotificationService notifications,
+    IEmailQueue mail,
+    ILogger<ProfileSubmissionService> logger)
 {
     private IQueryable<ProfileSubmission> Base => db.ProfileSubmissions
         .Include(s => s.AssignedToUser)!.ThenInclude(u => u!.Role)
@@ -429,8 +435,85 @@ public class ProfileSubmissionService(
 
         await db.SaveChangesAsync(ct);
 
+        /* ---- and somebody is told -------------------------------------
+           Both of these used to be silent. An applicant handed in a
+           profile from the app, got a screen back and heard nothing ever
+           again; the manager it was placed with heard nothing either, so
+           a case sat on a desk nobody knew they had until they next
+           happened to open the queue.
+
+           Guarded, and after the save: the form is the applicant's and is
+           already written down. A mail server that is slow, misconfigured
+           or simply off must not come back to them as a submission that
+           failed. */
+        try
+        {
+            /* The applicant's own confirmation, sent inside the request
+               that earned it - they did one thing and want to be told it
+               worked, which is what every other single message here
+               does. */
+            await notifications.SendProfileSubmittedAsync(
+                submission,
+                form.RequiresScrutiny
+                    ? "It is with an Operation Manager for scrutiny. You will be told as "
+                      + "soon as it has been read."
+                    : "This discipline's profile form is not scrutinised, so it has been "
+                      + "accepted and its programs are open to you now.",
+                ct);
+        }
+        catch (Exception caught)
+        {
+            logger.LogError(
+                caught,
+                "Applicant {Applicant} submitted a profile for sub-category {SubCategory} "
+                + "but could not be told so.",
+                applicantId, subCategoryId);
+        }
+
+        /* The officer's, queued. Nobody is waiting on it, and a second
+           send down the same SMTP connection is the applicant's phone
+           holding the request open twice as long - in the field, on a bad
+           line, with no way to tell a slow send from a failed form. */
+        if (submission.AssignedToUserId is { } officerId)
+        {
+            var submissionId = submission.Id;
+            mail.Enqueue($"profile {submissionId} placed for scrutiny", async (scope, token) =>
+            {
+                var inner = scope.GetRequiredService<NtmsDbContext>();
+                var post = scope.GetRequiredService<INotificationService>();
+
+                var placed = await inner.ProfileSubmissions.AsNoTracking()
+                    .Include(s => s.Applicant)
+                    .Include(s => s.Category)
+                    .Include(s => s.SubCategory)
+                    .FirstOrDefaultAsync(s => s.Id == submissionId, token);
+
+                var officer = await inner.Users.AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Id == officerId, token);
+
+                if (placed is null || officer is null) return;
+
+                await post.SendProfileAssignedAsync(
+                    placed, officer, await StateNameAsync(inner, placed.Applicant?.StateCode, token),
+                    token);
+            });
+        }
+
         return await StandingAsync(applicantId, subCategoryId, ct);
     }
+
+    /// <summary>
+    /// The state a profile belongs to, by name, for a message that names it.
+    /// Null where the applicant never said.
+    /// </summary>
+    private static async Task<string?> StateNameAsync(
+        NtmsDbContext db, int? stateCode, CancellationToken ct) =>
+        stateCode is { } code
+            ? await db.States.AsNoTracking()
+                .Where(s => s.Code == code)
+                .Select(s => s.Name)
+                .FirstOrDefaultAsync(ct)
+            : null;
 
     /* -------------------------------------------------------------- office */
 
@@ -812,6 +895,7 @@ public class ProfileSubmissionService(
         if (waiting.Count == 0) return 0;
 
         var placed = 0;
+        var placedNow = new List<(int Submission, int Officer)>();
 
         foreach (var row in waiting)
         {
@@ -825,6 +909,8 @@ public class ProfileSubmissionService(
             entity.AssignedToUserId = officer;
             entity.AssignedOn = DateTime.UtcNow;
 
+            placedNow.Add((row.Id, officer.Value));
+
             /* Saved inside the loop, deliberately. The rota is read from
                the database, so until this row is written the next pick
                cannot see that this manager has just been given one — and a
@@ -832,6 +918,41 @@ public class ProfileSubmissionService(
                which is the opposite of taking them in turn. */
             await db.SaveChangesAsync(ct);
             placed++;
+        }
+
+        /* And each officer is told, as they are at submission. A profile
+           that waited because nobody covered it is exactly the one whose
+           arrival nobody is expecting.
+
+           After the loop and one at a time: this runs on a background
+           sweep with no request to hold open, and a mail server that is
+           off must not stop the next profile being placed. */
+        foreach (var (submissionId, officerId) in placedNow)
+        {
+            try
+            {
+                var row = await db.ProfileSubmissions.AsNoTracking()
+                    .Include(s => s.Applicant)
+                    .Include(s => s.Category)
+                    .Include(s => s.SubCategory)
+                    .FirstOrDefaultAsync(s => s.Id == submissionId, ct);
+
+                var officer = await db.Users.AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Id == officerId, ct);
+
+                if (row is null || officer is null) continue;
+
+                await notifications.SendProfileAssignedAsync(
+                    row, officer, await StateNameAsync(db, row.Applicant?.StateCode, ct), ct);
+            }
+            catch (Exception caught)
+            {
+                logger.LogError(
+                    caught,
+                    "Profile {Submission} was placed with user {Officer}, who could not be "
+                    + "told.",
+                    submissionId, officerId);
+            }
         }
 
         return placed;
@@ -901,6 +1022,16 @@ public class ProfileSubmissionService(
         });
 
         await db.SaveChangesAsync(ct);
+
+        await TellApplicantAsync(
+            submission,
+            "accepted",
+            reason: string.Empty,
+            remarks: remarks ?? string.Empty,
+            next: "The programs of this discipline are open to you now. Sign in to the app "
+                  + "to see which batches are taking registrations.",
+            ct);
+
         return await GetAsync(id, ct);
     }
 
@@ -937,7 +1068,56 @@ public class ProfileSubmissionService(
         });
 
         await db.SaveChangesAsync(ct);
+
+        /* What is left to them, said as a number rather than as "you may
+           try again": somebody on their last try should be told it is
+           their last one before they spend it. */
+        var (allowed, _) = await SettingsAsync(ct);
+        var spent = await db.ProfileSubmissions.AsNoTracking()
+            .CountAsync(s => s.ApplicantId == submission.ApplicantId
+                             && s.SubCategoryId == submission.SubCategoryId
+                             && s.Status == ProfileSubmissionStatus.Rejected, ct);
+
+        var left = Math.Max(allowed - spent, 0);
+
+        await TellApplicantAsync(
+            submission,
+            "sent back",
+            reason.Label,
+            remarks ?? string.Empty,
+            left > 0
+                ? $"Correct what is noted above and submit the form again. You have "
+                  + $"{left} of {allowed} attempts left."
+                : $"You have used all {allowed} attempts at this discipline's profile "
+                  + "form, so it cannot be submitted again for now.",
+            ct);
+
         return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// The decision, back to the applicant who is waiting for it.
+    ///
+    /// Guarded and after the save, for the reason every other notification
+    /// here is: the decision is the officer's and is written down, and a
+    /// mail server that is off must not report their decision as failed.
+    /// </summary>
+    private async Task TellApplicantAsync(
+        ProfileSubmission submission, string outcome, string reason, string remarks,
+        string next, CancellationToken ct)
+    {
+        try
+        {
+            await notifications.SendProfileOutcomeAsync(
+                submission, outcome, reason, remarks, next, ct);
+        }
+        catch (Exception caught)
+        {
+            logger.LogError(
+                caught,
+                "Profile {Submission} was {Outcome} but the applicant could not be told.",
+                submission.Id, outcome);
+        }
     }
 
     /* ------------------------------------------------------------ helpers */

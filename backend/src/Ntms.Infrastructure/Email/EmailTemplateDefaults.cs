@@ -41,6 +41,9 @@ public static class EmailTemplateDefaults
     public const string PasswordChanged = "password-changed";
     public const string ApplicationSubmitted = "application-submitted";
     public const string ScrutinyOutcome = "scrutiny-outcome";
+    public const string ProfileSubmitted = "profile-submitted";
+    public const string ProfileAssigned = "profile-assigned";
+    public const string ProfileOutcome = "profile-outcome";
     public const string ProgrammeSchedule = "programme-schedule";
     public const string ProgrammeRaised = "programme-raised";
     public const string ProgrammePermitted = "programme-permitted";
@@ -513,6 +516,94 @@ public static class EmailTemplateDefaults
                 "{{agencyName}} has raised {{programmeId}} ({{programmeName}}), "
                 + "{{startDate}} to {{endDate}} at {{venue}}, {{state}}. "
                 + "It is waiting for your permission.",
+        },
+        new()
+        {
+            Key = ProfileSubmitted,
+            Name = "Profile form received",
+            Description =
+                "Confirms to the applicant that their profile form has been handed in, "
+                + "and says what happens to it next.",
+            Placeholders = "name,applicantCode,discipline,category,submittedOn,next",
+            Subject = "Your {{discipline}} profile has been received",
+            HtmlBody =
+                "<p>Dear {{name}},</p>"
+                + "<p>Your profile form has been received.</p>"
+                + "<table style=\"margin:18px 0;border-collapse:collapse;\">"
+                + "<tr><td style=\"padding:4px 16px 4px 0;color:#7a716f;\">Applicant ID</td>"
+                + "<td style=\"font-weight:700;\">{{applicantCode}}</td></tr>"
+                + "<tr><td style=\"padding:4px 16px 4px 0;color:#7a716f;\">Discipline</td>"
+                + "<td>{{discipline}}</td></tr>"
+                + "<tr><td style=\"padding:4px 16px 4px 0;color:#7a716f;\">Category</td>"
+                + "<td>{{category}}</td></tr>"
+                + "<tr><td style=\"padding:4px 16px 4px 0;color:#7a716f;\">Received</td>"
+                + "<td>{{submittedOn}}</td></tr>"
+                + "</table>"
+                + "<p>{{next}}</p>"
+                + "<p>You do not need to send it again.</p>",
+            PlainTextBody =
+                "Your {{discipline}} profile form has been received on {{submittedOn}} "
+                + "against applicant ID {{applicantCode}}. {{next}}",
+        },
+        new()
+        {
+            Key = ProfileAssigned,
+            Name = "Profile placed for scrutiny",
+            Description =
+                "Sent to the Operation Manager a profile form is placed with, when it is "
+                + "placed - at the moment it is handed in, or later once an officer covers "
+                + "its discipline and state.",
+            Placeholders =
+                "name,applicant,applicantCode,discipline,category,state,submittedOn,attemptNo",
+            Subject = "A {{discipline}} profile is with you for scrutiny",
+            HtmlBody =
+                "<p>Dear {{name}},</p>"
+                + "<p>A profile form has been placed with you to read.</p>"
+                + "<table style=\"margin:18px 0;border-collapse:collapse;\">"
+                + "<tr><td style=\"padding:4px 16px 4px 0;color:#7a716f;\">Applicant</td>"
+                + "<td style=\"font-weight:700;\">{{applicant}} ({{applicantCode}})</td></tr>"
+                + "<tr><td style=\"padding:4px 16px 4px 0;color:#7a716f;\">Discipline</td>"
+                + "<td>{{discipline}}</td></tr>"
+                + "<tr><td style=\"padding:4px 16px 4px 0;color:#7a716f;\">Category</td>"
+                + "<td>{{category}}</td></tr>"
+                + "<tr><td style=\"padding:4px 16px 4px 0;color:#7a716f;\">State</td>"
+                + "<td>{{state}}</td></tr>"
+                + "<tr><td style=\"padding:4px 16px 4px 0;color:#7a716f;\">Submitted</td>"
+                + "<td>{{submittedOn}}</td></tr>"
+                + "<tr><td style=\"padding:4px 16px 4px 0;color:#7a716f;\">Attempt</td>"
+                + "<td>{{attemptNo}}</td></tr>"
+                + "</table>"
+                + "<p>It is on your Profile Scrutiny queue in the portal. Nothing opens to "
+                + "the applicant until it is decided.</p>",
+            PlainTextBody =
+                "{{applicant}} ({{applicantCode}}) submitted a {{discipline}} profile on "
+                + "{{submittedOn}}. It is on your Profile Scrutiny queue.",
+        },
+        new()
+        {
+            Key = ProfileOutcome,
+            Name = "Profile scrutiny decided",
+            Description =
+                "Tells the applicant that their profile form has been accepted or sent "
+                + "back, and why.",
+            Placeholders =
+                "name,applicantCode,discipline,outcome,reason,remarks,next",
+            Subject = "Your {{discipline}} profile has been {{outcome}}",
+            HtmlBody =
+                "<p>Dear {{name}},</p>"
+                + "<p>Your {{discipline}} profile has been <strong>{{outcome}}</strong>.</p>"
+                + "<table style=\"margin:18px 0;border-collapse:collapse;\">"
+                + "<tr><td style=\"padding:4px 16px 4px 0;color:#7a716f;\">Applicant ID</td>"
+                + "<td style=\"font-weight:700;\">{{applicantCode}}</td></tr>"
+                + "<tr><td style=\"padding:4px 16px 4px 0;color:#7a716f;\">Reason</td>"
+                + "<td>{{reason}}</td></tr>"
+                + "<tr><td style=\"padding:4px 16px 4px 0;color:#7a716f;\">Remarks</td>"
+                + "<td>{{remarks}}</td></tr>"
+                + "</table>"
+                + "<p>{{next}}</p>",
+            PlainTextBody =
+                "Your {{discipline}} profile has been {{outcome}}. {{reason}} {{remarks}} "
+                + "{{next}}",
         },
         new()
         {
