@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Id, UserNode } from '../../core/models';
 import { UserService } from '../../core/services/people.service';
@@ -14,18 +14,20 @@ interface Branch {
 }
 
 /**
- * The chain of command, drawn.
+ * One account's place in the chain of command.
  *
  * Who answers to whom is recorded on every account — it is set when the
  * account is created, it decides who can see it and who can act on it, and
- * it was readable from no screen in the portal. A manager looking for the
- * coordinator behind a batch, or an Admin checking that an agency sits under
- * the manager who empanelled it, had the answer in front of them with no way
- * to see it.
+ * it was readable from no screen. A manager looking for the coordinator
+ * behind a batch, or an Admin checking that an agency sits under the manager
+ * who empanelled it, had the answer in front of them with no way to see it.
  *
- * Scoped on the server like the register beside it: the Super Admin and the
- * Ministry see the whole chain, everybody else sees their own subtree with
- * themselves at the top of it.
+ * About the account that was asked for, not about everybody: the line above
+ * them from the top down, then them, then everybody beneath. A chart of the
+ * whole estate answers a question nobody asked and buries the one they did.
+ *
+ * The chain comes from the server scoped as the register is, so nothing can
+ * appear here that the reader could not already list.
  */
 @Component({
   selector: 'app-user-organogram',
@@ -34,32 +36,53 @@ interface Branch {
   template: `
     @if (loading()) {
       <div class="org__state">Loading the chain of command…</div>
-    } @else if (roots().length === 0) {
-      <div class="org__state">
-        No accounts answer to you yet. Create one and it appears here.
+    } @else if (focus(); as here) {
+      <!-- The line above, from the top down. Flat rather than indented: it
+           is one line of descent with no branches in it, and stepping it
+           across the page spends width on a shape that has none. -->
+      <div class="org__above">
+        @if (spine().length > 0) {
+          <span class="org__aboveHead">Reports up through</span>
+          @for (up of spine(); track up.id) {
+            <span class="org__up">
+              <span class="org__upName">{{ up.fullName }}</span>
+              <span class="org__code tabular">{{ up.userCode }}</span>
+            </span>
+          }
+        } @else {
+          <span class="org__aboveHead">Answers to nobody above</span>
+        }
       </div>
-    } @else {
+
       <div class="org__bar">
         <span class="org__count">
-          {{ nodes().length }} {{ nodes().length === 1 ? 'account' : 'accounts' }}
+          @if (here.below === 0) {
+            Nobody reports to this account
+          } @else {
+            {{ here.below }} {{ here.below === 1 ? 'account' : 'accounts' }} below
+          }
         </span>
-        <div class="btn-row">
-          <button type="button" class="btn btn--sm btn--secondary" (click)="expandAll()">
-            Expand all
-          </button>
-          <button type="button" class="btn btn--sm btn--secondary" (click)="collapseAll()">
-            Collapse all
-          </button>
-        </div>
+        @if (here.below > 0) {
+          <div class="btn-row">
+            <button type="button" class="btn btn--sm btn--secondary" (click)="expandAll()">
+              Expand all
+            </button>
+            <button type="button" class="btn btn--sm btn--secondary" (click)="collapseAll()">
+              Collapse all
+            </button>
+          </div>
+        }
       </div>
 
       <div class="org">
-        @for (root of roots(); track root.node.id) {
-          <ng-container
-            [ngTemplateOutlet]="branch"
-            [ngTemplateOutletContext]="{ $implicit: root, depth: 0 }"
-          />
-        }
+        <ng-container
+          [ngTemplateOutlet]="branch"
+          [ngTemplateOutletContext]="{ $implicit: here, depth: 0 }"
+        />
+      </div>
+    } @else {
+      <div class="org__state">
+        This account is not on the chain of command you can see.
       </div>
     }
 
@@ -85,20 +108,22 @@ interface Branch {
             <span class="org__leaf"></span>
           }
 
-          <div class="org__card" [class.org__card--off]="item.node.status !== 'Active'">
+          <div
+            class="org__card"
+            [class.org__card--here]="depth === 0"
+            [class.org__card--off]="item.node.status !== 'Active'"
+          >
             <div class="org__who">
               <span class="org__name">{{ item.node.fullName }}</span>
               <span class="org__code tabular">{{ item.node.userCode }}</span>
             </div>
             <div class="org__meta">
-              <span class="org__tier" [attr.data-tier]="item.node.baseRole">
-                {{ tier(item.node.baseRole) }}
-              </span>
+              <span class="org__tier">{{ tier(item.node.baseRole) }}</span>
               @if (item.node.roleName && item.node.roleName !== tier(item.node.baseRole)) {
-                <span class="org__role">{{ item.node.roleName }}</span>
+                <span>{{ item.node.roleName }}</span>
               }
               @if (item.node.agencyName) {
-                <span class="org__agency">{{ item.node.agencyName }}</span>
+                <span>{{ item.node.agencyName }}</span>
               }
               @if (item.node.status !== 'Active') {
                 <span class="org__off">Disabled</span>
@@ -126,19 +151,49 @@ interface Branch {
   `,
   styles: `
     .org__state {
-      padding: 2rem 0;
+      padding: 1.5rem 0;
       color: var(--ink-500);
       text-align: center;
     }
+
+    /* The line above: muted, and chevroned so it reads downwards. */
+    .org__above {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.5rem;
+      font-size: var(--fs-xs);
+      color: var(--ink-500);
+      padding-bottom: 0.75rem;
+    }
+
+    .org__aboveHead {
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .org__up {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 0.35rem;
+    }
+
+    .org__up::before {
+      content: '›';
+      margin-right: 0.15rem;
+      color: var(--ink-400, var(--ink-500));
+    }
+
+    .org__upName { color: var(--ink-700); }
 
     .org__bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 1rem;
-      padding-bottom: 0.75rem;
-      margin-bottom: 0.25rem;
-      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 0;
+      border-top: 1px solid var(--border);
     }
 
     .org__count {
@@ -146,9 +201,6 @@ interface Branch {
       color: var(--ink-500);
     }
 
-    /* Indented by depth, with a rule down the left of each level so a long
-       list of coordinators under one agency still reads as belonging to it
-       once the parent has scrolled off the top. */
     .org__branch {
       padding-left: calc(var(--depth) * 1.5rem);
     }
@@ -195,6 +247,13 @@ interface Branch {
       min-width: 0;
     }
 
+    /* The account the chart was opened for. Marked, because where they sit
+       in it is the whole point. */
+    .org__card--here {
+      border-color: var(--brand-600);
+      background: var(--brand-50);
+    }
+
     .org__card--off {
       background: var(--surface-muted);
       border-style: dashed;
@@ -212,8 +271,8 @@ interface Branch {
       color: var(--ink-800);
     }
 
-    /* The ID beside the name, not under it: a row of cards down a chart
-       stays scannable when every card is one line tall. */
+    /* The ID beside the name, not under it: a column of cards stays
+       scannable when every card is one line tall. */
     .org__code {
       font-size: var(--fs-xs);
       color: var(--brand-700);
@@ -232,12 +291,6 @@ interface Branch {
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      color: var(--ink-500);
-    }
-
-    .org__tier[data-tier='SuperAdmin'],
-    .org__tier[data-tier='Ministry'] {
-      color: var(--brand-700);
     }
 
     .org__off {
@@ -265,25 +318,26 @@ interface Branch {
 export class UserOrganogramComponent {
   private readonly users = inject(UserService);
 
+  /** The account the chart is about. */
+  readonly userId = input.required<Id>();
+
   private readonly loaded = toSignal(this.users.organogram(), { initialValue: null });
 
   protected readonly loading = computed(() => this.loaded() === null);
-  protected readonly nodes = computed<UserNode[]>(() => this.loaded() ?? []);
 
   /** Folded branches, by the id of the account at the top of each. */
   protected readonly folded = signal<ReadonlySet<Id>>(new Set<Id>());
 
   /**
-   * The chart, assembled from the flat list.
+   * The whole chain, assembled from the flat list.
    *
    * A node whose parent is not in the list is a root. That is not an error
    * and must not drop it: scope is a subtree, so the account at the top of
    * one always reports to somebody the reader cannot see — and an account
-   * created before the chain was recorded reports to nobody at all. Either
-   * way it belongs on the chart.
+   * created before the chain was recorded reports to nobody at all.
    */
-  protected readonly roots = computed<Branch[]>(() => {
-    const all = this.nodes();
+  private readonly byId = computed<Map<Id, Branch>>(() => {
+    const all = this.loaded() ?? [];
     const byId = new Map<Id, Branch>(
       all.map((node) => [node.id, { node, children: [], below: 0 }]),
     );
@@ -303,7 +357,39 @@ export class UserOrganogramComponent {
     }
 
     for (const root of roots) count(root, new Set<Id>());
-    return roots;
+    return byId;
+  });
+
+  /** The account asked about, with everybody beneath it. */
+  protected readonly focus = computed(() => this.byId().get(this.userId()) ?? null);
+
+  /**
+   * The line above them, from the top down.
+   *
+   * Walked with a guard: a reporting line that loops would otherwise walk
+   * for ever, and the chart of an account whose record is wrong should
+   * still open.
+   */
+  protected readonly spine = computed<UserNode[]>(() => {
+    const byId = this.byId();
+    const up: UserNode[] = [];
+    const seen = new Set<Id>();
+
+    let at = this.focus();
+    while (at && !seen.has(at.node.id)) {
+      seen.add(at.node.id);
+
+      const parentId = at.node.reportsToUserId;
+      if (parentId == null) break;
+
+      const parent = byId.get(parentId);
+      if (!parent) break;
+
+      up.unshift(parent.node);
+      at = parent;
+    }
+
+    return up;
   });
 
   protected toggle(id: Id): void {
@@ -317,14 +403,16 @@ export class UserOrganogramComponent {
   }
 
   protected collapseAll(): void {
-    /* Everything that has anybody under it, roots included: the chart folds
-       to its top line, which is where somebody reading a large one starts. */
+    /* Everything with anybody under it, except the account the chart is
+       about: folding that away would leave the reader looking at nothing. */
     const shut = new Set<Id>();
-    const walk = (branch: Branch): void => {
-      if (branch.children.length > 0) shut.add(branch.node.id);
-      branch.children.forEach(walk);
+    const walk = (branch: Branch, top: boolean): void => {
+      if (!top && branch.children.length > 0) shut.add(branch.node.id);
+      branch.children.forEach((child) => walk(child, false));
     };
-    this.roots().forEach(walk);
+
+    const here = this.focus();
+    if (here) walk(here, true);
     this.folded.set(shut);
   }
 

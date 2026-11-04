@@ -107,7 +107,11 @@ export default function SignIn() {
                 value={applicantCode}
                 onChangeText={(next) => setApplicantCode(next.toUpperCase())}
                 onBlur={() => setTouched(true)}
-                placeholder={text('app.signin.idPlaceholder', 'APP240001')}
+                /* Not a specimen ID. "APP240001" in the box is a real
+                   applicant's ID, and somebody looking at an empty field
+                   reads it as the answer rather than as the shape of one -
+                   the hint underneath already says what to type. */
+                placeholder={text('app.signin.idPlaceholder', 'Enter your ID')}
                 autoCapitalize="characters"
                 autoCorrect={false}
                 maxLength={20}

@@ -14,9 +14,16 @@ export type IconName =
   | 'refresh' | 'clock' | 'inbox' | 'award' | 'alert' | 'info' | 'lock' | 'mail'
   | 'phone' | 'save' | 'copy' | 'grip' | 'external' | 'arrow-up' | 'arrow-down'
   | 'more' | 'play' | 'link' | 'help' | 'sliders' | 'graduation' | 'flag' | 'send'
-  | 'printer' | 'camera';
+  | 'printer' | 'camera' | 'sitemap';
 
 const PATHS: Record<IconName, string> = {
+  /* An org chart: one box over two, joined. Used for the button that opens
+     an account's place in the chain of command. */
+  sitemap:
+    '<rect x="9" y="2" width="6" height="5" rx="1"/>'
+    + '<rect x="2" y="17" width="6" height="5" rx="1"/>'
+    + '<rect x="16" y="17" width="6" height="5" rx="1"/>'
+    + '<path d="M12 7v7M5 17v-3h14v3"/>',
   dashboard: '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
   layers: '<path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
   folder: '<path d="M4 20h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-7.5L10 4H4a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1Z"/>',

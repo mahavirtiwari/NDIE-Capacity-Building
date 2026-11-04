@@ -152,8 +152,12 @@ public class SiteTextService(NtmsDbContext db)
         new("app.signin.subtitle", "Sign in (applicant app)", "Subheading",
             "Sign in to your applicant account"),
         new("app.signin.idLabel", "Sign in (applicant app)", "ID field label", "Applicant ID"),
+        /* Not a specimen ID. "APP240001" standing in an empty box is a
+           real applicant's ID, and it reads as the answer rather than as
+           the shape of one - the hint under the field already says what
+           to type and where it came from. */
         new("app.signin.idPlaceholder", "Sign in (applicant app)", "ID field placeholder",
-            "APP240001"),
+            "Enter your ID"),
         new("app.signin.idHint", "Sign in (applicant app)", "ID field hint",
             "The ID emailed to you when your account was created — not your email address.",
             null, true),

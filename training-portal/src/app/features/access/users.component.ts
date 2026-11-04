@@ -160,43 +160,6 @@ const TIER_DEPTH: Record<string, number> = {
       </button>
     </app-page-header>
 
-    <!-- The same people, two ways of looking at them. The register answers
-         "who is there" and the chart answers "who answers to whom", which
-         is recorded on every account and was readable from no screen. Not
-         offered on the coordinators register: a coordinator reports to the
-         agency that appointed them and there is nothing below, so the chart
-         of one would be a list with an indent. -->
-    @if (!isCoordinatorView()) {
-      <div class="seg" role="tablist" aria-label="How to view the users">
-        <button
-          type="button" class="seg__btn" role="tab"
-          [class.is-on]="view() === 'list'"
-          [attr.aria-selected]="view() === 'list'"
-          (click)="view.set('list')"
-        >
-          <app-icon name="list" [size]="15" />
-          Register
-        </button>
-        <button
-          type="button" class="seg__btn" role="tab"
-          [class.is-on]="view() === 'chart'"
-          [attr.aria-selected]="view() === 'chart'"
-          (click)="view.set('chart')"
-        >
-          <app-icon name="users" [size]="15" />
-          Organogram
-        </button>
-      </div>
-    }
-
-    @if (view() === 'chart' && !isCoordinatorView()) {
-      <section class="card">
-        <div class="card__body">
-          <app-user-organogram />
-        </div>
-      </section>
-    } @else {
-
     <section class="card">
       <div class="card__body card__body--tight">
         <div class="filter-bar filter-bar--two-rows">
@@ -347,6 +310,14 @@ const TIER_DEPTH: Record<string, number> = {
                 <app-icon name="edit" [size]="15" />
               </button>
             }
+            <button
+              type="button"
+              class="btn btn--icon"
+              title="Where they sit in the chain of command"
+              (click)="chartFor.set($any(row))"
+            >
+              <app-icon name="sitemap" [size]="15" />
+            </button>
             <!-- Enable and disable stay available to every tier above, which is
                  the oversight senior tiers keep without editing. -->
             <button
@@ -362,6 +333,20 @@ const TIER_DEPTH: Record<string, number> = {
         </ng-template>
       </app-data-table>
     </section>
+
+    <!-- One account's place in the chain of command, opened from its row.
+         Who answers to whom is recorded on every account and was readable
+         from no screen; it is asked about one person at a time, which is
+         why it opens here rather than as a chart of everybody. -->
+    @if (chartFor(); as row) {
+      <app-modal
+        [title]="row.fullName"
+        [subtitle]="row.userCode + ' · chain of command'"
+        size="md"
+        (closed)="chartFor.set(null)"
+      >
+        <app-user-organogram [userId]="row.id" />
+      </app-modal>
     }
 
     @if (details(); as row) {
@@ -969,16 +954,8 @@ export class UsersComponent {
   protected readonly exportRows = () => this.list.fetchAll();
   protected readonly isCoordinatorView = computed(() => this.scope() === 'coordinators');
 
-  /**
-   * Which of the two views is showing: the register, or the chart of who
-   * answers to whom.
-   *
-   * The register opens, because it is what somebody comes here to do -
-   * create an account, switch one off, correct an address. The chart is
-   * for a question that gets asked less often and is asked about
-   * somebody else.
-   */
-  protected readonly view = signal<'list' | 'chart'>('list');
+  /** The account whose chain of command is open, if any. */
+  protected readonly chartFor = signal<PortalUser | null>(null);
 
   /**
    * What may be assigned when creating somebody: the tier below this one.
