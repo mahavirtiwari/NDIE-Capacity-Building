@@ -365,25 +365,56 @@ export default function RegisterTrainer() {
             <Text style={styles.heading}>Registered ({registered.length})</Text>
             {registered.map((trainer) => (
               <View key={trainer.id} style={styles.trainer}>
-                <Text style={styles.trainerName}>{trainer.fullName}</Text>
-                <Text style={styles.trainerMeta}>
-                  {[
-                    trainer.qualification,
-                    experienceWords(trainer.yearsExperience, trainer.experienceMonths),
-                    trainer.mobile,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </Text>
-                {trainer.qualificationDetails ? (
-                  <Text style={styles.trainerMeta}>{trainer.qualificationDetails}</Text>
-                ) : null}
-                {/* What the office added, under what it was asked. */}
-                {(trainer.answers ?? []).map((answer) => (
-                  <Text key={answer.key} style={styles.trainerMeta}>
-                    {answer.label}: {answer.value}
-                  </Text>
-                ))}
+                {/* Their initials, so a panel of five is five rows a
+                    reader can find their place in rather than five
+                    paragraphs of the same grey. */}
+                <View style={styles.trainerFace}>
+                  <Text style={styles.trainerInitials}>{initialsOf(trainer.fullName)}</Text>
+                </View>
+
+                <View style={styles.trainerBody}>
+                  <Text style={styles.trainerName}>{trainer.fullName}</Text>
+
+                  {/* What they are qualified as, as a tag. It was the
+                      first of three things joined by middots - a
+                      qualification, an experience and a telephone
+                      number, three different kinds of fact reading as
+                      one sentence. */}
+                  {trainer.qualification ? (
+                    <View style={styles.trainerTagRow}>
+                      <View style={styles.trainerTag}>
+                        <Text style={styles.trainerTagText}>{trainer.qualification}</Text>
+                      </View>
+                      {trainer.qualificationDetails ? (
+                        <Text style={styles.trainerDetail}>
+                          {trainer.qualificationDetails}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
+
+                  {experienceWords(trainer.yearsExperience, trainer.experienceMonths) ? (
+                    <Text style={styles.trainerMeta}>
+                      {experienceWords(trainer.yearsExperience, trainer.experienceMonths)}
+                      {' experience'}
+                    </Text>
+                  ) : null}
+
+                  {trainer.mobile ? (
+                    <Text style={styles.trainerMeta}>{trainer.mobile}</Text>
+                  ) : null}
+
+                  {/* What the office added, each as the pair it is: the
+                      label was run into its answer with a colon, so
+                      "Experience: 12" read as a sentence rather than as
+                      a question and the answer to it. */}
+                  {(trainer.answers ?? []).map((answer) => (
+                    <View key={answer.key} style={styles.trainerPair}>
+                      <Text style={styles.trainerPairLabel}>{answer.label}</Text>
+                      <Text style={styles.trainerPairValue}>{answer.value}</Text>
+                    </View>
+                  ))}
+                </View>
               </View>
             ))}
           </Card>
@@ -451,6 +482,20 @@ function f(
 }
 
 /** "12 yrs 6 mo", or nothing where neither was given. */
+/**
+ * The initials on a trainer's row.
+ *
+ * First and last where there are two words, the first two letters where
+ * there is one. Nothing clever about middle names: it is an anchor for
+ * the eye down a list, not an identifier.
+ */
+function initialsOf(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '?';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+}
+
 function experienceWords(years?: number | null, months?: number | null): string {
   const parts: string[] = [];
   if (years) parts.push(`${years} yr${years === 1 ? '' : 's'}`);
@@ -465,9 +510,42 @@ const styles = StyleSheet.create({
   heading: { fontSize: 15, fontWeight: '700', color: colors.ink900 },
   required: { color: colors.danger700 },
 
-  trainer: { backgroundColor: colors.ink50, borderRadius: radius.md, padding: spacing.md, gap: 2 },
-  trainerName: { fontSize: 14, fontWeight: '600', color: colors.ink900 },
+  trainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    backgroundColor: colors.ink50,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  trainerFace: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.brand100,
+  },
+  trainerInitials: { fontSize: 13, fontWeight: '800', color: colors.brand700 },
+  trainerBody: { flex: 1, gap: 3 },
+  trainerName: { fontSize: 15, fontWeight: '700', color: colors.ink900 },
+  trainerTagRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+  trainerTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  trainerTagText: { fontSize: 11, fontWeight: '700', color: colors.ink700 },
+  trainerDetail: { fontSize: 12, color: colors.ink600 },
   trainerMeta: { fontSize: 12, color: colors.ink500 },
+  /* A question and its answer, read as a pair rather than as a sentence
+     with a colon in the middle of it. */
+  trainerPair: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 1 },
+  trainerPairLabel: { fontSize: 12, color: colors.ink500 },
+  trainerPairValue: { fontSize: 12, fontWeight: '600', color: colors.ink800 },
 
   group: { gap: spacing.xs },
   groupLabel: { fontSize: 14, fontWeight: '600', color: colors.ink800 },

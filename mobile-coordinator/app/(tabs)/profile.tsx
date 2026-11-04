@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../src/api/client';
 import { coordinatorProfile } from '../../src/api/endpoints';
 import type { CoordinatorProfile } from '../../src/api/types';
@@ -89,6 +89,7 @@ export default function Profile() {
             <Line label="Email" value={me.email} />
           </Section>
 
+          {[me.agencyName, me.reportsToName, me.organisationName].some(has) ? (
           <Section icon="business-outline" title="Appointed by">
             <Line
               label="Implementing agency"
@@ -102,37 +103,64 @@ export default function Profile() {
             />
             <Line label="Organisation" value={me.organisationName} />
           </Section>
+          ) : null}
 
           {/* The territory, which is the part a coordinator most often
-              needs to check: it decides which programmes reach them. */}
-          <Section icon="map-outline" title="Coverage">
-            <Tags label="States" values={me.states} />
-            <Tags label="Districts" values={me.districts} />
-            <Tags label="Categories" values={me.categories} />
-            <Tags label="Sub-categories" values={me.subCategories} />
-            <Tags label="Program types" values={me.programTypes} />
-          </Section>
+              needs to check: it decides which programmes reach them.
 
-          <Section icon="location-outline" title="Where you are posted">
-            <Line label="City" value={me.city} />
-            <Line label="District" value={me.districtName} />
-            <Line label="State" value={me.stateName} />
-            <Line label="PIN code" value={me.pincode} />
-          </Section>
+              Each card appears only where it holds something. A heading
+              over four lines of "Not recorded" is a heading over
+              nothing, and this screen had three of them. */}
+          {[me.states, me.districts, me.categories, me.subCategories, me.programTypes].some(
+            (list) => list.length > 0,
+          ) ? (
+            <Section icon="map-outline" title="Coverage">
+              <Tags label="States" values={me.states} />
+              <Tags label="Districts" values={me.districts} />
+              <Tags label="Categories" values={me.categories} />
+              <Tags label="Sub-categories" values={me.subCategories} />
+              <Tags label="Program types" values={me.programTypes} />
+            </Section>
+          ) : null}
 
-          <Section icon="document-text-outline" title="On record">
-            <Line
-              label="PAN"
-              value={me.panLast4 ? `•••••• ${me.panLast4}` : null}
-              note={me.panLast4 ? 'last four digits' : undefined}
-            />
-            <Line
-              label="Aadhaar"
-              value={me.aadhaarLast4 ? `•••• •••• ${me.aadhaarLast4}` : null}
-              note={me.aadhaarLast4 ? 'last four digits' : undefined}
-            />
-          </Section>
+          {[me.city, me.districtName, me.stateName, me.pincode].some(has) ? (
+            <Section icon="location-outline" title="Where you are posted">
+              <Line label="City" value={me.city} />
+              <Line label="District" value={me.districtName} />
+              <Line label="State" value={me.stateName} />
+              <Line label="PIN code" value={me.pincode} />
+            </Section>
+          ) : null}
+
+          {has(me.panLast4) || has(me.aadhaarLast4) ? (
+            <Section icon="document-text-outline" title="On record">
+              <Line
+                label="PAN"
+                value={me.panLast4 ? `•••••• ${me.panLast4}` : null}
+                note={me.panLast4 ? 'last four digits' : undefined}
+              />
+              <Line
+                label="Aadhaar"
+                value={me.aadhaarLast4 ? `•••• •••• ${me.aadhaarLast4}` : null}
+                note={me.aadhaarLast4 ? 'last four digits' : undefined}
+              />
+            </Section>
+          ) : null}
         </>
+      ) : null}
+
+      {/* Where the office recorded nothing beyond the account itself,
+          said once - a header over a footnote and no cards between them
+          reads as a screen that failed to load. */}
+      {me && !has(me.mobile) && !has(me.email)
+        && ![me.states, me.districts, me.categories, me.subCategories, me.programTypes].some(
+          (list) => list.length > 0,
+        ) ? (
+        <Card style={styles.card}>
+          <Text style={styles.lineValue}>
+            Nothing beyond your name and user ID has been recorded on this account yet.
+          </Text>
+        </Card>
       ) : null}
 
       <Text style={styles.footnote}>
@@ -164,41 +192,83 @@ function Section({
   );
 }
 
+/** How many chips an allocation shows before it offers the rest. */
+const TAG_CAP = 12;
+
+/** Whether there is anything to show for a value. */
+function has(value?: string | null): boolean {
+  return !!value && value.trim().length > 0;
+}
+
 /**
- * One fact. Shown even when it is blank, with a dash: a coordinator
- * checking their record needs to see that the office left the
- * designation empty, not to be shown a shorter list.
+ * One fact, where there is one.
+ *
+ * It used to render "Not recorded" instead, on the reading that a
+ * coordinator checking their record should see what the office left
+ * empty. In practice most of this screen is optional and most of it is
+ * blank: four lines of "Not recorded" under Where you are posted, two
+ * more under On record, and the facts that do exist lost among them.
+ * The record is the agency's to correct and the footnote already says
+ * so; a reader scrolling their own profile is looking for what is
+ * there.
  */
 function Line({ label, value, note }: { label: string; value?: string | null; note?: string }) {
+  if (!has(value)) return null;
+
   return (
     <View style={styles.line}>
       <Text style={styles.lineLabel}>{label}</Text>
       <View style={styles.lineRight}>
-        <Text style={[styles.lineValue, !value && styles.lineEmpty]}>
-          {value?.trim() ? value : 'Not recorded'}
-        </Text>
+        <Text style={styles.lineValue}>{value}</Text>
         {note ? <Text style={styles.lineNote}>{note}</Text> : null}
       </View>
     </View>
   );
 }
 
-/** A list of names as chips, because a comma-run of fifteen districts is unreadable. */
+/**
+ * A list of names as chips, because a comma-run of fifteen districts is
+ * unreadable - and a cap, because seven hundred and sixty-three of them
+ * is not a list, it is a wall.
+ *
+ * An unrestricted coordinator holds every district in the country, and
+ * the screen printed all of them: four hundred lines of chips between
+ * the states and the next heading, which nobody scrolls and nobody
+ * reads. The first dozen and a count says the same thing, and the count
+ * is the part that answers the question.
+ *
+ * Nothing at all is not shown: an axis a coordinator is not allocated
+ * on is not a fact about them, it is a row of the form the office left
+ * alone.
+ */
 function Tags({ label, values }: { label: string; values: string[] }) {
+  const [all, setAll] = useState(false);
+
+  if (values.length === 0) return null;
+
+  const shown = all ? values : values.slice(0, TAG_CAP);
+  const rest = values.length - shown.length;
+
   return (
     <View style={styles.tags}>
-      <Text style={styles.lineLabel}>{label}</Text>
-      {values.length === 0 ? (
-        <Text style={[styles.lineValue, styles.lineEmpty]}>None allocated</Text>
-      ) : (
-        <View style={styles.tagRow}>
-          {values.map((value) => (
-            <Text key={value} style={styles.tag}>
-              {value}
-            </Text>
-          ))}
-        </View>
-      )}
+      <View style={styles.tagsHead}>
+        <Text style={styles.lineLabel}>{label}</Text>
+        <Text style={styles.tagsCount}>{values.length}</Text>
+      </View>
+      <View style={styles.tagRow}>
+        {shown.map((value) => (
+          <Text key={value} style={styles.tag}>
+            {value}
+          </Text>
+        ))}
+      </View>
+      {rest > 0 || all ? (
+        <Pressable onPress={() => setAll(!all)} hitSlop={6}>
+          <Text style={styles.tagsMore}>
+            {all ? 'Show fewer' : `Show all ${values.length}`}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -251,7 +321,6 @@ const styles = StyleSheet.create({
   lineLabel: { fontSize: font.sm, color: colors.ink500, flexShrink: 0 },
   lineRight: { flex: 1, alignItems: 'flex-end' },
   lineValue: { fontSize: font.sm, fontWeight: '600', color: colors.ink900, textAlign: 'right' },
-  lineEmpty: { fontWeight: '400', color: colors.ink400, fontStyle: 'italic' },
   lineNote: { fontSize: font.xs, color: colors.ink400 },
 
   tags: {
@@ -260,6 +329,12 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
+  /* The axis and how many are on it. The count is the part that answers
+     the question most of the time - "am I on all of them?" - and it sits
+     beside the heading rather than at the end of four hundred chips. */
+  tagsHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  tagsCount: { fontSize: font.xs, fontWeight: '700', color: colors.ink500 },
+  tagsMore: { fontSize: font.xs, fontWeight: '700', color: colors.brand700, paddingVertical: 4 },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   tag: {
     fontSize: font.xs,
