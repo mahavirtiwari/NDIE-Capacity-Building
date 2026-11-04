@@ -654,15 +654,35 @@ const COLUMNS: ColumnDef[] = [
               }
             </select>
           </div>
-          <div class="field">
-            <label class="field-label" for="npAgency">Implementing agency <span class="req">*</span></label>
-            <select id="npAgency" class="select" formControlName="agencyId" (change)="onAgencyChange()">
-              <option [ngValue]="null">Select</option>
-              @for (agency of agencies(); track agency.id) {
-                <option [ngValue]="agency.id">{{ agency.name }}</option>
-              }
-            </select>
-          </div>
+          <!-- Not asked of an agency: it is the agency.
+
+               The server has always ignored this field for an agency
+               login and filed the batch against the agency that is
+               signed in - taking it from the request would let one
+               agency file a batch against another. So on that login the
+               picker was a required-looking box that decided nothing,
+               and a second agency chosen in it changed no part of the
+               result. -->
+          @if (!isAgency()) {
+            <div class="field">
+              <label class="field-label" for="npAgency">
+                Implementing agency <span class="req">*</span>
+              </label>
+              <select
+                id="npAgency"
+                class="select"
+                formControlName="agencyId"
+                (change)="onAgencyChange()"
+              >
+                <option [ngValue]="null">Select</option>
+                @for (agency of agencies(); track agency.id) {
+                  <option [ngValue]="agency.id">
+                    {{ agency.name }} · {{ agency.code }}
+                  </option>
+                }
+              </select>
+            </div>
+          }
           <div class="field">
             <label class="field-label" for="npCoordinator">Coordinator <span class="req">*</span></label>
             <select id="npCoordinator" class="select" formControlName="coordinatorId">
@@ -685,7 +705,7 @@ const COLUMNS: ColumnDef[] = [
                  submitted it, and was told the coordinator was required
                  with an empty list to pick from. The batch is run by
                  somebody, so the answer is to appoint them first. -->
-            @if (form.value.agencyId && coordinators().length === 0) {
+            @if ((isAgency() || form.value.agencyId) && coordinators().length === 0) {
               <span class="field-hint">
                 This agency has no coordinator yet, and a batch needs one to run it.
                 <a routerLink="/operations/coordinators">Appoint a coordinator</a> first.
@@ -1136,9 +1156,23 @@ export class ProgramsComponent {
       endTime: '17:00',
       maxParticipants: 30,
     });
-    this.coordinators.set([]);
     this.chosenState.set(null);
     this.minParticipants.set(0);
+
+    /* An agency is not asked which agency, so it is not asked to choose
+       one before its coordinators appear either: the server scopes the
+       list to the caller, and for an agency login that is its own
+       people. Everyone else picks an agency first and the list follows. */
+    if (this.isAgency()) {
+      this.form.controls.agencyId.clearValidators();
+      this.form.controls.agencyId.updateValueAndValidity();
+      this.onAgencyChange();
+    } else {
+      this.form.controls.agencyId.setValidators([Validators.required]);
+      this.form.controls.agencyId.updateValueAndValidity();
+      this.coordinators.set([]);
+    }
+
     /* The form opens on Virtual, so the link is asked for from the outset. */
     this.onModeChange();
     this.formOpen.set(true);

@@ -167,7 +167,12 @@ const COLUMNS: ColumnDef[] = [
         </ng-template>
 
         <ng-template appCell="agencyName" let-row>
-          {{ $any(row).agencyName || '—' }}
+          <div class="stack stack-xs">
+            <span>{{ $any(row).agencyName || '—' }}</span>
+            @if ($any(row).agencyCode) {
+              <span class="text-xs text-muted tabular">{{ $any(row).agencyCode }}</span>
+            }
+          </div>
         </ng-template>
 
         <ng-template appCell="experience" let-row>
