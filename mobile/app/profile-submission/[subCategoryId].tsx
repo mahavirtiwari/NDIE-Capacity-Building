@@ -1,9 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import {
+  Modal,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { me } from '../../src/api/endpoints';
-import type { ProfileForm, ProfileStanding } from '../../src/api/types';
+import type {
+  ProfileField,
+  ProfileForm,
+  ProfileSection,
+  ProfileStanding,
+} from '../../src/api/types';
 import { useResource } from '../../src/api/useResource';
 import {
   Banner,
@@ -46,6 +59,12 @@ export default function ProfileSubmissionDetail() {
 
   const profile = standing.data;
 
+  /* The answer being read in full, where one is too long to sit in a
+     row. A work-experience entry runs to a paragraph; printed into the
+     value column it pushed the rest of the page down by a screen and
+     was still hard to read at that width. */
+  const [reading, setReading] = useState<{ label: string; value: string } | null>(null);
+
   /* Grouped the way the form asked them, so the answers read back in the
      order they were given. Anything the form no longer knows about is
      kept under its own heading rather than dropped: it was still sent. */
@@ -69,19 +88,45 @@ export default function ProfileSubmissionDetail() {
           .filter((field) => given.has(field.key))
           .map((field) => {
             given.delete(field.key);
-            return { key: field.key, label: field.label, value: display(responses[field.key]) };
+            return {
+              key: field.key,
+              label: field.label,
+              value: display(responses[field.key], field),
+            };
           }),
       }))
       .filter((section) => section.answers.length > 0);
 
-    if (given.size > 0) {
+    /* What is left: a repeating section's rows, stored under the section's
+       own key, and anything a republished form no longer asks.
+
+       Both were headed by running the stored key through humanise, which
+       can only split on an underscore or a capital - and a section key has
+       neither, so "educationalqualifications" came out as
+       "Educationalqualifications". The form knows what that section is
+       called; it is asked first. Each row is listed on its own, against
+       that section's own field labels, rather than every row of every
+       section run together into one paragraph of codes. */
+    for (const key of given) {
+      const owner = sectionByKey(form.data?.sections, key);
+      const rows = responses[key];
+
+      if (owner && Array.isArray(rows)) {
+        rows.forEach((row, index) => {
+          const answers = rowAnswers(owner, row);
+          if (answers.length === 0) return;
+
+          sections.push({
+            title: rows.length > 1 ? `${owner.title} ${index + 1}` : owner.title,
+            answers,
+          });
+        });
+        continue;
+      }
+
       sections.push({
-        title: 'Also sent',
-        answers: [...given].map((key) => ({
-          key,
-          label: humanise(key),
-          value: display(responses[key]),
-        })),
+        title: owner?.title ?? 'Also sent',
+        answers: [{ key, label: owner ? owner.title : humanise(key), value: display(rows) }],
       });
     }
 
@@ -179,12 +224,17 @@ export default function ProfileSubmissionDetail() {
         ) : groups.length === 0 ? (
           <Text style={styles.muted}>No answers were recorded.</Text>
         ) : (
-          groups.map((group) => (
-            <View key={group.title} style={styles.group}>
+          groups.map((group, index) => (
+            <View key={`${group.title}-${index}`} style={styles.group}>
               <Text style={styles.groupTitle}>{group.title}</Text>
               <View style={styles.details}>
                 {group.answers.map((answer) => (
-                  <DetailRow key={answer.key} label={answer.label} value={answer.value} />
+                  <Answer
+                    key={answer.key}
+                    label={answer.label}
+                    value={answer.value}
+                    onRead={() => setReading({ label: answer.label, value: answer.value })}
+                  />
                 ))}
               </View>
             </View>
@@ -221,19 +271,152 @@ export default function ProfileSubmissionDetail() {
           </View>
         )}
       </Card>
+
+      {/* One answer, read in full. */}
+      <Modal
+        visible={!!reading}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setReading(null)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setReading(null)}>
+          <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.sheetHead}>
+              <Text style={styles.sheetTitle}>{reading?.label}</Text>
+              <Pressable onPress={() => setReading(null)} accessibilityLabel="Close" hitSlop={8}>
+                <Ionicons name="close" size={22} color={colors.ink600} />
+              </Pressable>
+            </View>
+            <ScrollView style={styles.sheetBody}>
+              <Text style={styles.sheetText}>{reading?.value}</Text>
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
 
+/**
+ * One answer in the list.
+ *
+ * Short ones read in place. A long one - a work-experience entry runs to
+ * a paragraph - is cut to three lines with a way to read the rest: printed
+ * in full it pushed the page down by a screen and was still hard to read
+ * at the width of a value column.
+ */
+function Answer({
+  label,
+  value,
+  onRead,
+}: {
+  label: string;
+  value: string;
+  onRead: () => void;
+}) {
+  const long = value.length > 140;
+
+  return (
+    <View style={styles.answer}>
+      <Text style={styles.answerLabel}>{label}</Text>
+      <Text style={styles.answerValue} numberOfLines={long ? 3 : undefined}>
+        {value}
+      </Text>
+      {long ? (
+        <Pressable accessibilityRole="button" onPress={onRead} style={styles.answerMore}>
+          <Ionicons name="eye-outline" size={14} color={colors.brand700} />
+          <Text style={styles.answerMoreText}>View</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * The section a leftover key belongs to, where one does.
+ *
+ * A repeating section's rows are stored under the section's own key, and
+ * the form is the only thing that knows which section that is.
+ */
+const sectionByKey = (
+  sections: ProfileSection[] | undefined,
+  key: string,
+): ProfileSection | undefined =>
+  (sections ?? []).find(
+    (section) =>
+      section.key === key || section.title.toLowerCase().replace(/[^a-z0-9]+/g, '') === key,
+  );
+
+/** One row of a repeating section, against that section's field labels. */
+const rowAnswers = (
+  section: ProfileSection,
+  row: unknown,
+): { key: string; label: string; value: string }[] => {
+  if (row === null || typeof row !== 'object' || Array.isArray(row)) {
+    return [{ key: section.title, label: section.title, value: display(row) }];
+  }
+
+  const held = row as Record<string, unknown>;
+
+  return section.fields
+    .slice()
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+    .filter((field) => {
+      const value = held[field.key];
+      return value !== null && value !== undefined && value !== '';
+    })
+    .map((field) => ({
+      key: field.key,
+      label: field.label,
+      value: display(held[field.key], field),
+    }));
+};
+
+/**
+ * A stored key as a heading.
+ *
+ * Underscores and camel case split into words. A key with neither - the
+ * ones a repeating section is stored under, like
+ * "educationalqualifications" - cannot be split by looking at it, which
+ * is why {@link titleFor} asks the form for the section's real title
+ * first and only falls back to here.
+ */
 const humanise = (key: string): string =>
   key
     .replace(/[_-]+/g, ' ')
     .replace(/([a-z])([A-Z])/g, '$1 $2')
-    .replace(/^./, (character) => character.toUpperCase());
+    .replace(/^./, (character) => character.toUpperCase())
+    .trim();
 
-/** What one answer reads as. Anything shaped is stated rather than JSON. */
-const display = (value: unknown): string => {
-  if (Array.isArray(value)) return value.map((item) => display(item)).join(', ');
+/**
+ * A stored option code as the words the applicant picked.
+ *
+ * Answers to a choice field are kept as codes, and the codes were being
+ * printed: an applicant read back
+ * "QUALIFIED_LEAD_AUDITOR_CERTIFICATION_IN_QUALITY_MANAGEMENT_SYSTEMS..."
+ * where they had chosen a sentence. The form knows the wording; where it
+ * no longer carries the option - a form republished since - the code is
+ * at least turned back into words rather than shouted in full.
+ */
+const optionLabel = (field: ProfileField | undefined, raw: string): string => {
+  const match = field?.options?.find((option) => option.value === raw);
+  if (match) return match.label;
+
+  /* A code and nothing else: all capitals, with underscores. Anything
+     the applicant typed is left exactly as they typed it. */
+  if (/^[A-Z0-9]+(_[A-Z0-9]+)+$/.test(raw)) {
+    const words = raw.toLowerCase().replace(/_+/g, ' ');
+    return words.charAt(0).toUpperCase() + words.slice(1);
+  }
+
+  return raw;
+};
+
+/** What one answer reads as, against the field that asked it. */
+const display = (value: unknown, field?: ProfileField): string => {
+  if (Array.isArray(value)) {
+    return value.map((item) => display(item, field)).join(', ');
+  }
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (value !== null && typeof value === 'object') {
     return Object.entries(value as Record<string, unknown>)
@@ -241,11 +424,59 @@ const display = (value: unknown): string => {
       .map(([key, inner]) => `${humanise(key)}: ${display(inner)}`)
       .join(' · ');
   }
-  return String(value);
+  return optionLabel(field, String(value));
 };
 
 const styles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
+
+  /* An answer stacked under its label rather than squeezed into a column
+     beside it: half the width for a work-experience entry meant eighteen
+     lines of four words. */
+  answer: {
+    gap: 2,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  answerLabel: { fontSize: font.xs, color: colors.ink500 },
+  answerValue: { fontSize: font.sm, color: colors.ink900, lineHeight: 20 },
+  answerMore: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    marginTop: 4,
+    paddingVertical: 4,
+  },
+  answerMoreText: { fontSize: font.xs, fontWeight: '700', color: colors.brand700 },
+
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  sheet: {
+    width: '100%',
+    maxHeight: '75%',
+    alignSelf: 'center',
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+  },
+  sheetHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  sheetTitle: { flex: 1, fontSize: font.md, fontWeight: '700', color: colors.ink900 },
+  sheetBody: { padding: spacing.lg },
+  sheetText: { fontSize: font.sm, color: colors.ink800, lineHeight: 22 },
 
   card: { gap: spacing.sm },
   head: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },

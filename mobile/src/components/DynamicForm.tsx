@@ -9,7 +9,7 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import type {
   DurationValue,
   PhotoShot,
@@ -154,6 +154,18 @@ export function storageKey(
 /** A field key as something a filesystem will take. */
 function slug(value: string): string {
   return value.replace(/[^A-Za-z0-9]+/g, '-');
+}
+
+/**
+ * What identifies one picture, as against where it currently sits.
+ *
+ * The moment it was taken. Position shifts when a picture before it is
+ * deleted; the moment does not, so a thumbnail already on disk stays the
+ * right thumbnail and does not have to be fetched again. Two pictures
+ * cannot share a moment: the camera returns one at a time.
+ */
+function shotKey(shot: PhotoShot): string {
+  return shot.capturedOn;
 }
 
 function defaultFor(field: ProfileField): FormValue {
@@ -1488,11 +1500,20 @@ function PhotosField({
   /* Not a failure: the picture was taken and kept. It is the stamp on it
      that is short of a position, and this says what to do about that. */
   const [note, setNote] = useState<string | null>(null);
-  /* Bumped whenever the set changes, so a thumbnail is re-fetched rather
-     than served from the cache under a url that has not changed. */
+  /* Bumped whenever the set changes, so the rows redraw against what the
+     server now holds. */
   const [stamp, setStamp] = useState(() => Date.now());
-  /* Where each picture landed on disk, by its position in the set. */
-  const [thumbs, setThumbs] = useState<Record<number, string>>({});
+
+  /* Where each picture landed on disk, by the moment it was taken.
+
+     By its position, once - which meant every thumbnail had to be thrown
+     away and fetched again whenever the set changed, because deleting
+     the first picture makes the second one position one. Three
+     full-size pictures came down the wire again after every capture and
+     every delete, on a phone, over mobile data, and the screen sat there
+     while they did. The moment a picture was taken does not move when
+     the ones around it do. */
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
 
   /* What the server actually holds, which is the truth — the answer in the
      form is only a copy, and a form reopened after a rejection has to show
@@ -1530,11 +1551,19 @@ function PhotosField({
     let cancelled = false;
     const made: string[] = [];
 
-    (async () => {
-      for (const shot of shots) {
+    /* Only the ones not already in hand, and all of them at once.
+
+       One at a time, in order, meant the third picture's thumbnail
+       waited on the first two - and with nothing skipped, every one of
+       them waited again after each capture. */
+    const wanted = shots.filter((shot) => !thumbs[shotKey(shot)]);
+    if (wanted.length === 0) return;
+
+    void Promise.all(
+      wanted.map(async (shot) => {
         try {
           const uri = await cacheRemoteImage(
-            `photo-${subCategoryId}-${slug(field.key)}-${entry}-${shot.displayOrder}.jpg`,
+            `photo-${subCategoryId}-${slug(field.key)}-${entry}-${slug(shotKey(shot))}.jpg`,
             me.photoPath(subCategoryId, field.key, shot.displayOrder, entry),
           );
           if (cancelled) {
@@ -1543,20 +1572,20 @@ function PhotosField({
           }
 
           made.push(uri);
-          setThumbs((held) => ({ ...held, [shot.displayOrder]: uri }));
+          setThumbs((held) => ({ ...held, [shotKey(shot)]: uri }));
         } catch {
           /* One thumbnail that will not come down must not take the
              others with it; the row still says what was taken and when. */
         }
-      }
-    })();
+      }),
+    );
 
     return () => {
       cancelled = true;
       for (const uri of made) releaseImage(uri);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subCategoryId, field.key, entry, stamp, shots.length]);
+  }, [subCategoryId, field.key, entry, stamp, shots]);
 
   const take = async () => {
     setFailure(null);
@@ -1612,12 +1641,21 @@ function PhotosField({
     }
   };
 
-  const removeLast = async () => {
-    if (count === 0) return;
+  /**
+   * Drops one picture, whichever it is.
+   *
+   * Only the last one could go, so deleting the first of three meant
+   * deleting the third and the second to reach it - and then taking
+   * them again. The server has always taken a position and renumbered
+   * what was left; nothing but this screen insisted on the end of the
+   * list.
+   */
+  const removeAt = async (order: number) => {
+    if (count === 0 || busy) return;
     setBusy(true);
     setFailure(null);
     try {
-      const standing = await me.removePhoto(subCategoryId, field.key, count, entry);
+      const standing = await me.removePhoto(subCategoryId, field.key, order, entry);
       setCount(standing.count);
       setStamp(Date.now());
       onChange(standing.count > 0 ? String(standing.count) : '');
@@ -1651,11 +1689,12 @@ function PhotosField({
         <View style={error ? styles.fileBoxInvalid : undefined}>
           {Array.from({ length: count }, (_, i) => i + 1).map((order) => {
             const shot = shots.find((held) => held.displayOrder === order);
+            const thumb = shot ? thumbs[shotKey(shot)] : undefined;
             return (
               <View key={`${order}-${stamp}`} style={styles.shotRow}>
-                {thumbs[order] ? (
+                {thumb ? (
                   <Image
-                    source={{ uri: thumbs[order] }}
+                    source={{ uri: thumb }}
                     style={styles.photoThumb}
                     accessibilityLabel={`${field.label}, picture ${order} of ${count}`}
                   />
@@ -1682,6 +1721,31 @@ function PhotosField({
                     <Text style={styles.shotDetail}>Sent</Text>
                   )}
                 </View>
+
+                {/* This picture's own delete, beside this picture. */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove picture ${order}`}
+                  hitSlop={8}
+                  disabled={busy}
+                  style={styles.shotDrop}
+                  onPress={() =>
+                    Alert.alert(
+                      `Remove picture ${order}?`,
+                      'It is deleted from your profile. You can take another in its place.',
+                      [
+                        { text: 'Keep it', style: 'cancel' },
+                        {
+                          text: 'Remove',
+                          style: 'destructive',
+                          onPress: () => void removeAt(order),
+                        },
+                      ],
+                    )
+                  }
+                >
+                  <Ionicons name="trash-outline" size={17} color={colors.danger500} />
+                </Pressable>
               </View>
             );
           })}
@@ -1709,18 +1773,6 @@ function PhotosField({
           </Text>
         )}
 
-        {count > 0 ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Remove the last picture"
-            style={styles.photoAction}
-            disabled={busy}
-            onPress={removeLast}
-          >
-            <Ionicons name="trash-outline" size={16} color={colors.danger500} />
-            <Text style={[styles.photoActionText, styles.photoRemoveText]}>Remove last</Text>
-          </Pressable>
-        ) : null}
       </View>
 
       {failure ? <Text style={styles.error}>{failure}</Text> : null}
@@ -1865,8 +1917,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.ink50,
   },
   photoThumb: {
-    width: 72,
-    height: 96,
+    width: 64,
+    height: 84,
     borderRadius: radius.sm,
     backgroundColor: colors.ink100,
     resizeMode: 'cover',
@@ -1885,8 +1937,18 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   shotFacts: { flex: 1, gap: 2 },
-  shotTitle: { fontSize: font.sm, fontWeight: '600', color: colors.ink700 },
-  shotDetail: { fontSize: font.xs, color: colors.ink600 },
+  shotTitle: { fontSize: font.sm, fontWeight: '700', color: colors.ink800 },
+  shotDetail: { fontSize: font.xs, color: colors.ink500, lineHeight: 16 },
+  /* Its own delete, at the end of its own row, far enough from the
+     thumbnail that nobody deletes a picture while trying to look at it. */
+  shotDrop: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.sm,
+    backgroundColor: colors.danger50,
+  },
   photoCount: { fontSize: font.sm, color: colors.ink600 },
 
   photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: 2 },
