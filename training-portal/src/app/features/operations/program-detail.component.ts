@@ -26,7 +26,6 @@ import { ProgrammeAttendanceComponent } from './programme-attendance.component';
 import { ProgrammeFeedbackComponent } from './programme-feedback.component';
 import { ProgrammeMonitoringComponent } from './programme-monitoring.component';
 import { ProgrammeTrainersComponent } from './programme-trainers.component';
-import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
 
@@ -49,7 +48,6 @@ type Tab =
     DatePipe,
     PageHeaderComponent,
     StatusBadgeComponent,
-    ModalComponent,
     IconComponent,
     MarksheetComponent,
     MonitoringPhotoComponent,

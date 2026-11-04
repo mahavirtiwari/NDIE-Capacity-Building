@@ -501,6 +501,8 @@ public class ProgrammeDto : AuditDto
     public string? SubCategoryName { get; set; }
     public int ProgramTypeId { get; set; }
     public string? ProgramTypeName { get; set; }
+    /// <summary>The track's own code, shown beside its name.</summary>
+    public string? ProgramTypeCode { get; set; }
     public int AgencyId { get; set; }
     public string? AgencyName { get; set; }
     /// <summary>
@@ -535,6 +537,8 @@ public class ProgrammeDto : AuditDto
     public string? CoordinatorEmail { get; set; }
     public int? OperationManagerId { get; set; }
     public string? OperationManagerName { get; set; }
+    /// <summary>Their user ID, because two managers may share a name.</summary>
+    public string? OperationManagerCode { get; set; }
     public string Mode { get; set; } = "Physical";
     public string Venue { get; set; } = string.Empty;
     public string? City { get; set; }

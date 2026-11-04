@@ -148,6 +148,8 @@ export interface Program extends AuditInfo {
   subCategoryName?: string;
   programTypeId: Id;
   programTypeName?: string;
+  /** The program type's own code, shown beside its name. */
+  programTypeCode?: string | null;
   agencyId: Id;
   agencyName?: string;
   /** The code the scheme issued the agency, shown beside its name. */
@@ -159,6 +161,8 @@ export interface Program extends AuditInfo {
   coordinatorEmail?: string | null;
   operationManagerId: Id;
   operationManagerName?: string;
+  /** Their user ID, because two managers may share a name. */
+  operationManagerCode?: string | null;
   mode: ProgramMode;
   /** "Virtual" for online batches, otherwise the physical address. */
   venue: string;
