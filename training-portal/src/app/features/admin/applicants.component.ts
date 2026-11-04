@@ -40,20 +40,32 @@ const COLUMNS: ColumnDef[] = [
      the order the accounts were opened. The key is the sort field as
      well as the cell's name, so the merged column keeps the code's. */
   { key: 'applicantCode', header: 'Applicant', sortable: true,
-    variant: 'primary', width: '190px' },
-  { key: 'contact', header: 'Contact', width: '250px' },
-  { key: 'pan', header: 'PAN', width: '130px' },
+    variant: 'primary', width: '175px' },
+  { key: 'contact', header: 'Contact', width: '225px' },
+  { key: 'pan', header: 'PAN', width: '120px' },
   /* The first discipline they entered. An account holds a profile per
      category now, so this is one of possibly several - the whole set is on
-     the profile scrutiny queue, which carries a row per submission. */
-  { key: 'categoryName', header: 'First category', variant: 'muted' },
-  { key: 'subCategoryName', header: 'First sub-category', variant: 'muted' },
-  { key: 'standing', header: 'Status', width: '150px' },
-  { key: 'registeredOn', header: 'Registered', width: '130px' },
+     the profile scrutiny queue, which carries a row per submission.
+
+     Headed plainly. "First category" was accurate and read as a rank:
+     somebody scanning the column took it for a primary discipline with a
+     second one behind it, which is not what it says. Which category it is
+     of several is on the record behind the applicant ID, where the whole
+     set is. */
+  { key: 'categoryName', header: 'Category', variant: 'muted' },
+  { key: 'subCategoryName', header: 'Sub-category', variant: 'muted' },
+  { key: 'standing', header: 'Status', width: '125px' },
+  { key: 'registeredOn', header: 'Registered', width: '115px' },
   /* A blocked account says what for. Last and unwidthed: a reason is a
      sentence, not a label. */
   { key: 'statusReason', header: 'Reason' },
-  { key: 'actions', header: '', width: '150px', align: 'right' },
+  /* Wide enough for everything in it on one line.
+     It was declared at 150 and held a hundred and eighty-five pixels of
+     buttons, so the browser took the width anyway and took it from the
+     table - which then ran off the right of the page and left Unblock
+     where only a horizontal scrollbar could reach it. Declared at what it
+     actually needs, and the columns above give it back. */
+  { key: 'actions', header: '', width: '215px', align: 'right' },
 ];
 
 @Component({
@@ -193,19 +205,20 @@ const COLUMNS: ColumnDef[] = [
              identified by the code the system issued them; a name is
              shared by three people in a register this size and is theirs
              to change. -->
-        <!-- The name, the code under it, and the block where there is
-             one. The code opens the applicant, not the name: a name is
-             shared by three people in a register this size and is theirs
-             to change, and the code is what the system issued. -->
+        <!-- The name and the code under it. The code opens the applicant,
+             not the name: a name is shared by three people in a register
+             this size and is theirs to change, and the code is what the
+             system issued.
+
+             The block sat here too, three lines down from the name and the
+             width of the table away from the button that lifts it. It is
+             next to that button now. -->
         <ng-template appCell="applicantCode" let-row>
           <div class="stack stack-xs">
             <span>{{ $any(row).fullName }}</span>
             <button type="button" class="cell-link tabular" (click)="openDetail($any(row))">
               {{ $any(row).applicantCode }}
             </button>
-            @if ($any(row).isBlocked) {
-              <span class="badge badge--danger">Blocked</span>
-            }
           </div>
         </ng-template>
 
@@ -237,7 +250,13 @@ const COLUMNS: ColumnDef[] = [
           <span class="cell-muted">{{ $any(row).registeredOn | date: 'dd MMM yyyy' }}</span>
         </ng-template>
         <ng-template appCell="actions" let-row>
-          <div class="btn-row btn-row--end">
+          <div class="stack stack-xs stack--end">
+            <!-- Directly over the button that lifts it, so the state and
+                 the thing that changes it are read together. -->
+            @if ($any(row).isBlocked) {
+              <span class="badge badge--danger">Blocked</span>
+            }
+            <div class="btn-row btn-row--end">
             <button
               type="button"
               class="btn btn--sm btn--secondary"
@@ -262,6 +281,7 @@ const COLUMNS: ColumnDef[] = [
             >
               {{ $any(row).isBlocked ? 'Unblock' : 'Block' }}
             </button>
+            </div>
           </div>
         </ng-template>
       </app-data-table>

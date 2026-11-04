@@ -1,4 +1,8 @@
 .stack { display: flex; flex-direction: column; }
+/* A stack in a right-aligned cell: the children are as wide as they need
+   to be and sit against the right edge, rather than each stretching the
+   full width of the column and taking their own alignment from it. */
+.stack--end { align-items: flex-end; }
 .stack-xs { gap: 0.25rem; }
 .stack-sm { gap: 0.5rem; }
 .stack-md { gap: 1rem; }
@@ -106,4 +110,41 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* A segmented switch between two views of the same thing.
+   Tabs in everything but name: it sits above the panel it switches and
+   carries role="tablist", and it is styled flat rather than as two buttons
+   so it does not compete with the primary action in the page header. */
+.seg {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.seg__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-500);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.seg__btn:hover { color: var(--brand-700); }
+
+.seg__btn.is-on {
+  background: var(--surface);
+  color: var(--brand-700);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
 }

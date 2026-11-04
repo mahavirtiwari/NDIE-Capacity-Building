@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { RouterLink } from '@angular/router';
 import { CertificateStanding, Id, QualifiedProfessional } from '../../core/models';
 import { CertificateService } from '../../core/services/certificate.service';
 import { LookupService } from '../../core/services/masters.service';
@@ -12,6 +13,7 @@ import {
 } from '../../shared/components/data-table.component';
 import { IconComponent } from '../../shared/components/icon.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
+import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ListState, searchTerm } from '../../shared/list-state';
 
@@ -42,6 +44,7 @@ const STANDINGS: Record<CertificateStanding, { label: string; tone: string }> = 
     DataTableComponent,
     CellTemplateDirective,
     IconComponent,
+    RouterLink,
   ],
   template: `
     <app-page-header
@@ -191,12 +194,28 @@ const STANDINGS: Record<CertificateStanding, { label: string; tone: string }> = 
         (pageSizeChange)="list.setPageSize($event)"
         (sortChange)="list.setSort($event)"
       >
+        <!-- The applicant ID opens the person, as it does everywhere
+             else. It was grey text in the middle of a line with the
+             mobile number, so the one thing on the row that identifies
+             anybody was the one thing that led nowhere - and a reader
+             wanting to know who this is went to the Applicants register
+             and searched for the code by hand. It lands on them with
+             their record open. -->
         <ng-template appCell="name" let-row>
           <div class="stack stack-xs">
             <strong>{{ $any(row).fullName }}</strong>
-            <span class="text-xs text-muted">
-              {{ $any(row).applicantCode }}
-              @if ($any(row).mobile) { · {{ $any(row).mobile }} }
+            <span class="text-xs">
+              <a
+                class="cell-link tabular"
+                [routerLink]="['/admin/applicants']"
+                [queryParams]="{
+                  search: $any(row).applicantCode,
+                  open: $any(row).applicantCode
+                }"
+              >{{ $any(row).applicantCode }}</a>
+              @if ($any(row).mobile) {
+                <span class="text-muted">· {{ $any(row).mobile }}</span>
+              }
             </span>
           </div>
         </ng-template>
@@ -245,7 +264,7 @@ const STANDINGS: Record<CertificateStanding, { label: string; tone: string }> = 
               >
                 Download
               </a>
-              @if (!$any(row).revokedOn) {
+              @if (!$any(row).revokedOn && canResend()) {
                 <button
                   type="button"
                   class="btn btn--icon"
@@ -316,6 +335,18 @@ export class QualifiedProfessionalsComponent {
   private readonly certificates = inject(CertificateService);
   private readonly toast = inject(ToastService);
   protected readonly resending = signal<number | null>(null);
+
+  /**
+   * Who may post a certificate out again: the Super Admin and an Admin.
+   *
+   * Hidden from everybody else rather than offered and refused. The server
+   * decides either way - this is so the refusal never has to happen, which
+   * is what every other button in the portal does.
+   */
+  private readonly auth = inject(AuthService);
+  protected readonly canResend = computed(
+    () => this.auth.role() === 'SuperAdmin' || this.auth.role() === 'Admin',
+  );
 
   protected certificateUrl(id: number): string {
     return this.certificates.documentUrl(id);

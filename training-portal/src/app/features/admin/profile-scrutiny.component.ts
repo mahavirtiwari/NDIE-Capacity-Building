@@ -54,7 +54,12 @@ const COLUMNS: ColumnDef[] = [
   { key: 'subCategoryName', header: 'Sub-category', width: '150px' },
   { key: 'attemptNo', header: 'Attempt', width: '90px', align: 'center' },
   { key: 'submittedOn', header: 'Submission date', sortable: true, width: '130px' },
-  { key: 'assignedToName', header: 'Assigned to', width: '140px' },
+  /* The officer, and the user ID under them. A name on its own does not
+     identify anybody here: several accounts read "mahavir tiwari" and the
+     only way to tell which desk a profile was on was to go and look. The
+     ID is what the system issued, and what the Portal users register is
+     searched by. */
+  { key: 'assignedToName', header: 'Assigned to', width: '160px' },
   { key: 'status', header: 'Status', width: '120px' },
   /* When it was decided, in a column of its own. It used to sit under
      the badge with the name of whoever decided it, which made the status
@@ -270,7 +275,12 @@ const COLUMNS: ColumnDef[] = [
              rather than greyed out. -->
         <ng-template appCell="assignedToName" let-row>
           @if ($any(row).assignedToName) {
-            <span>{{ $any(row).assignedToName }}</span>
+            <div class="stack stack-xs">
+              <span>{{ $any(row).assignedToName }}</span>
+              @if ($any(row).assignedToCode) {
+                <span class="cell-muted tabular">{{ $any(row).assignedToCode }}</span>
+              }
+            </div>
           } @else {
             <span class="chip chip--warn">Unassigned</span>
           }

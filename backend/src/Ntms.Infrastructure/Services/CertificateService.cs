@@ -455,6 +455,22 @@ public class CertificateService(
     /// </summary>
     public async Task<string> ResendAsync(int id, string verifyBaseUrl, CancellationToken ct)
     {
+        /* The top two tiers and nobody else.
+ 
+           It sat behind programs.manage, which an implementing agency holds
+           so that it can raise a batch - so the agency that ran the course
+           could post the award out again to whatever address was on the
+           account. Sending somebody their certificate is the scheme
+           speaking, not the agency that trained them, and the request is
+           usually a correction to the address rather than a lost message.
+           Checked here and not only on the screen: a hidden button is not
+           a rule. */
+        if (currentUser.Tier is not (BaseRole.SuperAdmin or BaseRole.Admin))
+        {
+            throw AppException.Forbidden(
+                "A certificate is sent again by the Super Admin or an Admin.");
+        }
+
         var certificate = await db.Certificates.AsNoTracking()
             .Include(c => c.Participant)!.ThenInclude(p => p!.Applicant)
             .FirstOrDefaultAsync(c => c.Id == id, ct)
