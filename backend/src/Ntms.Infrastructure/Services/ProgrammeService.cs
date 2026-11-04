@@ -20,7 +20,6 @@ public class ProgrammeService(
     DelegationGuard delegation,
     INotificationService notifications,
     NotificationBroadcastService broadcasts,
-    CertificateService certificates,
     IEmailQueue mail,
     ILogger<ProgrammeService> logger)
 {
@@ -426,12 +425,34 @@ public class ProgrammeService(
                 new[] { ProgramStatus.PermissionAccepted, ProgramStatus.PermissionRejected, ProgramStatus.Postponed },
             ProgramStatus.PermissionAccepted =>
                 [ProgramStatus.CalendarCreated, ProgramStatus.Postponed, ProgramStatus.QCRejected],
+            /* Not Conducted. A batch becomes conducted when quality control
+               accepts its report, and by no other route - see below. */
             ProgramStatus.CalendarCreated =>
-                [ProgramStatus.Conducted, ProgramStatus.Postponed, ProgramStatus.QCRejected],
+                [ProgramStatus.Postponed, ProgramStatus.QCRejected],
             ProgramStatus.Postponed =>
                 [ProgramStatus.PermissionAccepted, ProgramStatus.CalendarCreated],
             _ => [],
         };
+
+        /* Conducted is not a status anybody sets. It is what quality control
+           accepting the report means, and it was reachable from here as well
+           - which made the whole chain optional. A manager could mark a
+           running batch conducted, and that one press skipped the
+           coordinator's field record, the agency's reading of it and the
+           manager's own check, while still opening the report and issuing
+           everybody's certificate. A batch would read as conducted with
+           nothing behind it saying it had been.
+
+           Said separately from the sentence below because the sentence below
+           explains nothing here: the answer is not that this batch is at the
+           wrong status, it is that this is not how a batch gets there. */
+        if (target == ProgramStatus.Conducted)
+        {
+            throw new AppException(
+                "A program is marked conducted when quality control accepts its report. "
+                + "The coordinator submits it from the app, the implementing agency "
+                + "forwards it, and it is accepted on the Quality Control screen.");
+        }
 
         if (!allowed.Contains(target))
             throw new AppException($"A {entity.Status} program cannot move to {target}.");
@@ -463,34 +484,12 @@ public class ProgrammeService(
 
         await db.SaveChangesAsync(ct);
 
-        /* Conducted is the last thing standing between a marked candidate
-           and the certificate their programme type says they have earned.
-           Everyone whose result was already in gets theirs now, issued and
-           e-mailed; anybody marked afterwards is picked up as they are
-           marked. Certificates are not worth failing the closure over, so
-           a run that cannot finish is logged and the batch still closes —
-           the Certificates tab issues what is left. */
         /* Put off, so the people who had kept the days free are told.
 
            Nothing told them before. The batch stopped appearing in the
            app and that was the whole of it - somebody who had registered
            for a course on the 18th found out by it not happening. */
         if (target == ProgramStatus.Postponed) await TellParticipantsPostponedAsync(entity, ct);
-
-        if (target == ProgramStatus.Conducted)
-        {
-            try
-            {
-                await certificates.IssueDueAsync(entity.Id, ct);
-            }
-            catch (Exception caught)
-            {
-                logger.LogError(
-                    caught,
-                    "Program {Programme} was marked conducted but its certificates could not be issued.",
-                    entity.Id);
-            }
-        }
 
         /* Permitted means open, and a batch nobody is told about fills up
            with whoever happened to look. Narrowed to the track it belongs

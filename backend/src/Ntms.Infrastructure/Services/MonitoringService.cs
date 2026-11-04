@@ -1662,11 +1662,12 @@ public class MonitoringService(
         /* Anybody already marked on a batch that is already conducted has
            earned whatever the programme type awards, and gets it here.
 
-           Which is a narrow case now, and deliberately so. Submitting no
-           longer marks a batch conducted — the manager does that when the
-           report is accepted, and that is where the certificates for an
-           ordinary batch fall due. What is left for this run is the batch
-           the portal marked conducted before its report came in.
+           Which is only ever an old batch now. Submitting does not mark a
+           batch conducted and nor does anything else: the manager
+           accepting the report is what that means, and that is where an
+           ordinary batch's certificates fall due. What is left for this
+           run is the batch the portal marked conducted by hand back when
+           it could, whose report is only arriving now.
 
            Guarded: the submission is the coordinator's and is saved. A
            certificate run that cannot finish must not report their work

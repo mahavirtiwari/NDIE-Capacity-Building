@@ -228,7 +228,6 @@ export function programActions(
   canAskToPostpone: boolean;
   canAskToMove: boolean;
   canDecideMove: boolean;
-  canMarkConducted: boolean;
 } {
   const open = program.status === 'PermissionAccepted' || program.status === 'CalendarCreated';
 
@@ -279,7 +278,6 @@ export function programActions(
        may never run is a decision about nothing. And not twice: an ask
        already on the row is waiting to be answered. */
     canAskToPostpone: open && !asked,
-    canMarkConducted: open && !!program.examDateTime,
     /* Only a batch that is actually held somewhere, and only once it has
        been permitted: before that the agency edits it outright. */
     canAskToMove: open && program.mode !== 'Virtual' && !program.venueChangeRequestedOn,
