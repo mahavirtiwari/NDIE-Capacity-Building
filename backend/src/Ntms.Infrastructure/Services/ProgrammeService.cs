@@ -979,7 +979,7 @@ public class ProgrammeService(
                 $"A {EnumMaps.ToApi(entity.Status)} batch does not take registrations.");
         }
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = IndianTime.Today;
         var closesOn = entity.StartDate.AddDays(-1);
         if (today >= closesOn)
         {
@@ -1169,7 +1169,7 @@ public class ProgrammeService(
             {
                 ApplicantId = application.ApplicantId,
                 ApplicationId = application.Id,
-                EnrolledOn = DateOnly.FromDateTime(DateTime.UtcNow),
+                EnrolledOn = IndianTime.Today,
                 Result = ParticipantResult.Pending,
             });
             application.Status = ApplicationStatus.Enrolled;

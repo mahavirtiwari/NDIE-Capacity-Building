@@ -47,6 +47,23 @@ public static class IndianTime
         TimeZoneInfo.ConvertTimeToUtc(
             DateTime.SpecifyKind(wallClockInIndia, DateTimeKind.Unspecified), Zone);
 
+    /// <summary>
+    /// What day it is here.
+    ///
+    /// Every calendar question in this system - has the batch started, is
+    /// the fee in force yet, has the empanelment lapsed, which day did
+    /// somebody enrol on - is a question about the day in India, and the
+    /// server runs on UTC. Asked as DateOnly.FromDateTime(DateTime.UtcNow)
+    /// it is yesterday's answer from half past six in the evening until
+    /// midnight: a batch that started today reads as starting tomorrow, a
+    /// fee effective today does not apply until half past five in the
+    /// morning, and an enrolment taken at nine at night is filed under the
+    /// day before.
+    ///
+    /// Seventeen places asked UTC. They ask here.
+    /// </summary>
+    public static DateOnly Today => DateOnly.FromDateTime(From(DateTime.UtcNow));
+
     /// <summary>Reader-facing form, e.g. "23 Sep 2026, 05:03 PM IST".</summary>
     public static string Format(DateTime utc) =>
         From(utc).ToString("dd MMM yyyy, hh:mm tt",

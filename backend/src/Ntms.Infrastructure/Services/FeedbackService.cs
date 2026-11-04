@@ -397,7 +397,7 @@ public class FeedbackService(
             Answers = JsonSerializer.Serialize(kept),
             /* The day only. The receipt below carries the moment, and two
                exact timestamps written together would match up. */
-            SubmittedOn = DateOnly.FromDateTime(DateTime.UtcNow),
+            SubmittedOn = IndianTime.Today,
         });
 
         db.FeedbackReceipts.Add(new FeedbackReceipt

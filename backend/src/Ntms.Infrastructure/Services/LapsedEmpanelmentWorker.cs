@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Ntms.Domain.Common;
 using Ntms.Domain.Entities;
 using Ntms.Infrastructure.Persistence;
+using Ntms.Infrastructure.Email;
 
 namespace Ntms.Infrastructure.Services;
 
@@ -62,7 +63,7 @@ public class LapsedEmpanelmentWorker(
             using var scope = scopes.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<NtmsDbContext>();
 
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = IndianTime.Today;
 
             /* Only the ones still standing. An agency a person suspended
                for some other reason keeps that reason: it is already out,

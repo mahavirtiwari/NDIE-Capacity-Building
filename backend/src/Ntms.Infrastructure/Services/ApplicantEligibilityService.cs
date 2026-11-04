@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Ntms.Domain.Common;
 using Ntms.Domain.Entities;
 using Ntms.Infrastructure.Persistence;
+using Ntms.Infrastructure.Email;
 
 namespace Ntms.Infrastructure.Services;
 
@@ -153,7 +154,7 @@ public class ApplicantEligibilityService(NtmsDbContext db)
 
     public async Task<Standing> ReadAsync(int applicantId, CancellationToken ct)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = IndianTime.Today;
 
         var seats = await db.ProgrammeParticipants.AsNoTracking()
             .Where(p => p.ApplicantId == applicantId)

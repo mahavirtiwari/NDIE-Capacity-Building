@@ -36,6 +36,15 @@ public class SiteTextService(NtmsDbContext db)
     /// renaming it there — an orphaned override is ignored rather than shown,
     /// which is quiet but not wrong.
     /// </summary>
+    /*
+      Every entry here is a box in Super Admin's Site text editor, so an
+      entry no screen reads is a box somebody can spend an afternoon
+      wording to no effect. Five were removed for that reason: the
+      coordinator marksheet's menu row and its status, the applicant
+      app's sign-in tagline, and the Applications page's heading and
+      subtitle - all orphaned when the screens that used them were
+      reworked. A key is checked against the clients before it is added.
+    */
     private static readonly Entry[] Registry =
     [
         /* ------------------------------------------------------ sign-in page */
@@ -132,10 +141,6 @@ public class SiteTextService(NtmsDbContext db)
             null, true),
 
         /* --------------------------------- marksheet, coordinator's app */
-        new("coordinator.marksheet.title", "Marksheet (coordinator app)", "Menu row",
-            "Trainer marksheet"),
-        new("coordinator.marksheet.status", "Marksheet (coordinator app)", "Menu row status",
-            "Written and viva marks for the enrolled candidates"),
         new("coordinator.marksheet.noSkills", "Marksheet (coordinator app)", "Viva has no skills",
             "The viva has no skills set up yet, so it cannot be marked. They are added in the portal, under the program type.",
             null, true),
@@ -145,9 +150,6 @@ public class SiteTextService(NtmsDbContext db)
            word on it is here: the line under the logo, what the two fields are
            called, what they show before anything is typed, and the card that
            sends a first-time visitor to registration. */
-        new("app.signin.tagline", "Sign in (applicant app)", "Line under the logo",
-            "Training and certification for MSME professionals.",
-            "The name and the organisation above it come from Branding."),
         new("app.signin.title", "Sign in (applicant app)", "Heading", "Welcome"),
         new("app.signin.subtitle", "Sign in (applicant app)", "Subheading",
             "Sign in to your applicant account"),
@@ -249,10 +251,6 @@ public class SiteTextService(NtmsDbContext db)
         new("page.applicants.title", "Applicants", "Page heading", "Applicants"),
         new("page.applicants.subtitle", "Applicants", "Page subtitle",
             "Accounts created from the mobile app. The applicant ID is system generated at sign-up; email and mobile stay editable by the applicant.",
-            null, true),
-        new("page.applications.title", "Applications", "Page heading", "Applications"),
-        new("page.applications.subtitle", "Applications", "Page subtitle",
-            "Applications submitted from the mobile app. Scrutiny happens once, on the profile, so an application is accepted as it arrives.",
             null, true),
         new("page.branding.title", "Branding", "Page heading", "Branding"),
         new("page.branding.subtitle", "Branding", "Page subtitle",

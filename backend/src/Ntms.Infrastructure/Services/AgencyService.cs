@@ -212,7 +212,7 @@ public class AgencyService(
         /* Only once it has actually passed. A date in the future is a term,
            not something that has happened. */
         if (agency.EmpanelmentValidTill is { } expiry
-            && expiry < DateOnly.FromDateTime(DateTime.UtcNow))
+            && expiry < IndianTime.Today)
         {
             timeline.Add(new TimelineEventDto
             {
@@ -342,7 +342,7 @@ public class AgencyService(
            a fact about it, and must not stand between somebody and
            correcting its address. */
         if (dto.EmpanelmentValidTill is { } ended
-            && ended < DateOnly.FromDateTime(DateTime.UtcNow))
+            && ended < IndianTime.Today)
         {
             throw new AppException(
                 "That empanelment has already run out. Give a validity in the future.");
@@ -580,7 +580,7 @@ public class AgencyService(
            and correcting its address must not be refused for that. */
         if (entity.Status == RecordStatus.Active
             && entity.EmpanelmentValidTill is { } till
-            && till < DateOnly.FromDateTime(DateTime.UtcNow))
+            && till < IndianTime.Today)
         {
             /* Two ways to arrive here and they want different words: one
                is turning a suspended agency back on without extending its
@@ -656,7 +656,7 @@ public class AgencyService(
            by itself. */
         if (next == RecordStatus.Active
             && entity.EmpanelmentValidTill is { } till
-            && till < DateOnly.FromDateTime(DateTime.UtcNow))
+            && till < IndianTime.Today)
         {
             throw new AppException(
                 $"{entity.Name}'s empanelment ran out on {till:dd MMM yyyy}. "
@@ -743,7 +743,7 @@ public class AgencyService(
     {
         if (entity.Status != RecordStatus.Inactive) return;
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = IndianTime.Today;
         if (entity.EmpanelmentValidTill is { } till && till < today) return;
 
         var last = await db.AgencyStatusEvents.AsNoTracking()

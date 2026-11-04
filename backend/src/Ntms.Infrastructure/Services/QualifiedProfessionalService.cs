@@ -5,6 +5,7 @@ using Ntms.Domain.Common;
 using Ntms.Domain.Entities;
 using Ntms.Infrastructure.Identity;
 using Ntms.Infrastructure.Persistence;
+using Ntms.Infrastructure.Email;
 
 namespace Ntms.Infrastructure.Services;
 
@@ -42,7 +43,7 @@ public class QualifiedProfessionalService(NtmsDbContext db, ICurrentUser current
         DateTime? qualifiedTo,
         CancellationToken ct)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = IndianTime.Today;
 
         /* Scoped through the programme, which is where category, program type
            and state live — the same rule every other estate-wide list uses, so

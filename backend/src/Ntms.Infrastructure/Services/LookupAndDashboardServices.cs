@@ -8,6 +8,7 @@ using Ntms.Domain.Entities;
 using Ntms.Infrastructure.Mapping;
 using Ntms.Infrastructure.Identity;
 using Ntms.Infrastructure.Persistence;
+using Ntms.Infrastructure.Email;
 
 namespace Ntms.Infrastructure.Services;
 
@@ -779,7 +780,7 @@ public class DashboardService(NtmsDbContext db, ICurrentUser currentUser)
     private static List<SeriesPointDto> MonthSeries(
         IReadOnlyCollection<MonthCount> tallies, DateOnly? from, DateOnly? to)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = IndianTime.Today;
 
         /* Bounded by the chosen period where there is one, so the chart covers
            the same span as every other figure on the dashboard. */

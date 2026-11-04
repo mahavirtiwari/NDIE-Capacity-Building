@@ -7,6 +7,7 @@ using Ntms.Domain.Entities;
 using Ntms.Infrastructure.Mapping;
 using Ntms.Infrastructure.Persistence;
 using Ntms.Infrastructure.Storage;
+using Ntms.Infrastructure.Email;
 
 namespace Ntms.Infrastructure.Services;
 
@@ -54,7 +55,7 @@ public class FeeService(NtmsDbContext db)
     /// <summary>The fee an applicant will be charged for a program type today.</summary>
     public async Task<FeeStructureDto?> CurrentForProgramTypeAsync(int programTypeId, CancellationToken ct)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = IndianTime.Today;
         var fee = await Base
             .Where(f => f.ProgramTypeId == programTypeId
                         && f.Status == RecordStatus.Active
@@ -126,7 +127,7 @@ public class FeeService(NtmsDbContext db)
         entity.GstPercent = dto.GstPercent;
         entity.TdsOptions = EnumMaps.JoinInts(dto.TdsOptions);
         entity.EffectiveFrom = dto.EffectiveFrom == default
-            ? DateOnly.FromDateTime(DateTime.UtcNow)
+            ? IndianTime.Today
             : dto.EffectiveFrom;
         entity.EffectiveTo = dto.EffectiveTo;
         entity.Status = EnumMaps.ToStatus(dto.Status);
@@ -680,7 +681,7 @@ public class TrainingMaterialService(
         entity.VisibleToRoles = EnumMaps.JoinList(dto.VisibleToRoles);
         entity.Version = dto.Version;
         entity.PublishedOn = dto.PublishedOn == default
-            ? DateOnly.FromDateTime(DateTime.UtcNow)
+            ? IndianTime.Today
             : dto.PublishedOn;
         entity.DownloadAllowed = dto.DownloadAllowed;
         entity.Status = EnumMaps.ToStatus(dto.Status);

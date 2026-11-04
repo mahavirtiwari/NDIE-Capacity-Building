@@ -5,6 +5,7 @@ using Ntms.Domain.Common;
 using Ntms.Domain.Entities;
 using Ntms.Infrastructure.Mapping;
 using Ntms.Infrastructure.Persistence;
+using Ntms.Infrastructure.Email;
 
 namespace Ntms.Infrastructure.Services;
 
@@ -123,7 +124,7 @@ public class CurriculumService(NtmsDbContext db)
         entity.Objective = dto.Objective;
         entity.DurationDays = dto.DurationDays;
         entity.EffectiveFrom = dto.EffectiveFrom == default
-            ? DateOnly.FromDateTime(DateTime.UtcNow)
+            ? IndianTime.Today
             : dto.EffectiveFrom;
         entity.Status = EnumMaps.ToStatus(dto.Status);
     }
