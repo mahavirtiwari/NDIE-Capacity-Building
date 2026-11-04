@@ -73,6 +73,12 @@ public class MyNotificationsController(NotificationBroadcastService service) : A
         return Envelope(true);
     }
 
+    /// <summary>Everything on the panel, read by having been shown.</summary>
+    [HttpPost("read-all")]
+    public async Task<ActionResult<ApiEnvelope<int>>> ReadAll(
+        [FromQuery] int take = 50, CancellationToken ct = default) =>
+        Envelope(await service.MarkAllReadAsync(take, ct));
+
     /// <summary>This handset, and the token the push service knows it by.</summary>
     [HttpPost("devices")]
     public async Task<ActionResult<ApiEnvelope<bool>>> Register(

@@ -62,6 +62,8 @@ export interface PortalUser extends AuditInfo {
   districtCodes: number[];
   agencyId?: Id | null;
   agencyName?: string;
+  /** The code the scheme issued the agency, shown beside its name. */
+  agencyCode?: string | null;
   reportsToUserId?: Id | null;
   reportsToName?: string;
   /** LGD codes; the plain names are for display only. */
@@ -107,6 +109,8 @@ export interface UserNode {
   baseRole: Exclude<AppRole, 'Applicant'>;
   roleName?: string | null;
   agencyName?: string | null;
+  /** The code the scheme issued the agency, shown beside its name. */
+  agencyCode?: string | null;
   status: RecordStatus;
   /** The account above this one. Null for a root. */
   reportsToUserId?: Id | null;

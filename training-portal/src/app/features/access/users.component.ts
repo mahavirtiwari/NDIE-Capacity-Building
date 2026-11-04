@@ -76,7 +76,7 @@ const COLUMNS: ColumnDef[] = [
   /* No Scope column. Two chips counting categories and program types told
      nobody which ones, so the number could only prompt opening the row to
      find out - which is where the scope is set and shown in full. */
-  { key: 'agencyName', header: 'Agency', variant: 'muted' },
+  { key: 'agencyName', header: 'Agency' },
   /* When the account was appointed, not when it was last used. The
      register is read to find out who exists and since when; the last
      sign-in is a fact about one account and sits on its sheet. */
@@ -288,6 +288,17 @@ const TIER_DEPTH: Record<string, number> = {
               [class.text-danger]="$any(row).status !== 'Active'"
               [class.cell-muted]="$any(row).status === 'Active'"
             >{{ $any(row).statusReason }}</span>
+          }
+        </ng-template>
+        <!-- The agency, and the code the scheme issued it. -->
+        <ng-template appCell="agencyName" let-row>
+          @if ($any(row).agencyName) {
+            <div class="stack stack-xs">
+              <span class="cell-muted">{{ $any(row).agencyName }}</span>
+              @if ($any(row).agencyCode) {
+                <span class="cell-muted tabular">{{ $any(row).agencyCode }}</span>
+              }
+            </div>
           }
         </ng-template>
         <ng-template appCell="status" let-row>

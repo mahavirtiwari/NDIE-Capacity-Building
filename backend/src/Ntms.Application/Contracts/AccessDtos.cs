@@ -180,6 +180,7 @@ public class PortalUserDto : AuditDto
     public List<int> DistrictCodes { get; set; } = [];
     public int? AgencyId { get; set; }
     public string? AgencyName { get; set; }
+    public string? AgencyCode { get; set; }
     public int? ReportsToUserId { get; set; }
     public string? ReportsToName { get; set; }
     public int? StateCode { get; set; }
@@ -236,6 +237,7 @@ public class UserNodeDto
     public string BaseRole { get; set; } = string.Empty;
     public string? RoleName { get; set; }
     public string? AgencyName { get; set; }
+    public string? AgencyCode { get; set; }
     public string Status { get; set; } = string.Empty;
 
     /// <summary>

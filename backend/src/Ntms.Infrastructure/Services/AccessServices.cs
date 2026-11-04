@@ -469,6 +469,7 @@ public class UserService(
                 BaseRole = u.BaseRole.ToString(),
                 RoleName = u.Role!.Name,
                 AgencyName = u.Agency!.Name,
+                AgencyCode = u.Agency!.Code,
                 Status = u.Status.ToString(),
                 ReportsToUserId = u.ReportsToUserId,
             })

@@ -281,7 +281,13 @@ export class TopbarComponent {
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as HTMLElement;
     if (!target.closest('.topbar__user')) this.menuOpen.set(false);
-    if (!target.closest('.topbar__bell')) this.bellOpen.set(false);
+
+    /* Clicking away closes the panel too, and that is as much "I have
+       read them" as pressing the bell again. */
+    if (!target.closest('.topbar__bell') && this.bellOpen()) {
+      this.bellOpen.set(false);
+      this.notices.markAllRead();
+    }
   }
 
   protected toggleBell(): void {
@@ -289,6 +295,11 @@ export class TopbarComponent {
     this.bellOpen.set(opening);
     this.menuOpen.set(false);
     if (opening) this.notices.refresh();
+
+    /* Closing the panel is having read what was on it. Marked then
+       rather than on opening, so the ones that brought somebody here
+       are still highlighted while they read them. */
+    if (!opening) this.notices.markAllRead();
   }
 
   /**

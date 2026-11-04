@@ -62,7 +62,12 @@ type Tab =
     @if (programme(); as batch) {
       <app-page-header
         [title]="batch.programmeName"
-        [subtitle]="batch.programmeId + ' · ' + batch.agencyName"
+        [subtitle]="
+          batch.programmeId
+          + ' · '
+          + batch.agencyName
+          + (batch.agencyCode ? ' (' + batch.agencyCode + ')' : '')
+        "
         icon="calendar"
         [breadcrumbs]="[
           { label: 'Operations' },
@@ -340,7 +345,12 @@ type Tab =
               <div class="group__body">
                 <div class="fact">
                   <span class="fact__term">Implementing agency</span>
-                  <span class="fact__value">{{ batch.agencyName || '—' }}</span>
+                  <span class="fact__value">
+                    {{ batch.agencyName || '—' }}
+                    @if (batch.agencyCode) {
+                      <span class="cell-muted tabular">{{ batch.agencyCode }}</span>
+                    }
+                  </span>
                 </div>
                 <div class="fact">
                   <span class="fact__term">Coordinator</span>

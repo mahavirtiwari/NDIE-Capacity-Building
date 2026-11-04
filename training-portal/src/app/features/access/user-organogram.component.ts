@@ -123,7 +123,12 @@ interface Branch {
                 <span>{{ item.node.roleName }}</span>
               }
               @if (item.node.agencyName) {
-                <span>{{ item.node.agencyName }}</span>
+                <span>
+                  {{ item.node.agencyName }}
+                  @if (item.node.agencyCode) {
+                    <span class="tabular">({{ item.node.agencyCode }})</span>
+                  }
+                </span>
               }
               @if (item.node.status !== 'Active') {
                 <span class="org__off">Disabled</span>

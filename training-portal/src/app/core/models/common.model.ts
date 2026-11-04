@@ -254,6 +254,8 @@ export interface ReportProgramme {
   programmeCode: string;
   programmeName: string;
   agencyName?: string | null;
+  /** The code the scheme issued the agency, shown beside its name. */
+  agencyCode?: string | null;
   programTypeId: Id;
   programTypeName?: string | null;
   categoryName?: string | null;
@@ -375,6 +377,8 @@ export interface Faculty {
   programmeName?: string | null;
   programTypeName?: string | null;
   agencyName?: string | null;
+  /** The code the scheme issued the agency, shown beside its name. */
+  agencyCode?: string | null;
   stateName?: string | null;
   startDate: string;
   endDate: string;

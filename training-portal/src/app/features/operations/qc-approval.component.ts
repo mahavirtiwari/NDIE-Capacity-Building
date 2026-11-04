@@ -41,7 +41,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'serial', header: 'S.No', width: '64px', align: 'center' },
   { key: 'report', header: 'Report', width: '80px', align: 'center' },
   { key: 'programmeCode', header: 'Program ID', width: '150px' },
-  { key: 'agencyName', header: 'Agency name', width: '200px' },
+  { key: 'agencyName', header: 'Agency', width: '200px' },
   { key: 'programmeName', header: 'Program', variant: 'primary', width: '230px' },
   { key: 'venue', header: 'Venue', width: '170px' },
   { key: 'startDate', header: 'Start date', width: '120px' },
@@ -157,6 +157,16 @@ const COLUMNS: ColumnDef[] = [
              has been accepted, and it is not the agency's to hand out.
              Before that, the thing to read is the field record, which the
              program ID beside this opens. -->
+        <!-- The agency, and the code the scheme issued it. -->
+        <ng-template appCell="agencyName" let-row>
+          <div class="stack stack-xs">
+            <span>{{ $any(row).agencyName }}</span>
+            @if ($any(row).agencyCode) {
+              <span class="cell-muted tabular">{{ $any(row).agencyCode }}</span>
+            }
+          </div>
+        </ng-template>
+
         <ng-template appCell="report" let-row>
           @if (canOpenReport($any(row))) {
             <button

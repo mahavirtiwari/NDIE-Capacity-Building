@@ -150,6 +150,8 @@ export interface Program extends AuditInfo {
   programTypeName?: string;
   agencyId: Id;
   agencyName?: string;
+  /** The code the scheme issued the agency, shown beside its name. */
+  agencyCode?: string | null;
   coordinatorId: Id;
   coordinatorName?: string;
   coordinatorCode?: string;
@@ -316,6 +318,8 @@ export interface PublicProgramme {
   /** Open, Full, Already held, Awaiting approval or Closed. */
   registrationStatus: string;
   agencyName?: string | null;
+  /** The code the scheme issued the agency, shown beside its name. */
+  agencyCode?: string | null;
   minQualificationLabel?: string | null;
   minExperienceYears: number;
   minParticipants: number;
@@ -354,6 +358,8 @@ export interface QcProgramme {
   programTypeName?: string | null;
   agencyId?: Id | null;
   agencyName?: string | null;
+  /** The code the scheme issued the agency, shown beside its name. */
+  agencyCode?: string | null;
   venue?: string | null;
   mode?: string | null;
   state?: string | null;

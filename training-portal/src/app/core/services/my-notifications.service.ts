@@ -56,6 +56,33 @@ export class MyNotificationsService {
       });
   }
 
+  /**
+   * Marks everything on the panel read, because it has been shown.
+   *
+   * A notice counted as read only when it was clicked - and clicking one
+   * navigates away from whatever you were doing. So somebody who opened
+   * the bell, read all three and closed it again still had a three on
+   * the bell, and the only way to clear it was to follow every notice to
+   * wherever it led.
+   */
+  markAllRead(): void {
+    const current = this.state();
+    if (current.unread === 0) return;
+
+    this.state.set({
+      items: current.items.map((one) => ({ ...one, read: true })),
+      unread: 0,
+    });
+
+    this.api
+      .post<number>('my-notifications/read-all?take=25', {})
+      .pipe(
+        tap({ error: () => this.refresh() }),
+        catchError(() => of(null)),
+      )
+      .subscribe();
+  }
+
   /** Marks one read, and takes it off the count without waiting. */
   markRead(id: number): void {
     const current = this.state();

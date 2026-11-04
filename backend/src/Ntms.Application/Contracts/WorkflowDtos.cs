@@ -503,6 +503,14 @@ public class ProgrammeDto : AuditDto
     public string? ProgramTypeName { get; set; }
     public int AgencyId { get; set; }
     public string? AgencyName { get; set; }
+    /// <summary>
+    /// The agency's own code, shown beside its name.
+    ///
+    /// Two agencies can be called the same thing in two states, and the
+    /// name is what somebody types into the record. The code is what the
+    /// scheme issued, and it is what every other register is searched by.
+    /// </summary>
+    public string? AgencyCode { get; set; }
     public int? ExamPaperId { get; set; }
     public string? ExamPaperTitle { get; set; }
     public int CoordinatorId { get; set; }

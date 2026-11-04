@@ -11,6 +11,7 @@ public class ReportProgrammeDto
     public string ProgrammeName { get; set; } = string.Empty;
 
     public string? AgencyName { get; set; }
+    public string? AgencyCode { get; set; }
     public int ProgramTypeId { get; set; }
     public string? ProgramTypeName { get; set; }
     public string? CategoryName { get; set; }

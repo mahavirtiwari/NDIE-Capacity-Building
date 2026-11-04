@@ -41,7 +41,7 @@ import { ListState, searchTerm } from '../../shared/list-state';
 const COLUMNS: ColumnDef[] = [
   { key: 'serial', header: 'S.No', width: '56px', align: 'center' },
   { key: 'programmeId', header: 'Program ID', sortable: true, width: '130px' },
-  { key: 'agencyName', header: 'Agency name', width: '180px' },
+  { key: 'agencyName', header: 'Agency', width: '180px' },
   { key: 'programmeName', header: 'Program', variant: 'primary', width: '220px' },
   { key: 'venue', header: 'Venue', width: '120px', variant: 'muted' },
   { key: 'state', header: 'State/UT', width: '115px' },
@@ -232,6 +232,19 @@ const COLUMNS: ColumnDef[] = [
         </ng-template>
 <!-- The word alone. The icon repeated what the text beside it
              already said, in three shapes nobody had been taught. -->
+        <!-- The agency, and the code the scheme issued it. Two agencies
+             can be called the same thing in two states; the name is what
+             somebody typed into the record, and the code is what every
+             other register is searched by. -->
+        <ng-template appCell="agencyName" let-row>
+          <div class="stack stack-xs">
+            <span>{{ $any(row).agencyName }}</span>
+            @if ($any(row).agencyCode) {
+              <span class="cell-muted tabular">{{ $any(row).agencyCode }}</span>
+            }
+          </div>
+        </ng-template>
+
         <ng-template appCell="venue" let-row>
           <span>{{ $any(row).venue }}</span>
         </ng-template>

@@ -359,6 +359,53 @@ public class NotificationBroadcastService(
         await db.SaveChangesAsync(ct);
     }
 
+    /// <summary>
+    /// Marks everything the account can currently see as read.
+    ///
+    /// Opening the panel is reading them. A notice was marked read only
+    /// by being clicked, and clicking it navigates away - so somebody who
+    /// opened the bell, read all three and closed it again still had a
+    /// three on the bell, and the only way to clear it was to follow every
+    /// notice to wherever it led.
+    ///
+    /// Scoped to what MineAsync would return, so this cannot silence a
+    /// notice the reader has not been shown.
+    /// </summary>
+    public async Task<int> MarkAllReadAsync(int take, CancellationToken ct)
+    {
+        var applicantId = currentUser.ApplicantId;
+        var userId = applicantId is null ? currentUser.UserId : null;
+        if (applicantId is null && userId is null) return 0;
+
+        var mine = await MineAsync(take, ct);
+
+        var unread = mine.Items.Where(item => !item.IsRead).Select(item => item.Id).ToList();
+        if (unread.Count == 0) return 0;
+
+        /* Read again from the table rather than trusted from the list: two
+           panels open at once would otherwise both insert the same row and
+           the second would fail on the unique index. */
+        var already = await db.NotificationReads
+            .Where(r => unread.Contains(r.NotificationId)
+                        && r.ApplicantId == applicantId
+                        && r.UserId == userId)
+            .Select(r => r.NotificationId)
+            .ToListAsync(ct);
+
+        var adding = unread.Except(already).ToList();
+        if (adding.Count == 0) return 0;
+
+        db.NotificationReads.AddRange(adding.Select(id => new NotificationRead
+        {
+            NotificationId = id,
+            ApplicantId = applicantId,
+            UserId = userId,
+        }));
+
+        await db.SaveChangesAsync(ct);
+        return adding.Count;
+    }
+
     /* ----------------------------------------------------------- the rules */
 
     /// <summary>The sent notices addressed to this reader.</summary>

@@ -252,6 +252,7 @@ public class ReportService(NtmsDbContext db, ICurrentUser currentUser)
         ProgrammeCode = p.ProgrammeId,
         ProgrammeName = p.ProgrammeName,
         AgencyName = p.Agency?.Name,
+        AgencyCode = p.Agency?.Code,
         ProgramTypeId = p.ProgramTypeId,
         ProgramTypeName = p.ProgramType?.Name,
         CategoryName = p.Category?.Name,

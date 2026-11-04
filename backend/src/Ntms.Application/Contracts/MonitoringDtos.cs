@@ -472,6 +472,7 @@ public class FacultyDto : TrainerDto
     public string? ProgrammeName { get; set; }
     public string? ProgramTypeName { get; set; }
     public string? AgencyName { get; set; }
+    public string? AgencyCode { get; set; }
     public string? StateName { get; set; }
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
@@ -496,6 +497,7 @@ public class QcProgrammeDto
     public string? ProgramTypeName { get; set; }
     public int? AgencyId { get; set; }
     public string? AgencyName { get; set; }
+    public string? AgencyCode { get; set; }
     public string? Venue { get; set; }
     public string? Mode { get; set; }
     public string? State { get; set; }

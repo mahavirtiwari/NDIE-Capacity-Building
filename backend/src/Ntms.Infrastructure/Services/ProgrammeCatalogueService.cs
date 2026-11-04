@@ -237,6 +237,7 @@ public class ProgrammeCatalogueService(NtmsDbContext db, ApplicantEligibilitySer
                     RegistrationsOpen = dto.RegistrationsOpen,
                     RegistrationStatus = dto.RegistrationStatus,
                     AgencyName = dto.AgencyName,
+                    AgencyCode = dto.AgencyCode,
                     MinQualificationLabel = dto.MinQualificationLabel,
                     MinExperienceYears = dto.MinExperienceYears,
                     /* Described again rather than taken from the public
@@ -363,6 +364,7 @@ public class ProgrammeCatalogueService(NtmsDbContext db, ApplicantEligibilitySer
                 : "Closed",
 
             AgencyName = p.Agency?.Name,
+            AgencyCode = p.Agency?.Code,
             MinQualificationLabel = QualificationLevels.LabelFor(p.ProgramType?.MinQualification),
             MinExperienceYears = p.ProgramType?.MinExperienceYears ?? 0,
             /* The alternatives, where the track has them. The two fields

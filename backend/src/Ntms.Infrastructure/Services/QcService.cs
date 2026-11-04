@@ -503,6 +503,7 @@ public class QcService(
         ProgramTypeName = s.Programme?.ProgramType?.Name,
         AgencyId = s.Programme?.AgencyId,
         AgencyName = s.Programme?.Agency?.Name,
+        AgencyCode = s.Programme?.Agency?.Code,
         Venue = s.Programme?.Venue,
         Mode = s.Programme?.Mode.ToString(),
         State = s.Programme?.State?.Name,

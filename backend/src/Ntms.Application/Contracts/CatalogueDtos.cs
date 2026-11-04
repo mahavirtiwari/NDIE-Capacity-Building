@@ -52,6 +52,7 @@ public class PublicProgrammeDto
 
     /// <summary>The empanelled body running it. Named, but not contactable from here.</summary>
     public string? AgencyName { get; set; }
+    public string? AgencyCode { get; set; }
 
     /// <summary>What an applicant needs before they can apply for this track.</summary>
     public string? MinQualificationLabel { get; set; }
