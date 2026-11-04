@@ -158,7 +158,12 @@ export default function Programs() {
       renderItem={({ item }) => (
         <ProgramCard
           program={item}
-          onApply={() => router.push(`/apply/${item.programTypeId}`)}
+          onApply={() =>
+            router.push({
+              pathname: '/(tabs)/batches',
+              params: { programTypeId: String(item.programTypeId) },
+            })
+          }
           onDetails={() => setDetails(item)}
           onStanding={() => setStanding(item)}
         />
@@ -550,11 +555,17 @@ function ProgramCard({
             onPress={onStanding}
           />
         ) : program.canApply ? (
-          <Button
-            label={applied ? 'Apply again' : 'Apply'}
-            icon="arrow-forward"
-            onPress={onApply}
-          />
+          /* To the dates this track is running on, where a seat is taken.
+
+             It opened the track's own application form, which is the old
+             way in and has not been the way in for some time: scrutiny
+             moved to the profile form, which is asked once per discipline
+             and has already been accepted by the time a track can appear
+             on this list at all. So an applicant who had been accepted
+             pressed Apply and was handed the same eight sections over
+             again, under the heading "Your application", with nothing at
+             the end of it. What is left to do is pick a batch. */
+          <Button label="Register" icon="arrow-forward" onPress={onApply} />
         ) : (
           <Button label="Closed" variant="secondary" disabled onPress={onStanding} />
         )}

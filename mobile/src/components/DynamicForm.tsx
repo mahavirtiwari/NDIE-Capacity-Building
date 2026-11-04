@@ -113,6 +113,8 @@ export interface DynamicFormState {
    * mistake is reported where it was made rather than at the very end.
    */
   validateSection: (section: ProfileSection) => boolean;
+  /** Checks one field once the applicant has left it. */
+  checkOne: (section: ProfileSection, index: number | null, field: ProfileField) => void;
 
   /** Where one section stands, for the section list. */
   progressOf: (section: ProfileSection) => SectionProgress;
@@ -553,6 +555,37 @@ export function useDynamicForm(form: ProfileForm | null): DynamicFormState {
     [fieldsOf, entryCount, values, isVisible, checkField],
   );
 
+  /**
+   * Checks one field, as soon as the applicant has finished with it.
+   *
+   * Nothing was checked until Save and continue. Typing cleared whatever
+   * error the field already had and never set a new one, so somebody
+   * could put "ghshjsh" in an e-mail box, leave it, fill the rest of the
+   * section, and be told at the bottom of the page - about a field three
+   * screens up - that it was wrong all along. On blur rather than on
+   * every keystroke, because half a typed address is not a mistake.
+   */
+  const checkOne = useCallback(
+    (section: ProfileSection, index: number | null, field: ProfileField) => {
+      if (!isVisible(field, section, index, values)) return;
+
+      const key = storageKey(section, index, field.key);
+      const found: Record<string, string> = {};
+      checkField(field, key, found, values);
+
+      setErrors((current) => {
+        const message = found[key];
+        if (current[key] === message) return current;
+
+        const next = { ...current };
+        if (message) next[key] = message;
+        else delete next[key];
+        return next;
+      });
+    },
+    [checkField, isVisible, values],
+  );
+
   const validate = useCallback((): boolean => {
     const found: Record<string, string> = {};
     for (const section of liveSections) collectSection(section, found);
@@ -621,10 +654,28 @@ export function useDynamicForm(form: ProfileForm | null): DynamicFormState {
 
       if (errors[sectionKeyOf(section)]) wrong += 1;
 
+      /* Answered is not the same as answered correctly.
+
+         "wrong" was counted here and then thrown away: a section holding
+         "ghshjsh" in an e-mail box had every question filled in, so it
+         was reported Completed, and the applicant found out at Save and
+         continue that it was not. A section with a fault in it is in
+         progress, whatever else is true of it. */
       const complete =
-        required > 0 ? requiredAnswered === required : total > 0 && answered === total;
+        wrong === 0
+        && (required > 0 ? requiredAnswered === required : total > 0 && answered === total);
+
+      /* Nothing to answer is not the same as answered.
+
+         A repeatable section with no entries yet asks nothing at this
+         moment, and reading that as done marked "Educational
+         Qualifications" complete before the applicant had added a single
+         one. A section that genuinely holds no questions - every field
+         switched off by the designer - is the only one that passes with
+         nothing in it. */
+      const asksNothing = fields.length === 0;
       const status: SectionStatus =
-        total === 0 || complete ? 'done' : answered > 0 ? 'progress' : 'pending';
+        asksNothing || complete ? 'done' : answered > 0 || entries > 1 ? 'progress' : 'pending';
 
       return { status, answered, total, wrong };
     },
@@ -725,6 +776,7 @@ export function useDynamicForm(form: ProfileForm | null): DynamicFormState {
     setValue,
     validate,
     validateSection,
+    checkOne,
     progressOf,
     payload,
     prefill,
@@ -754,7 +806,7 @@ export function DynamicSectionView({
   /** Off where the section is the whole screen, or a one-line consent. */
   showCount?: boolean;
 }) {
-  const { values, errors, setValue, entryCount, addEntry, removeEntry } = state;
+  const { values, errors, setValue, entryCount, addEntry, removeEntry, checkOne } = state;
 
   /* Read here rather than beside its use further down: a section that
      does not repeat returns before that point, and a hook called after a
@@ -812,6 +864,7 @@ export function DynamicSectionView({
             error={errors[key]}
             stateAbove={stateAbove(field, index)}
             onChange={(value) => setValue(key, value)}
+            onLeave={() => checkOne(section, index, field)}
           />
         );
       });
@@ -937,6 +990,7 @@ function FieldRenderer({
   error,
   stateAbove,
   onChange,
+  onLeave,
 }: {
   field: ProfileField;
   entry: number;
@@ -945,6 +999,8 @@ function FieldRenderer({
   /** The LGD state answered before this field, for a district to follow. */
   stateAbove?: number | null;
   onChange: (value: FormValue) => void;
+  /** Checks this one answer once the applicant has finished with it. */
+  onLeave: () => void;
 }) {
   /* The description comes with the choice. It was dropped here, which
      is why none of the controls showed one however carefully they were
@@ -1129,6 +1185,7 @@ function FieldRenderer({
           required={field.validation.required}
           value={typeof value === 'string' ? value : ''}
           onChangeText={onChange}
+          onBlur={onLeave}
           placeholder={field.placeholder}
           hint={field.helpText}
           error={error}
@@ -1148,6 +1205,7 @@ function FieldRenderer({
           required={field.validation.required}
           value={typeof value === 'string' ? value : ''}
           onChangeText={(text) => onChange(upper ? text.toUpperCase() : text)}
+          onBlur={onLeave}
           placeholder={field.placeholder}
           hint={field.helpText}
           error={error}

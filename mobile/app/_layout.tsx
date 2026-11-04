@@ -105,10 +105,6 @@ function Routes() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="apply/[programTypeId]"
-          options={{ title: 'Apply', presentation: 'card' }}
-        />
         <Stack.Screen name="application/[id]" options={{ title: 'Application' }} />
         {/* One screen for the money: what is owed, what was paid, and the
             invoice for each. Invoices used to be a screen of their own

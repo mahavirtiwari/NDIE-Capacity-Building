@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -30,6 +30,12 @@ import { colors, font, radius, spacing } from '../../src/theme';
  */
 export default function Batches() {
   const router = useRouter();
+
+  /* Arrived from one track's card, where somebody pressed Register on it.
+     The list opens on that track's dates rather than on every batch the
+     scheme is running, which is what they asked to see. */
+  const params = useLocalSearchParams<{ programTypeId?: string }>();
+  const onlyType = Number(params.programTypeId) || null;
 
   const [rows, setRows] = useState<ApplicantBatch[] | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -66,8 +72,11 @@ export default function Batches() {
   const [eligibility, setEligibility] = useState<ApplicantBatch | null>(null);
 
   const shown = useMemo(
-    () => (rows ?? []).filter((row) => !onlyEligible || row.isEligible),
-    [rows, onlyEligible],
+    () =>
+      (rows ?? [])
+        .filter((row) => !onlyType || row.programTypeId === onlyType)
+        .filter((row) => !onlyEligible || row.isEligible),
+    [rows, onlyEligible, onlyType],
   );
 
   /** How many are being kept back, so the chip can say so. */
