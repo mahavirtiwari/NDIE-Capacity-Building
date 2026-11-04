@@ -95,6 +95,7 @@ public class ExamSittingService(
             ParticipantId = participant.Id,
             ProgrammeName = programme.ProgrammeName,
             OpensOn = programme.ExamDateTime,
+            ClosesOn = paper is null ? null : ClosesOn(programme, paper),
             HasPaper = paper is not null,
         };
 
@@ -191,6 +192,21 @@ public class ExamSittingService(
             return $"The paper opens on {IndianTime.Format(programme.ExamDateTime.Value)}.";
         }
 
+        /* And it closes when the exam is over, which is the paper's own
+           duration after it opened.
+
+           There was no closing time at all. A paper opened and stayed
+           open: a candidate with an attempt in hand could sit it weeks
+           after the course ended, after the report had been accepted and
+           after the scheme had reported on it - and the mark they got
+           then replaced the one that had been published. An examination
+           has a start and a finish, and the finish is the duration the
+           paper was set up with. */
+        if (ClosesOn(programme, paper) is { } closed && closed <= DateTime.UtcNow)
+        {
+            return $"The paper closed on {IndianTime.Format(closed)}.";
+        }
+
         if (used >= paper.MaxAttempts)
         {
             return paper.MaxAttempts == 1
@@ -205,6 +221,18 @@ public class ExamSittingService(
 
         return null;
     }
+
+    /// <summary>
+    /// When the examination is over: the paper's duration after the time it
+    /// was scheduled for. Null where no exam has been scheduled.
+    ///
+    /// The same figure that gives one candidate their clock gives the
+    /// examination its length, so a paper set up for ninety minutes is a
+    /// ninety-minute examination and not a ninety-minute sitting of a paper
+    /// that never closes.
+    /// </summary>
+    private static DateTime? ClosesOn(Programme programme, ExamPaper paper) =>
+        programme.ExamDateTime?.AddMinutes(paper.DurationMinutes);
 
     /* ---------------------------------------------------------- sitting */
 
@@ -272,13 +300,21 @@ public class ExamSittingService(
             throw new AppException(refusal);
 
         var now = DateTime.UtcNow;
+
+        /* The candidate's own clock, but never past the end of the
+           examination. Somebody who sits down ten minutes late has fifty
+           minutes of an hour-long paper, not an hour that runs ten minutes
+           past the point everybody else stopped writing. */
+        var deadline = now.AddMinutes(paper.DurationMinutes);
+        if (ClosesOn(programme, paper) is { } closes && closes < deadline) deadline = closes;
+
         var attempt = new ExamAttempt
         {
             ParticipantId = participant.Id,
             ExamPaperId = paper.Id,
             AttemptNo = attempts.Count == 0 ? 1 : attempts.Max(a => a.AttemptNo) + 1,
             StartedOn = now,
-            ExpiresOn = now.AddMinutes(paper.DurationMinutes),
+            ExpiresOn = deadline,
             Status = ExamAttemptStatus.InProgress,
             SelfieContentType = selfieContentType,
             SelfieTakenOn = now,

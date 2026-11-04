@@ -6,7 +6,16 @@ import * as ImagePicker from 'expo-image-picker';
 import { ApiError } from '../../src/api/client';
 import { exam } from '../../src/api/endpoints';
 import type { ExamAvailability } from '../../src/api/types';
-import { Banner, Button, Card, DetailRow, Loading, Muted, Title } from '../../src/components/ui';
+import {
+  Banner,
+  Button,
+  Card,
+  DetailRow,
+  Loading,
+  Muted,
+  Title,
+  shortDateTime,
+} from '../../src/components/ui';
 import { useSiteText } from '../../src/content/SiteTextContext';
 import { colors, font, radius, spacing } from '../../src/theme';
 
@@ -127,6 +136,15 @@ export default function ExamIntro() {
       {info.hasPaper ? (
         <>
           <Card>
+            {/* When the examination is, and not only how long it lasts. The
+                paper closes at the end of it, so a candidate who opens this
+                screen needs the hour as well as the duration. */}
+            {info.opensOn ? (
+              <DetailRow label="Opens" value={shortDateTime(info.opensOn)} />
+            ) : null}
+            {info.closesOn ? (
+              <DetailRow label="Closes" value={shortDateTime(info.closesOn)} />
+            ) : null}
             <DetailRow label="Time allowed" value={`${info.durationMinutes} minutes`} />
             <DetailRow
               label="Questions"

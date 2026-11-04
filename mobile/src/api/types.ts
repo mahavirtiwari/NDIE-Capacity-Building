@@ -668,6 +668,11 @@ export interface ExamAvailability {
   negativeMarking: boolean;
   /** When the paper opens. Null when no exam has been scheduled. */
   opensOn?: string | null;
+  /**
+   * When it closes: the paper's duration after it opened. Null when no exam
+   * has been scheduled or no paper is set for the batch.
+   */
+  closesOn?: string | null;
   attemptsUsed: number;
   maxAttempts: number;
   canSit: boolean;

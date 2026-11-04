@@ -27,6 +27,16 @@ public class ExamAvailabilityDto
     /// <summary>When the paper opens. Null when no exam has been scheduled.</summary>
     public DateTime? OpensOn { get; set; }
 
+    /// <summary>
+    /// When it closes: the paper's duration after it opened. Null when no
+    /// exam has been scheduled or no paper is set for the batch.
+    ///
+    /// Sent so the app can say when the examination is rather than only
+    /// when it begins, and so a candidate who opens the screen late can
+    /// see how much of it is left.
+    /// </summary>
+    public DateTime? ClosesOn { get; set; }
+
     public int AttemptsUsed { get; set; }
     public int MaxAttempts { get; set; }
 
