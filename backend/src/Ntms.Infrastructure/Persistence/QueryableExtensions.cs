@@ -119,7 +119,16 @@ public static class ProgrammeVisibility
         this IQueryable<Programme> query, DateOnly today) =>
         query.Where(p => Approved.Contains(p.Status)
                          && p.RegistrationsOpen
-                         && p.StartDate >= today
+                         /* Strictly after today, because a batch that
+                            starts today has started: RegistrationWindow
+                            refuses it, and this listed it anyway. The
+                            applicant was shown a card reading "30 left"
+                            and "Tap to register" over a banner saying the
+                            program had begun and was taking nobody -
+                            three statements about one batch, two of them
+                            wrong. The two rules now draw the line in the
+                            same place. */
+                         && p.StartDate > today
                          && (p.MaxParticipants <= 0
                              || p.ParticipantCount < p.MaxParticipants));
 }

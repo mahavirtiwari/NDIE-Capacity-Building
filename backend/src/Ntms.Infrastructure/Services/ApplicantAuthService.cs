@@ -324,7 +324,11 @@ public class ApplicantAuthService(
         var visible = cleared.Concat(openWithoutForm).Distinct().ToList();
         if (visible.Count == 0) return [];
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        /* India's today, like every other date in this system. The server
+           runs on UTC and a course does not: between half past six in the
+           evening and midnight, UTC is still yesterday, and a batch that
+           had started was offered for one more evening. */
+        var today = DateOnly.FromDateTime(IndianTime.From(DateTime.UtcNow));
 
         /* ---- a track is only offered once a batch exists to join -------
            A program type is a description of a course; it is not something

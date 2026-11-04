@@ -83,7 +83,7 @@ public class ProgrammeCatalogueService(NtmsDbContext db, ApplicantEligibilitySer
     public async Task<PagedResult<PublicProgrammeDto>> SearchAsync(
         PublicProgrammeFilterDto filter, PagedRequest request, CancellationToken ct)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(IndianTime.From(DateTime.UtcNow));
         var search = filter.Search?.Trim();
 
         var query = Base
@@ -119,7 +119,7 @@ public class ProgrammeCatalogueService(NtmsDbContext db, ApplicantEligibilitySer
     public async Task<List<PublicProgrammeDto>> OpenAsync(
         int? programTypeId, int? stateCode, CancellationToken ct)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(IndianTime.From(DateTime.UtcNow));
 
         var rows = await Base
             .OpenForRegistration(today)
@@ -145,7 +145,7 @@ public class ProgrammeCatalogueService(NtmsDbContext db, ApplicantEligibilitySer
         if (!await db.Applicants.AsNoTracking().AnyAsync(a => a.Id == applicantId, ct))
             throw AppException.NotFound("Applicant");
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(IndianTime.From(DateTime.UtcNow));
 
         /* The disciplines this applicant may join a batch in: the ones they
            hold an accepted profile in, plus any that ask for no profile at
