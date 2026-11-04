@@ -2,57 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "training-portal",
+      "name": "portal",
       "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "--prefix",
-        "training-portal",
-        "run",
-        "start"
-      ],
-      "port": 4200,
-      "autoPort": false
-    },
-    {
-      "name": "applicant-app",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "--prefix",
-        "mobile",
-        "run",
-        "web"
-      ],
-      "port": 8081
-    },
-    {
-      "name": "api",
-      "runtimeExecutable": "dotnet",
-      "runtimeArgs": [
-        "run",
-        "--project",
-        "backend/src/Ntms.Api",
-        "--launch-profile",
-        "http",
-        "--",
-        "--urls",
-        "http://localhost:5210"
-      ],
-      "port": 5210,
-      "autoPort": false
-    },
-    {
-      "name": "coordinator-app",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "--prefix",
-        "mobile-coordinator",
-        "run",
-        "web",
-        "--",
-        "--port",
-        "8082"
-      ],
-      "port": 8082
+      "runtimeArgs": ["start", "--prefix", "training-portal", "--", "--port", "4200"],
+      "port": 4200
     }
   ]
 }

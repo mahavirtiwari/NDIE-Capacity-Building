@@ -11,6 +11,7 @@ import {
   GeneratedCredentials,
   Id,
   PortalUser,
+  UserNode,
   RecordStatus,
   UserHistory,
 } from '../models';
@@ -61,6 +62,17 @@ export class UserService extends CrudService<PortalUser> {
    */
   aadhaar(id: Id): Observable<string | null> {
     return this.api.get<string | null>(`${this.resource}/${id}/aadhaar`);
+  }
+
+  /**
+   * The chain of command, flat, for the chart that draws it.
+   *
+   * Unpaged: a tree cannot be read a page at a time. Scoped on the server
+   * like every other read, so what comes back is this account's own subtree
+   * - and itself, which the register leaves out.
+   */
+  organogram(): Observable<UserNode[]> {
+    return this.api.get<UserNode[]>(`${this.resource}/organogram`);
   }
 
   /**

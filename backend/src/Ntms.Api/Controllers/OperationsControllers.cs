@@ -93,6 +93,13 @@ public class UsersController(UserService service) : ApiControllerBase
         [FromQuery] string? baseRole, [FromQuery] string? status, CancellationToken ct) =>
         Envelope(await service.AllAsync(baseRole, status, ct));
 
+    /// <summary>The chain of command, for the chart that draws it.</summary>
+    [HttpGet("organogram")]
+    [HasPermission(Permissions.UsersView)]
+    public async Task<ActionResult<ApiEnvelope<List<UserNodeDto>>>> Organogram(
+        CancellationToken ct) =>
+        Envelope(await service.OrganogramAsync(ct));
+
     [HttpGet("{id:int}")]
     [HasPermission(Permissions.UsersView)]
     public async Task<ActionResult<ApiEnvelope<PortalUserDto>>> Get(int id, CancellationToken ct) =>

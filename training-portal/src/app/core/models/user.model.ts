@@ -90,3 +90,24 @@ export interface PortalUser extends AuditInfo {
   statusChangedBy?: string | null;
   status: RecordStatus;
 }
+
+/**
+ * One account in the organogram: who they are, what they are, and who they
+ * answer to.
+ *
+ * Deliberately thin. The chart is the shape of the delegation chain and
+ * nothing else — a card carrying an account's allocation, contact details
+ * and status would be the register again, drawn sideways, and the register
+ * is one click away.
+ */
+export interface UserNode {
+  id: Id;
+  userCode: string;
+  fullName: string;
+  baseRole: Exclude<AppRole, 'Applicant'>;
+  roleName?: string | null;
+  agencyName?: string | null;
+  status: RecordStatus;
+  /** The account above this one. Null for a root. */
+  reportsToUserId?: Id | null;
+}

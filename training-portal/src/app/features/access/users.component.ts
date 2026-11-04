@@ -50,6 +50,7 @@ import { CanDirective } from '../../shared/directives/can.directive';
 import { IconComponent } from '../../shared/components/icon.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
+import { UserOrganogramComponent } from './user-organogram.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
 import { StatusToggleComponent } from '../../shared/components/status-toggle.component';
 import { ScopePickerComponent } from '../../shared/components/scope-picker.component';
@@ -124,6 +125,7 @@ const TIER_DEPTH: Record<string, number> = {
     ReactiveFormsModule,
     DatePipe,
     PageHeaderComponent,
+    UserOrganogramComponent,
     DataTableComponent,
     CellTemplateDirective,
     StatusBadgeComponent,
@@ -157,6 +159,43 @@ const TIER_DEPTH: Record<string, number> = {
         {{ isCoordinatorView() ? 'New coordinator' : 'New user' }}
       </button>
     </app-page-header>
+
+    <!-- The same people, two ways of looking at them. The register answers
+         "who is there" and the chart answers "who answers to whom", which
+         is recorded on every account and was readable from no screen. Not
+         offered on the coordinators register: a coordinator reports to the
+         agency that appointed them and there is nothing below, so the chart
+         of one would be a list with an indent. -->
+    @if (!isCoordinatorView()) {
+      <div class="seg" role="tablist" aria-label="How to view the users">
+        <button
+          type="button" class="seg__btn" role="tab"
+          [class.is-on]="view() === 'list'"
+          [attr.aria-selected]="view() === 'list'"
+          (click)="view.set('list')"
+        >
+          <app-icon name="list" [size]="15" />
+          Register
+        </button>
+        <button
+          type="button" class="seg__btn" role="tab"
+          [class.is-on]="view() === 'chart'"
+          [attr.aria-selected]="view() === 'chart'"
+          (click)="view.set('chart')"
+        >
+          <app-icon name="users" [size]="15" />
+          Organogram
+        </button>
+      </div>
+    }
+
+    @if (view() === 'chart' && !isCoordinatorView()) {
+      <section class="card">
+        <div class="card__body">
+          <app-user-organogram />
+        </div>
+      </section>
+    } @else {
 
     <section class="card">
       <div class="card__body card__body--tight">
@@ -323,6 +362,7 @@ const TIER_DEPTH: Record<string, number> = {
         </ng-template>
       </app-data-table>
     </section>
+    }
 
     @if (details(); as row) {
       <app-modal
@@ -928,6 +968,17 @@ export class UsersComponent {
 
   protected readonly exportRows = () => this.list.fetchAll();
   protected readonly isCoordinatorView = computed(() => this.scope() === 'coordinators');
+
+  /**
+   * Which of the two views is showing: the register, or the chart of who
+   * answers to whom.
+   *
+   * The register opens, because it is what somebody comes here to do -
+   * create an account, switch one off, correct an address. The chart is
+   * for a question that gets asked less often and is asked about
+   * somebody else.
+   */
+  protected readonly view = signal<'list' | 'chart'>('list');
 
   /**
    * What may be assigned when creating somebody: the tier below this one.

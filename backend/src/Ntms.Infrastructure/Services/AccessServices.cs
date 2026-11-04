@@ -435,6 +435,45 @@ public class UserService(
     /// listing them a second time here made one register of four different
     /// kinds of account that nobody could scan.
     /// </param>
+    /// <summary>
+    /// Every account this one can see, as the chain of command rather than
+    /// as a list.
+    ///
+    /// The register answers "who is there"; this answers "who answers to
+    /// whom", which the register cannot show at all - the reporting line is
+    /// recorded on every account and was readable from no screen. A manager
+    /// looking for the coordinator behind a batch, or an Admin checking that
+    /// an agency sits under the manager who empanelled it, had the data in
+    /// front of them and no way to see it.
+    ///
+    /// Unpaged, because a tree cannot be read a page at a time, and scoped
+    /// like everything else: the Super Admin and the Ministry get the whole
+    /// chain, everybody else gets their own subtree and themselves. Themselves
+    /// included here where the register leaves them out - the register is the
+    /// people you appoint, and a chart of them with the root missing is a
+    /// handful of orphans.
+    ///
+    /// Thin by design, and ordered so the drawing is stable: tier first, then
+    /// name.
+    /// </summary>
+    public async Task<List<UserNodeDto>> OrganogramAsync(CancellationToken ct) =>
+        await db.Users.AsNoTracking()
+            .VisibleTo(currentUser)
+            .OrderBy(u => u.BaseRole)
+            .ThenBy(u => u.FullName)
+            .Select(u => new UserNodeDto
+            {
+                Id = u.Id,
+                UserCode = u.UserCode,
+                FullName = u.FullName,
+                BaseRole = u.BaseRole.ToString(),
+                RoleName = u.Role!.Name,
+                AgencyName = u.Agency!.Name,
+                Status = u.Status.ToString(),
+                ReportsToUserId = u.ReportsToUserId,
+            })
+            .ToListAsync(ct);
+
     public async Task<PagedResult<PortalUserDto>> ListAsync(
         PagedRequest request, string? baseRole, int? roleId, int? agencyId,
         string? state, string? status, string? excludeBaseRoles, CancellationToken ct)

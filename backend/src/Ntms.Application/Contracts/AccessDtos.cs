@@ -219,6 +219,32 @@ public class PortalUserDto : AuditDto
     public string? StatusChangedBy { get; set; }
 }
 
+/// <summary>
+/// One account as the organogram draws it: who they are, what they are, and
+/// who they answer to.
+///
+/// Deliberately thin. The chart is the shape of the delegation chain and
+/// nothing else - a card carrying an account's allocation, contact details
+/// and status would be the register again, drawn sideways, and the register
+/// is one click away.
+/// </summary>
+public class UserNodeDto
+{
+    public int Id { get; set; }
+    public string UserCode { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string BaseRole { get; set; } = string.Empty;
+    public string? RoleName { get; set; }
+    public string? AgencyName { get; set; }
+    public string Status { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The account above this one. Null for a root: the Super Admin, and
+    /// anything predating the chain being recorded.
+    /// </summary>
+    public int? ReportsToUserId { get; set; }
+}
+
 public class PortalUserUpsertDto
 {
     public string FullName { get; set; } = string.Empty;
