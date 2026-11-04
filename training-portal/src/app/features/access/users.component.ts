@@ -1463,6 +1463,33 @@ export class UsersComponent {
     this.programTypeIds.set(row?.programTypeIds ?? []);
     this.stateCodes.set(row?.stateCodes ?? []);
     this.districtCodes.set(row?.districtCodes ?? []);
+
+    /* What this account is allocated, fetched for the one being edited.
+ 
+       The register used to carry it on every row, and a coordinator is
+       allocated districts by the hundred: a page of twenty-five came to
+       fifty-seven kilobytes, of which fifty-five were district codes
+       nothing on the screen reads. It is asked for here, where it is
+       actually used, and the boxes fill in as it lands. */
+    if (row?.id) {
+      this.service.getById(row.id).subscribe({
+        next: (full) => {
+          /* Only if the dialog is still on this account: a reader who
+             closed it and opened another must not have the first one's
+             allocation dropped into the second. */
+          if (this.editing()?.id !== row.id) return;
+
+          this.categoryIds.set(full.categoryIds ?? []);
+          this.subCategoryIds.set(full.subCategoryIds ?? []);
+          this.programTypeIds.set(full.programTypeIds ?? []);
+          this.stateCodes.set(full.stateCodes ?? []);
+          this.districtCodes.set(full.districtCodes ?? []);
+        },
+        /* The form still opens: everything but the allocation came with
+           the row, and a save sends what the pickers hold. */
+        error: () => undefined,
+      });
+    }
     this.form.reset({
       fullName: row?.fullName ?? '',
       designation: row?.designation ?? '',

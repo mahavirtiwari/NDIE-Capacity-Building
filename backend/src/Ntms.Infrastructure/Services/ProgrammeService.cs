@@ -40,6 +40,32 @@ public class ProgrammeService(
         .Include(p => p.Participants).ThenInclude(x => x.Application)
         .WithinScope(currentUser);
 
+    /// <summary>
+    /// The same batches without their registers or their timetables.
+    ///
+    /// For the lists. A register of batches shows a count of who is on
+    /// each one, not who they are - but the row it was built from carried
+    /// every participant with their name, e-mail, mobile, marks and
+    /// certificate number, and every session with its times. Twenty-five
+    /// rows came to a hundred and thirty kilobytes, of which five
+    /// kilobytes a row was a list nothing on the screen reads.
+    ///
+    /// ParticipantCount is a column on the batch, so the number the
+    /// register does show costs nothing. The full register is on the
+    /// batch's own page, which uses the query above.
+    /// </summary>
+    private IQueryable<Programme> Summary => db.Programmes.AsNoTracking()
+        .Include(p => p.Curriculum)!.ThenInclude(c => c!.ProgramType)
+        .Include(p => p.Category)
+        .Include(p => p.SubCategory)
+        .Include(p => p.ProgramType)
+        .Include(p => p.Agency)
+        .Include(p => p.Coordinator)
+        .Include(p => p.OperationManager)
+        .Include(p => p.ExamPaper)
+        .Include(p => p.State)
+        .WithinScope(currentUser);
+
     public async Task<PagedResult<ProgrammeDto>> ListAsync(
         PagedRequest request, string? state, DateOnly? startDate, DateOnly? endDate,
         string? mode, int? agencyId, string? status, CancellationToken ct)
@@ -47,7 +73,7 @@ public class ProgrammeService(
         var programMode = EnumMaps.ParseEnumOrNull<ProgramMode>(mode);
         var programStatus = EnumMaps.ParseEnumOrNull<ProgramStatus>(status);
 
-        var query = Base
+        var query = Summary
             .WhereIf(!string.IsNullOrWhiteSpace(state), p => p.State!.Name == state!.ToUpperInvariant())
             .WhereIf(startDate.HasValue, p => p.StartDate >= startDate)
             .WhereIf(endDate.HasValue, p => p.EndDate <= endDate)
@@ -66,7 +92,7 @@ public class ProgrammeService(
     public async Task<List<ProgrammeDto>> AllAsync(string? status, CancellationToken ct)
     {
         var programStatus = EnumMaps.ParseEnumOrNull<ProgramStatus>(status);
-        var rows = await Base
+        var rows = await Summary
             .WhereIf(programStatus.HasValue, p => p.Status == programStatus)
             .OrderByDescending(p => p.StartDate).ToListAsync(ct);
         return [.. rows.Select(p => p.ToDto())];

@@ -597,6 +597,19 @@ public class DbSeeder(
             .Include(u => u.Categories).Include(u => u.SubCategories)
             .Include(u => u.ProgramTypes).Include(u => u.States).Include(u => u.Districts)
             .Where(u => u.BaseRole != BaseRole.SuperAdmin && u.BaseRole != BaseRole.Ministry)
+            /* One query per collection instead of one join across all five.
+
+               Joined together they multiply. A coordinator allocated 763
+               districts, 36 states and a handful of program types produces
+               over a hundred thousand rows for that one account, and every
+               scoped account in the estate is in this query at once. On a
+               register of four hundred coordinators it ran for sixty-one
+               seconds and timed out - at startup, before the site had
+               served anything, so the site did not come up at all.
+
+               The same reason AccessServices splits its own version of
+               this query, written down there years before this one was. */
+            .AsSplitQuery()
             .ToListAsync(ct);
 
         foreach (var user in scopedUsers)

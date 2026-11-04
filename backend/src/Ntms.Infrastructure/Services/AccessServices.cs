@@ -428,6 +428,27 @@ public class UserService(
            caller has no business seeing. */
         .VisibleTo(currentUser);
 
+    /// <summary>
+    /// The same accounts without what they are allocated.
+    ///
+    /// For the register, which shows a name, a role, an agency and a
+    /// status. It was built from the query above, so every row carried
+    /// that account's whole allocation - and a coordinator is allocated
+    /// districts by the hundred. One page of twenty-five came to
+    /// fifty-seven kilobytes, of which fifty-five were district codes
+    /// nothing on the screen reads, fetched in five extra round trips.
+    ///
+    /// The allocation is what the edit form is for, and that form asks
+    /// for the one account it is about.
+    /// </summary>
+    private IQueryable<PortalUser> Summary => db.Users.AsNoTracking()
+        .Include(u => u.Role)
+        .Include(u => u.Agency)
+        .Include(u => u.ReportsToUser)
+        .Include(u => u.State)
+        .Include(u => u.District)
+        .VisibleTo(currentUser);
+
     /// <param name="excludeBaseRoles">
     /// Tiers to leave out, comma separated. The portal users screen uses it
     /// to drop the two that have screens of their own: an agency login
@@ -501,7 +522,7 @@ public class UserService(
            record carries on working everywhere else. */
         var self = currentUser.UserId ?? 0;
 
-        var query = Base
+        var query = Summary
             .Where(u => u.Id != self)
             .WhereIf(role.HasValue, u => u.BaseRole == role)
             .WhereIf(excluded.Count > 0, u => !excluded.Contains(u.BaseRole))
@@ -562,7 +583,9 @@ public class UserService(
     public async Task<List<PortalUserDto>> AllAsync(string? baseRole, string? status, CancellationToken ct)
     {
         var role = EnumMaps.ParseEnumOrNull<BaseRole>(baseRole);
-        var rows = await Base
+        /* A dropdown's worth of people: a name and an ID. Allocations are
+           what the edit form is for, and it asks for the one account. */
+        var rows = await Summary
             .WhereIf(role.HasValue, u => u.BaseRole == role)
             .WhereIf(!string.IsNullOrWhiteSpace(status), u => u.Status == EnumMaps.ToStatus(status))
             .OrderBy(u => u.FullName).ToListAsync(ct);
