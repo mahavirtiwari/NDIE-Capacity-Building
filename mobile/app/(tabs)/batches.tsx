@@ -226,29 +226,79 @@ export default function Batches() {
 
           <Text style={styles.code}>{item.programmeId}</Text>
 
-          <Text style={styles.meta}>
-            {shortDate(item.startDate)} – {shortDate(item.endDate)} · {item.durationDays} days
-          </Text>
-          <Text style={styles.meta} numberOfLines={1}>
-            {item.mode === 'Virtual'
-              ? 'Online'
-              : [item.venue, item.city, item.state].filter(Boolean).join(', ')}
-          </Text>
-          {item.agencyName ? <Text style={styles.meta}>By {item.agencyName}</Text> : null}
+          {/* How it is held, said as a heading rather than as one more
+              line of grey text. Online and a street address were the
+              same unlabelled row, so the venue read as a stray line and
+              nobody could tell at a glance which programs they had to
+              travel to. */}
+          <View style={styles.modeRow}>
+            <View style={[styles.mode, modeTone(item.mode)]}>
+              <Ionicons
+                name={item.mode === 'Virtual' ? 'videocam' : 'location'}
+                size={13}
+                color={colors.white}
+              />
+              <Text style={styles.modeText}>{modeLabel(item.mode)}</Text>
+            </View>
+          </View>
+
+          <View style={styles.line}>
+            <Ionicons name="calendar-outline" size={15} color={colors.ink500} />
+            <Text style={styles.meta}>
+              {shortDate(item.startDate)} – {shortDate(item.endDate)}
+              {' · '}
+              {item.durationDays === 1 ? '1 day' : `${item.durationDays} days`}
+            </Text>
+          </View>
+
+          {/* The address, where there is one to go to. Given room to
+              wrap: an address cut off at one line is an address nobody
+              can act on. */}
+          {item.mode === 'Virtual' ? (
+            <View style={styles.line}>
+              <Ionicons name="link-outline" size={15} color={colors.ink500} />
+              <Text style={styles.meta}>
+                Joining link is sent to you when you register
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.venue}>
+              <Ionicons name="location-outline" size={15} color={colors.brand700} />
+              <View style={styles.venueBody}>
+                <Text style={styles.venueLabel}>Venue</Text>
+                <Text style={styles.venueText}>
+                  {[item.venue, item.city, item.state].filter(Boolean).join(', ')
+                    || 'To be confirmed'}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {item.agencyName ? (
+            <View style={styles.line}>
+              <Ionicons name="business-outline" size={15} color={colors.ink500} />
+              <Text style={styles.meta}>{item.agencyName}</Text>
+            </View>
+          ) : null}
 
           {/* What the program asks of somebody, on the card that offers
               it. Shown whether or not they qualify: before registering
               because it is worth knowing what will be checked, and after
               a refusal because "your profile does not meet any of them"
-              is only half an answer without them. */}
-          {item.eligibilityRoutes.length > 0 ? (
+              is only half an answer without them.
+
+              And shown whenever the track asks anything at all, not only
+              where it lists alternative ways in: a track with one plain
+              minimum - a degree and two years - asks just as much of
+              somebody, and the card said nothing about it. */}
+          {asksSomething(item) ? (
             <Pressable
               style={styles.eligibility}
               hitSlop={6}
               onPress={() => setEligibility(item)}
             >
               <Ionicons name="school-outline" size={15} color={colors.brand700} />
-              <Text style={styles.eligibilityText}>View eligibility</Text>
+              <Text style={styles.eligibilityText}>Minimum eligibility</Text>
               {!item.isEligible ? (
                 <View style={styles.eligibilityFlag}>
                   <Text style={styles.eligibilityFlagText}>Not met</Text>
@@ -305,6 +355,32 @@ export default function Batches() {
           </Text>
 
           <ScrollView style={styles.sheetBody} contentContainerStyle={styles.sheetBodyInner}>
+            {/* A track with no alternative ways in still has a bar, and
+                the sheet opened empty on one. Its single minimum is
+                stated the same way a route's requirements are. */}
+            {eligibility && eligibility.eligibilityRoutes.length === 0 ? (
+              <View style={styles.way}>
+                {eligibility.minQualificationLabel ? (
+                  <View style={styles.ask}>
+                    <Ionicons name="school-outline" size={14} color={colors.ink600} />
+                    <Text style={styles.askText}>
+                      {eligibility.minQualificationLabel} or above
+                    </Text>
+                  </View>
+                ) : null}
+                {eligibility.minExperienceYears > 0 ? (
+                  <View style={styles.ask}>
+                    <Ionicons name="briefcase-outline" size={14} color={colors.ink600} />
+                    <Text style={styles.askText}>
+                      {eligibility.minExperienceYears === 1
+                        ? '1 year of experience'
+                        : `${eligibility.minExperienceYears} years of experience`}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
             {(eligibility?.eligibilityRoutes ?? []).map((route, index) => (
               <View
                 key={route.qualificationCode}
@@ -360,6 +436,34 @@ export default function Batches() {
 /* Sizes and colours from the tokens, like every other screen. This one had
    grown its own set of numbers, which is how a 12pt line in the palest grey
    ends up carrying the dates and the venue. */
+/** How a batch is held, as a heading rather than a field value. */
+function modeLabel(mode: string): string {
+  if (mode === 'Virtual') return 'Online';
+  if (mode === 'Hybrid') return 'Online and in person';
+  return 'In person';
+}
+
+/** Its colour: being somewhere is a different kind of fact from logging in. */
+function modeTone(mode: string) {
+  return mode === 'Virtual' ? styles.modeOnline : styles.modePlace;
+}
+
+/**
+ * Whether the track asks anything of the applicant.
+ *
+ * Any way in, a minimum qualification, or a number of years. The card
+ * offered the eligibility sheet only where alternative routes were set
+ * up, so a track with one plain minimum - a degree and two years - asked
+ * just as much of somebody and said nothing about it.
+ */
+function asksSomething(batch: ApplicantBatch): boolean {
+  return (
+    batch.eligibilityRoutes.length > 0
+    || !!batch.minQualificationLabel
+    || batch.minExperienceYears > 0
+  );
+}
+
 const styles = StyleSheet.create({
   list: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
   header: { gap: spacing.md },
@@ -458,8 +562,51 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.lg,
-    gap: 4,
+    gap: 6,
   },
+
+  /* How it is held, as a heading. */
+  modeRow: { flexDirection: 'row', marginTop: 2, marginBottom: 2 },
+  mode: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+  },
+  modeOnline: { backgroundColor: colors.ink600 },
+  modePlace: { backgroundColor: colors.brand600 },
+  modeText: {
+    fontSize: font.xs,
+    fontWeight: '800',
+    color: colors.white,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+
+  /* One fact, with the icon that says what kind of fact it is. */
+  line: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+
+  /* The address gets a label and room to wrap: an address cut off at
+     one line is an address nobody can act on. */
+  venue: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 7,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.brand50,
+  },
+  venueBody: { flex: 1, gap: 1 },
+  venueLabel: {
+    fontSize: font.xs,
+    fontWeight: '800',
+    color: colors.brand700,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  venueText: { fontSize: font.sm, color: colors.ink900, lineHeight: 19 },
   head: {
     flexDirection: 'row',
     alignItems: 'center',
