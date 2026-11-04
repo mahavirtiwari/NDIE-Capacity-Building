@@ -41,6 +41,17 @@ public class ApplicantEligibilityService(NtmsDbContext db)
         public required int AttemptsAllowed { get; init; }
 
         /// <summary>
+        /// How many times they have taken each track, which is how many
+        /// times they have turned up to one.
+        ///
+        /// Carried because the app says it on the card - "two of three
+        /// used" is the warning that stops somebody spending their last
+        /// place without meaning to - and counting it a second time
+        /// somewhere else is how the two screens come to disagree.
+        /// </summary>
+        public required Dictionary<int, int> AttemptsUsed { get; init; }
+
+        /// <summary>
         /// Tracks that certify nobody and have already been taken once:
         /// there is nothing further to be had from sitting them again.
         /// </summary>
@@ -80,20 +91,9 @@ public class ApplicantEligibilityService(NtmsDbContext db)
         /// </summary>
         public string? Refuse(Programme programme)
         {
-            if (Passed.Contains(programme.ProgramTypeId))
-                return "You have already cleared this program.";
-
-            if (Taken.Contains(programme.ProgramTypeId))
-                return "You have already taken this program.";
-
-            if (Exhausted.Contains(programme.ProgramTypeId))
-                return $"You have used all {AttemptsAllowed} attempts at this program.";
-
-            /* Before the booking clauses: somebody who does not meet the
-               bar is told the bar, not told to finish something else
-               first. */
-            if (Ineligible.TryGetValue(programme.ProgramTypeId, out var unmet))
-                return unmet;
+            /* What the track itself says about them, which is the same
+               whichever batch of it they are looking at. */
+            if (RefuseType(programme.ProgramTypeId) is { } closed) return closed;
 
             if (Booked.Contains(programme.ProgramTypeId))
             {
@@ -108,6 +108,35 @@ public class ApplicantEligibilityService(NtmsDbContext db)
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Why this track is closed to them, or null where it is not.
+        ///
+        /// The clauses that are about the track rather than about one of
+        /// its batches, so the app's home screen - which lists tracks and
+        /// has no batch in hand - can ask the same question the register
+        /// answers instead of working it out again. It did work it out
+        /// again, and differently: a batch somebody registered for and
+        /// never attended counted there and not here, so the home screen
+        /// and the catalogue disagreed about whether a place had been
+        /// spent.
+        /// </summary>
+        public string? RefuseType(int programTypeId)
+        {
+            if (Passed.Contains(programTypeId))
+                return "You have already cleared this program.";
+
+            if (Taken.Contains(programTypeId))
+                return "You have already taken this program.";
+
+            if (Exhausted.Contains(programTypeId))
+                return $"You have used all {AttemptsAllowed} attempts at this program.";
+
+            /* Before the booking clauses the caller may add: somebody who
+               does not meet the bar is told the bar, not told to finish
+               something else first. */
+            return Ineligible.GetValueOrDefault(programTypeId);
         }
 
         /// <summary>
@@ -228,11 +257,23 @@ public class ApplicantEligibilityService(NtmsDbContext db)
             .Select(s => s.ProgramTypeId)
             .ToHashSet();
 
-        var exhausted = attended
-            .Where(s => s.Result == ParticipantResult.Fail)
+        /* Every place they have taken on the track, not every one they
+           failed.
+
+           A place is spent by being taken. Counting only failures let
+           somebody take the same track over and over as long as nothing
+           was ever marked against them - attended, never examined,
+           registered again - and the allowance meant nothing. A candidate
+           gets one sitting per registration and the scheme allows three
+           registrations; what became of each of them is a different
+           question, and a pass is answered above this anyway. */
+        var used = attended
             .GroupBy(s => s.ProgramTypeId)
-            .Where(group => group.Count() >= allowed)
-            .Select(group => group.Key)
+            .ToDictionary(group => group.Key, group => group.Count());
+
+        var exhausted = used
+            .Where(entry => entry.Value >= allowed)
+            .Select(entry => entry.Key)
             .ToHashSet();
 
         /* A track that certifies nobody has no pass and no fail to its
@@ -278,6 +319,7 @@ public class ApplicantEligibilityService(NtmsDbContext db)
             Booked = booked,
             Exhausted = exhausted,
             AttemptsAllowed = allowed,
+            AttemptsUsed = used,
             Taken = taken,
             Profiles = profiles,
             Ineligible = ineligible,

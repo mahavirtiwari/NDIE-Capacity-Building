@@ -23,6 +23,7 @@ public class ApplicantAuthService(
     ITokenService tokens,
     INotificationService notifications,
     OtpService otp,
+    ApplicantEligibilityService rules,
     ILogger<ApplicantAuthService> logger)
 {
     public async Task<ApplicantLoginResponseDto> LoginAsync(
@@ -323,16 +324,6 @@ public class ApplicantAuthService(
         var visible = cleared.Concat(openWithoutForm).Distinct().ToList();
         if (visible.Count == 0) return [];
 
-        /* What each accepted profile says about qualification and
-           experience — but only from fields the form designer nominated.
-           Nothing is inferred from a field's name. Read per discipline,
-           because the answer that matters for a program is the one on the
-           profile for that program's own sub-category.
-
-           The same reading the batch listing and the register call use, so
-           a track that is open here cannot be refused there. */
-        var profiles = await ProgramTypeEligibility.ReadProfilesAsync(db, applicantId, ct);
-
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
         /* ---- a track is only offered once a batch exists to join -------
@@ -388,21 +379,24 @@ public class ApplicantAuthService(
                         && (f.EffectiveTo == null || f.EffectiveTo >= today))
             .ToListAsync(ct);
 
-        /* What they have already done with each track. A participation is
-           the record of actually having sat it, which is what decides
-           whether a track is finished with them — an application only says
-           they asked. */
-        var sat = await db.ProgrammeParticipants.AsNoTracking()
-            .Where(p => p.ApplicantId == applicantId)
-            .Select(p => new { p.Programme!.ProgramTypeId, p.Result })
-            .ToListAsync(ct);
+        /* What they have already done with each track, read from the one
+           place that decides it.
 
-        var maxTries = Math.Clamp(
-            await db.SystemSettings.AsNoTracking()
-                .Where(s => s.Id == 1)
-                .Select(s => s.ProgramTypeMaxAttempts)
-                .FirstOrDefaultAsync(ct) is var n and > 0 ? n : 3,
-            1, 10);
+           This screen used to work it out for itself: passes, failures and
+           the allowance, counted off the participant rows. The catalogue
+           asked a different question of the same rows - it counts a place
+           as spent by the applicant having turned up, this counted every
+           row whether they came or not - so a track the catalogue still
+           offered could read as finished here, and the other way about.
+           Two answers to one question, which is the thing
+           ApplicantEligibilityService exists to stop. */
+        var standing = await rules.ReadAsync(applicantId, ct);
+
+        /* It carries what each accepted profile says about qualification
+           and experience as well - read per discipline, from the fields
+           the form designer nominated and nothing inferred from a field's
+           name. The same reading the batch listing and the register call
+           use, so a track that is open here cannot be refused there. */
 
         var applied = await db.Applications.AsNoTracking()
             .Where(a => a.ApplicantId == applicantId)
@@ -439,40 +433,23 @@ public class ApplicantAuthService(
 
                 /* Measured against the profile for this program's own
                    discipline. Nothing is carried over from another one. */
-                var profile = profiles.GetValueOrDefault(
+                var profile = standing.Profiles.GetValueOrDefault(
                     pt.SubCategoryId, ProgramTypeEligibility.Profile.Unknown);
 
-                /* ---- is this track finished with them? ----------------
+                /* ---- is this track finished with them, and do they meet
+                   the bar? ---------------------------------------------
                    Passing closes it, because the certificate is the point
-                   and they have it. Sitting a track that certifies nobody
+                   and they have it. Taking a track that certifies nobody
                    closes it too, for the same reason read the other way:
-                   there was never anything to earn twice. Otherwise it is
-                   the count of failures against the allowance. */
-                var mySittings = sat.Where(s => s.ProgramTypeId == pt.Id).ToList();
-                var passed = mySittings.Any(s => s.Result == ParticipantResult.Pass);
-                var failed = mySittings.Count(s => s.Result == ParticipantResult.Fail);
-                var decided = mySittings.Count(s => s.Result != ParticipantResult.Pending);
-                var certifies = pt.CertificationPolicy != CertificationPolicy.None;
+                   there was never anything to earn twice. Then the places
+                   they have taken against the allowance, and last the
+                   qualification and service the track asks for - any one
+                   of its ways in being enough.
 
-                var closedReason =
-                    passed ? "You have already cleared this program."
-                    : !certifies && decided > 0
-                        ? "You have already taken this program."
-                    : failed >= maxTries
-                        ? $"You have used all {maxTries} attempts at this program."
-                        : null;
-
-                /* ---- do they meet the bar? ----------------------------
-                   Any one of the ways in is enough, and a track that lists
-                   none has its single minimum read instead.
-
-                   Checked only where the form actually nominated a field
-                   to measure against. A program with a minimum and a form
-                   that never said which answer holds it is left open: the
-                   officer who accepted the profile is the one who checked,
-                   and guessing here would hide programs for no reason
-                   anybody could see. */
-                closedReason ??= ProgramTypeEligibility.Refuse(pt, profile);
+                   All of it decided where the catalogue decides it, which
+                   is the point: the sentence this screen shows is the
+                   sentence the register will say if they try anyway. */
+                var closedReason = standing.RefuseType(pt.Id);
 
                 return new ApplicantProgramDto
                 {
@@ -501,8 +478,8 @@ public class ApplicantAuthService(
 
                     Closed = closedReason is not null,
                     ClosedReason = closedReason,
-                    AttemptsUsed = failed,
-                    AttemptsAllowed = maxTries,
+                    AttemptsUsed = standing.AttemptsUsed.GetValueOrDefault(pt.Id),
+                    AttemptsAllowed = standing.AttemptsAllowed,
 
                     ExistingApplicationStatus = existing?.Status.ToApi(),
                     ExistingApplicationId = existing?.Id,
