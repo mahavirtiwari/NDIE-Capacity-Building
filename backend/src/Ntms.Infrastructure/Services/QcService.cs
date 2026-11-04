@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Ntms.Application.Common;
 using Ntms.Application.Contracts;
 using Ntms.Domain.Common;
@@ -23,7 +24,11 @@ namespace Ntms.Infrastructure.Services;
 /// somebody other than the people who ran the thing.
 /// </summary>
 public class QcService(
-    NtmsDbContext db, ICurrentUser currentUser, FeedbackService feedback)
+    NtmsDbContext db,
+    ICurrentUser currentUser,
+    FeedbackService feedback,
+    CertificateService certificates,
+    ILogger<QcService> logger)
 {
     /// <summary>
     /// The submissions this account may read at all.
@@ -121,6 +126,34 @@ public class QcService(
 
         await db.SaveChangesAsync(ct);
 
+        /* Conducted, so everybody already marked has earned whatever the
+           programme type awards, and gets it now without anybody pressing
+           a button.
+
+           Here because this is the moment a batch becomes conducted.
+           Nothing issued earlier: the certificate rule asks for a
+           conducted programme, so the run at the coordinator's final
+           submission - written when submission was what marked a batch
+           conducted - issued nothing to anybody, and the whole of
+           automatic certification had quietly stopped. A candidate marked
+           after this point is still picked up as they are marked.
+
+           Guarded, like every other run of it. The decision is taken and
+           saved; a certificate run that cannot finish must not report the
+           manager's approval as failed, and the Certificates tab issues
+           what is left. */
+        try
+        {
+            await certificates.IssueDueAsync(programmeId, ct);
+        }
+        catch (Exception caught)
+        {
+            logger.LogError(
+                caught,
+                "Program {Programme} was approved but its certificates could not be issued.",
+                programmeId);
+        }
+
         /* And everybody who sat it is asked what they thought.
 
            Here rather than at final submission, because this is the
@@ -128,8 +161,23 @@ public class QcService(
            report that might still be sent back for correction would
            mean asking them about a course the scheme has not yet
            accepted happened. Nothing is sent if the programme type has
-           no feedback form switched on. */
-        await feedback.InviteAsync(programmeId, ct);
+           no feedback form switched on.
+
+           Guarded for the same reason as the certificates: the approval
+           is already saved, and a manager told their approval failed
+           would press it again and be told somebody had already made
+           it. */
+        try
+        {
+            await feedback.InviteAsync(programmeId, ct);
+        }
+        catch (Exception caught)
+        {
+            logger.LogError(
+                caught,
+                "Program {Programme} was approved but its feedback invitations could not be sent.",
+                programmeId);
+        }
 
         return await GetAsync(programmeId, ct);
     }

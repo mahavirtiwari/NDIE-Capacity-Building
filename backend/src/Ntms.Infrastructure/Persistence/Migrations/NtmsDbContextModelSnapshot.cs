@@ -749,7 +749,7 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedOn")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("IssuedByUserId")
+                    b.Property<int?>("IssuedByUserId")
                         .HasColumnType("int");
 
                     b.Property<DateOnly>("IssuedOn")
@@ -5436,8 +5436,7 @@ namespace Ntms.Infrastructure.Persistence.Migrations
                     b.HasOne("Ntms.Domain.Entities.PortalUser", "IssuedBy")
                         .WithMany()
                         .HasForeignKey("IssuedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Ntms.Domain.Entities.ProgrammeParticipant", "Participant")
                         .WithMany()

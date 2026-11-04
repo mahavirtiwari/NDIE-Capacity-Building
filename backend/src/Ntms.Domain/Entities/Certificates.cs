@@ -43,7 +43,17 @@ public class Certificate : AuditableEntity
     /// <summary>Null where the programme type sets no expiry.</summary>
     public DateOnly? ValidTill { get; set; }
 
-    public int IssuedByUserId { get; set; }
+    /// <summary>
+    /// Who pressed Issue, where anybody did.
+    ///
+    /// Null for one issued by the system rather than by a person: a
+    /// candidate submitting the last paper that completes their result
+    /// earns the certificate there and then, and the request that issues
+    /// it is the candidate's own. There is no portal account behind it,
+    /// and writing the candidate down as the issuer would be a lie about
+    /// who awarded it.
+    /// </summary>
+    public int? IssuedByUserId { get; set; }
     public PortalUser? IssuedBy { get; set; }
 
     public DateTime? RevokedOn { get; set; }

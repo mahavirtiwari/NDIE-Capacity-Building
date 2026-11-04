@@ -594,9 +594,25 @@ public class ExamSittingService(
            Issued and e-mailed without anybody pressing a button, under the
            policy the programme type was given when it was set up. Silent
            where nothing is due yet — a viva still to be marked, or a
-           programme not yet closed — and it cannot fail the submission,
-           which is the candidate's and already saved. */
-        await certificates.IssueIfDueAsync(participant.Id, ct);
+           programme not yet closed.
+
+           And it cannot fail the submission, which is the candidate's and
+           already saved. That is what the sentence above claimed and not
+           what the code did: an award that could not be written came back
+           to the candidate as an error on the paper they had just handed
+           in. */
+        try
+        {
+            await certificates.IssueIfDueAsync(participant.Id, ct);
+        }
+        catch (Exception caught)
+        {
+            logger.LogError(
+                caught,
+                "Participant {Participant} submitted their paper but the certificate it "
+                + "earned could not be issued.",
+                participant.Id);
+        }
 
         return ToResult(attempt, participant);
     }

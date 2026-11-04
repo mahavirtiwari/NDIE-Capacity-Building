@@ -354,8 +354,14 @@ public class CertificateService(
             ValidTill = type.CertificateValidityMonths > 0
                 ? issuedOn.AddMonths(type.CertificateValidityMonths)
                 : null,
-            IssuedByUserId = currentUser.UserId
-                ?? throw AppException.Forbidden("Sign in to issue certificates."),
+            /* Whoever pressed Issue, and nobody where the system issued it
+               by itself. This used to refuse any request with no portal
+               account behind it - which is every automatic award, because
+               the request that triggers one is the candidate submitting
+               their own paper. A candidate who passed the last paper on a
+               closed programme had their submission answered with "sign in
+               to issue certificates". */
+            IssuedByUserId = currentUser.UserId,
         };
 
         /* The number is taken inside the retry: two people pressing Issue at the

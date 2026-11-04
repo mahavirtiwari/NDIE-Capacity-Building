@@ -1659,10 +1659,14 @@ public class MonitoringService(
             throw AppException.Conflict("This program has already been submitted.");
         }
 
-        /* Conducted, so anybody already marked has earned whatever the
-           programme type awards. This is where a batch is actually closed
-           — the portal's own status change is the rarer path — so it is
-           where the certificates fall due and go out.
+        /* Anybody already marked on a batch that is already conducted has
+           earned whatever the programme type awards, and gets it here.
+
+           Which is a narrow case now, and deliberately so. Submitting no
+           longer marks a batch conducted — the manager does that when the
+           report is accepted, and that is where the certificates for an
+           ordinary batch fall due. What is left for this run is the batch
+           the portal marked conducted before its report came in.
 
            Guarded: the submission is the coordinator's and is saved. A
            certificate run that cannot finish must not report their work
