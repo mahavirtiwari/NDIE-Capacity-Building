@@ -132,6 +132,7 @@ export function Picker({
               keyExtractor={(item) => item.value}
               keyboardShouldPersistTaps="handled"
               style={styles.list}
+              ItemSeparatorComponent={() => <View style={styles.separator} />}
               ListEmptyComponent={<Text style={styles.empty}>Nothing matches that search.</Text>}
               renderItem={({ item }) => {
                 const isSelected = item.value === value;
@@ -143,7 +144,8 @@ export function Picker({
                     }}
                     style={({ pressed }) => [
                       styles.option,
-                      (pressed || isSelected) && styles.optionActive,
+                      pressed && styles.optionPressed,
+                      isSelected && styles.optionActive,
                     ]}
                   >
                     <View style={styles.optionBody}>
@@ -216,16 +218,24 @@ export function MultiPicker({
     return options.filter((option) => option.label.toLowerCase().includes(needle));
   }, [options, term]);
 
-  /* What the closed control says. Names while they fit, a count after
-     that: three long certifications would otherwise push the chevron off
-     the end of the row. */
+  /* What the closed control says: the answers.
+
+     It said "3 selected" past two of them, which tells somebody checking
+     their own form nothing - they have to reopen the sheet to find out
+     what they picked, and the field beside it with two answers in it
+     shows them. The control wraps to two lines instead, and only past
+     that does a count stand in for the tail of a long list. */
   const chosen = options.filter((option) => values.includes(option.value));
+  const names = chosen.map((option) => option.label).join(', ');
   const summary =
     chosen.length === 0
       ? placeholder
-      : chosen.length <= 2
-        ? chosen.map((option) => option.label).join(', ')
-        : `${chosen.length} selected`;
+      : chosen.length <= 6
+        ? names
+        : `${chosen
+            .slice(0, 5)
+            .map((option) => option.label)
+            .join(', ')} and ${chosen.length - 5} more`;
 
   const toggle = (value: string) =>
     onChange(values.includes(value) ? values.filter((v) => v !== value) : [...values, value]);
@@ -247,7 +257,7 @@ export function MultiPicker({
         }}
         style={[styles.control, !!error && styles.controlInvalid, disabled && styles.controlDisabled]}
       >
-        <Text style={chosen.length ? styles.value : styles.placeholder} numberOfLines={1}>
+        <Text style={chosen.length ? styles.value : styles.placeholder} numberOfLines={2}>
           {summary}
         </Text>
         <Ionicons name="chevron-down" size={16} color={colors.ink500} />
@@ -288,6 +298,7 @@ export function MultiPicker({
               keyExtractor={(item) => item.value}
               keyboardShouldPersistTaps="handled"
               style={styles.list}
+              ItemSeparatorComponent={() => <View style={styles.separator} />}
               ListEmptyComponent={<Text style={styles.empty}>Nothing matches that search.</Text>}
               renderItem={({ item }) => {
                 const isSelected = values.includes(item.value);
@@ -298,7 +309,8 @@ export function MultiPicker({
                     onPress={() => toggle(item.value)}
                     style={({ pressed }) => [
                       styles.option,
-                      pressed && styles.optionActive,
+                      pressed && styles.optionPressed,
+                      isSelected && styles.optionActive,
                     ]}
                   >
                     <View style={[styles.box, isSelected && styles.boxChecked]}>
@@ -550,7 +562,20 @@ const styles = StyleSheet.create({
     fontSize: font.base,
     color: colors.ink900,
   },
-  list: { paddingHorizontal: spacing.md },
+  list: {},
+  /* A rule between the rows.
+
+     They were separated by their own padding and nothing else, which is
+     enough for a list of one-word states and nothing like enough for one
+     of three-line certifications with a description under each: the rows
+     ran into one another and the reader had to work out where one option
+     stopped. Inset to the text, so the line reads as a divider rather
+     than as the edge of a box. */
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginLeft: spacing.lg,
+  },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -559,11 +584,19 @@ const styles = StyleSheet.create({
     /* A finger-sized row. The old one was 13pt of padding around a single
        line, which on a long list meant reading and hitting the wrong one. */
     minHeight: 48,
-    paddingVertical: 12,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.sm,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.lg,
+    /* The rows run edge to edge now that a rule divides them, so the
+       selected one is a band rather than a rounded tablet floating in
+       the list. */
+    borderLeftWidth: 3,
+    borderLeftColor: 'transparent',
   },
-  optionActive: { backgroundColor: colors.brand50 },
+  /* Being pressed, which is a flicker, and being the answer, which is a
+     state. They looked identical, so an unselected row under a finger
+     read as chosen. */
+  optionPressed: { backgroundColor: colors.ink50 },
+  optionActive: { backgroundColor: colors.brand50, borderLeftColor: colors.brand600 },
   optionText: { fontSize: font.base, color: colors.ink900, flex: 1, lineHeight: 21 },
   optionTextActive: { color: colors.brand700, fontWeight: '600' },
   empty: { padding: spacing.lg, fontSize: font.sm, color: colors.ink500, textAlign: 'center' },
