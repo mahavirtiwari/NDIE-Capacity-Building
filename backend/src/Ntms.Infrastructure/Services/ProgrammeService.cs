@@ -1130,8 +1130,15 @@ public class ProgrammeService(
             if (entity.Participants.Any(p => p.ApplicantId == application.ApplicantId))
                 continue;
 
-            if (entity.Participants.Count >= entity.MaxParticipants)
+            /* How many places a batch has is one rule and lives in one
+               place. Read straight off MaxParticipants, this refused every
+               applicant on a batch whose ceiling was never set - nought
+               places taken is not fewer than nought. */
+            if (RegistrationWindow.Seats(entity) is { } seats
+                && entity.Participants.Count >= seats)
+            {
                 throw new AppException("The batch is full.");
+            }
 
             entity.Participants.Add(new ProgrammeParticipant
             {
