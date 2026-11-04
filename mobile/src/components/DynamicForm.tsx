@@ -812,11 +812,22 @@ export function DynamicSectionView({
   section,
   state,
   showCount = true,
+  onlyKeys,
 }: {
   section: ProfileSection;
   state: DynamicFormState;
   /** Off where the section is the whole screen, or a one-line consent. */
   showCount?: boolean;
+  /**
+   * Where set, the only answers on show.
+   *
+   * An accepted profile reopens for the answers the form marked as
+   * movable and no others; the rest have been read and agreed and are
+   * not the applicant's to revise. Shown rather than greyed out,
+   * because a screen of locked boxes is a screen somebody has to read
+   * before finding the two they came for.
+   */
+  onlyKeys?: string[];
 }) {
   const { values, errors, setValue, entryCount, addEntry, removeEntry, checkOne } = state;
 
@@ -861,6 +872,7 @@ export function DynamicSectionView({
   const renderFields = (index: number | null) =>
     section.fields
       .filter((field) => field.isEnabled && visible(field, index))
+      .filter((field) => !onlyKeys || onlyKeys.includes(field.key))
       .map((field) => {
         const key = storageKey(section, index, field.key);
         return (

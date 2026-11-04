@@ -55,6 +55,9 @@ function blankField(): ProfileField {
     label: '',
     type: 'text',
     isEnabled: true,
+    /* Off until somebody says otherwise: an answer nobody thought about
+       stays as it was read and accepted. */
+    isEditableAfterDecision: false,
     displayOrder: 0,
     colSpan: 1,
     options: [],
@@ -517,6 +520,28 @@ function blankField(): ProfileField {
             <div class="field">
               <label class="field-label" for="feHelp">Help text</label>
               <input id="feHelp" class="input" [value]="editor.field.helpText || ''" (input)="editField({ helpText: inputValue($event) })" />
+            </div>
+
+            <!-- ------------------------------------ kept up to date ----
+                 A profile is read once and accepted; the person behind it
+                 goes on qualifying and goes on working. Which of their
+                 answers may move afterwards is the scheme's to say, not
+                 theirs, so it is said here. -->
+            <div class="field field--span-2">
+              <label class="check">
+                <input
+                  type="checkbox"
+                  [checked]="editor.field.isEditableAfterDecision"
+                  (change)="editField({ isEditableAfterDecision: checked($event) })"
+                />
+                <span>The applicant may change this after their profile is decided</span>
+              </label>
+              <span class="field-hint">
+                For answers that go out of date — qualifications, years of experience. A name
+                on a document or a date of birth does not change, so leave those off. Nothing
+                can be changed while a profile is with scrutiny, and an update goes back to
+                scrutiny like any other submission.
+              </span>
             </div>
 
             <!-- --------------------------------------------- meaning ----

@@ -204,7 +204,13 @@ export default function ProfileSubmissionDetail() {
             do, so it is offered here rather than hunted for. */}
         {profile.canSubmit ? (
           <Button
-            label={profile.status === 'Rejected' ? 'Correct and send again' : 'Open the form'}
+            label={
+              profile.status === 'Rejected'
+                ? 'Correct and send again'
+                : profile.isUpdate
+                  ? 'Update your details'
+                  : 'Open the form'
+            }
             icon="create-outline"
             onPress={() =>
               router.push({

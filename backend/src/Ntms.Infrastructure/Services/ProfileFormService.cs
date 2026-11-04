@@ -181,6 +181,7 @@ public class ProfileFormService(NtmsDbContext db)
                     HelpText = field.HelpText,
                     DisplayOrder = field.DisplayOrder,
                     ColSpan = field.ColSpan,
+                    IsEditableAfterDecision = field.IsEditableAfterDecision,
                     Role = field.Role,
                     VisibleWhenFieldKey = field.VisibleWhenFieldKey,
                     VisibleWhenValues = field.VisibleWhenValues,
@@ -464,6 +465,7 @@ public class ProfileFormService(NtmsDbContext db)
                     HelpText = fieldDto.HelpText,
                     DisplayOrder = fieldOrder,
                     ColSpan = fieldDto.ColSpan == 2 ? 2 : 1,
+                    IsEditableAfterDecision = fieldDto.IsEditableAfterDecision,
                     Role = EnumMaps.ParseEnum(
                         fieldDto.Role, ProfileFieldRole.None),
                     /* Zero and null both mean "this field keeps its own

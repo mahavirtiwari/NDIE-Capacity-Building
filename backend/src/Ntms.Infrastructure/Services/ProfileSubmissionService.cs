@@ -52,11 +52,30 @@ public class ProfileSubmissionService(
 
         var settings = await SettingsAsync(ct);
 
+        /* Which answers may still move, per discipline. Read in one query
+           for all of them rather than one per profile: somebody holding
+           four profiles would otherwise cost four more round trips to
+           draw a list. */
+        var subCategoryIds = mine.Select(s => s.SubCategoryId).Distinct().ToList();
+
+        var editable = (await db.ProfileFields.AsNoTracking()
+                .Where(f => f.IsEditableAfterDecision
+                            && f.IsEnabled
+                            && f.Section!.IsEnabled
+                            && f.Section.Form!.Status == RecordStatus.Active
+                            && subCategoryIds.Contains(f.Section.Form.SubCategoryId))
+                .Select(f => new { f.Section!.Form!.SubCategoryId, f.Key })
+                .Distinct()
+                .ToListAsync(ct))
+            .GroupBy(row => row.SubCategoryId)
+            .ToDictionary(group => group.Key, group => group.Select(row => row.Key).ToList());
+
         return
         [
             .. mine
                 .GroupBy(s => s.SubCategoryId)
-                .Select(g => Standing(g.ToList(), settings))
+                .Select(g => Standing(
+                    g.ToList(), settings, editable.GetValueOrDefault(g.Key, [])))
                 .OrderByDescending(s => s.SubmittedOn),
         ];
     }
@@ -77,7 +96,11 @@ public class ProfileSubmissionService(
             .Where(s => s.ApplicantId == applicantId && s.SubCategoryId == subCategoryId)
             .ToListAsync(ct);
 
-        if (attempts.Count > 0) return Standing(attempts, await SettingsAsync(ct));
+        if (attempts.Count > 0)
+        {
+            return Standing(
+                attempts, await SettingsAsync(ct), await EditableKeysAsync(subCategoryId, ct));
+        }
 
         var settings = await SettingsAsync(ct);
 
@@ -223,8 +246,14 @@ public class ProfileSubmissionService(
             .OrderByDescending(s => s.AttemptNo)
             .FirstOrDefault();
 
-        if (settled?.Status == ProfileSubmissionStatus.Approved)
+        /* Accepted, and nothing on the form may move: there is nothing to
+           draft. Where something may move, the draft is the start of an
+           update and is kept like any other. */
+        if (settled?.Status == ProfileSubmissionStatus.Approved
+            && (await EditableKeysAsync(subCategoryId, ct)).Count == 0)
+        {
             throw new AppException("Your profile for this sub-category has already been accepted.");
+        }
 
         if (settled?.Status is ProfileSubmissionStatus.Submitted
             or ProfileSubmissionStatus.UnderScrutiny)
@@ -325,13 +354,45 @@ public class ProfileSubmissionService(
 
         var latest = sent.OrderByDescending(s => s.AttemptNo).FirstOrDefault();
 
-        if (latest?.Status == ProfileSubmissionStatus.Approved)
-            throw new AppException("Your profile for this sub-category has already been accepted.");
-
+        /* With scrutiny, so nothing moves. A profile being read must not
+           change under the officer reading it, whatever the form marks as
+           movable - that is the whole reason editing waits for a decision. */
         if (latest?.Status is ProfileSubmissionStatus.Submitted
             or ProfileSubmissionStatus.UnderScrutiny)
         {
             throw new AppException("Your profile is with scrutiny. You will be told the outcome.");
+        }
+
+        /* Accepted, which used to be the end of it.
+
+           It is not the end of the person: they finish another degree,
+           they work another two years, and the answers the scheme holds
+           go stale with nothing but a rejection able to correct them. So
+           an accepted profile reopens - for the answers the form marked
+           as movable, and no others. Everything else is carried across
+           from what was accepted, whatever this request says, because it
+           has been read and agreed and is not the applicant's to revise. */
+        var editable = latest?.Status == ProfileSubmissionStatus.Approved
+            ? await EditableKeysAsync(subCategoryId, ct)
+            : [];
+
+        var updating = latest?.Status == ProfileSubmissionStatus.Approved;
+
+        if (updating && editable.Count == 0)
+            throw new AppException("Your profile for this sub-category has already been accepted.");
+
+        if (updating)
+        {
+            var accepted =
+                JsonSerializer.Deserialize<Dictionary<string, object?>>(latest!.Responses) ?? [];
+
+            var merged = new Dictionary<string, object?>(accepted);
+            foreach (var key in editable)
+            {
+                if (responses.TryGetValue(key, out var answer)) merged[key] = answer;
+            }
+
+            responses = merged;
         }
 
         var blockedUntil = BlockedUntil(sent, settings);
@@ -1130,8 +1191,29 @@ public class ProfileSubmissionService(
     /// used up. Nothing has to remember to lift it, and changing the
     /// setting changes every block at once rather than only new ones.
     /// </summary>
+    /// <summary>
+    /// The answers a decided profile may still be changed in, as the form
+    /// marks them.
+    ///
+    /// Empty where nothing is marked, which is the default and means an
+    /// accepted profile is final - the behaviour before any of this
+    /// existed, kept for every form nobody has revisited.
+    /// </summary>
+    private async Task<List<string>> EditableKeysAsync(int subCategoryId, CancellationToken ct) =>
+        await db.ProfileFields.AsNoTracking()
+            .Where(f => f.IsEditableAfterDecision
+                        && f.IsEnabled
+                        && f.Section!.IsEnabled
+                        && f.Section.Form!.SubCategoryId == subCategoryId
+                        && f.Section.Form.Status == RecordStatus.Active)
+            .Select(f => f.Key)
+            .Distinct()
+            .ToListAsync(ct);
+
     private static ProfileStandingDto Standing(
-        List<ProfileSubmission> attempts, (int MaxAttempts, int BlockMonths) settings)
+        List<ProfileSubmission> attempts,
+        (int MaxAttempts, int BlockMonths) settings,
+        List<string> editable)
     {
         var latest = attempts.OrderByDescending(s => s.AttemptNo).First();
         var rejections = attempts.Count(s => s.Status == ProfileSubmissionStatus.Rejected);
@@ -1159,10 +1241,19 @@ public class ProfileSubmissionService(
             /* Handed back so a correction starts from what was said before
                rather than from an empty form. */
             Responses = JsonSerializer.Deserialize<Dictionary<string, object?>>(latest.Responses),
+            /* An accepted profile can be opened again where the form
+               marked something as movable, and only for those answers.
+               With nothing marked it is final, as it always was.
+
+               Never while it is with scrutiny: a profile being read must
+               not change under the officer reading it. */
+            IsUpdate = latest.Status == ProfileSubmissionStatus.Approved && editable.Count > 0,
+            EditableKeys = latest.Status == ProfileSubmissionStatus.Approved ? editable : [],
             CanSubmit = !blocked
-                        && latest.Status != ProfileSubmissionStatus.Approved
                         && latest.Status != ProfileSubmissionStatus.Submitted
                         && latest.Status != ProfileSubmissionStatus.UnderScrutiny
+                        && (latest.Status != ProfileSubmissionStatus.Approved
+                            || editable.Count > 0)
                         && rejections < settings.MaxAttempts,
             History =
             [

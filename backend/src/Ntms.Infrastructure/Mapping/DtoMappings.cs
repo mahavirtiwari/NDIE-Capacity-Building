@@ -325,6 +325,7 @@ public static class DtoMappings
                             HelpText = f.HelpText,
                             DisplayOrder = f.DisplayOrder,
                             ColSpan = f.ColSpan,
+                            IsEditableAfterDecision = f.IsEditableAfterDecision,
                             Role = f.Role.ToString(),
                             /* A field pointing at a shared list is served
                                that list's choices, so a reader of the form

@@ -246,6 +246,8 @@ export interface ProfileField {
   helpText?: string;
   displayOrder: number;
   colSpan: number;
+  /** Whether this answer may be changed once the profile is decided. */
+  isEditableAfterDecision?: boolean;
   options: FieldOption[];
   validation: FieldValidation;
   visibleWhenFieldKey?: string | null;
@@ -607,6 +609,16 @@ export interface ProfileStanding {
   /** The last answers, so a correction starts from what was said. */
   responses?: Record<string, unknown> | null;
   canSubmit: boolean;
+  /**
+   * Whether what may be sent is an update to an accepted profile rather
+   * than a fresh one.
+   */
+  isUpdate?: boolean;
+  /**
+   * The answers that may be changed on an update. Empty on a first
+   * profile, where every question is theirs to answer.
+   */
+  editableKeys?: string[];
   history: ScrutinyEvent[];
 }
 

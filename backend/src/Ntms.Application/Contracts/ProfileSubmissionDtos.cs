@@ -44,6 +44,24 @@ public class ProfileStandingDto
 
     public bool CanSubmit { get; set; }
 
+    /// <summary>
+    /// Whether what they may send is an update to an accepted profile
+    /// rather than a fresh one.
+    ///
+    /// A profile is read once and accepted; the person behind it goes on
+    /// qualifying and going on working, and those answers go out of date.
+    /// The form says which of them may move - see
+    /// <c>isEditableAfterDecision</c> on each field - and everything else
+    /// stays exactly as it was accepted, whatever is sent.
+    /// </summary>
+    public bool IsUpdate { get; set; }
+
+    /// <summary>
+    /// The keys the applicant may change on an update. Empty on a first
+    /// profile, where every question is theirs to answer.
+    /// </summary>
+    public List<string> EditableKeys { get; set; } = [];
+
     public List<ScrutinyEventDto> History { get; set; } = [];
 }
 

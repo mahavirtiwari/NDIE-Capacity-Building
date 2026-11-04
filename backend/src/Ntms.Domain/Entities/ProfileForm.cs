@@ -110,6 +110,22 @@ public class ProfileField : AuditableEntity
     /// </summary>
     public ProfileFieldRole Role { get; set; } = ProfileFieldRole.None;
 
+    /// <summary>
+    /// Whether the applicant may change this answer after their profile
+    /// has been decided.
+    ///
+    /// A profile is read once and accepted, but the person behind it does
+    /// not stop: they finish another degree, they work another two years.
+    /// Those answers go out of date, and the only way to correct them was
+    /// to have the whole profile rejected.
+    ///
+    /// Which answers may move is the scheme's to say, not the applicant's,
+    /// so it is set here when the form is built. A name on a document and
+    /// a date of birth do not change; qualifications and experience do.
+    /// Off by default: a field nobody thought about stays as it was read.
+    /// </summary>
+    public bool IsEditableAfterDecision { get; set; }
+
     public FieldValidation Validation { get; set; } = new();
 
     /// <summary>Show this field only when another answer matches.</summary>

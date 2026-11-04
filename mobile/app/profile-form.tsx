@@ -349,13 +349,33 @@ function ProfileFor({
 
   const state = useDynamicForm(form.data);
 
+  /**
+   * Which answers this visit may change.
+   *
+   * Null on a first profile, where every question is theirs. A list on
+   * an update: an accepted profile reopens for the answers the form
+   * marked as movable - a qualification, years of service - and for no
+   * others, because the rest have been read and agreed.
+   */
+  const editable = useMemo(() => {
+    const where = standing.data;
+    if (!where?.isUpdate) return null;
+    return where.editableKeys ?? [];
+  }, [standing.data]);
+
   const sections = useMemo(
     () =>
       (form.data?.sections ?? [])
         .filter((s) => s.isEnabled && s.fields.some((f) => f.isEnabled))
+        /* On an update, only the sections with something movable in
+           them. A section of answers nobody may touch is a screen to
+           scroll past on the way to the two that matter. */
+        .filter(
+          (s) => !editable || s.fields.some((f) => f.isEnabled && editable.includes(f.key)),
+        )
         .slice()
         .sort((a, b) => a.displayOrder - b.displayOrder),
-    [form.data],
+    [form.data, editable],
   );
 
   /* What they said last time, put back so a correction starts from it
@@ -657,7 +677,12 @@ function ProfileFor({
           {/* No field count on the heading: the fields are on screen
               underneath it, and counting them told nobody anything. */}
           <ProfileScope subCategoryId={subCategoryId}>
-            <DynamicSectionView section={open} state={state} showCount={false} />
+            <DynamicSectionView
+              section={open}
+              state={state}
+              showCount={false}
+              onlyKeys={editable ?? undefined}
+            />
           </ProfileScope>
 
           {sectionError ? <Banner tone="danger">{sectionError}</Banner> : null}
@@ -780,11 +805,30 @@ function ProfileFor({
           </Card>
         ) : null}
 
+        {/* An update, so it says so: what may change, what will not, and
+            that it goes back to scrutiny like anything else. Somebody who
+            opens their accepted profile and finds two sections where
+            there were eight should be told why. */}
+        {editable && sections.length > 0 ? (
+          <Banner tone="info">
+            Your profile has been accepted. You can keep the answers below up to date — a new
+            qualification, more experience. Everything else stays as it was accepted. What you
+            send goes to scrutiny again, and your programs stay open while it is read.
+          </Banner>
+        ) : null}
+
+        {editable && sections.length === 0 ? (
+          <Banner tone="info">
+            Your profile has been accepted and none of its answers can be changed. Contact the
+            office if something on it is wrong.
+          </Banner>
+        ) : null}
+
         {where.canSubmit && form.data && sections.length > 0 ? (
           <>
             <Card style={styles.card}>
               <View style={styles.head}>
-                <Text style={styles.sectionTitle}>The form</Text>
+                <Text style={styles.sectionTitle}>{editable ? 'What you can update' : 'The form'}</Text>
                 {scrutinised ? null : (
                   <View style={[styles.statusChip, { backgroundColor: statusTone.done.bg }]}>
                     <Text style={[styles.statusText, { color: statusTone.done.fg }]}>

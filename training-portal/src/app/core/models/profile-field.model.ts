@@ -206,6 +206,16 @@ export interface ProfileField {
   displayOrder: number;
   colSpan: 1 | 2;
   /**
+   * Whether the applicant may change this answer once their profile has
+   * been decided.
+   *
+   * A profile is read once and accepted; the person behind it goes on
+   * qualifying and goes on working, and those answers go out of date.
+   * Which of them may move is the scheme's to say, so it is set on the
+   * form. Off by default.
+   */
+  isEditableAfterDecision?: boolean;
+  /**
    * What this answer means beyond being a question.
    *
    * Pointed at a qualification or a number of years, it becomes what a

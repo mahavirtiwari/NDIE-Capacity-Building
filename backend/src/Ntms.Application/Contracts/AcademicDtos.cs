@@ -114,6 +114,12 @@ public class ProfileFieldDto
     public int ColSpan { get; set; } = 1;
 
     /// <summary>
+    /// Whether the applicant may change this answer once their profile has
+    /// been decided. Off unless the form says otherwise.
+    /// </summary>
+    public bool IsEditableAfterDecision { get; set; }
+
+    /// <summary>
     /// None, Qualification or ExperienceYears. What a program type's
     /// minimum is measured against.
     /// </summary>
