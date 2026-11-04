@@ -151,9 +151,12 @@ export default function ExamIntro() {
               value={`${info.questionCount} · ${info.totalMarks} marks`}
             />
             <DetailRow label="Pass mark" value={`${info.passPercentage}%`} />
+            {/* One sitting belongs to one registration. Said plainly
+                rather than as "0 of 1 used", which invites the question
+                of what the one is. */}
             <DetailRow
-              label="Attempts"
-              value={`${info.attemptsUsed} of ${info.maxAttempts} used`}
+              label="Sittings"
+              value={info.attemptsUsed > 0 ? 'Used' : 'One, for this registration'}
             />
           </Card>
 

@@ -285,7 +285,6 @@ public class ExamPaperDto : AuditDto
     public string? Instructions { get; set; }
     public int DurationMinutes { get; set; }
     public decimal PassPercentage { get; set; }
-    public int MaxAttempts { get; set; }
     public bool ShuffleQuestions { get; set; }
     public bool NegativeMarking { get; set; }
     public string Status { get; set; } = "Active";
@@ -325,7 +324,6 @@ public class ExamPaperUpsertDto
     public string? Instructions { get; set; }
     public int DurationMinutes { get; set; } = 60;
     public decimal PassPercentage { get; set; } = 60m;
-    public int MaxAttempts { get; set; } = 3;
     public bool ShuffleQuestions { get; set; } = true;
     public bool NegativeMarking { get; set; }
     public string Status { get; set; } = "Active";

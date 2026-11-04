@@ -368,7 +368,6 @@ public class ExamPaperService(NtmsDbContext db)
             .Code(dto.Code, "Exam paper code")
             .Required(dto.Title, "Title")
             .Range(dto.DurationMinutes, 5, 480, "Duration (minutes)")
-            .Range(dto.MaxAttempts, 1, 10, "Maximum attempts")
             .ThrowIfInvalid();
 
         if (dto.Questions.Count == 0)
@@ -414,7 +413,6 @@ public class ExamPaperService(NtmsDbContext db)
         entity.Instructions = dto.Instructions;
         entity.DurationMinutes = dto.DurationMinutes;
         entity.PassPercentage = dto.PassPercentage;
-        entity.MaxAttempts = dto.MaxAttempts;
         entity.ShuffleQuestions = dto.ShuffleQuestions;
         entity.NegativeMarking = dto.NegativeMarking;
         entity.Status = EnumMaps.ToStatus(dto.Status);

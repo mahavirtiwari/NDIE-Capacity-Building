@@ -44,7 +44,6 @@ export interface ExamPaper extends AuditInfo {
   instructions?: string;
   durationMinutes: number;
   passPercentage: number;
-  maxAttempts: number;
   shuffleQuestions: boolean;
   negativeMarking: boolean;
   status: RecordStatus;

@@ -118,7 +118,7 @@ public class ExamSittingService(
         dto.TotalMarks = paper.Questions.Sum(q => q.Marks);
         dto.PassPercentage = paper.PassPercentage;
         dto.NegativeMarking = paper.NegativeMarking;
-        dto.MaxAttempts = paper.MaxAttempts;
+        dto.MaxAttempts = OneSitting;
         dto.AttemptsUsed = attempts.Count;
 
         /* Expire anything whose time is up before reporting, so a candidate who
@@ -207,12 +207,22 @@ public class ExamSittingService(
             return $"The paper closed on {IndianTime.Format(closed)}.";
         }
 
-        if (used >= paper.MaxAttempts)
-        {
-            return paper.MaxAttempts == 1
-                ? "You have already sat this paper."
-                : $"You have used all {paper.MaxAttempts} attempts.";
-        }
+        /* One sitting, and one registration is what it belongs to.
+
+           A candidate registers for a batch once and sits its paper once.
+           A second go means a second registration - another batch of the
+           same track, which they may take once they have been to this one
+           and up to the number of places the scheme allows them on it.
+           That allowance is counted where registration is decided, on the
+           applicant's standing, and not here: here there is one paper and
+           one sitting of it.
+
+           This read a retake count off the paper instead, which defaulted
+           to three - so the paper could be sat three times over inside a
+           single registration, and the scheme's own limit of three
+           registrations was really a limit of nine sittings. */
+        if (used >= OneSitting)
+            return "You have already sat this paper.";
 
         if (participant.CertificateNo is not null)
         {
@@ -221,6 +231,15 @@ public class ExamSittingService(
 
         return null;
     }
+
+    /// <summary>
+    /// How many times a paper may be sat under one registration: once.
+    ///
+    /// Named rather than written as a bare 1 so the rule reads as a rule
+    /// where it is applied, and so the two places that have to agree about
+    /// it - the door and what the app is told - cannot drift apart.
+    /// </summary>
+    private const int OneSitting = 1;
 
     /// <summary>
     /// When the examination is over: the paper's duration after the time it

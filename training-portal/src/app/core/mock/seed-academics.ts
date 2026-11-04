@@ -421,7 +421,6 @@ export const EXAM_PAPERS: ExamPaper[] = PROGRAM_TYPES.filter((p) => p.isExamMand
       'All questions are compulsory. Each question carries 2 marks with 0.5 negative marking. Calculators are not permitted.',
     durationMinutes: 60,
     passPercentage: 60,
-    maxAttempts: 3,
     shuffleQuestions: true,
     negativeMarking: true,
     status: 'Active' as const,

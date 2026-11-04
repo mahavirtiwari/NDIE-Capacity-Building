@@ -674,6 +674,7 @@ export interface ExamAvailability {
    */
   closesOn?: string | null;
   attemptsUsed: number;
+  /** One, for this registration. Another go means another registration. */
   maxAttempts: number;
   canSit: boolean;
   /** Why not, when it cannot be sat. */

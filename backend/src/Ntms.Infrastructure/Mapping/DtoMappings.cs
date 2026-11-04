@@ -447,7 +447,6 @@ public static class DtoMappings
             Instructions = e.Instructions,
             DurationMinutes = e.DurationMinutes,
             PassPercentage = e.PassPercentage,
-            MaxAttempts = e.MaxAttempts,
             ShuffleQuestions = e.ShuffleQuestions,
             NegativeMarking = e.NegativeMarking,
             Status = e.Status.ToApi(),

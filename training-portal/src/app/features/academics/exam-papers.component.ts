@@ -171,14 +171,14 @@ const COLUMNS: ColumnDef[] = [
             <div class="field">
               <label class="field-label" for="examDuration">Duration (minutes)</label>
               <input id="examDuration" type="number" class="input" formControlName="durationMinutes" />
+              <span class="field-hint">
+                How long a candidate has, and how long the examination lasts: the paper
+                opens at the time set on the program and closes this long afterwards.
+              </span>
             </div>
             <div class="field">
               <label class="field-label" for="examPass">Pass percentage</label>
               <input id="examPass" type="number" class="input" formControlName="passPercentage" />
-            </div>
-            <div class="field">
-              <label class="field-label" for="examAttempts">Maximum attempts</label>
-              <input id="examAttempts" type="number" class="input" formControlName="maxAttempts" />
             </div>
             <div class="field field--span-2">
               <label class="field-label" for="examInstructions">Instructions</label>
@@ -337,7 +337,6 @@ export class ExamPapersComponent {
     instructions: [''],
     durationMinutes: [60, Validators.min(5)],
     passPercentage: [60, [Validators.min(1), Validators.max(100)]],
-    maxAttempts: [3, Validators.min(1)],
     shuffleQuestions: [true],
     negativeMarking: [false],
     status: ['Active'],
@@ -407,7 +406,6 @@ export class ExamPapersComponent {
       instructions: row?.instructions ?? '',
       durationMinutes: row?.durationMinutes ?? 60,
       passPercentage: row?.passPercentage ?? 60,
-      maxAttempts: row?.maxAttempts ?? 3,
       shuffleQuestions: row?.shuffleQuestions ?? true,
       negativeMarking: row?.negativeMarking ?? false,
       status: row?.status ?? 'Active',
