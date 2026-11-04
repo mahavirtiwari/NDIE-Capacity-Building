@@ -1082,7 +1082,108 @@ public class ProgrammeService(
             entity.Status = ProgramStatus.CalendarCreated;
 
         await db.SaveChangesAsync(ct);
+
+        /* And the people who have to sit it are told when.
+
+           Nobody was. The manager set a date and time and it appeared
+           on the batch in the portal; the candidates found out by
+           opening the app and looking, if it occurred to them to look.
+           Sent again whenever it moves, which is the message that
+           matters most - somebody who has written the first date in a
+           diary will not discover the change by chance.
+
+           Queued: a full batch is forty messages, and the manager
+           pressed Save on a form. */
+        await TellParticipantsExamSetAsync(entity, ct);
+
         return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// Tells everyone registered on a batch when its written paper opens,
+    /// and when it closes.
+    ///
+    /// Both, because the paper closes at the end of the examination now:
+    /// "opens at 11:40" on its own invites somebody to open the app at
+    /// one o'clock and find it gone.
+    /// </summary>
+    private async Task TellParticipantsExamSetAsync(Programme programme, CancellationToken ct)
+    {
+        if (programme.ExamDateTime is not { } examOn) return;
+
+        var paper = programme.ExamPaperId is { } paperId
+            ? await db.ExamPapers.AsNoTracking()
+                .Where(e => e.Id == paperId)
+                .Select(e => new { e.Title, e.DurationMinutes })
+                .FirstOrDefaultAsync(ct)
+            : null;
+
+        var minutes = paper?.DurationMinutes ?? 0;
+        var closesOn = examOn.AddMinutes(minutes);
+
+        var registered = await db.ProgrammeParticipants.AsNoTracking()
+            .Where(p => p.ProgrammeId == programme.Id)
+            .Select(p => new { p.ApplicantId, p.Applicant!.FullName, p.Applicant.Email })
+            .ToListAsync(ct);
+
+        if (registered.Count == 0) return;
+
+        try
+        {
+            await broadcasts.RaiseAsync(
+                "ExamScheduled",
+                "Your examination has been scheduled",
+                $"The written paper for {programme.ProgrammeName} ({programme.ProgrammeId}) "
+                + $"opens on {IndianTime.Format(examOn)}.",
+                NotificationAudience.Applicants,
+                subCategoryId: programme.SubCategoryId,
+                stateCode: programme.StateCode,
+                linkPath: "/programs",
+                ct: ct);
+        }
+        catch (Exception caught)
+        {
+            logger.LogWarning(
+                caught,
+                "The exam time for {Programme} was set but the bell could not be rung.",
+                programme.ProgrammeId);
+        }
+
+        var title = paper?.Title;
+        var programmeId = programme.Id;
+
+        mail.Enqueue($"exam time for {programme.ProgrammeId}", async (scope, token) =>
+        {
+            var inner = scope.GetRequiredService<NtmsDbContext>();
+            var post = scope.GetRequiredService<INotificationService>();
+            var log = scope.GetRequiredService<ILogger<ProgrammeService>>();
+
+            var batch = await inner.Programmes.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == programmeId, token);
+            if (batch is null) return;
+
+            foreach (var person in registered)
+            {
+                if (string.IsNullOrWhiteSpace(person.Email)) continue;
+
+                try
+                {
+                    await post.SendExamScheduledAsync(
+                        batch, examOn, closesOn, title, minutes,
+                        person.Email, person.FullName, token);
+                }
+                catch (Exception caught)
+                {
+                    /* One address that bounces must not stop the rest
+                       being told. */
+                    log.LogWarning(
+                        caught,
+                        "Applicant {Applicant} could not be told the exam time for "
+                        + "{Programme}.",
+                        person.ApplicantId, batch.ProgrammeId);
+                }
+            }
+        });
     }
 
     /// <summary>

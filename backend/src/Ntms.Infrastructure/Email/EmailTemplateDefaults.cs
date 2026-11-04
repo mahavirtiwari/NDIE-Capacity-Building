@@ -41,6 +41,7 @@ public static class EmailTemplateDefaults
     public const string PasswordChanged = "password-changed";
     public const string ApplicationSubmitted = "application-submitted";
     public const string ScrutinyOutcome = "scrutiny-outcome";
+    public const string ExamScheduled = "exam-scheduled";
     public const string ProfileSubmitted = "profile-submitted";
     public const string ProfileAssigned = "profile-assigned";
     public const string ProfileOutcome = "profile-outcome";
@@ -516,6 +517,39 @@ public static class EmailTemplateDefaults
                 "{{agencyName}} has raised {{programmeId}} ({{programmeName}}), "
                 + "{{startDate}} to {{endDate}} at {{venue}}, {{state}}. "
                 + "It is waiting for your permission.",
+        },
+        new()
+        {
+            Key = ExamScheduled,
+            Name = "Examination scheduled",
+            Description =
+                "Sent to everybody registered on a batch when the Operation Manager sets "
+                + "the date and time of its written paper, and again if it is moved.",
+            Placeholders =
+                "name,programmeName,programmeId,examOn,paperTitle,durationMinutes,closesOn",
+            Subject = "Your examination for {{programmeId}} is on {{examOn}}",
+            HtmlBody =
+                "<p>Dear {{name}},</p>"
+                + "<p>The written examination for <strong>{{programmeName}}</strong> "
+                + "({{programmeId}}) has been scheduled.</p>"
+                + "<table style=\"margin:18px 0;border-collapse:collapse;\">"
+                + "<tr><td style=\"padding:4px 16px 4px 0;color:#7a716f;\">Opens</td>"
+                + "<td style=\"font-weight:700;\">{{examOn}}</td></tr>"
+                + "<tr><td style=\"padding:4px 16px 4px 0;color:#7a716f;\">Closes</td>"
+                + "<td style=\"font-weight:700;\">{{closesOn}}</td></tr>"
+                + "<tr><td style=\"padding:4px 16px 4px 0;color:#7a716f;\">Paper</td>"
+                + "<td>{{paperTitle}}</td></tr>"
+                + "<tr><td style=\"padding:4px 16px 4px 0;color:#7a716f;\">Time allowed</td>"
+                + "<td>{{durationMinutes}} minutes</td></tr>"
+                + "</table>"
+                + "<p>Sit it from the applicant app, under the program. The paper opens at "
+                + "the time above and closes at the end of the examination, so do not leave "
+                + "it to the last minute. A photograph is taken at the desk before it "
+                + "opens.</p>",
+            PlainTextBody =
+                "The written examination for {{programmeName}} ({{programmeId}}) opens "
+                + "{{examOn}} and closes {{closesOn}}. {{durationMinutes}} minutes. Sit it "
+                + "from the applicant app.",
         },
         new()
         {

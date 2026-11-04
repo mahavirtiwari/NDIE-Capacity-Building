@@ -297,7 +297,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
 
               <div class="field field--span-2">
                 <label class="field-label" for="programAttempts">
-                  Attempts at clearing a program type
+                  Places on a program type
                 </label>
                 <input
                   id="programAttempts"
@@ -308,8 +308,11 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
                   formControlName="programTypeMaxAttempts"
                 />
                 <span class="field-hint">
-                  How many times somebody may fail a program type before it closes to them.
-                  Passing closes it too, for the happier reason.
+                  How many batches of one program type somebody may take before it closes to
+                  them. A place is spent by turning up to it, whatever the result; passing
+                  closes the track too, for the happier reason. One sitting of the written
+                  paper belongs to each place, so this is also the number of times the paper
+                  can be sat.
                 </span>
               </div>
             </div>

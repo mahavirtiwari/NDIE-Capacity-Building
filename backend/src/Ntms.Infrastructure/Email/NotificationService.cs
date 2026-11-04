@@ -37,6 +37,19 @@ public interface INotificationService
         string outcome, string remarks, CancellationToken ct = default);
 
     /// <summary>
+    /// Tells one registered candidate when their written paper is.
+    ///
+    /// Sent when the manager sets the time and again whenever it moves,
+    /// because the second message is the one that matters: somebody who
+    /// has written the first date in a diary will not discover the
+    /// change by opening the app.
+    /// </summary>
+    Task SendExamScheduledAsync(
+        Programme programme, DateTime examOnUtc, DateTime closesOnUtc,
+        string? paperTitle, int durationMinutes, string email, string name,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Confirms a profile form to the applicant who handed it in.
     ///
     /// <paramref name="next"/> is what happens to it now, which is not the
@@ -406,6 +419,24 @@ public class NotificationService(
         }, ct);
 
     /// <summary>Tells the manager a batch is waiting on their permission.</summary>
+    public Task SendExamScheduledAsync(
+        Programme programme, DateTime examOnUtc, DateTime closesOnUtc,
+        string? paperTitle, int durationMinutes, string email, string name,
+        CancellationToken ct = default) =>
+        SendAsync(EmailTemplateDefaults.ExamScheduled, email, new()
+        {
+            ["name"] = name,
+            ["programmeName"] = programme.ProgrammeName,
+            ["programmeId"] = programme.ProgrammeId,
+            /* In India's time, named as such. The instant is stored in
+               UTC and a candidate reading this in Delhi needs the hour
+               they will actually sit it at. */
+            ["examOn"] = IndianTime.Format(examOnUtc),
+            ["closesOn"] = IndianTime.Format(closesOnUtc),
+            ["paperTitle"] = paperTitle ?? "The written paper",
+            ["durationMinutes"] = durationMinutes.ToString(),
+        }, ct);
+
     public Task SendProfileSubmittedAsync(
         ProfileSubmission submission, string next, CancellationToken ct = default) =>
         SendAsync(EmailTemplateDefaults.ProfileSubmitted,
