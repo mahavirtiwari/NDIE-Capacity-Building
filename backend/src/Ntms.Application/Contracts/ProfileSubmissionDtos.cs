@@ -124,6 +124,36 @@ public class ProfileScrutinyCountsDto
     public int Pending { get; set; }
     public int Approved { get; set; }
     public int Rejected { get; set; }
+
+    /// <summary>
+    /// Waiting with nobody on them, because no Operation Manager covers
+    /// their discipline and state.
+    ///
+    /// A subset of Pending rather than a fifth queue: they are still
+    /// waiting to be read, and counting them apart would stop the tiles
+    /// adding up to what was received.
+    ///
+    /// They place themselves the moment somebody covers them, so this is
+    /// a number that should be nought - and worth saying out loud when it
+    /// is not. A profile could wait for ever and the only sign of it was
+    /// a chip on a row somebody had to scroll to.
+    /// </summary>
+    public int Unassigned { get; set; }
+
+    /// <summary>
+    /// Which disciplines those are, so the reader knows what to allocate
+    /// rather than only that something is wrong.
+    /// </summary>
+    public List<UncoveredSubCategoryDto> Uncovered { get; set; } = [];
+}
+
+/// <summary>One discipline nobody covers, and how many wait on it.</summary>
+public class UncoveredSubCategoryDto
+{
+    public int SubCategoryId { get; set; }
+    public string SubCategoryName { get; set; } = string.Empty;
+    public string? CategoryName { get; set; }
+    public int Waiting { get; set; }
 }
 
 public class ProfileSubmissionDto

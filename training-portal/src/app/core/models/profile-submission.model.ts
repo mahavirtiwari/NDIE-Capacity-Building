@@ -20,6 +20,21 @@ export interface ProfileScrutinyCounts {
   pending: number;
   approved: number;
   rejected: number;
+  /**
+   * Waiting with nobody on them, because no Operation Manager covers
+   * their discipline and state. A subset of pending, not a fifth queue.
+   */
+  unassigned?: number;
+  /** Which disciplines those are, so the reader knows what to allocate. */
+  uncovered?: UncoveredSubCategory[];
+}
+
+/** One discipline nobody covers, and how many wait on it. */
+export interface UncoveredSubCategory {
+  subCategoryId: Id;
+  subCategoryName: string;
+  categoryName?: string | null;
+  waiting: number;
 }
 
 /** One document held against a field, without its bytes. */

@@ -118,6 +118,48 @@ const COLUMNS: ColumnDef[] = [
       }
     </div>
 
+    <!-- Nobody covers these, so nobody can read them.
+
+         A profile is placed with the Operation Manager who holds a
+         program type under its discipline and the applicant's state.
+         Where nobody does it waits, and the sweep places it the moment
+         somebody is appointed - so nothing is lost and there is nothing
+         to repair. But it waited behind a chip on a row, and a profile
+         can sit there for weeks.
+
+         Shown to the two tiers who can actually fix it: an Operation
+         Manager cannot widen their own allocation, and telling them
+         about work they have no way to claim is noise. -->
+    @if (stranded(); as waiting) {
+      <div class="alert alert--warning mb-md">
+        <app-icon name="alert" [size]="16" />
+        <div class="stack stack-xs">
+          <strong>
+            {{ waiting.count }}
+            {{ waiting.count === 1 ? 'profile is' : 'profiles are' }}
+            waiting with no Operation Manager
+          </strong>
+          <span class="text-sm">
+            Nobody is allocated the program types and state these need, so they cannot be
+            read. Allocate an Operation Manager and they are placed within a few minutes —
+            there is nothing to reassign by hand.
+          </span>
+          <div class="chip-row">
+            @for (one of waiting.disciplines; track one.subCategoryId) {
+              <span class="chip chip--warn">
+                {{ one.subCategoryName }}
+                @if (one.categoryName) {
+                  <span class="cell-muted">· {{ one.categoryName }}</span>
+                }
+                <strong class="tabular">{{ one.waiting }}</strong>
+              </span>
+            }
+          </div>
+          <a class="cell-link" routerLink="/access/users">Open the portal users register</a>
+        </div>
+      </div>
+    }
+
     <section class="card">
       <div class="card__body card__body--tight">
         <div class="filter-bar">
@@ -532,6 +574,23 @@ export class ProfileScrutinyComponent {
     return (row.status === 'Submitted' || row.status === 'UnderScrutiny')
       && this.auth.hasRole('OperationManager');
   }
+
+  /**
+   * Profiles nobody covers, for the tiers that can do something about it.
+   *
+   * Null for everybody else, including the Operation Managers: a manager
+   * cannot widen their own allocation, so telling them about work they
+   * have no way to claim is noise on the screen where they do their own.
+   */
+  protected readonly stranded = computed(() => {
+    if (!this.auth.hasRole('SuperAdmin') && !this.auth.hasRole('Admin')) return null;
+
+    const counts = this.counts();
+    const count = counts?.unassigned ?? 0;
+    if (count === 0) return null;
+
+    return { count, disciplines: counts?.uncovered ?? [] };
+  });
 
   protected readonly columns = COLUMNS;
   protected readonly statuses = PROFILE_STATUSES;

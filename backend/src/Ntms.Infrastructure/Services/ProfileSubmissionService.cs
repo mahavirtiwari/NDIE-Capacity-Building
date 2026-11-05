@@ -515,11 +515,22 @@ public class ProfileSubmissionService(
                does. */
             await notifications.SendProfileSubmittedAsync(
                 submission,
-                form.RequiresScrutiny
-                    ? "It is with an Operation Manager for scrutiny. You will be told as "
-                      + "soon as it has been read."
-                    : "This discipline's profile form is not scrutinised, so it has been "
-                      + "accepted and its programs are open to you now.",
+                /* Three answers, because there are three outcomes and only
+                   two were being told apart. A form that lands with nobody
+                   covering its discipline is not "with an Operation
+                   Manager" - it is waiting for one to be appointed, and
+                   saying otherwise leaves the applicant watching for a
+                   decision that cannot come yet. */
+                !form.RequiresScrutiny
+                    ? "This discipline's profile form is not scrutinised, so it has been "
+                      + "accepted and its programs are open to you now."
+                    : submission.AssignedToUserId is not null
+                        ? "It is with an Operation Manager for scrutiny. You will be told as "
+                          + "soon as it has been read."
+                        : "It is in the queue. Nobody is set up to read this discipline just "
+                          + "yet, so it goes to the first Operation Manager appointed to it - "
+                          + "you will be told as soon as it has been read. Nothing further is "
+                          + "needed from you.",
                 ct);
         }
         catch (Exception caught)
@@ -1033,7 +1044,7 @@ public class ProfileSubmissionService(
         var all = Queue(search, null, categoryId, subCategoryId,
                         programTypeId, state, from, to);
 
-        return new ProfileScrutinyCountsDto
+        var counts = new ProfileScrutinyCountsDto
         {
             Received = await all.CountAsync(ct),
             Pending = await all.CountAsync(
@@ -1042,6 +1053,52 @@ public class ProfileSubmissionService(
             Approved = await all.CountAsync(s => s.Status == ProfileSubmissionStatus.Approved, ct),
             Rejected = await all.CountAsync(s => s.Status == ProfileSubmissionStatus.Rejected, ct),
         };
+
+        /* And the ones nobody covers.
+
+           A profile is placed with an Operation Manager who holds a
+           program type under its discipline, and its state where the
+           applicant gave one. Where nobody does, it waits - the sweep
+           retries every five minutes and places it the moment somebody
+           covers it, so nothing is lost. Until then the only sign was an
+           "Unassigned" chip on a row, and a profile can sit behind that
+           for weeks with nobody looking.
+
+           Named by discipline, because the reader's next move is to
+           allocate one. */
+        var waiting = Queue(search, null, categoryId, subCategoryId,
+                            programTypeId, state, from, to)
+            .Where(s => s.AssignedToUserId == null
+                        && (s.Status == ProfileSubmissionStatus.Submitted
+                            || s.Status == ProfileSubmissionStatus.UnderScrutiny));
+
+        counts.Unassigned = await waiting.CountAsync(ct);
+
+        if (counts.Unassigned > 0)
+        {
+            counts.Uncovered =
+            [
+                .. await waiting
+                    .GroupBy(s => new
+                    {
+                        s.SubCategoryId,
+                        Name = s.SubCategory!.Name,
+                        Category = s.Category!.Name,
+                    })
+                    .Select(g => new UncoveredSubCategoryDto
+                    {
+                        SubCategoryId = g.Key.SubCategoryId,
+                        SubCategoryName = g.Key.Name,
+                        CategoryName = g.Key.Category,
+                        Waiting = g.Count(),
+                    })
+                    .OrderByDescending(x => x.Waiting)
+                    .ThenBy(x => x.SubCategoryName)
+                    .ToListAsync(ct),
+            ];
+        }
+
+        return counts;
     }
 
     public async Task<ProfileSubmissionDto> GetAsync(int id, CancellationToken ct)
